@@ -52,6 +52,7 @@ let package = Package(
         ),
 
         // Test (logica pura, veloce, senza AppKit).
+        .testTarget(name: "CoreTests", dependencies: ["Core"]),
         .testTarget(name: "AgentProtocolTests", dependencies: ["AgentProtocol"]),
         .testTarget(name: "WorkspaceModelTests", dependencies: ["WorkspaceModel", "AgentProtocol"]),
         .testTarget(name: "AgentRuntimeTests", dependencies: ["AgentRuntime", "AgentProtocol"]),

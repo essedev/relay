@@ -16,7 +16,9 @@ vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Cla
 
 ## Mappa moduli (dipendenze solo verso il basso)
 
-- `Core` - primitivi (logging). Nessuna dipendenza.
+- `Core` - primitivi condivisi (logging; `RelayTheme`/`RelayColor` = modello tema, dato puro).
+  Nessuna dipendenza. Il tema vive qui perché sia il terminale (`TerminalEngine`) sia la chrome
+  (`Panels`) lo convertono nei rispettivi tipi (SwiftTerm/NSColor, SwiftUI Color).
 - `AgentProtocol` - tipi evento/stato agente, puro. Niente I/O, niente AppKit.
 - `AgentRuntime` - trasporto eventi agente: `AgentEventReceiver` (server Unix socket),
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket), `AgentSessionStore`

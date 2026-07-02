@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import Foundation
 import SwiftTerm
 
@@ -6,14 +7,18 @@ import SwiftTerm
 /// SwiftTerm: nessun tipo SwiftTerm esce da questo modulo.
 @MainActor
 public final class SwiftTermEngine: TerminalEngine {
-    public init() {}
+    private let theme: RelayTheme
+
+    public init(theme: RelayTheme = .relayDark) {
+        self.theme = theme
+    }
 
     public func makeSurface(
         cwd: String?,
         shell: String?,
         env: [String: String]
     ) -> TerminalSurfaceHandle {
-        SwiftTermSurface(cwd: cwd, shell: shell, env: env)
+        SwiftTermSurface(cwd: cwd, shell: shell, env: env, theme: theme)
     }
 }
 
@@ -32,13 +37,46 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal
     }
 
-    init(cwd: String?, shell: String?, env: [String: String]) {
+    init(cwd: String?, shell: String?, env: [String: String], theme: RelayTheme) {
         self.cwd = cwd
         self.shell = shell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         extraEnv = env
         terminal = LocalProcessTerminalView(frame: .zero)
         super.init()
         terminal.processDelegate = self
+        apply(theme)
+    }
+
+    /// Applica il tema al terminale. I tipi SwiftTerm/NSColor restano confinati qui.
+    private func apply(_ theme: RelayTheme) {
+        terminal.installColors(theme.ansi.map(Self.swiftTermColor))
+        terminal.nativeBackgroundColor = Self.nsColor(theme.background)
+        terminal.nativeForegroundColor = Self.nsColor(theme.foreground)
+        terminal.caretColor = Self.nsColor(theme.cursor)
+        terminal.selectedTextBackgroundColor = Self.nsColor(theme.selection)
+        if let fontName = theme.fontName, let font = NSFont(name: fontName, size: theme.fontSize) {
+            terminal.font = font
+        } else {
+            terminal.font = NSFont.monospacedSystemFont(ofSize: theme.fontSize, weight: .regular)
+        }
+    }
+
+    private static func swiftTermColor(_ color: RelayColor) -> SwiftTerm.Color {
+        // RelayColor è 8 bit per canale; SwiftTerm.Color è 16 bit (255 -> 65535, fattore 257).
+        SwiftTerm.Color(
+            red: UInt16(color.red) * 257,
+            green: UInt16(color.green) * 257,
+            blue: UInt16(color.blue) * 257
+        )
+    }
+
+    private static func nsColor(_ color: RelayColor) -> NSColor {
+        NSColor(
+            srgbRed: CGFloat(color.red) / 255,
+            green: CGFloat(color.green) / 255,
+            blue: CGFloat(color.blue) / 255,
+            alpha: 1
+        )
     }
 
     func start() {
