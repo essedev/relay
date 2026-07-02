@@ -54,12 +54,13 @@ struct WorkspaceBadge: View {
     var body: some View {
         let info = WorkspaceBadgeInfo.forWorkspace(workspace)
         HStack(spacing: Theme.Spacing.xxs) {
-            AgentBadge(kind: info.kind, colors: colors)
+            // Il contatore ("quante tab in questo stato") sta a sinistra del pallino di stato.
             if info.count >= 2 {
                 Text("\(info.count)")
                     .font(.system(size: 10, weight: .semibold).monospacedDigit())
                     .foregroundStyle(colors.secondary)
             }
+            AgentBadge(kind: info.kind, colors: colors)
         }
     }
 }
