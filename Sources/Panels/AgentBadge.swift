@@ -83,9 +83,7 @@ struct AgentBadge: View {
         case .error:
             dot(colors.error)
         case .completed:
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(colors.completed)
+            dot(colors.completed)
         }
     }
 
