@@ -1,0 +1,28 @@
+# Relay - SwiftLint (vedi docs/CONVENTIONS.md)
+excluded:
+  - .build
+
+opt_in_rules:
+  - empty_count
+  - force_unwrapping
+  - explicit_init
+  - first_where
+  - sorted_first_last
+  - unused_import
+
+line_length:
+  warning: 100
+  error: 120
+
+file_length:
+  warning: 400
+  error: 500
+
+type_body_length:
+  warning: 250
+  error: 350
+
+identifier_name:
+  min_length:
+    warning: 1
+    error: 1
