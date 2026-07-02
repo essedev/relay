@@ -213,6 +213,21 @@ ricrea al focus (la policy resta la stessa, cambia solo il meccanismo).
   scrivi input, leggi dimensioni/titolo/cwd, notifica output/bell/OSC. Il resto dell'app non
   sa quale engine c'è sotto. Questo rende la migrazione un update localizzato, non un rewrite.
 
+## Tema (Design System)
+
+Il principio UI #6 (bella di default, personalizzabile) si concretizza in un modello di tema come
+dato puro in `Core` (`RelayTheme`/`RelayColor`): colori base + 16 ANSI + font. È l'**unica fonte**:
+
+- il terminale (`TerminalEngine`) converte in colori SwiftTerm/NSColor e applica via `apply(theme:)`;
+  i badge e la chrome ANSI-derivati restano coerenti con l'output di Claude Code/`git`/`ls`;
+- la chrome (`Panels`) converte in SwiftUI Color (`ChromeColors`): sidebar/tab bar/badge dal tema;
+- `AppSettings` (`WorkspaceModel`, @Observable) tiene tema selezionato + dimensione font, persistiti
+  in `UserDefaults` (preferenze, non lo snapshot del layout). Cambi -> `SurfaceRegistry.applyTheme`
+  ridipinge le surface vive; la chrome si aggiorna via Observation.
+
+Preferenze via pannello impostazioni (`Cmd+,`) e zoom (`Cmd +/-`, `Cmd+0`). Import da config Ghostty:
+possibile in futuro (l'utente ne ha molti), non nel baseline.
+
 ## Agent Runtime
 
 ### Responsabilità

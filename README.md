@@ -26,6 +26,15 @@ make help      # tutti i target
 - `Cmd+O` apri una cartella come workspace.
 - `Cmd+T` nuova tab, `Cmd+W` chiudi tab.
 - `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi).
+- `Cmd +/-` zoom del terminale, `Cmd+0` dimensione originale.
+- `Cmd+,` impostazioni (tema, dimensione font).
+
+## Aspetto
+
+Tema del terminale curato (palette ANSI, quindi Claude Code/`git`/`ls` in palette), con chrome
+coerente. Due temi di default (Relay Dark/Light), font e dimensione regolabili dalle impostazioni
+(`Cmd+,`), persistiti. Il modello di tema vive in `Core` (`RelayTheme`), unica fonte per terminale
+e chrome.
 
 ## Stato agente (hook Claude Code)
 

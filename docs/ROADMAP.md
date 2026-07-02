@@ -61,6 +61,15 @@ Verifica GUI live (da fare quando comodo): `relay-cli hooks setup`, apri Relay, 
 una tab, e osserva il badge passare a running/needs_input/completed. `relay-cli hooks uninstall` per
 rimuovere.
 
+## Fatto - Tema e impostazioni (fuori milestone)
+
+Sistema di temi: modello puro in `Core` (`RelayTheme`), terminale tematizzato (palette ANSI, colori
+base, font), chrome coerente, badge dai colori ANSI, pulse su `needs_input`. Due temi (Relay
+Dark/Light), zoom (`Cmd +/-`, `Cmd+0`) e pannello impostazioni (`Cmd+,`) con tema + dimensione font,
+persistiti in `UserDefaults` (`AppSettings`). Dettagli in `ARCHITECTURE.md` (Tema / Design System).
+
+Restano aperti sul tema (later): scelta del font family, altri temi, import da config Ghostty.
+
 ## Milestone 2 - Persistence + rename (dogfood-ability)
 
 - Salvare/ripristinare il layout (workspace, tab, cwd, pin, ordine) su disco (snapshot JSON).

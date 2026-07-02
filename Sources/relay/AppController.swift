@@ -1,5 +1,7 @@
 import AppKit
 import Core
+import Panels
+import SwiftUI
 import TerminalEngine
 import WorkspaceModel
 
@@ -7,9 +9,11 @@ import WorkspaceModel
 final class AppController: NSObject, NSApplicationDelegate {
     private let log = RelayLog.logger("app")
     private let store = WorkspaceStore()
+    private let settings = AppSettings()
     private let engine: TerminalEngine = SwiftTermEngine()
     private lazy var agentCoordinator = AgentCoordinator(store: store)
     private var window: NSWindow!
+    private var settingsWindow: NSWindow?
     private var untitledCount = 0
     private var keyMonitor: Any?
 
@@ -20,9 +24,13 @@ final class AppController: NSObject, NSApplicationDelegate {
         agentCoordinator.start()
         seedIfNeeded()
 
-        let split = MainSplitViewController(store: store, engine: engine) { [weak self] in
-            self?.newWorkspace(nil)
-        }
+        let onNewWorkspace: () -> Void = { [weak self] in self?.newWorkspace(nil) }
+        let split = MainSplitViewController(
+            store: store,
+            settings: settings,
+            engine: engine,
+            onNewWorkspace: onNewWorkspace
+        )
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 700),
@@ -76,6 +84,33 @@ final class AppController: NSObject, NSApplicationDelegate {
     @objc func newTab(_: Any?) {
         guard let workspace = store.selectedWorkspace else { return }
         store.addTab(to: workspace)
+    }
+
+    @objc func zoomIn(_: Any?) {
+        settings.adjustFontSize(by: 1)
+    }
+
+    @objc func zoomOut(_: Any?) {
+        settings.adjustFontSize(by: -1)
+    }
+
+    @objc func resetZoom(_: Any?) {
+        settings.resetFontSize()
+    }
+
+    @objc func openSettings(_: Any?) {
+        if let settingsWindow {
+            settingsWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+        let hosting = NSHostingController(rootView: SettingsView(settings: settings))
+        let panel = NSWindow(contentViewController: hosting)
+        panel.title = "Settings"
+        panel.styleMask = [.titled, .closable]
+        panel.isReleasedWhenClosed = false
+        panel.center()
+        settingsWindow = panel
+        panel.makeKeyAndOrderFront(nil)
     }
 
     @objc func closeCurrentTab(_: Any?) {
@@ -137,6 +172,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appItem)
         let appMenu = NSMenu()
         appItem.submenu = appMenu
+        addItem(to: appMenu, "Settings…", #selector(openSettings(_:)), ",")
+        appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: "Quit Relay",
             action: #selector(NSApplication.terminate(_:)),
@@ -159,6 +196,14 @@ final class AppController: NSObject, NSApplicationDelegate {
         addItem(to: fileMenu, "Close Tab", #selector(closeCurrentTab(_:)), "w")
 
         mainMenu.addItem(makeGoMenuItem())
+
+        let viewItem = NSMenuItem()
+        mainMenu.addItem(viewItem)
+        let viewMenu = NSMenu(title: "View")
+        viewItem.submenu = viewMenu
+        addItem(to: viewMenu, "Zoom In", #selector(zoomIn(_:)), "=")
+        addItem(to: viewMenu, "Zoom Out", #selector(zoomOut(_:)), "-")
+        addItem(to: viewMenu, "Actual Size", #selector(resetZoom(_:)), "0")
 
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)

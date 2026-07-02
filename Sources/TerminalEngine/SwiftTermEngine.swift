@@ -7,18 +7,14 @@ import SwiftTerm
 /// SwiftTerm: nessun tipo SwiftTerm esce da questo modulo.
 @MainActor
 public final class SwiftTermEngine: TerminalEngine {
-    private let theme: RelayTheme
-
-    public init(theme: RelayTheme = .relayDark) {
-        self.theme = theme
-    }
+    public init() {}
 
     public func makeSurface(
         cwd: String?,
         shell: String?,
         env: [String: String]
     ) -> TerminalSurfaceHandle {
-        SwiftTermSurface(cwd: cwd, shell: shell, env: env, theme: theme)
+        SwiftTermSurface(cwd: cwd, shell: shell, env: env)
     }
 }
 
@@ -37,18 +33,18 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal
     }
 
-    init(cwd: String?, shell: String?, env: [String: String], theme: RelayTheme) {
+    init(cwd: String?, shell: String?, env: [String: String]) {
         self.cwd = cwd
         self.shell = shell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         extraEnv = env
         terminal = LocalProcessTerminalView(frame: .zero)
         super.init()
         terminal.processDelegate = self
-        apply(theme)
+        apply(theme: .relayDark) // default; la registry riapplica il tema corrente
     }
 
     /// Applica il tema al terminale. I tipi SwiftTerm/NSColor restano confinati qui.
-    private func apply(_ theme: RelayTheme) {
+    func apply(theme: RelayTheme) {
         terminal.installColors(theme.ansi.map(Self.swiftTermColor))
         terminal.nativeBackgroundColor = Self.nsColor(theme.background)
         terminal.nativeForegroundColor = Self.nsColor(theme.foreground)

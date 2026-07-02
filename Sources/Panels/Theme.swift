@@ -21,12 +21,6 @@ public enum Theme {
         public static let accent = Color.accentColor
         public static let secondary = Color.secondary
         public static let separator = Color(nsColor: .separatorColor)
-        public static let tabBarBackground = Color(nsColor: .underPageBackgroundColor)
-
-        // Stati agente (badge).
-        public static let agentNeedsInput = Color.orange
-        public static let agentError = Color.red
-        public static let agentCompleted = Color.green
     }
 
     public enum Typography {

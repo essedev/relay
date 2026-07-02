@@ -23,13 +23,16 @@ vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Cla
 - `AgentRuntime` - trasporto eventi agente: `AgentEventReceiver` (server Unix socket),
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket), `AgentSessionStore`
   (actor, snapshot per sessionId). Puro, niente AppKit né WorkspaceModel.
-- `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity`. Puro,
-  niente AppKit. V0: una tab = un terminale (split futuro).
+- `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity` +
+  `AgentStateReducer` + `AppSettings` (tema/font, persistito in UserDefaults). Puro, niente AppKit.
+  V0: una tab = un terminale (split futuro).
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`).
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy) + `WorkspaceAreaController`
   (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
-- `Panels` - SwiftUI isolata: `Theme` (design tokens), `SidebarView`, `TabBarView`.
+- `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori derivati dal tema
+  corrente), `SidebarView`, `TabBarView`, `AgentBadge`, `SettingsView`. I colori vengono dal tema
+  (`AppSettings.theme`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
   scrittura atomica. Trasformazioni pure (`merge`/`remove`) separate dall'I/O per i test.

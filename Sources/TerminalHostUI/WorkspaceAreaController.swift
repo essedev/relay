@@ -9,12 +9,14 @@ import WorkspaceModel
 @MainActor
 public final class WorkspaceAreaController: NSViewController {
     private let store: WorkspaceStore
+    private let settings: AppSettings
     private let registry: SurfaceRegistry
     private let container = NSView()
     private var currentTerminal: NSView?
 
-    public init(store: WorkspaceStore, engine: TerminalEngine) {
+    public init(store: WorkspaceStore, engine: TerminalEngine, settings: AppSettings) {
         self.store = store
+        self.settings = settings
         registry = SurfaceRegistry(engine: engine)
         super.init(nibName: nil, bundle: nil)
     }
@@ -45,6 +47,10 @@ public final class WorkspaceAreaController: NSViewController {
     }
 
     private func render() {
+        // Legge settings.theme: entra nel tracking, così un cambio tema/zoom ri-renderizza e
+        // propaga il tema alle surface vive (no-op se invariato).
+        registry.applyTheme(settings.theme)
+
         let aliveTabIDs = Set(store.workspaces.flatMap { $0.tabs.map(\.id) })
         registry.retain(aliveTabIDs)
 

@@ -32,9 +32,10 @@ enum BadgeKind: Int {
     }
 }
 
-/// Vista del badge di stato agente. Piccola, attinge i colori dal `Theme`.
+/// Vista del badge di stato agente. Piccola, colori derivati dal tema (`ChromeColors`).
 struct AgentBadge: View {
     let kind: BadgeKind
+    let colors: ChromeColors
 
     var body: some View {
         switch kind {
@@ -46,17 +47,32 @@ struct AgentBadge: View {
                 .scaleEffect(0.6)
                 .frame(width: 12, height: 12)
         case .needsInput:
-            dot(Theme.Colors.agentNeedsInput)
+            PulsingDot(color: colors.needsInput) // richiede attenzione: pulsa
         case .error:
-            dot(Theme.Colors.agentError)
+            dot(colors.error)
         case .completed:
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 9))
-                .foregroundStyle(Theme.Colors.agentCompleted)
+                .foregroundStyle(colors.completed)
         }
     }
 
     private func dot(_ color: Color) -> some View {
         Circle().fill(color).frame(width: 8, height: 8)
+    }
+}
+
+/// Pallino che pulsa dolcemente, per segnalare che serve attenzione (needs_input).
+private struct PulsingDot: View {
+    let color: Color
+    @State private var dim = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 8, height: 8)
+            .opacity(dim ? 0.35 : 1)
+            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: dim)
+            .onAppear { dim = true }
     }
 }

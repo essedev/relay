@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import Foundation
 
 // Astrazione sottile sull'engine terminale. Il resto dell'app parla con questi tipi, mai con
@@ -16,6 +17,8 @@ public protocol TerminalSurfaceHandle: AnyObject {
     func start()
     /// Termina il processo e rilascia le risorse (chiusura tab/workspace).
     func teardown()
+    /// Applica un tema (palette, colori base, font). Chiamato alla creazione e sui cambi.
+    func apply(theme: RelayTheme)
 }
 
 @MainActor

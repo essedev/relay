@@ -13,7 +13,25 @@ import Testing
     #expect(RelayColor(hex: 0xFFFFFF) == RelayColor(255, 255, 255))
 }
 
-@Test func relayDarkHasSixteenAnsiColors() {
+@Test func themesHaveSixteenAnsiColors() {
     // installColors di SwiftTerm ignora l'array se non ha esattamente 16 elementi.
-    #expect(RelayTheme.relayDark.ansi.count == 16)
+    for theme in RelayTheme.all {
+        #expect(theme.ansi.count == 16)
+    }
+}
+
+@Test func registryHasDarkAndLight() {
+    #expect(RelayTheme.all.map(\.name) == ["Relay Dark", "Relay Light"])
+}
+
+@Test func withFontSizeChangesOnlySize() {
+    let resized = RelayTheme.relayDark.withFontSize(20)
+    #expect(resized.fontSize == 20)
+    #expect(resized.background == RelayTheme.relayDark.background)
+    #expect(resized.ansi == RelayTheme.relayDark.ansi)
+}
+
+@Test func ansiColorClampsOutOfRange() {
+    #expect(RelayTheme.relayDark.ansiColor(-1) == RelayTheme.relayDark.foreground)
+    #expect(RelayTheme.relayDark.ansiColor(99) == RelayTheme.relayDark.foreground)
 }

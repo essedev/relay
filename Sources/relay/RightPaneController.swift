@@ -9,11 +9,17 @@ import WorkspaceModel
 @MainActor
 final class RightPaneController: NSViewController {
     private let store: WorkspaceStore
+    private let settings: AppSettings
     private let engine: TerminalEngine
-    private lazy var area = WorkspaceAreaController(store: store, engine: engine)
+    private lazy var area = WorkspaceAreaController(
+        store: store,
+        engine: engine,
+        settings: settings
+    )
 
-    init(store: WorkspaceStore, engine: TerminalEngine) {
+    init(store: WorkspaceStore, settings: AppSettings, engine: TerminalEngine) {
         self.store = store
+        self.settings = settings
         self.engine = engine
         super.init(nibName: nil, bundle: nil)
     }
@@ -30,7 +36,7 @@ final class RightPaneController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let tabBar = NSHostingView(rootView: TabBarView(store: store))
+        let tabBar = NSHostingView(rootView: TabBarView(store: store, settings: settings))
         tabBar.translatesAutoresizingMaskIntoConstraints = false
 
         addChild(area)

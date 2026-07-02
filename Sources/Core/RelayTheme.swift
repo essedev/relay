@@ -55,6 +55,25 @@ public struct RelayTheme: Sendable, Equatable {
         self.fontName = fontName
         self.fontSize = fontSize
     }
+
+    /// Copia con una dimensione font diversa (lo zoom cambia la size, non il tema).
+    public func withFontSize(_ size: Double) -> RelayTheme {
+        RelayTheme(
+            name: name,
+            background: background,
+            foreground: foreground,
+            cursor: cursor,
+            selection: selection,
+            ansi: ansi,
+            fontName: fontName,
+            fontSize: size
+        )
+    }
+
+    /// Colore ANSI per indice (0-15). Utile alla chrome per derivare i colori dei badge.
+    public func ansiColor(_ index: Int) -> RelayColor {
+        ansi.indices.contains(index) ? ansi[index] : foreground
+    }
 }
 
 public extension RelayTheme {
@@ -86,4 +105,36 @@ public extension RelayTheme {
         fontName: nil,
         fontSize: 13
     )
+
+    /// Tema chiaro curato (famiglia One Light).
+    static let relayLight = RelayTheme(
+        name: "Relay Light",
+        background: RelayColor(hex: 0xFAFAFA),
+        foreground: RelayColor(hex: 0x383A42),
+        cursor: RelayColor(hex: 0x526FFF),
+        selection: RelayColor(hex: 0xD0D0D0),
+        ansi: [
+            RelayColor(hex: 0x383A42), // black
+            RelayColor(hex: 0xE45649), // red
+            RelayColor(hex: 0x50A14F), // green
+            RelayColor(hex: 0xC18401), // yellow
+            RelayColor(hex: 0x4078F2), // blue
+            RelayColor(hex: 0xA626A4), // magenta
+            RelayColor(hex: 0x0184BC), // cyan
+            RelayColor(hex: 0xFAFAFA), // white
+            RelayColor(hex: 0xA0A1A7), // bright black
+            RelayColor(hex: 0xE45649), // bright red
+            RelayColor(hex: 0x50A14F), // bright green
+            RelayColor(hex: 0xC18401), // bright yellow
+            RelayColor(hex: 0x4078F2), // bright blue
+            RelayColor(hex: 0xA626A4), // bright magenta
+            RelayColor(hex: 0x0184BC), // bright cyan
+            RelayColor(hex: 0xFFFFFF), // bright white
+        ],
+        fontName: nil,
+        fontSize: 13
+    )
+
+    /// Temi disponibili (per il picker delle impostazioni), nell'ordine di presentazione.
+    static let all: [RelayTheme] = [.relayDark, .relayLight]
 }
