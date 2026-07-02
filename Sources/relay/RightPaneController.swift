@@ -15,6 +15,10 @@ final class RightPaneController: NSViewController {
     private let engine: TerminalEngine
     private let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
     private var resumeBarHost: NSView?
+    /// Top dell'area terminale: pinnato a `tabBar` senza barra, alla barra quando c'è (così la
+    /// barra spinge giù il terminale invece di coprirlo). Riferimenti stabili per lo swap.
+    private var tabBar: NSView!
+    private var areaTopConstraint: NSLayoutConstraint!
     private lazy var area = WorkspaceAreaController(
         store: store,
         engine: engine,
@@ -70,6 +74,7 @@ final class RightPaneController: NSViewController {
         )
         tabBar.translatesAutoresizingMaskIntoConstraints = false
         tabBar.safeAreaRegions = []
+        self.tabBar = tabBar
 
         addChild(area)
         let areaView = area.view
@@ -78,6 +83,7 @@ final class RightPaneController: NSViewController {
         view.addSubview(titleBar)
         view.addSubview(tabBar)
         view.addSubview(areaView)
+        areaTopConstraint = areaView.topAnchor.constraint(equalTo: tabBar.bottomAnchor)
         NSLayoutConstraint.activate([
             titleBar.topAnchor.constraint(equalTo: view.topAnchor),
             titleBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -87,7 +93,7 @@ final class RightPaneController: NSViewController {
             tabBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tabBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tabBar.heightAnchor.constraint(equalToConstant: Theme.Metrics.tabBarHeight),
-            areaView.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
+            areaTopConstraint,
             areaView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             areaView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             areaView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -146,18 +152,27 @@ final class RightPaneController: NSViewController {
         let host = NSHostingView(rootView: bar)
         host.translatesAutoresizingMaskIntoConstraints = false
         host.safeAreaRegions = []
-        let areaView = area.view
         view.addSubview(host)
+        // La barra è una riga vera tra tab bar e terminale: ripinta il top dell'area sotto di lei,
+        // così spinge giù il terminale invece di coprirne la prima riga.
+        areaTopConstraint.isActive = false
+        areaTopConstraint = area.view.topAnchor.constraint(equalTo: host.bottomAnchor)
         NSLayoutConstraint.activate([
-            host.topAnchor.constraint(equalTo: areaView.topAnchor),
-            host.leadingAnchor.constraint(equalTo: areaView.leadingAnchor),
-            host.trailingAnchor.constraint(equalTo: areaView.trailingAnchor),
+            host.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
+            host.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            areaTopConstraint,
         ])
         resumeBarHost = host
     }
 
     private func removeResumeBar() {
-        resumeBarHost?.removeFromSuperview()
+        guard let host = resumeBarHost else { return }
+        host.removeFromSuperview()
         resumeBarHost = nil
+        // Ripristina il terminale attaccato alla tab bar.
+        areaTopConstraint.isActive = false
+        areaTopConstraint = area.view.topAnchor.constraint(equalTo: tabBar.bottomAnchor)
+        areaTopConstraint.isActive = true
     }
 }
