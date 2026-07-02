@@ -1,0 +1,82 @@
+import Foundation
+import Testing
+@testable import WorkspaceModel
+
+@Test func createWorkspaceSelectsItWithOneTab() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "api")
+
+    #expect(store.workspaces.count == 1)
+    #expect(store.selectedWorkspaceID == ws.id)
+    #expect(ws.tabs.count == 1)
+    #expect(ws.selectedTabID == ws.tabs.first?.id)
+}
+
+@Test func addTabSelectsNewTab() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "api")
+    let tab = store.addTab(to: ws)
+
+    #expect(ws.tabs.count == 2)
+    #expect(ws.selectedTabID == tab.id)
+}
+
+@Test func closeSelectedTabSelectsNeighbor() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "api")
+    let first = ws.tabs[0]
+    let second = store.addTab(to: ws)
+    store.selectTab(second.id, in: ws)
+
+    let removed = store.closeTab(second.id, in: ws)
+
+    #expect(removed == second.id)
+    #expect(ws.tabs.count == 1)
+    #expect(ws.selectedTabID == first.id)
+}
+
+@Test func closeWorkspaceReturnsTabIDsAndSelectsNeighbor() {
+    let store = WorkspaceStore()
+    let first = store.createWorkspace(name: "a")
+    let second = store.createWorkspace(name: "b")
+    let extraTab = store.addTab(to: second)
+
+    let removed = store.closeWorkspace(second.id)
+
+    #expect(Set(removed).contains(extraTab.id))
+    #expect(removed.count == 2)
+    #expect(store.workspaces.count == 1)
+    #expect(store.selectedWorkspaceID == first.id)
+}
+
+@Test func togglePinPartitionsWorkspaces() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    _ = store.createWorkspace(name: "b")
+
+    store.togglePin(a.id)
+
+    #expect(store.pinnedWorkspaces.map(\.id) == [a.id])
+    #expect(store.otherWorkspaces.count == 1)
+}
+
+@Test func moveWorkspacesReorders() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+
+    store.moveWorkspaces(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+
+    #expect(store.workspaces.map(\.id) == [b.id, a.id])
+}
+
+@Test func renameTabSetsCustomTitle() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "a")
+    let tab = ws.tabs[0]
+
+    store.renameTab(tab.id, in: ws, to: "server")
+
+    #expect(tab.title == "server")
+    #expect(tab.hasCustomTitle)
+}
