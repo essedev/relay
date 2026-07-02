@@ -30,7 +30,7 @@ let package = Package(
         .target(name: "HookInstaller", dependencies: ["Core", "AgentProtocol"]),
 
         // Livello 3: UI (AppKit sul path caldo, SwiftUI nei pannelli isolati).
-        .target(name: "TerminalHostUI", dependencies: ["Core", "TerminalEngine"]),
+        .target(name: "TerminalHostUI", dependencies: ["Core", "TerminalEngine", "WorkspaceModel"]),
         .target(name: "Panels", dependencies: ["Core", "WorkspaceModel", "AgentRuntime"]),
 
         // Eseguibili.
