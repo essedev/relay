@@ -44,8 +44,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         window.titleVisibility = .hidden
         window.titlebarSeparatorStyle = .none
         window.isMovableByWindowBackground = true
-        window.contentViewController = split
-        installSidebarToggleAccessory()
+        let root = RootOverlayController(content: split, overlay: makeSidebarToggleOverlay())
+        split.onSidebarWidthChange = { [weak root] width in
+            root?.sidebarWidthDidChange(width)
+        }
+        window.contentViewController = root
         window.setFrameAutosaveName("RelayMainWindow")
         window.center()
         observeWindowTheme()
@@ -54,17 +57,16 @@ final class AppController: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// Toggle sidebar come accessory della title bar: posizione fissa accanto ai semafori, non
-    /// si muove con l'animazione del collasso (un solo bottone per aprire e chiudere).
-    private func installSidebarToggleAccessory() {
-        let accessory = NSTitlebarAccessoryViewController()
-        accessory.view = NSHostingView(
+    /// Toggle sidebar: overlay a posizione fissa accanto ai semafori, sopra il contenuto. Non si
+    /// muove con l'animazione del collasso (un solo bottone per aprire e chiudere).
+    private func makeSidebarToggleOverlay() -> NSView {
+        let hosting = NSHostingView(
             rootView: SidebarToggleButton(settings: settings) { [weak self] in
                 self?.settings.toggleSidebar()
             }
         )
-        accessory.layoutAttribute = .left
-        window.addTitlebarAccessoryViewController(accessory)
+        hosting.safeAreaRegions = []
+        return hosting
     }
 
     /// Aggiorna il titolo nativo (nascosto in finestra, usato da Mission Control/Cmd+Tab).

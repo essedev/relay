@@ -41,7 +41,17 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal = LocalProcessTerminalView(frame: .zero)
         super.init()
         terminal.processDelegate = self
+        hideScroller()
         apply(theme: .relayDark) // default; la registry riapplica il tema corrente
+    }
+
+    /// SwiftTerm monta un NSScroller sempre visibile sul bordo destro: una track fissa fuori dal
+    /// design (lo scroll da trackpad non passa dallo scroller e resta pieno). Non c'è API pubblica
+    /// per nasconderlo, quindi lo si spegne come subview; se sparisce da SwiftTerm, questo è no-op.
+    private func hideScroller() {
+        for case let scroller as NSScroller in terminal.subviews {
+            scroller.isHidden = true
+        }
     }
 
     /// Applica il tema al terminale. I tipi SwiftTerm/NSColor restano confinati qui.

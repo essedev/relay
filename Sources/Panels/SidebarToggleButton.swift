@@ -1,9 +1,9 @@
 import SwiftUI
 import WorkspaceModel
 
-/// Toggle della sidebar, montato come accessory della title bar: posizione fissa accanto ai
-/// semafori, sopra il contenuto. Un'unica icona per aprire e chiudere: niente scambi di bottoni
-/// durante l'animazione del collasso.
+/// Toggle della sidebar, montato come overlay a posizione fissa accanto ai semafori, sopra il
+/// contenuto. Un'unica icona per aprire e chiudere: niente scambi di bottoni durante l'animazione
+/// del collasso.
 public struct SidebarToggleButton: View {
     let settings: AppSettings
     let onToggle: () -> Void

@@ -10,6 +10,9 @@ import WorkspaceModel
 final class MainSplitViewController: NSSplitViewController {
     private let settings: AppSettings
     private var sidebarItem: NSSplitViewItem!
+    /// Notifica la larghezza corrente della sidebar (0 se collassata) a ogni resize, anche
+    /// frame-by-frame durante l'animazione: guida la posizione dell'overlay toggle.
+    var onSidebarWidthChange: ((CGFloat) -> Void)?
 
     init(
         store: WorkspaceStore,
@@ -52,6 +55,12 @@ final class MainSplitViewController: NSSplitViewController {
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("MainSplitViewController is programmatic-only")
+    }
+
+    override func splitViewDidResizeSubviews(_ notification: Notification) {
+        super.splitViewDidResizeSubviews(notification)
+        guard let sidebarView = splitView.arrangedSubviews.first else { return }
+        onSidebarWidthChange?(sidebarView.isHidden ? 0 : sidebarView.frame.width)
     }
 
     /// Lo stato del collapse vive in `AppSettings` (persistito); qui lo si applica all'item,
