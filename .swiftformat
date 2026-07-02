@@ -3,4 +3,4 @@
 --indent 4
 --self remove
 --commas always
---exclude .build
+--exclude .build,docs/research

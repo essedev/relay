@@ -5,8 +5,8 @@ affidabili (via hook Claude Code), organizzazione a workspace (sidebar con pin e
 dashboard overview), veloce e leggero.
 
 Stato: V0 (Workspace -> Tab -> terminale) + agent runtime. Engine v1 SwiftTerm dietro l'astrazione
-`TerminalEngine` (libghostty backend futuro). Decisioni e benchmark: repo di ricerca
-`terminal-agent-analysis`.
+`TerminalEngine` (libghostty backend futuro). Decisioni, benchmark e log della ricerca:
+`docs/research/` (`CYCLES.md`).
 
 ## Sviluppo
 

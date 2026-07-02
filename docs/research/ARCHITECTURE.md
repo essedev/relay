@@ -1,11 +1,10 @@
 # Architecture
 
-Progetto: **Relay**.
+Codename di lavoro: `ourterm` (nome definitivo da scegliere).
 Ultimo aggiornamento: 2026-07-02.
 
 Documento vivo: budget, moduli e confini si rivedono quando misure o sviluppo portano evidenze
-nuove. La storia decisionale completa (cicli 0-8: analisi engine, diagnosi lag cmux, benchmark
-SwiftTerm) vive in `docs/research/` (`CYCLES.md`); qui si tiene lo stato corrente.
+nuove. Ogni revisione significativa si registra in `CYCLES.md`.
 
 ## Tesi Di Prodotto
 
@@ -49,10 +48,6 @@ verificata contro questa lista.
 4. **Event-driven, niente polling.** Gli stati arrivano da hook e notifiche; la UI reagisce.
 5. **File e moduli piccoli.** Limite indicativo 500 righe per file. `ContentView.swift` di cmux
    (16k righe) è il controesempio.
-6. **UI pulita e semplice, ma con margine estetico.** Il default è essenziale e leggibile, non
-   spartano: i pannelli SwiftUI attingono a un piccolo design system (token di spaziatura,
-   tipografia, colore, raggi) invece di valori hardcoded, così alzare l'asticella estetica è un
-   cambio di token, non un refactor. Niente cromo inutile che compete col terminale.
 
 ### Budget v1
 
@@ -212,57 +207,6 @@ ricrea al focus (la policy resta la stessa, cambia solo il meccanismo).
   scrivi input, leggi dimensioni/titolo/cwd, notifica output/bell/OSC. Il resto dell'app non
   sa quale engine c'è sotto. Questo rende la migrazione un update localizzato, non un rewrite.
 
-## Tema (Design System)
-
-Il principio UI #6 (bella di default, personalizzabile) si concretizza in un modello di tema come
-dato puro in `Core` (`RelayTheme`/`RelayColor`): colori base + 16 ANSI + font. È l'**unica fonte**:
-
-- il terminale (`TerminalEngine`) converte in colori SwiftTerm/NSColor e applica via `apply(theme:)`;
-  i badge e la chrome ANSI-derivati restano coerenti con l'output di Claude Code/`git`/`ls`;
-- la chrome (`Panels`) converte in SwiftUI Color (`ChromeColors`): sidebar/tab bar/badge dal tema;
-- `AppSettings` (`WorkspaceModel`, @Observable) tiene tema selezionato + dimensione font + blink del
-  caret, persistiti in `UserDefaults` (preferenze, non lo snapshot del layout). `fontSize` e
-  `cursorBlink` sono sovrapposti al tema base (`withFontSize`/`withCursorBlink`). Cambi ->
-  `SurfaceRegistry.applyTheme` ridipinge le surface vive; la chrome si aggiorna via Observation.
-
-Pannello impostazioni (`Cmd+,`): master-detail themed - sidebar con ricerca e lista categorie
-(Appearance / Terminal), contenuto a destra. Ogni voce è un "blocco" dichiarativo (categoria +
-keywords + vista), unica fonte per categorie e ricerca: aggiungere un'impostazione è una riga. Anche
-zoom (`Cmd +/-`, `Cmd+0`). Import da config Ghostty: possibile in futuro, non nel baseline.
-
-## Chrome E Finestra
-
-Finestra `fullSizeContentView`: il contenuto sale fino al bordo, titolo nativo nascosto (resta per
-Mission Control/Cmd+Tab), appearance AppKit che segue il tema (`darkAqua`/`aqua` dalla luminanza di
-`RelayTheme.isDark`, così i controlli di sistema restano leggibili). La chrome vive nel composition
-root:
-
-- `RootOverlayController` sovrappone al contenuto (lo split) un overlay a posizione fissa - il
-  toggle sidebar (`Cmd+B`) - accanto ai semafori. Segue la larghezza reale della sidebar
-  frame-by-frame (`splitViewDidResizeSubviews`): da aperta è al bordo destro della sidebar, alla
-  chiusura scivola in continuità fino ai semafori. Un solo bottone, niente swap.
-- `ContextTitleBar` (in cima al right pane): strip del titolo centrata sul body, contenuto da
-  `WindowTitle` - titolo OSC del programma (Claude manda il nome della chat, zsh `user@host:path`),
-  altrimenti cwd corrente (OSC 7) abbreviata con `~`, altrimenti cartella/nome del workspace.
-- Sidebar: `NSSplitViewItem` normale, **non** `sidebarWithViewController:` (su macOS 26 quello stila
-  la sidebar come pannello glass flottante, in conflitto col design flat themed). Righe con
-  selezione/hover dai colori del tema (niente highlight di sistema), sottotitolo per riga
-  (`WindowTitle.workspaceSubtitle`: cosa succede nella tab selezionata) e badge aggregato.
-- OSC 7: la cwd riportata dalla shell (`Core.OSC7` -> `Tab.currentDirectory`) alimenta titolo,
-  sottotitolo e l'ereditarietà cwd di `Cmd+T` (la nuova tab parte dove stai lavorando, non alla
-  radice del workspace).
-
-## Tooling Di Test (Simulatore E Demo)
-
-Due strumenti esercitano la pipeline agente senza sessioni Claude reali, **passando dal socket
-reale** (`AgentEventClient` -> receiver -> coordinator): nel model non esiste un percorso finto.
-
-- `relay-cli simulate [coding|permission|burst]`: da lanciare dentro una tab (eredita
-  `RELAY_TAB_ID`), recita una chat finta con tempi realistici. Esercita binding, trasporto, reducer
-  e badge end-to-end.
-- `relay --demo [NxM]`: popola l'app con N workspace da M tab e simula sessioni concorrenti su ogni
-  tab (`DemoDriver`, un `Task` per tab). Per vedere badge/contatori/aggregazioni a colpo d'occhio.
-
 ## Agent Runtime
 
 ### Responsabilità
@@ -294,29 +238,32 @@ Mapping Claude v1:
 | `PostToolUse` | `running` |
 | `PermissionRequest` | `needs_input` |
 | `Stop` | `idle` |
-| `SessionEnd` | `unknown` |
 
-`SubagentStop` non è mappato: lo stop di un subagent non è il completamento del pane. Nomi hook
-confermati sulla doc Claude Code corrente (luglio 2026). Nota: nello spike gli stati usano i nomi
-Otty (`processing`, `awaiting`, `idle`); nell'app si usano i nomi prodotto qui sopra.
+Nota: nello spike gli stati usano i nomi Otty (`processing`, `awaiting`, `idle`); nell'app si
+usano i nomi prodotto qui sopra.
 
 ### Local Control API
 
-Trasporto: Unix domain socket (`~/.relay/relay.sock`, override `RELAY_SOCKET`), JSON lines. Il
-receiver (app, `AgentEventReceiver`) fa da server; il CLI (`relay-cli claude-hook`,
-`AgentEventClient`) fa da client. Scelta: tutto il trasporto è codice nostro (Swift, testabile),
-lo script hook è solo un thin wrapper - niente `nc`/`jq`/parsing shell.
+Trasporto: Unix domain socket, JSON lines. Fallback dev: CLI file-based come in `spikes/ourterm-spike`.
 
-In v1 la riga sul filo è un `AgentStateEvent` codificato JSON (vedi `STATE_SCHEMA.md`): un solo
-tipo effettivo (`agent.state`), quindi nessun envelope `type`. `AgentEventType`
-(`agent.session.start/state/notification/resume.set/session.end`) resta per quando serviranno
-payload diversi; allora si introduce l'envelope.
+Eventi v1:
+
+```text
+agent.session.start
+agent.state
+agent.notification
+agent.resume.set
+agent.session.end
+```
+
+Esempio:
 
 ```json
 {
+  "type": "agent.state",
   "agent": "claude",
   "sessionId": "abc",
-  "paneId": "11111111-2222-3333-4444-555555555555",
+  "paneId": "pane-1",
   "state": "needs_input",
   "source": "hook",
   "confidence": 1,
@@ -326,25 +273,21 @@ payload diversi; allora si introduce l'envelope.
 
 ### Hook Installer
 
-Comandi (`relay-cli`, implementati in `HookInstaller`):
+Comandi:
 
 ```text
-relay-cli hooks setup       # installa gli hook Relay in ~/.claude/settings.json
-relay-cli hooks uninstall   # rimuove solo gli hook gestiti da Relay
-relay-cli hooks status      # riporta se sono installati
+ourterm hooks setup claude
+ourterm hooks uninstall claude
+ourterm hooks status
 ```
 
-Regole (verificate a test):
+Regole:
 
-- append, non replace: gli hook nostri sono marcati (`RELAY_MANAGED_HOOK=1` nel comando) e si
-  aggiungono agli array esistenti - convivenza con Otty/ourterm preservata;
-- idempotente: setup ripetuto non duplica (rimpiazza i propri entry);
-- uninstall rimuove solo i marcati e ripulisce array/chiavi vuoti;
-- validazione JSON prima e dopo, backup sempre (`.relay-backup-<epoch>`), scrittura atomica;
-- override path via `RELAY_CLAUDE_SETTINGS` (test/automazioni: non tocca il vero `~/.claude`);
-- il CLI dell'hook fallisce in silenzio (exit 0) per non rompere Claude;
-- il path del CLI finisce nei comandi: pre-bundle è `.build/.../relay-cli`, col `.app` sarà nel
-  bundle (Milestone 4).
+- non sovrascrivere hook esistenti (convivenza con Otty verificata nel Cycle 1);
+- validare JSON prima e dopo;
+- backup sempre;
+- niente segreti nei log;
+- lo script hook fallisce in silenzio per non rompere Claude.
 
 ## Aggregazione Stati E Badge
 
@@ -366,47 +309,24 @@ Severità: `needs_input` > `error` > `running` > `completed` non visto > `idle`.
 
 Regole:
 
-- distinzione **stato vs marker**: `running`/`needs_input`/`error` sono stati e il badge li mostra
-  in base ad `agentState` finché lo stato cambia. `needs_input` resta finché la sessione è in attesa
-  (si spegne quando rispondi a Claude e parte un nuovo hook), **non** alla semplice visita del pane;
-- `attention` (`Tab.attention`) è solo il marker "completato non visto": lavoro finito
-  (`running` -> `idle`) mentre il pane non era in vista. Quello sì si spegne alla visita;
+- `needs_input` resta visibile finché l'utente non visita il pane;
 - `idle` non genera rumore se la sessione era già idle;
 - `completed` esiste solo come transizione dopo `running`;
 - lo stop di un subagent non è il completamento del pane principale.
 
 ## Data Model
 
-Stato V0 (in codice, `WorkspaceModel`), `@Observable`:
-
 ```text
-WorkspaceStore { workspaces: [Workspace], selectedWorkspaceID }
-Workspace      { id, name, rootPath?, pinned, tabs: [Tab], selectedTabID }
-Tab            { id, title, hasCustomTitle }        // V0: una tab = un terminale
+Workspace    { id, name, rootPath, pinned, sortIndex, createdAt }
+Tab          { id, workspaceId, title, sortIndex, paneTree }
+Pane         { id, tabId, cwd, lifecycle, agentSessionId? }
+AgentSession { sessionId, agent, paneId, state, lastEventAt, resumeCommand, bypass }
+AgentEvent   { sessionId, state, source, toolName?, reason?, timestamp }
 ```
 
-Futuro (quando servono):
-
-```text
-Tab.paneTree   { split dei pane dentro una tab }    // split deprioritizzato dall'utente
-AgentSession   { sessionId, agent, tabId, state, lastEventAt, resumeCommand, bypass }
-AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
-```
-
-- Il model è puro e osservabile: **nessun riferimento alle surface del terminale**. Le surface
-  vive sono legate per `Tab.id` fuori dal model, in `SurfaceRegistry` (TerminalHostUI).
-- Gerarchia prodotto: **Workspace -> Tab -> terminale**. Lo split (pane tree dentro una tab) è
-  previsto ma deprioritizzato (l'utente non lo usa molto).
-- Sidebar e tab bar leggono lo store e si aggiornano via Observation, senza toccare le surface.
-- Persistence: snapshot JSON del layout + metadata (non ancora implementata). Niente database.
-
-### Binding Surface (lazy, fuori dal model)
-
-- `SurfaceRegistry` mappa `Tab.id -> TerminalSurfaceHandle`. La surface nasce alla **prima
-  visita** della tab (lazy) e viene distrutta quando la tab non esiste più (reconcile via
-  `retain(aliveTabIDs)`). Il PTY di una tab non visibile resta vivo.
-- `WorkspaceAreaController` (AppKit) osserva lo store e scambia la view della surface attiva.
-- Non ancora fatto: cap LRU sulle surface vive (ora restano vive tutte le tab visitate).
+- Sidebar e dashboard leggono `Workspace` + aggregati: nessun accesso alle surface.
+- `AgentEvent` è una timeline JSONL con retention breve (debug e dashboard "ultimo evento").
+- Persistence v1: snapshot JSON del layout + metadata. Niente database finché non serve.
 
 ### Resume
 
@@ -539,45 +459,14 @@ Deciso e validato (Cycle 5):
 
 - engine v1 SwiftTerm dietro `TerminalEngine`, libghostty backend futuro;
 - throughput SwiftTerm sufficiente: core VT 34-82 MB/s, end-to-end 20 MB/s, ampiamente sopra i
-  ritmi degli agenti (benchmark in `docs/research/spikes/swiftterm-spike/`);
+  ritmi degli agenti (benchmark in `spikes/swiftterm-spike/`);
 - cap scrollback confermato come leva di memoria giusta.
 
-Costruito (V0, Cycle 6):
+Da validare (misure di Fase 2, sull'app multi-surface reale):
 
-- app reale: Workspace -> Tab -> terminale, con sidebar (crea/seleziona/pin/riordina) e tab bar
-  (crea/seleziona/chiudi);
-- surface lazy per `Tab.id` con teardown per reconcile; terminale AppKit, chrome SwiftUI isolata;
-- workspace folder-less (`Cmd+N`, parte da home) e da cartella (`Cmd+O`); `Cmd+T`/`Cmd+W` tab;
-- navigazione a due assi stile cmux via event monitor: `Cmd+1..9` workspace, `Option+1..9` tab.
-
-Costruito (Milestone 1, agent runtime + badge):
-
-- receiver Unix socket + client in `AgentRuntime`; wire = `AgentStateEvent` JSON line;
-- binding `RELAY_TAB_ID` (= `Tab.id`) iniettato per surface, rimandato dall'hook come `paneId`;
-- `relay-cli hooks setup|uninstall|status` (idempotente, backup, convivenza Otty) e
-  `relay-cli claude-hook <state>` (client emit, fail-safe);
-- stato agente su `Tab` (`agentState`, `attention`, `lastEventAt`); reducer puro con anti-rumore;
-  applicazione evento -> tab in `WorkspaceStore.applyAgentState`, orchestrata dal coordinatore
-  (`AgentCoordinator`) nel composition root;
-- badge in tab bar (per tab) e sidebar (workspace, aggregato per severità + contatore se ≥2 tab
-  condividono lo stato); `needs_input`/`error` sono stati (restano finché rispondi), `completed` è
-  transitorio (si spegne alla visita);
-- test: socket end-to-end, installer (fixture + round-trip su disco), reducer, apply su store;
-  `make check` verde. Validazione GUI live (badge che cambia con Claude reale) da fare a mano.
-
-Costruito (UI/UX e tooling, fuori milestone):
-
-- sistema di temi (`RelayTheme` in `Core`): terminale + chrome + badge coerenti, due temi
-  (Dark/Light), pannello impostazioni (`Cmd+,`), zoom font (`Cmd +/-`), persistiti in `UserDefaults`;
-- chrome full-size content view: appearance che segue il tema, titolo contestuale centrato sul body
-  (`WindowTitle`/OSC 7), toggle sidebar (`Cmd+B`) come overlay che insegue il bordo della sidebar,
-  sottotitolo per workspace, `Cmd+T` che eredita la cwd corrente;
-- tooling di test: `relay-cli simulate` e `relay --demo NxM`, entrambi sul socket reale.
-
-Prossimo milestone: **persistence + rename** (dogfood-ability), vedi `docs/ROADMAP.md`.
-
-Da fare dopo:
-
-- cap LRU sulle surface + misure latenza input e memoria a N surface;
-- bundle `.app` (notifiche macOS, installer hook distribuibile);
-- split (pane tree dentro una tab), deprioritizzato; dashboard overview.
+- latenza input p99 contro il budget < 1 frame;
+- costo memoria incrementale per surface dentro un solo processo;
+- lifecycle surface lazy + LRU in app reale;
+- binding sessione -> pane;
+- socket locale al posto del file store;
+- badge UI in tempo reale.

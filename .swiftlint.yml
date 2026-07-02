@@ -1,6 +1,7 @@
 # Relay - SwiftLint (vedi docs/CONVENTIONS.md)
 excluded:
   - .build
+  - docs/research # spike storici: non li lintiamo
 
 opt_in_rules:
   - empty_count

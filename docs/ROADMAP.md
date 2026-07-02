@@ -1,8 +1,8 @@
 # Roadmap
 
 Piano forward dell'app Relay. La storia decisionale (analisi engine, benchmark, diagnosi lag
-cmux) vive nel repo di ricerca `terminal-agent-analysis` (`CYCLES.md`). Qui c'è cosa manca e in
-che ordine. Dettagli di design in `ARCHITECTURE.md`.
+cmux) vive in `docs/research/` (`CYCLES.md`). Qui c'è cosa manca e in che ordine. Dettagli di design
+in `ARCHITECTURE.md`.
 
 ## Fatto - V0
 
@@ -21,7 +21,7 @@ senza parsing dell'output. Restano da chiudere a mano solo la verifica GUI live 
 con una sessione Claude reale) e le notifiche macOS vere (richiedono il bundle `.app`, Milestone 4).
 
 Obiettivo: rendere Relay agent-aware. È il differenziatore. Pipeline hook -> stato già validata
-in `terminal-agent-analysis/ourterm-spike` (Cycle 1); qui la si porta nell'app.
+in `docs/research/spikes/ourterm-spike` (Cycle 1); qui la si porta nell'app.
 
 Design (vedi `ARCHITECTURE.md`: Agent Runtime, Local Control API, Aggregazione Stati E Badge):
 

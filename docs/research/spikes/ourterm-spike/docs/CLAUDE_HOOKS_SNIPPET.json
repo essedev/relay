@@ -1,0 +1,64 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' idle \"$PPID\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' awaiting \"$PPID\" ctx"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' idle \"$PPID\""
+          }
+        ]
+      }
+    ]
+  }
+}
