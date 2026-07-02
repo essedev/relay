@@ -492,12 +492,15 @@ Costruito (V0, Cycle 6):
 - app reale: Workspace -> Tab -> terminale, con sidebar (crea/seleziona/pin/riordina) e tab bar
   (crea/seleziona/chiudi);
 - surface lazy per `Tab.id` con teardown per reconcile; terminale AppKit, chrome SwiftUI isolata;
-- menu e shortcut (New Workspace/Tab, Close Tab, Copy/Paste); folder picker per il workspace.
+- workspace folder-less (`Cmd+N`, parte da home) e da cartella (`Cmd+O`); `Cmd+T`/`Cmd+W` tab;
+- navigazione a due assi stile cmux via event monitor: `Cmd+1..9` workspace, `Option+1..9` tab.
 
-Da fare (prossimi cicli):
+Prossimo milestone: **agent runtime + badge** (vedi `docs/ROADMAP.md`). È il differenziatore del
+prodotto e la pipeline hook -> stato è già validata (Cycle 1).
 
-- latenza input p99 contro il budget < 1 frame (misura sull'app reale);
-- costo memoria incrementale per surface + cap LRU sulle surface vive;
-- split (pane tree dentro una tab), deprioritizzato;
-- agent runtime: socket locale, binding sessione -> tab, badge UI in tempo reale;
-- persistence del layout e resume.
+Da fare dopo:
+
+- persistence del layout e resume; rename workspace/tab;
+- cap LRU sulle surface + misure latenza input e memoria a N surface;
+- bundle `.app` (notifiche, installer hook, distribuzione);
+- split (pane tree dentro una tab), deprioritizzato; dashboard overview.

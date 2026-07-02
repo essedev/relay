@@ -29,6 +29,7 @@ make help      # tutti i target
 ## Documentazione
 
 - `docs/ARCHITECTURE.md` - tesi di prodotto, moduli, budget, engine, anti-pattern.
+- `docs/ROADMAP.md` - cosa manca e in che ordine (prossimo: agent runtime + badge).
 - `docs/CONVENTIONS.md` - regole di codice, test, processo.
 - `docs/STATE_SCHEMA.md` - schema di persistence e protocollo eventi agente.
 - `CLAUDE.md` - guida operativa per l'agent.

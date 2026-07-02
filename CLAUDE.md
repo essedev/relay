@@ -1,7 +1,10 @@
 # Relay - guida per l'agent
 
 Terminale macOS nativo agent-aware. Leggi `docs/ARCHITECTURE.md` prima di toccare la struttura
-e `docs/CONVENTIONS.md` prima di scrivere codice.
+e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `docs/ROADMAP.md`.
+
+Stato: V0 (Workspace -> Tab -> terminale) fatta. **Prossimo milestone: agent runtime + badge**
+(receiver socket + hook + badge di stato su tab/sidebar) - vedi ROADMAP Milestone 1.
 
 ## Comandi
 
