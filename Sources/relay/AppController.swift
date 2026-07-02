@@ -10,10 +10,12 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let engine: TerminalEngine = SwiftTermEngine()
     private var window: NSWindow!
     private var untitledCount = 0
+    private var keyMonitor: Any?
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
         buildMenu()
+        installKeyMonitor()
         seedIfNeeded()
 
         let split = MainSplitViewController(store: store, engine: engine) { [weak self] in
@@ -76,17 +78,35 @@ final class AppController: NSObject, NSApplicationDelegate {
         store.closeTab(tabID, in: workspace)
     }
 
-    /// Cmd+1..9: seleziona il workspace all'indice (tag 0-based).
-    @objc func selectWorkspaceByShortcut(_ sender: NSMenuItem) {
-        guard sender.tag < store.workspaces.count else { return }
-        store.selectWorkspace(store.workspaces[sender.tag].id)
+    /// Navigazione a due assi (stile cmux). Via event monitor e non menu key equivalent: le
+    /// equivalenze di menu con solo Option non scattano in modo affidabile (e dipendono dal
+    /// layout di tastiera).
+    private func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            return MainActor.assumeIsolated { self.handleShortcut(event) } ? nil : event
+        }
     }
 
-    /// Option+1..9: seleziona la tab all'indice nel workspace corrente (tag 0-based).
-    @objc func selectTabByShortcut(_ sender: NSMenuItem) {
-        guard let workspace = store.selectedWorkspace,
-              sender.tag < workspace.tabs.count else { return }
-        store.selectTab(workspace.tabs[sender.tag].id, in: workspace)
+    /// Cmd+1..9 -> workspace, Option+1..9 -> tab nel workspace corrente. Ritorna true se consuma.
+    private func handleShortcut(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags == .command || flags == .option,
+              let chars = event.charactersIgnoringModifiers,
+              let digit = Int(chars), (1 ... 9).contains(digit)
+        else { return false }
+        let index = digit - 1
+
+        if flags == .command {
+            guard index < store.workspaces.count else { return true }
+            store.selectWorkspace(store.workspaces[index].id)
+        } else {
+            guard let workspace = store.selectedWorkspace, index < workspace.tabs.count else {
+                return true
+            }
+            store.selectTab(workspace.tabs[index].id, in: workspace)
+        }
+        return true
     }
 
     // MARK: - Menu
@@ -119,8 +139,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         fileMenu.addItem(.separator())
         addItem(to: fileMenu, "Close Tab", #selector(closeCurrentTab(_:)), "w")
 
-        mainMenu.addItem(makeGoMenuItem())
-
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
         let editMenu = NSMenu(title: "Edit")
@@ -138,38 +156,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         )
 
         NSApp.mainMenu = mainMenu
-    }
-
-    /// Menu "Go": Cmd+1..9 per i workspace, Option+1..9 per le tab (i due assi, stile cmux).
-    private func makeGoMenuItem() -> NSMenuItem {
-        let goItem = NSMenuItem()
-        let goMenu = NSMenu(title: "Go")
-        goItem.submenu = goMenu
-
-        for index in 1 ... 9 {
-            let item = NSMenuItem(
-                title: "Workspace \(index)",
-                action: #selector(selectWorkspaceByShortcut(_:)),
-                keyEquivalent: "\(index)"
-            )
-            item.keyEquivalentModifierMask = .command
-            item.tag = index - 1
-            item.target = self
-            goMenu.addItem(item)
-        }
-        goMenu.addItem(.separator())
-        for index in 1 ... 9 {
-            let item = NSMenuItem(
-                title: "Tab \(index)",
-                action: #selector(selectTabByShortcut(_:)),
-                keyEquivalent: "\(index)"
-            )
-            item.keyEquivalentModifierMask = .option
-            item.tag = index - 1
-            item.target = self
-            goMenu.addItem(item)
-        }
-        return goItem
     }
 
     private func addItem(to menu: NSMenu, _ title: String, _ action: Selector, _ key: String) {
