@@ -38,11 +38,21 @@ final class RightPaneController: NSViewController {
 
         // Strip del titolo in cima al right pane: stessa riga verticale dei semafori (full-size
         // content view), centrata sul body e non sull'intera finestra.
-        let titleBar = NSHostingView(rootView: ContextTitleBar(store: store, settings: settings))
+        let titleBar = NSHostingView(
+            rootView: ContextTitleBar(
+                store: store,
+                settings: settings,
+                onDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) }
+            )
+        )
         titleBar.translatesAutoresizingMaskIntoConstraints = false
+        // Il layout della chrome è esplicito (constraint dal top della finestra): senza questo,
+        // SwiftUI applicherebbe la safe area della title bar spingendo il contenuto in basso.
+        titleBar.safeAreaRegions = []
 
         let tabBar = NSHostingView(rootView: TabBarView(store: store, settings: settings))
         tabBar.translatesAutoresizingMaskIntoConstraints = false
+        tabBar.safeAreaRegions = []
 
         addChild(area)
         let areaView = area.view

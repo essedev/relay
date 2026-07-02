@@ -42,6 +42,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         // Il contenuto sale fino al bordo: il titolo visibile è la strip del right pane
         // (ContextTitleBar), centrata sul body. Il title nativo resta per Mission Control/Cmd+Tab.
         window.titleVisibility = .hidden
+        window.titlebarSeparatorStyle = .none
         window.isMovableByWindowBackground = true
         window.contentViewController = split
         window.setFrameAutosaveName("RelayMainWindow")

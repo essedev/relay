@@ -16,8 +16,17 @@ final class MainSplitViewController: NSSplitViewController {
         super.init(nibName: nil, bundle: nil)
 
         let sidebar = NSHostingController(
-            rootView: SidebarView(store: store, settings: settings, onNewWorkspace: onNewWorkspace)
+            rootView: SidebarView(
+                store: store,
+                settings: settings,
+                onNewWorkspace: onNewWorkspace,
+                // Al doppio click la finestra è già key (il primo click la attiva).
+                onTitleBarDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) }
+            )
         )
+        // L'header della sidebar vive sulla riga dei semafori (full-size content view): niente
+        // safe area, il layout la gestisce con l'inset esplicito.
+        sidebar.safeAreaRegions = []
         let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebar)
         sidebarItem.minimumThickness = 180
         sidebarItem.maximumThickness = 340

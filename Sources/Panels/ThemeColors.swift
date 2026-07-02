@@ -30,9 +30,11 @@ struct ChromeColors {
         Color(theme.foreground)
     }
 
+    /// Da foreground con opacità (non dall'ANSI bright black): contrasto sensato su ogni tema.
     var secondary: Color {
-        Color(theme.ansiColor(8))
-    } // bright black (grigio)
+        Color(theme.foreground).opacity(0.6)
+    }
+
     var selection: Color {
         Color(theme.selection)
     }

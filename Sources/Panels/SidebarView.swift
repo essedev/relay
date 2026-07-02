@@ -8,15 +8,19 @@ public struct SidebarView: View {
     let store: WorkspaceStore
     let settings: AppSettings
     let onNewWorkspace: () -> Void
+    /// Doppio click sull'header (riga dei semafori) = comportamento title bar di macOS (zoom).
+    let onTitleBarDoubleClick: () -> Void
 
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
-        onNewWorkspace: @escaping () -> Void
+        onNewWorkspace: @escaping () -> Void,
+        onTitleBarDoubleClick: @escaping () -> Void = {}
     ) {
         self.store = store
         self.settings = settings
         self.onNewWorkspace = onNewWorkspace
+        self.onTitleBarDoubleClick = onTitleBarDoubleClick
     }
 
     public var body: some View {
@@ -48,6 +52,8 @@ public struct SidebarView: View {
         .padding(.leading, Theme.Metrics.trafficLightsInset)
         .padding(.trailing, Theme.Spacing.md)
         .frame(height: Theme.Metrics.titleBarHeight)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { onTitleBarDoubleClick() }
     }
 
     private func list(_ colors: ChromeColors) -> some View {
