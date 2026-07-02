@@ -12,7 +12,10 @@ vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Cla
 
 - `make build` / `make test` / `make run` / `make check` (definition of done prima di un commit
   grosso e sempre prima di proporre un push).
-- Lint: serve `brew install swiftlint swiftformat` (non ancora installati in locale).
+- Lint: `brew install swiftlint swiftformat` (installati in locale).
+- **Simulatore agente**: `relay-cli simulate [coding|permission|burst] [--loops N] [--fast]`,
+  da lanciare *dentro una tab di Relay*: recita una chat finta e manda eventi reali al socket
+  (stesso client/wire degli hook). Per testare badge/aggregazioni senza sessioni Claude vere.
 
 ## Mappa moduli (dipendenze solo verso il basso)
 

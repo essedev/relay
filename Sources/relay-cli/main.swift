@@ -11,6 +11,10 @@ Usage:
   relay-cli hooks uninstall       remove Relay-managed hooks
   relay-cli hooks status          report whether Relay hooks are installed
   relay-cli claude-hook <state>   (invoked by hooks) emit an agent state event
+  relay-cli simulate [scenario]   fake agent session driving real badges
+                                  (run inside a Relay tab)
+                                  scenarios: coding | permission | burst
+                                  options: --loops N, --fast
 
 States: running | idle | needs_input | error | unknown
 """
@@ -27,6 +31,8 @@ case "claude-hook":
     exit(ClaudeHookCommand.run(stateArg: arguments.count > 1 ? arguments[1] : nil))
 case "hooks":
     exit(HookCLI.run(Array(arguments.dropFirst()), cliPath: cliExecutablePath()))
+case "simulate":
+    exit(SimulateCommand.run(Array(arguments.dropFirst())))
 default:
     print(usage)
 }

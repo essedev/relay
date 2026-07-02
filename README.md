@@ -53,7 +53,15 @@ relay-cli hooks uninstall   # rimuove solo gli hook di Relay
 ```
 
 Poi apri Relay, avvia `claude` in una tab e i badge si aggiornano. `needs_input` resta finché non
-visiti la tab. Dettagli protocollo/binding in `docs/STATE_SCHEMA.md`.
+rispondi. Dettagli protocollo/binding in `docs/STATE_SCHEMA.md`.
+
+Per provare i badge senza una sessione Claude vera, dentro una tab di Relay:
+
+```bash
+relay-cli simulate            # chat finta (scenario "coding"), eventi reali sul socket
+relay-cli simulate permission # needs_input che resta in attesa
+relay-cli simulate burst --loops 3 --fast
+```
 
 ## Documentazione
 
