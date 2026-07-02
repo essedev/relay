@@ -63,6 +63,9 @@ relay-cli simulate permission # needs_input che resta in attesa
 relay-cli simulate burst --loops 3 --fast
 ```
 
+Per vedere l'app piena di attività: `relay --demo 5x4` apre 5 workspace da 4 tab con sessioni
+simulate concorrenti (sempre via socket reale).
+
 ## Documentazione
 
 - `docs/ARCHITECTURE.md` - tesi di prodotto, moduli, budget, engine, anti-pattern.

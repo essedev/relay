@@ -16,6 +16,9 @@ vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Cla
 - **Simulatore agente**: `relay-cli simulate [coding|permission|burst] [--loops N] [--fast]`,
   da lanciare *dentro una tab di Relay*: recita una chat finta e manda eventi reali al socket
   (stesso client/wire degli hook). Per testare badge/aggregazioni senza sessioni Claude vere.
+- **Demo mode**: `relay --demo [NxM]` (default 4x3): N workspace da M tab con sessioni simulate
+  concorrenti su ogni tab, eventi via socket reale. Per vedere l'app "piena" e testare
+  badge/contatori/aggregazioni a colpo d'occhio.
 
 ## Mappa moduli (dipendenze solo verso il basso)
 

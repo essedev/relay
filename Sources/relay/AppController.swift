@@ -16,6 +16,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var untitledCount = 0
     private var keyMonitor: Any?
+    private var demoDriver: DemoDriver?
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
@@ -108,12 +109,44 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_: Notification) {
+        demoDriver?.stop()
         agentCoordinator.stop()
     }
 
     private func seedIfNeeded() {
+        if let config = DemoConfig.parse(from: CommandLine.arguments) {
+            seedDemo(config)
+            return
+        }
         guard store.workspaces.isEmpty else { return }
         createUntitledWorkspace()
+    }
+
+    /// Demo mode: N workspace da M tab, con sessioni agente simulate su ogni tab (eventi via
+    /// socket reale). Le tab restano `unrealized` finché non le visiti: i badge vivono comunque.
+    private func seedDemo(_ config: DemoConfig) {
+        let tabTitles = ["agent", "build", "server", "tests", "logs", "repl", "infra", "docs", "db"]
+        var allTabIDs: [UUID] = []
+        for index in 1 ... config.workspaces {
+            let workspace = store.createWorkspace(
+                name: "Demo \(index)",
+                rootPath: NSHomeDirectory()
+            )
+            // createWorkspace aggiunge già una tab: rinominala e aggiungi le altre.
+            store.renameTab(workspace.tabs[0].id, in: workspace, to: tabTitles[0])
+            for tabIndex in 1 ..< config.tabsPerWorkspace {
+                let title = tabTitles[tabIndex % tabTitles.count]
+                store.addTab(to: workspace, title: title)
+            }
+            workspace.selectedTabID = workspace.tabs.first?.id
+            allTabIDs.append(contentsOf: workspace.tabs.map(\.id))
+        }
+        store.selectWorkspace(store.workspaces[0].id)
+
+        let driver = DemoDriver()
+        demoDriver = driver
+        driver.start(tabIDs: allTabIDs)
+        log.info("demo mode: \(config.workspaces) workspaces x \(config.tabsPerWorkspace) tabs")
     }
 
     /// Workspace senza cartella: parte da home, l'utente ci naviga con `cd`.
