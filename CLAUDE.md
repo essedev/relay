@@ -7,8 +7,8 @@ Stato: V0 + **Milestone 1 (agent runtime + badge)** + giro UI/UX (temi, chrome, 
 conferma + cascade, float per stato) + **Milestone 2 (persistence layout + rename inline
 workspace/tab)** + **Milestone 3: cap LRU surface fatto** + **resume assistito Claude (barra +
 persistenza binding)**. **Prossimo: misure di performance (M3) per tarare il cap** - vedi
-`docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Claude reale
-(`relay-cli hooks setup`, apri l'app, avvia `claude`).
+`docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale (il resume
+riprende la sessione).
 
 ## Comandi
 

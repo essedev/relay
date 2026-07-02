@@ -508,3 +508,55 @@ bella"), e darsi strumenti per vedere/testare gli stati agente senza sessioni Cl
   ogni tema (il tema chiaro aveva smascherato icone illeggibili).
 
 `make check` verde lungo tutto il ciclo (fino a 69 test). Prossimo: Milestone 2 (persistence).
+
+## Cycle 9 - Interazione, Persistence, LRU, Resume
+
+Stato: completato (Milestone 2 + inizio Milestone 3 + resume). Da app usabile a dogfood-abile.
+
+### Obiettivo
+
+Chiudere il giro di interazione su sidebar/tab (chiusura, rename, ordinamento), rendere il layout
+persistente ai riavvii (M2), mettere un tetto alla memoria delle surface (M3), e riportare le
+sessioni Claude dopo un riavvio (resume).
+
+### Cosa è stato fatto
+
+- **Interazione sidebar/tab e chiusura**: lista workspace custom (`LazyVStack`, non `List`) per
+  togliere l'highlight full-size del menu contestuale; padding riga allineato all'header; riordino
+  drag & drop (`moveWorkspace(_:onto:)`); x di chiusura su hover per tab e workspace; conferma di
+  chiusura se nel pty gira un comando in foreground (`tcgetpgrp` vs `shellPid` + safe-list, stato
+  Claude solo per il messaggio); chiudere l'ultima tab chiude il workspace, finestra mai senza
+  workspace. Rename inline di workspace e tab dal menu contestuale. Float in cima (sotto ai pinned)
+  dei workspace con attenzione (`needs_input`/completato) via `orderedWorkspaces` derivato, ordine
+  canonico invariato.
+- **Persistence del layout (M2)**: `LayoutSnapshot` Codable (`WorkspaceModel`) + modulo `LayoutStore`
+  (I/O atomico su `~/.relay/layout.json`, versionato, path iniettato) + `LayoutAutosave`
+  (debounced-live + flush on quit). Restore al boot con pane `unrealized` (surface lazy al focus),
+  demo mode esclusa. Smoke end-to-end save+restore.
+- **Cap LRU sulle surface (M3)**: `SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy` (pura,
+  testabile). Sfratta le meno recenti solo se idle (`hasRunningChildren == false` via
+  `proc_listchildpids`: copre foreground/background/agente), mai la visibile né con lavoro vivo. Cap
+  12, da tarare con le misure (ancora aperte).
+- **Resume assistito Claude**: `ResumeBinding {agent, sessionId, label}` su `Tab`, catturato dagli
+  hook in `applyAgentState` e persistito. Al primo focus di una tab `pendingResume`, la barra
+  `ResumeBar` (Panels, riga vera che spinge giù il terminale) propone il resume; `surface.sendText`
+  inietta `claude --resume <id>`. Setting `autoResumeAgents` (default off) per l'auto-inject lazy.
+  Verificato a mano con Claude reale: il resume funziona, il che valida anche la pipeline
+  hook -> socket -> tab (badge).
+
+### Scelte/gotcha di rilievo
+
+- Chiusura/conferma centralizzate in `AppController` (`requestClose*`), non nello store: policy e
+  presentazione (`NSAlert`) nel composition root; `Cmd+W` e le x passano di lì.
+- LRU eviction è distruttiva con SwiftTerm (teardown = kill PTY): sicura solo su tab senza figli.
+  Meglio sforare il cap che uccidere un processo. La LRU non interseca il resume: una tab con Claude
+  vivo ha figli -> non sfrattabile, quindi il resume serve solo dopo un riavvio.
+- Il wiring della barra di resume vive in `RelayApp` (`RightPaneController`), non in `TerminalHostUI`:
+  il path caldo non dipende da Panels. Resume lazy (al focus, un agente alla volta), non al boot.
+- Resume: si persiste solo sessionId/agent/cwd/label; mai prompt/token/credenziali.
+- Nuovi moduli/target: `LayoutStore` (persistence I/O); test target `LayoutStoreTests` e
+  `TerminalHostUITests`.
+
+`make check` verde lungo tutto il ciclo (fino a 90 test). Prossimo: chiudere le misure di
+performance di M3 (latenza input p99, memoria per surface) per tarare il cap LRU, poi Milestone 4
+(bundle `.app`).
