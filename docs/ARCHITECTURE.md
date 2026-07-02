@@ -425,7 +425,11 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
   visita** della tab (lazy) e viene distrutta quando la tab non esiste più (reconcile via
   `retain(aliveTabIDs)`). Il PTY di una tab non visibile resta vivo.
 - `WorkspaceAreaController` (AppKit) osserva lo store e scambia la view della surface attiva.
-- Non ancora fatto: cap LRU sulle surface vive (ora restano vive tutte le tab visitate).
+- Cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU`, cap in `WorkspaceAreaController`): oltre
+  il cap si sfrattano le meno recenti **solo se idle** (`hasRunningChildren == false`: shell senza
+  figli, copre foreground/background/agente), mai la visibile. Eviction = teardown della surface
+  SwiftTerm: scrollback perso, shell ricreata alla cwd salvata al re-focus. La decisione
+  (`SurfaceEvictionPolicy`) è pura e testabile.
 
 ### Persistence Del Layout
 
@@ -628,11 +632,16 @@ Costruito (Milestone 2, persistence + rename):
   atomico su `~/.relay/layout.json`, versionato) + `LayoutAutosave` (debounced-live + flush on quit);
   restore al boot con pane `unrealized`, demo mode esclusa; smoke test end-to-end save+restore.
 
-Prossimo milestone: **disciplina performance** (cap LRU surface + misure latenza/memoria), vedi
-`docs/ROADMAP.md`.
+Costruito (Milestone 3, in corso):
+
+- cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy` pura, cap in
+  `WorkspaceAreaController`): sfratta le meno recenti solo se idle, mai la visibile né quelle con
+  lavoro vivo. Restano da fare le misure (latenza input p99, memoria per surface) per tarare il cap.
+
+Prossimo: misure di performance (M3) poi bundle `.app` (M4), vedi `docs/ROADMAP.md`.
 
 Da fare dopo:
 
-- cap LRU sulle surface + misure latenza input e memoria a N surface;
+- misure latenza input e memoria a N surface (per tarare il cap LRU);
 - bundle `.app` (notifiche macOS, installer hook distribuibile);
 - split (pane tree dentro una tab), deprioritizzato; dashboard overview.

@@ -12,19 +12,23 @@ import TerminalEngine
 public final class SurfaceRegistry {
     private let engine: TerminalEngine
     private var surfaces: [UUID: TerminalSurfaceHandle] = [:]
+    /// Ordine di accesso per la LRU: primo = più recente. Aggiornato a ogni `surface(for:)`.
+    private var recency: [UUID] = []
     private var theme: RelayTheme = .relayDark
 
     public init(engine: TerminalEngine) {
         self.engine = engine
     }
 
-    /// Ritorna la surface della tab, creandola alla prima chiamata.
+    /// Ritorna la surface della tab, creandola alla prima chiamata. Ogni chiamata segna la tab come
+    /// la più recente (per la LRU).
     public func surface(
         for tabID: UUID,
         cwd: String?,
         onTitle: @escaping (String) -> Void,
         onDirectory: @escaping (String) -> Void
     ) -> TerminalSurfaceHandle {
+        touch(tabID)
         if let existing = surfaces[tabID] { return existing }
         // RELAY_TAB_ID lega la sessione al pane: lo ereditano shell -> agent -> hook, che lo
         // rimanda nell'evento, così il coordinatore sa quale tab aggiornare (nessun parsing
@@ -60,8 +64,37 @@ public final class SurfaceRegistry {
     /// Tiene vive solo le surface delle tab ancora esistenti; fa teardown delle altre.
     public func retain(_ aliveTabIDs: Set<UUID>) {
         for (id, surface) in surfaces where !aliveTabIDs.contains(id) {
-            surface.teardown()
-            surfaces.removeValue(forKey: id)
+            evict(id, surface)
         }
+    }
+
+    /// Applica la LRU: se le surface vive superano il cap, sfratta le meno recenti che non hanno
+    /// lavoro vivo (shell senza figli), mai `keep` (la visibile). Al re-focus la surface rinasce
+    /// lazy alla cwd salvata; lo scrollback della sessione sfrattata è perso. `cap <= 0` disattiva.
+    public func enforceLRU(cap: Int, keep: UUID?) {
+        guard cap > 0, surfaces.count > cap else { return }
+        let toEvict = SurfaceEvictionPolicy.evictions(
+            recency: recency,
+            keep: keep,
+            cap: cap,
+            isEvictable: { self.surfaces[$0]?.hasRunningChildren() == false }
+        )
+        for id in toEvict {
+            guard let surface = surfaces[id] else { continue }
+            evict(id, surface)
+        }
+    }
+
+    /// Segna la tab come la più recente nell'ordine LRU.
+    private func touch(_ tabID: UUID) {
+        recency.removeAll { $0 == tabID }
+        recency.insert(tabID, at: 0)
+    }
+
+    /// Distrugge la surface e la rimuove da mappa e ordine LRU.
+    private func evict(_ tabID: UUID, _ surface: TerminalSurfaceHandle) {
+        surface.teardown()
+        surfaces.removeValue(forKey: tabID)
+        recency.removeAll { $0 == tabID }
     }
 }

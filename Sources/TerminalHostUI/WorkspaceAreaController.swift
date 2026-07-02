@@ -85,7 +85,16 @@ public final class WorkspaceAreaController: NSViewController {
         setTerminal(surface.view)
         surface.start()
         view.window?.makeFirstResponder(surface.view)
+
+        // Cap LRU: dopo aver reso viva la tab corrente, sfratta le surface idle meno recenti oltre
+        // il cap (mai la visibile né quelle con lavoro vivo). Rinascono lazy al re-focus.
+        registry.enforceLRU(cap: Self.liveSurfaceCap, keep: tab.id)
     }
+
+    /// Massimo di surface vive tenute in memoria. Generoso per ora (l'uso tipico è ben sotto):
+    /// bounda la crescita senza sfrattare in condizioni normali. Da tarare con le misure di
+    /// memoria.
+    private static let liveSurfaceCap = 12
 
     /// Respiro attorno al testo del terminale (il container ha lo stesso background del tema,
     /// quindi il padding è aria, non una cornice).

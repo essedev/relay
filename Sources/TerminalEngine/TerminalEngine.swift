@@ -25,6 +25,10 @@ public protocol TerminalSurfaceHandle: AnyObject {
     /// (nessun comando attivo). Usato per chiedere conferma prima di chiudere una tab "occupata".
     /// Confina i tipi dell'engine: espone solo un `String`.
     func foregroundProcessName() -> String?
+    /// `true` se la shell ha processi figli (foreground, background o agente). Segnala che c'è
+    /// lavoro vivo: la surface non va sfrattata dalla LRU (perderebbe quel processo). Più largo di
+    /// `foregroundProcessName` (che vede solo il foreground).
+    func hasRunningChildren() -> Bool
 }
 
 @MainActor

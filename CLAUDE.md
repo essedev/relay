@@ -5,8 +5,8 @@ e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `d
 
 Stato: V0 + **Milestone 1 (agent runtime + badge)** + giro UI/UX (temi, chrome, chiusura con
 conferma + cascade, float per stato) + **Milestone 2 (persistence layout + rename inline
-workspace/tab) fatta**. **Prossimo: Milestone 3 (disciplina performance: cap LRU surface + misure)**
-- vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Claude reale
+workspace/tab)** + **Milestone 3: cap LRU surface fatto**. **Prossimo: misure di performance (M3)
+per tarare il cap** - vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Claude reale
 (`relay-cli hooks setup`, apri l'app, avvia `claude`).
 
 ## Comandi
@@ -36,8 +36,8 @@ workspace/tab) fatta**. **Prossimo: Milestone 3 (disciplina performance: cap LRU
   Puro, niente AppKit. V0: una tab = un terminale (split futuro).
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`).
-- `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy) + `WorkspaceAreaController`
-  (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
+- `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy, cap LRU via `SurfaceEvictionPolicy`
+  pura) + `WorkspaceAreaController` (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
   `SettingsView`. I colori vengono dal tema (`AppSettings.theme`), non hardcoded.
@@ -110,4 +110,9 @@ workspace/tab) fatta**. **Prossimo: Milestone 3 (disciplina performance: cap LRU
   solo dai campi persistiti, quindi gli eventi agente non scatenano scritture. **Demo mode non
   persiste** (non istanzia l'autosave). Restore al boot ricade sul seed default se file
   mancante/corrotto/versione ignota. Bump `LayoutSnapshot.currentVersion` se cambia lo schema.
-- Non ancora fatto: cap LRU sulle surface vive, split, bundle `.app`, dashboard, resume Claude.
+- Cap LRU surface: `SurfaceRegistry.enforceLRU(cap:keep:)` sfratta le meno recenti **solo se idle**
+  (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente), mai la
+  visibile. Eviction = teardown SwiftTerm (scrollback perso, shell ricreata alla cwd al re-focus).
+  Cap in `WorkspaceAreaController` (12, da tarare). Se cambi il criterio di eviction, tienilo
+  conservativo: meglio sforare il cap che uccidere un processo.
+- Non ancora fatto: split, bundle `.app`, dashboard, resume Claude; misure performance (per il cap).

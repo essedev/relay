@@ -130,6 +130,19 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         "zsh", "bash", "sh", "fish", "dash", "login",
     ]
 
+    /// `true` se la shell ha almeno un processo figlio (comando foreground/background o agente).
+    /// `proc_listchildpids` copre tutti i casi: una shell al prompt pulito non ha figli. Guida la
+    /// LRU: mai sfrattare una surface con lavoro vivo.
+    func hasRunningChildren() -> Bool {
+        guard started, terminal.process.running else { return false }
+        let pid = terminal.process.shellPid
+        guard pid > 0 else { return false }
+        let capacity = 64
+        var buffer = [pid_t](repeating: 0, count: capacity)
+        let bytes = proc_listchildpids(pid, &buffer, Int32(capacity * MemoryLayout<pid_t>.size))
+        return bytes > 0
+    }
+
     // MARK: - LocalProcessTerminalViewDelegate (requisiti nonisolated del protocollo SwiftTerm)
 
     nonisolated func sizeChanged(

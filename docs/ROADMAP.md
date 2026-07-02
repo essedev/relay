@@ -109,12 +109,14 @@ Restano aperti (later): scelta del font family, altri temi, import da config Gho
   selezione validata; smoke test end-to-end save+restore.
 - Rimandato: resume opzionale `claude --resume <sessionId>` (fuori da questo giro).
 
-## Milestone 3 - Disciplina performance
+## Milestone 3 - Disciplina performance (in corso)
 
-- Cap LRU sulle surface vive (ora restano vive tutte le tab visitate): tenere visibili + N
-  recenti, distruggere/sospendere le altre (il PTY di una tab con agente attivo resta vivo).
-- Chiudere le misure rimandate contro i budget di `ARCHITECTURE.md`: latenza input p99 e costo
-  memoria incrementale per surface con molte tab.
+- **Fatto**: cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy`
+  pura, cap in `WorkspaceAreaController`). Sfratta le meno recenti solo se idle (shell senza figli:
+  copre foreground/background/agente), mai la visibile; al re-focus la surface rinasce lazy alla cwd
+  salvata (scrollback perso). Cap generoso (12), da tarare con le misure.
+- **Da fare**: chiudere le misure rimandate contro i budget di `ARCHITECTURE.md` (latenza input p99
+  e memoria per surface a molte tab) e tarare il cap.
 
 ## Milestone 4 - Bundle `.app`
 
@@ -129,6 +131,5 @@ Restano aperti (later): scelta del font family, altri temi, import da config Gho
 
 ## Prossima azione
 
-Milestone 3 - disciplina performance: cap LRU sulle surface vive (ora restano vive tutte le tab
-visitate) e chiusura delle misure rimandate (latenza input p99, memoria per surface a molte tab)
-contro i budget di `ARCHITECTURE.md`.
+Milestone 3 - chiudere le misure di performance (latenza input p99, memoria per surface a molte
+tab) contro i budget di `ARCHITECTURE.md`, e con quei numeri tarare il cap LRU (già implementato).
