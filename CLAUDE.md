@@ -5,8 +5,9 @@ e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `d
 
 Stato: V0 + **Milestone 1 (agent runtime + badge)** + giro UI/UX (temi, chrome, chiusura con
 conferma + cascade, float per stato) + **Milestone 2 (persistence layout + rename inline
-workspace/tab)** + **Milestone 3: cap LRU surface fatto**. **Prossimo: misure di performance (M3)
-per tarare il cap** - vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Claude reale
+workspace/tab)** + **Milestone 3: cap LRU surface fatto** + **resume assistito Claude (barra +
+persistenza binding)**. **Prossimo: misure di performance (M3) per tarare il cap** - vedi
+`docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Claude reale
 (`relay-cli hooks setup`, apri l'app, avvia `claude`).
 
 ## Comandi
@@ -40,7 +41,7 @@ per tarare il cap** - vedi `docs/ROADMAP.md`. Resta da verificare a mano il badg
   pura) + `WorkspaceAreaController` (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
-  `SettingsView`. I colori vengono dal tema (`AppSettings.theme`), non hardcoded.
+  `ResumeBar`, `SettingsView`. I colori vengono dal tema (`AppSettings.theme`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
   scrittura atomica. Trasformazioni pure (`merge`/`remove`) separate dall'I/O per i test.
@@ -115,4 +116,11 @@ per tarare il cap** - vedi `docs/ROADMAP.md`. Resta da verificare a mano il badg
   visibile. Eviction = teardown SwiftTerm (scrollback perso, shell ricreata alla cwd al re-focus).
   Cap in `WorkspaceAreaController` (12, da tarare). Se cambi il criterio di eviction, tienilo
   conservativo: meglio sforare il cap che uccidere un processo.
-- Non ancora fatto: split, bundle `.app`, dashboard, resume Claude; misure performance (per il cap).
+- Resume Claude: `ResumeBinding` (agent/sessionId/label) catturato in `applyAgentState` (viva) e
+  azzerato su `unknown`, persistito nel `TabSnapshot`. Al primo focus di una tab `pendingResume`
+  (binding + `agentState==unknown`) `RightPaneController` overlaya `ResumeBar` sul terminale;
+  `Resume` -> `surface.sendText("claude --resume <id>\n")`. Setting `autoResumeAgents` (default off)
+  inietta da solo. **Il wiring della barra vive nel composition root (RelayApp), non in
+  TerminalHostUI**: il path caldo non dipende da Panels. Il resume è **lazy** (al focus), mai in
+  massa al boot.
+- Non ancora fatto: split, bundle `.app`, dashboard; misure performance (per il cap LRU).

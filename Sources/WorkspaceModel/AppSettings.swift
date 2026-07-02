@@ -14,6 +14,9 @@ public final class AppSettings {
     public private(set) var fontSize: Double
     public private(set) var cursorBlink: Bool
     public private(set) var sidebarCollapsed: Bool
+    /// Al re-focus di una tab ripristinata con sessione agente: `true` inietta il resume da solo,
+    /// `false` (default) mostra la barra "Resume". Default prudente: niente comandi automatici.
+    public private(set) var autoResumeAgents: Bool
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -25,6 +28,7 @@ public final class AppSettings {
         // Assente = false = caret fisso: il default di prodotto è niente blink.
         cursorBlink = defaults.bool(forKey: Keys.cursorBlink)
         sidebarCollapsed = defaults.bool(forKey: Keys.sidebarCollapsed)
+        autoResumeAgents = defaults.bool(forKey: Keys.autoResumeAgents)
     }
 
     /// Temi selezionabili (per il picker delle impostazioni).
@@ -70,6 +74,12 @@ public final class AppSettings {
         defaults.set(sidebarCollapsed, forKey: Keys.sidebarCollapsed)
     }
 
+    public func setAutoResumeAgents(_ enabled: Bool) {
+        guard enabled != autoResumeAgents else { return }
+        autoResumeAgents = enabled
+        defaults.set(autoResumeAgents, forKey: Keys.autoResumeAgents)
+    }
+
     private func persist() {
         defaults.set(themeName, forKey: Keys.themeName)
         defaults.set(fontSize, forKey: Keys.fontSize)
@@ -80,5 +90,6 @@ public final class AppSettings {
         static let fontSize = "relay.theme.fontSize"
         static let cursorBlink = "relay.cursor.blink"
         static let sidebarCollapsed = "relay.sidebar.collapsed"
+        static let autoResumeAgents = "relay.agents.autoResume"
     }
 }

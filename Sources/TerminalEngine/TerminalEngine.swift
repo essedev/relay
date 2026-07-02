@@ -29,6 +29,9 @@ public protocol TerminalSurfaceHandle: AnyObject {
     /// lavoro vivo: la surface non va sfrattata dalla LRU (perderebbe quel processo). Più largo di
     /// `foregroundProcessName` (che vede solo il foreground).
     func hasRunningChildren() -> Bool
+    /// Scrive testo nello stdin del processo (come se digitato). Usato per iniettare il comando di
+    /// resume dell'agente al re-focus di una tab ripristinata. No-op se non ancora avviata.
+    func sendText(_ text: String)
 }
 
 @MainActor

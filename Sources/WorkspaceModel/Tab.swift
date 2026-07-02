@@ -26,6 +26,10 @@ public final class Tab: Identifiable {
     /// Timestamp dell'ultimo evento agente applicato.
     public var lastEventAt: Date?
 
+    /// Sessione agente ripristinabile: settata mentre c'è una sessione viva, persistita, usata al
+    /// restore per proporre il resume. `nil` se non c'è (mai stato un agente, o sessione chiusa).
+    public var resume: ResumeBinding?
+
     public init(
         id: UUID = UUID(),
         title: String = Tab.defaultTitle,
@@ -33,7 +37,8 @@ public final class Tab: Identifiable {
         currentDirectory: String? = nil,
         agentState: AgentState = .unknown,
         attention: Bool = false,
-        lastEventAt: Date? = nil
+        lastEventAt: Date? = nil,
+        resume: ResumeBinding? = nil
     ) {
         self.id = id
         self.title = title
@@ -42,5 +47,13 @@ public final class Tab: Identifiable {
         self.agentState = agentState
         self.attention = attention
         self.lastEventAt = lastEventAt
+        self.resume = resume
+    }
+
+    /// C'è una sessione da riprendere e nessuna viva: dopo il restore (`agentState` riparte
+    /// `unknown`) con un binding salvato. Guida la barra di resume; si spegne appena la sessione
+    /// riparte (stato != unknown).
+    public var pendingResume: Bool {
+        resume != nil && agentState == .unknown
     }
 }

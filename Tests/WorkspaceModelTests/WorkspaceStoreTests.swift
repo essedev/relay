@@ -180,6 +180,50 @@ import Testing
     #expect(restored.workspaces[0].tabs[0].agentState == .unknown)
 }
 
+@Test func applyAgentStateCapturesAndClearsResume() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "a")
+    let tab = ws.tabs[0]
+    store.renameTab(tab.id, in: ws, to: "chat")
+
+    store.applyAgentState(
+        paneId: tab.id.uuidString,
+        agent: "claude",
+        sessionId: "s-1",
+        state: .running,
+        at: Date()
+    )
+    #expect(tab.resume == ResumeBinding(agent: "claude", sessionId: "s-1", label: "chat"))
+    #expect(!tab.pendingResume) // sessione viva (running), non pending
+
+    // SessionEnd -> unknown azzera il binding.
+    store.applyAgentState(paneId: tab.id.uuidString, sessionId: "s-1", state: .unknown, at: Date())
+    #expect(tab.resume == nil)
+}
+
+@Test func emptySessionIdDoesNotBind() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "a")
+    let tab = ws.tabs[0]
+
+    store.applyAgentState(paneId: tab.id.uuidString, state: .running, at: Date())
+    #expect(tab.resume == nil) // niente sessionId -> niente binding
+}
+
+@Test func pendingResumeSurvivesRestore() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "a")
+    let binding = ResumeBinding(agent: "claude", sessionId: "s-1", label: "chat")
+    ws.tabs[0].resume = binding
+    // agentState riparte `unknown` di default -> pending.
+    #expect(ws.tabs[0].pendingResume)
+
+    let restored = WorkspaceStore()
+    restored.restore(from: store.snapshot())
+    #expect(restored.workspaces[0].tabs[0].resume == binding)
+    #expect(restored.workspaces[0].tabs[0].pendingResume)
+}
+
 @Test func restoreValidatesSelectionFallback() {
     let store = WorkspaceStore()
     let ws = WorkspaceSnapshot(

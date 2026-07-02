@@ -400,8 +400,8 @@ Stato V0 (in codice, `WorkspaceModel`), `@Observable`:
 ```text
 WorkspaceStore { workspaces: [Workspace], selectedWorkspaceID }
 Workspace      { id, name, rootPath?, pinned, tabs: [Tab], selectedTabID }
-Tab            { id, title, hasCustomTitle, currentDirectory?,        // V0: una tab = un terminale
-                 agentState, attention, lastEventAt }                 // runtime, non persistiti
+Tab            { id, title, hasCustomTitle, currentDirectory?, resume?,  // V0: una tab = terminale
+                 agentState, attention, lastEventAt }                    // runtime, non persistiti
 ```
 
 Futuro (quando servono):
@@ -454,9 +454,21 @@ temporanea). Design:
 
 ### Resume
 
-Si salva solo: `sessionId`, `agent`, `cwd`, comando sanitizzato (`claude --resume <sessionId>`).
+Ripristinare la sessione Claude di una tab dopo un riavvio (il PTY muore, la sessione finisce):
 
-Non si salva mai: prompt utente, token, chiavi, credenziali, payload con contesto sensibile.
+- `ResumeBinding {agent, sessionId, label}` su `Tab`, persistito nel `TabSnapshot`. Catturato da
+  `WorkspaceStore.applyAgentState` (agent + sessionId dagli hook) mentre la sessione è viva, azzerato
+  su `SessionEnd` (`unknown`). `label` = titolo della tab alla cattura: la shell fresca ridipinge il
+  titolo via OSC, il binding lo conserva per la barra.
+- Al restore la tab è `pendingResume` (binding presente + `agentState == unknown`). Al **primo
+  focus** (lazy, un agente alla volta, non un big-bang al boot) `RightPaneController` mostra la barra
+  `ResumeBar` (Panels) overlaid sul terminale: `Resume` inietta `claude --resume <id>` nel PTY
+  (`surface.sendText`), la x scarta. Il setting `autoResumeAgents` (default off) salta la barra e
+  inietta da solo, con un piccolo ritardo per far arrivare la shell al prompt.
+- La LRU non interseca: una tab con Claude vivo ha processi figli -> non è sfrattabile, quindi il
+  resume serve solo dopo un riavvio, non dopo uno sfratto.
+
+Si salva solo: `sessionId`, `agent`, `cwd`, `label`. Mai prompt, token, chiavi, credenziali.
 
 ## Data Flow
 
@@ -631,6 +643,13 @@ Costruito (Milestone 2, persistence + rename):
 - persistence del layout: `LayoutSnapshot` Codable (`WorkspaceModel`) + modulo `LayoutStore` (I/O
   atomico su `~/.relay/layout.json`, versionato) + `LayoutAutosave` (debounced-live + flush on quit);
   restore al boot con pane `unrealized`, demo mode esclusa; smoke test end-to-end save+restore.
+
+Costruito (resume agenti, follow-on M2):
+
+- resume assistito delle sessioni Claude: `ResumeBinding` catturato dagli hook e persistito, barra
+  `ResumeBar` al primo focus della tab ripristinata (o auto-inject col setting `autoResumeAgents`),
+  `surface.sendText` inietta `claude --resume <id>`. Solo sessionId/agent/cwd/label salvati. Vedi
+  #Resume.
 
 Costruito (Milestone 3, in corso):
 

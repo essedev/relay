@@ -59,7 +59,8 @@ public final class WorkspaceStore {
                             id: tab.id,
                             title: tab.title,
                             hasCustomTitle: tab.hasCustomTitle,
-                            currentDirectory: tab.currentDirectory
+                            currentDirectory: tab.currentDirectory,
+                            resume: tab.resume
                         )
                     }
                 )
@@ -77,7 +78,8 @@ public final class WorkspaceStore {
                     id: tab.id,
                     title: tab.title,
                     hasCustomTitle: tab.hasCustomTitle,
-                    currentDirectory: tab.currentDirectory
+                    currentDirectory: tab.currentDirectory,
+                    resume: tab.resume
                 )
             }
             return Workspace(
@@ -196,7 +198,13 @@ public final class WorkspaceStore {
     /// reducer.
     /// Ritorna `false` se `paneId` non è un UUID valido o non corrisponde a nessuna tab (no-op).
     @discardableResult
-    public func applyAgentState(paneId: String, state: AgentState, at timestamp: Date) -> Bool {
+    public func applyAgentState(
+        paneId: String,
+        agent: String = "",
+        sessionId: String = "",
+        state: AgentState,
+        at timestamp: Date
+    ) -> Bool {
         guard let tabID = UUID(uuidString: paneId) else { return false }
         for workspace in workspaces {
             guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
@@ -210,6 +218,13 @@ public final class WorkspaceStore {
             tab.agentState = result.state
             tab.attention = result.attention
             tab.lastEventAt = timestamp
+            // Resume binding: aggiornato finché la sessione è viva, azzerato alla chiusura
+            // (`unknown` = SessionEnd). `sessionId` vuoto (test/simulazioni base) non crea binding.
+            if state == .unknown {
+                tab.resume = nil
+            } else if !sessionId.isEmpty {
+                tab.resume = ResumeBinding(agent: agent, sessionId: sessionId, label: tab.title)
+            }
             return true
         }
         return false

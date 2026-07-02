@@ -48,7 +48,14 @@ final class AgentCoordinator {
         Task { await sessionStore.apply(event) }
 
         // Binding via paneId (= RELAY_TAB_ID = Tab.id). La logica di transizione vive nello store.
+        // Passo agent + sessionId: lo store cattura il binding di resume sulla tab.
         guard let paneId = event.paneId else { return }
-        store.applyAgentState(paneId: paneId, state: event.state, at: event.timestamp)
+        store.applyAgentState(
+            paneId: paneId,
+            agent: event.agent,
+            sessionId: event.sessionId,
+            state: event.state,
+            at: event.timestamp
+        )
     }
 }

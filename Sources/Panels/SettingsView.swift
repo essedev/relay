@@ -127,6 +127,12 @@ public struct SettingsView: View {
                 keywords: ["cursor", "caret", "blink", "terminal"],
                 view: AnyView(cursorBlock(colors))
             ),
+            SettingsBlock(
+                id: "resume",
+                category: .agents,
+                keywords: ["agent", "claude", "resume", "session", "restore", "launch"],
+                view: AnyView(resumeBlock(colors))
+            ),
         ]
     }
 
@@ -196,6 +202,15 @@ public struct SettingsView: View {
         }
     }
 
+    /// On = riprende la sessione da solo al re-focus; off (default) = mostra la barra "Resume".
+    private func resumeBlock(_ colors: ChromeColors) -> some View {
+        row("Auto-resume sessions", colors) {
+            Toggle("", isOn: autoResumeBinding)
+                .toggleStyle(.switch)
+                .labelsHidden()
+        }
+    }
+
     private func row(
         _ title: String,
         _ colors: ChromeColors,
@@ -227,12 +242,17 @@ public struct SettingsView: View {
     private var cursorBlinkBinding: Binding<Bool> {
         Binding(get: { settings.cursorBlink }, set: { settings.setCursorBlink($0) })
     }
+
+    private var autoResumeBinding: Binding<Bool> {
+        Binding(get: { settings.autoResumeAgents }, set: { settings.setAutoResumeAgents($0) })
+    }
 }
 
 /// Categoria di impostazioni (voce nella sidebar del pannello).
 private enum SettingsCategory: String, CaseIterable, Identifiable {
     case appearance
     case terminal
+    case agents
 
     var id: String {
         rawValue
@@ -242,6 +262,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "Appearance"
         case .terminal: "Terminal"
+        case .agents: "Agents"
         }
     }
 
@@ -249,6 +270,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "paintbrush"
         case .terminal: "terminal"
+        case .agents: "sparkles"
         }
     }
 }

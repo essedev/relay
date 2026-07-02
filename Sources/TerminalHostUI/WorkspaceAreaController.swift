@@ -42,6 +42,11 @@ public final class WorkspaceAreaController: NSViewController {
         registry.foregroundProcess(for: tabID)
     }
 
+    /// Inietta testo nella surface della tab (resume dell'agente). Inoltra alla registry.
+    public func sendText(to tabID: UUID, _ text: String) {
+        registry.sendText(to: tabID, text)
+    }
+
     /// Bridge Observation -> AppKit: ri-renderizza quando cambiano le proprietà osservate lette
     /// in `render()`, poi si ri-arma.
     private func observe() {

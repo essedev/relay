@@ -61,6 +61,12 @@ public final class SurfaceRegistry {
         surfaces[tabID]?.foregroundProcessName()
     }
 
+    /// Scrive testo nello stdin della surface della tab (resume dell'agente). No-op se la tab non è
+    /// realizzata.
+    public func sendText(to tabID: UUID, _ text: String) {
+        surfaces[tabID]?.sendText(text)
+    }
+
     /// Tiene vive solo le surface delle tab ancora esistenti; fa teardown delle altre.
     public func retain(_ aliveTabIDs: Set<UUID>) {
         for (id, surface) in surfaces where !aliveTabIDs.contains(id) {

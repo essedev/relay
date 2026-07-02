@@ -107,7 +107,10 @@ Restano aperti (later): scelta del font family, altri temi, import da config Gho
 - Rename inline di workspace e tab dal menu contestuale (rispetta `hasCustomTitle`).
 - Test: round-trip encode/decode, snapshot->restore, file mancante/corrotto/versione ignota,
   selezione validata; smoke test end-to-end save+restore.
-- Rimandato: resume opzionale `claude --resume <sessionId>` (fuori da questo giro).
+- Resume assistito delle sessioni Claude (fatto, follow-on): `ResumeBinding` catturato dagli hook e
+  persistito; al primo focus di una tab ripristinata la barra `ResumeBar` propone il resume (o
+  auto-inject col setting `autoResumeAgents`, default off), che scrive `claude --resume <id>` nel
+  PTY. Lazy (un agente alla volta), non un big-bang al boot.
 
 ## Milestone 3 - Disciplina performance (in corso)
 

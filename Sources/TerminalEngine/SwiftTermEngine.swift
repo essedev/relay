@@ -105,6 +105,13 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal.terminate()
     }
 
+    /// Scrive testo nello stdin del processo (resume dell'agente). `process.send` va al PTY, come
+    /// digitare. No-op se non avviata.
+    func sendText(_ text: String) {
+        guard started, terminal.process.running else { return }
+        terminal.process.send(data: ArraySlice(Array(text.utf8)))
+    }
+
     /// Nome del comando in foreground del pty, `nil` se la shell è al prompt (safe da chiudere).
     /// Meccanica standard dei terminali: `tcgetpgrp` dà il foreground process group del pty; se
     /// coincide con il pid della shell la shell è al prompt, altrimenti gira un comando di cui

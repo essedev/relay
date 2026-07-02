@@ -52,11 +52,19 @@ public struct TabSnapshot: Codable, Equatable {
     public var title: String
     public var hasCustomTitle: Bool
     public var currentDirectory: String?
+    public var resume: ResumeBinding?
 
-    public init(id: UUID, title: String, hasCustomTitle: Bool, currentDirectory: String?) {
+    public init(
+        id: UUID,
+        title: String,
+        hasCustomTitle: Bool,
+        currentDirectory: String?,
+        resume: ResumeBinding? = nil
+    ) {
         self.id = id
         self.title = title
         self.hasCustomTitle = hasCustomTitle
         self.currentDirectory = currentDirectory
+        self.resume = resume
     }
 }
