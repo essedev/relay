@@ -16,6 +16,7 @@ public final class SwiftTermEngine: TerminalEngine {
 @MainActor
 final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTerminalViewDelegate {
     let id = UUID()
+    var onTitleChanged: ((String) -> Void)?
 
     private let terminal: LocalProcessTerminalView
     private let cwd: String?
@@ -37,22 +38,27 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
     func start() {
         guard !started else { return }
         started = true
-        // Nota: cwd per-processo va gestito senza cambiare la cwd globale quando avremo piu'
-        // surface (Fase 2, multi-pane). Per ora la surface singola parte dalla cwd di default.
         let env = Terminal.getEnvironmentVariables(termName: "xterm-256color")
-        terminal.startProcess(executable: shell, environment: env)
+        terminal.startProcess(executable: shell, environment: env, currentDirectory: cwd)
     }
 
-    // MARK: - LocalProcessTerminalViewDelegate
+    func teardown() {
+        guard started else { return }
+        terminal.terminate()
+    }
 
-    /// Requisiti nonisolated del protocollo SwiftTerm. Stub per ora; quando li implementeremo
-    /// (titolo, cwd, stato) faremo l'hop a MainActor con Task { @MainActor in ... }.
+    // MARK: - LocalProcessTerminalViewDelegate (requisiti nonisolated del protocollo SwiftTerm)
+
     nonisolated func sizeChanged(
         source _: LocalProcessTerminalView,
         newCols _: Int,
         newRows _: Int
     ) {}
-    nonisolated func setTerminalTitle(source _: LocalProcessTerminalView, title _: String) {}
+
+    nonisolated func setTerminalTitle(source _: LocalProcessTerminalView, title: String) {
+        Task { @MainActor in self.onTitleChanged?(title) }
+    }
+
     nonisolated func hostCurrentDirectoryUpdate(source _: TerminalView, directory _: String?) {}
     nonisolated func processTerminated(source _: TerminalView, exitCode _: Int32?) {}
 }
