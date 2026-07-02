@@ -2,7 +2,8 @@ import SwiftUI
 import WorkspaceModel
 
 /// Pannello impostazioni (Cmd+,): tema e dimensione font. Le scelte passano per i setter di
-/// `AppSettings`, che validano e persistono in UserDefaults.
+/// `AppSettings`, che validano e persistono in UserDefaults. Dimensione esplicita: hostato in una
+/// NSWindow via NSHostingController, che si dimensiona sul fitting size della view.
 public struct SettingsView: View {
     let settings: AppSettings
 
@@ -11,20 +12,33 @@ public struct SettingsView: View {
     }
 
     public var body: some View {
-        Form {
-            Section("Appearance") {
-                Picker("Theme", selection: themeBinding) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            Text("Appearance")
+                .font(.headline)
+
+            HStack {
+                Text("Theme")
+                Spacer()
+                Picker("", selection: themeBinding) {
                     ForEach(settings.availableThemes, id: \.name) { theme in
                         Text(theme.name).tag(theme.name)
                     }
                 }
-                Stepper(value: fontBinding, in: fontRange, step: 1) {
-                    Text("Font size: \(Int(settings.fontSize)) pt")
-                }
+                .labelsHidden()
+                .frame(width: 160)
             }
+
+            HStack {
+                Text("Font size")
+                Spacer()
+                Stepper("\(Int(settings.fontSize)) pt", value: fontBinding, in: fontRange, step: 1)
+                    .fixedSize()
+            }
+
+            Spacer(minLength: 0)
         }
-        .formStyle(.grouped)
-        .frame(width: 360)
+        .padding(Theme.Spacing.lg)
+        .frame(width: 360, height: 170, alignment: .topLeading)
     }
 
     private var fontRange: ClosedRange<Double> {
