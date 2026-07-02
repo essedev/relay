@@ -63,6 +63,8 @@ public struct SidebarView: View {
             Text(workspace.name)
                 .font(Theme.Typography.item)
                 .lineLimit(1)
+            Spacer(minLength: Theme.Spacing.xs)
+            AgentBadge(kind: .forWorkspace(workspace))
         }
         .padding(.vertical, Theme.Spacing.xxs)
         .contextMenu {

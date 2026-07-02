@@ -14,7 +14,11 @@ che ordine. Dettagli di design in `ARCHITECTURE.md`.
 - Workspace folder-less (`Cmd+N`) e da cartella (`Cmd+O`); `Cmd+T`/`Cmd+W`.
 - Navigazione a due assi via event monitor: `Cmd+1..9` workspace, `Option+1..9` tab.
 
-## Milestone 1 - Agent runtime + badge (prossimo)
+## Milestone 1 - Agent runtime + badge (fatto)
+
+Relay è agent-aware: un evento sul socket aggiorna il badge della tab legata via `RELAY_TAB_ID`,
+senza parsing dell'output. Restano da chiudere a mano solo la verifica GUI live (badge che cambia
+con una sessione Claude reale) e le notifiche macOS vere (richiedono il bundle `.app`, Milestone 4).
 
 Obiettivo: rendere Relay agent-aware. È il differenziatore. Pipeline hook -> stato già validata
 in `terminal-agent-analysis/ourterm-spike` (Cycle 1); qui la si porta nell'app.
@@ -41,14 +45,19 @@ Design (vedi `ARCHITECTURE.md`: Agent Runtime, Local Control API, Aggregazione S
 
 Exit criteria:
 
-- una sessione Claude reale aggiorna il badge della sua tab senza parsing output;
-- il badge del workspace nella sidebar riflette il più severo tra le sue tab;
-- `needs_input` è visibile e si pulisce alla visita;
-- setup/uninstall hook ripetibile e non rompe Otty;
-- `make check` verde, con test su receiver (socket end-to-end) e installer (fixture settings.json).
+- [x] un evento agente aggiorna il badge della sua tab via `paneId`, senza parsing output
+  (transport + apply verificati a test e con l'app viva; conferma visiva con Claude reale a mano);
+- [x] il badge del workspace nella sidebar riflette il più severo tra le sue tab (`AgentSeverity`);
+- [x] `needs_input` è visibile e si pulisce alla visita (reducer + azzeramento in area controller);
+- [x] setup/uninstall hook ripetibile e non rompe Otty (test unit + round-trip su disco);
+- [x] `make check` verde, con test su receiver (socket end-to-end) e installer (fixture settings.json).
 
 Nota: le notifiche macOS vere richiedono il bundle `.app` (Milestone 4). Qui si fanno i badge
 in-app; le notifiche si agganciano dopo il bundle.
+
+Verifica GUI live (da fare quando comodo): `relay-cli hooks setup`, apri Relay, avvia `claude` in
+una tab, e osserva il badge passare a running/needs_input/completed. `relay-cli hooks uninstall` per
+rimuovere.
 
 ## Milestone 2 - Persistence + rename (dogfood-ability)
 
@@ -77,4 +86,5 @@ in-app; le notifiche si agganciano dopo il bundle.
 
 ## Prossima azione
 
-Milestone 1, task 1-2: receiver socket in `AgentRuntime` + binding `RELAY_TAB_ID` per surface.
+Milestone 2 - persistence: snapshot JSON del layout (workspace, tab, cwd, pin, ordine) su disco, con
+restore che lascia i pane `unrealized` finché non c'è focus. Poi rename di workspace/tab.

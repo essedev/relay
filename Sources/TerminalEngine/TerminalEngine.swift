@@ -20,5 +20,8 @@ public protocol TerminalSurfaceHandle: AnyObject {
 
 @MainActor
 public protocol TerminalEngine {
-    func makeSurface(cwd: String?, shell: String?) -> TerminalSurfaceHandle
+    /// Crea una surface. `env` è iniettato nell'ambiente del processo (oltre a quello di default):
+    /// usato per legare la sessione al pane via `RELAY_TAB_ID` (ereditato da shell -> agent ->
+    /// hook).
+    func makeSurface(cwd: String?, shell: String?, env: [String: String]) -> TerminalSurfaceHandle
 }

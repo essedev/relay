@@ -53,6 +53,10 @@ public final class WorkspaceAreaController: NSViewController {
             return
         }
 
+        // Visita: la tab in vista non ha più novità da segnalare. `attention` non è letta qui,
+        // quindi la scrittura aggiorna i badge senza ri-armare questo observe (nessun loop).
+        tab.attention = false
+
         let surface = registry.surface(for: tab.id, cwd: workspace.rootPath) { [weak tab] title in
             guard let tab, !tab.hasCustomTitle else { return }
             tab.title = title

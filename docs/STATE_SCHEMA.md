@@ -7,36 +7,44 @@ aggiornato nello stesso commit di ogni cambiamento a questi formati.
 ## Protocollo Eventi Agente (v1)
 
 Trasporto: Unix domain socket, JSON lines. Fonte autorevole: hook Claude Code.
-Tipi in `Sources/AgentProtocol/`.
+Tipi in `Sources/AgentProtocol/`; trasporto in `Sources/AgentRuntime/`.
 
-Tipi evento (`AgentEventType`):
+**Formato sul filo (v1)**: una riga = un `AgentStateEvent` codificato JSON (date ISO 8601). Non c'è
+ancora un envelope con `type`: in v1 ogni hook mappa a un `agent.state`, quindi il tipo è implicito.
+`AgentEventType` (`agent.session.start/state/notification/resume.set/session.end`) resta definito per
+quando serviranno payload diversi (session lifecycle, resume): allora si introduce l'envelope.
 
-- `agent.session.start`
-- `agent.state`
-- `agent.notification`
-- `agent.resume.set`
-- `agent.session.end`
+Percorso socket: `~/.relay/relay.sock` (override `RELAY_SOCKET`). Il receiver (app) fa da server; il
+CLI (`relay-cli claude-hook`) fa da client. Vedi `RelayRuntimePaths`, `AgentEventReceiver`,
+`AgentEventClient`.
 
 Stati normalizzati (`AgentState`): `running`, `idle`, `needs_input`, `error`, `unknown`.
 
-Mapping Claude -> stato:
+Mapping Claude -> stato (installato in `settings.json` da `ClaudeHookInstaller`):
 
-| Claude event | Stato |
-| --- | --- |
-| `SessionStart` | `idle` |
-| `UserPromptSubmit` | `running` |
-| `PreToolUse` | `running` |
-| `PostToolUse` | `running` |
-| `PermissionRequest` | `needs_input` |
-| `Stop` | `idle` |
+| Claude event | Stato | matcher |
+| --- | --- | --- |
+| `SessionStart` | `idle` | - |
+| `UserPromptSubmit` | `running` | - |
+| `PreToolUse` | `running` | `*` |
+| `PostToolUse` | `running` | `*` |
+| `PermissionRequest` | `needs_input` | - |
+| `Stop` | `idle` | - |
+| `SessionEnd` | `unknown` | - |
 
-Esempio `agent.state` (`AgentStateEvent`):
+Il `matcher` esiste solo per gli eventi tool. `SubagentStop` non è mappato di proposito: lo stop di
+un subagent non è il completamento del pane principale (anti-rumore).
+
+**Binding sessione -> pane**: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'ambiente della surface;
+lo ereditano shell -> agent -> hook, e il CLI lo rimanda come `paneId`. Nessun parsing dell'output.
+
+Esempio `agent.state` (`AgentStateEvent`, esattamente ciò che passa sul socket):
 
 ```json
 {
   "agent": "claude",
   "sessionId": "abc",
-  "paneId": "pane-1",
+  "paneId": "11111111-2222-3333-4444-555555555555",
   "state": "needs_input",
   "source": "hook",
   "confidence": 1,
@@ -44,7 +52,7 @@ Esempio `agent.state` (`AgentStateEvent`):
 }
 ```
 
-Vietato nel payload persistito: prompt utente, token, chiavi, credenziali, contesto sensibile.
+Vietato nel payload: prompt utente, token, chiavi, credenziali, contesto sensibile.
 
 ## Snapshot Di Persistence (layout)
 

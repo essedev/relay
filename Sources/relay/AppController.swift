@@ -8,6 +8,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let log = RelayLog.logger("app")
     private let store = WorkspaceStore()
     private let engine: TerminalEngine = SwiftTermEngine()
+    private lazy var agentCoordinator = AgentCoordinator(store: store)
     private var window: NSWindow!
     private var untitledCount = 0
     private var keyMonitor: Any?
@@ -16,6 +17,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         log.info("relay launched")
         buildMenu()
         installNavigationKeyMonitor()
+        agentCoordinator.start()
         seedIfNeeded()
 
         let split = MainSplitViewController(store: store, engine: engine) { [weak self] in
@@ -38,6 +40,10 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         true
+    }
+
+    func applicationWillTerminate(_: Notification) {
+        agentCoordinator.stop()
     }
 
     private func seedIfNeeded() {

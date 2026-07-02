@@ -42,6 +42,7 @@ public struct TabBarView: View {
     private func tabItem(_ tab: WorkspaceModel.Tab, in workspace: Workspace) -> some View {
         let selected = tab.id == workspace.selectedTabID
         return HStack(spacing: Theme.Spacing.xs) {
+            AgentBadge(kind: .forTab(tab))
             Text(tab.title)
                 .font(Theme.Typography.tab)
                 .lineLimit(1)

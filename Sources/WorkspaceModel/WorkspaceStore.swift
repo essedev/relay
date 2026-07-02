@@ -1,3 +1,4 @@
+import AgentProtocol
 import Foundation
 
 /// Stato dell'app: la lista di workspace e la selezione corrente. Osservabile, guida la sidebar
@@ -89,5 +90,31 @@ public final class WorkspaceStore {
         guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { return }
         tab.title = title
         tab.hasCustomTitle = true
+    }
+
+    // MARK: - Stato agente
+
+    /// Applica un evento agente alla tab identificata da `paneId` (= `RELAY_TAB_ID` = `Tab.id`).
+    /// Lo store calcola `isVisible` (workspace + tab selezionati) e delega la transizione al
+    /// reducer.
+    /// Ritorna `false` se `paneId` non è un UUID valido o non corrisponde a nessuna tab (no-op).
+    @discardableResult
+    public func applyAgentState(paneId: String, state: AgentState, at timestamp: Date) -> Bool {
+        guard let tabID = UUID(uuidString: paneId) else { return false }
+        for workspace in workspaces {
+            guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
+            let isVisible = selectedWorkspaceID == workspace.id && workspace.selectedTabID == tab.id
+            let result = AgentStateReducer.reduce(
+                current: tab.agentState,
+                incoming: state,
+                isVisible: isVisible,
+                currentAttention: tab.attention
+            )
+            tab.agentState = result.state
+            tab.attention = result.attention
+            tab.lastEventAt = timestamp
+            return true
+        }
+        return false
     }
 }

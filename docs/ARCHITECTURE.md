@@ -244,32 +244,29 @@ Mapping Claude v1:
 | `PostToolUse` | `running` |
 | `PermissionRequest` | `needs_input` |
 | `Stop` | `idle` |
+| `SessionEnd` | `unknown` |
 
-Nota: nello spike gli stati usano i nomi Otty (`processing`, `awaiting`, `idle`); nell'app si
-usano i nomi prodotto qui sopra.
+`SubagentStop` non è mappato: lo stop di un subagent non è il completamento del pane. Nomi hook
+confermati sulla doc Claude Code corrente (luglio 2026). Nota: nello spike gli stati usano i nomi
+Otty (`processing`, `awaiting`, `idle`); nell'app si usano i nomi prodotto qui sopra.
 
 ### Local Control API
 
-Trasporto: Unix domain socket, JSON lines. Fallback dev: CLI file-based come in `ourterm-spike`.
+Trasporto: Unix domain socket (`~/.relay/relay.sock`, override `RELAY_SOCKET`), JSON lines. Il
+receiver (app, `AgentEventReceiver`) fa da server; il CLI (`relay-cli claude-hook`,
+`AgentEventClient`) fa da client. Scelta: tutto il trasporto è codice nostro (Swift, testabile),
+lo script hook è solo un thin wrapper - niente `nc`/`jq`/parsing shell.
 
-Eventi v1:
-
-```text
-agent.session.start
-agent.state
-agent.notification
-agent.resume.set
-agent.session.end
-```
-
-Esempio:
+In v1 la riga sul filo è un `AgentStateEvent` codificato JSON (vedi `STATE_SCHEMA.md`): un solo
+tipo effettivo (`agent.state`), quindi nessun envelope `type`. `AgentEventType`
+(`agent.session.start/state/notification/resume.set/session.end`) resta per quando serviranno
+payload diversi; allora si introduce l'envelope.
 
 ```json
 {
-  "type": "agent.state",
   "agent": "claude",
   "sessionId": "abc",
-  "paneId": "pane-1",
+  "paneId": "11111111-2222-3333-4444-555555555555",
   "state": "needs_input",
   "source": "hook",
   "confidence": 1,
@@ -279,21 +276,25 @@ Esempio:
 
 ### Hook Installer
 
-Comandi:
+Comandi (`relay-cli`, implementati in `HookInstaller`):
 
 ```text
-ourterm hooks setup claude
-ourterm hooks uninstall claude
-ourterm hooks status
+relay-cli hooks setup       # installa gli hook Relay in ~/.claude/settings.json
+relay-cli hooks uninstall   # rimuove solo gli hook gestiti da Relay
+relay-cli hooks status      # riporta se sono installati
 ```
 
-Regole:
+Regole (verificate a test):
 
-- non sovrascrivere hook esistenti (convivenza con Otty verificata nel Cycle 1);
-- validare JSON prima e dopo;
-- backup sempre;
-- niente segreti nei log;
-- lo script hook fallisce in silenzio per non rompere Claude.
+- append, non replace: gli hook nostri sono marcati (`RELAY_MANAGED_HOOK=1` nel comando) e si
+  aggiungono agli array esistenti - convivenza con Otty/ourterm preservata;
+- idempotente: setup ripetuto non duplica (rimpiazza i propri entry);
+- uninstall rimuove solo i marcati e ripulisce array/chiavi vuoti;
+- validazione JSON prima e dopo, backup sempre (`.relay-backup-<epoch>`), scrittura atomica;
+- override path via `RELAY_CLAUDE_SETTINGS` (test/automazioni: non tocca il vero `~/.claude`);
+- il CLI dell'hook fallisce in silenzio (exit 0) per non rompere Claude;
+- il path del CLI finisce nei comandi: pre-bundle è `.build/.../relay-cli`, col `.app` sarà nel
+  bundle (Milestone 4).
 
 ## Aggregazione Stati E Badge
 
@@ -495,12 +496,24 @@ Costruito (V0, Cycle 6):
 - workspace folder-less (`Cmd+N`, parte da home) e da cartella (`Cmd+O`); `Cmd+T`/`Cmd+W` tab;
 - navigazione a due assi stile cmux via event monitor: `Cmd+1..9` workspace, `Option+1..9` tab.
 
-Prossimo milestone: **agent runtime + badge** (vedi `docs/ROADMAP.md`). È il differenziatore del
-prodotto e la pipeline hook -> stato è già validata (Cycle 1).
+Costruito (Milestone 1, agent runtime + badge):
+
+- receiver Unix socket + client in `AgentRuntime`; wire = `AgentStateEvent` JSON line;
+- binding `RELAY_TAB_ID` (= `Tab.id`) iniettato per surface, rimandato dall'hook come `paneId`;
+- `relay-cli hooks setup|uninstall|status` (idempotente, backup, convivenza Otty) e
+  `relay-cli claude-hook <state>` (client emit, fail-safe);
+- stato agente su `Tab` (`agentState`, `attention`, `lastEventAt`); reducer puro con anti-rumore;
+  applicazione evento -> tab in `WorkspaceStore.applyAgentState`, orchestrata dal coordinatore
+  (`AgentCoordinator`) nel composition root;
+- badge in tab bar (per tab) e sidebar (workspace, aggregato per severità); `needs_input`/completed
+  si spengono alla visita;
+- test: socket end-to-end, installer (fixture + round-trip su disco), reducer, apply su store;
+  `make check` verde. Validazione GUI live (badge che cambia con Claude reale) da fare a mano.
+
+Prossimo milestone: **persistence + rename** (dogfood-ability), vedi `docs/ROADMAP.md`.
 
 Da fare dopo:
 
-- persistence del layout e resume; rename workspace/tab;
 - cap LRU sulle surface + misure latenza input e memoria a N surface;
-- bundle `.app` (notifiche, installer hook, distribuzione);
+- bundle `.app` (notifiche macOS, installer hook distribuibile);
 - split (pane tree dentro una tab), deprioritizzato; dashboard overview.

@@ -20,7 +20,14 @@ public final class SurfaceRegistry {
         onTitle: @escaping (String) -> Void
     ) -> TerminalSurfaceHandle {
         if let existing = surfaces[tabID] { return existing }
-        let surface = engine.makeSurface(cwd: cwd, shell: nil)
+        // RELAY_TAB_ID lega la sessione al pane: lo ereditano shell -> agent -> hook, che lo
+        // rimanda nell'evento, così il coordinatore sa quale tab aggiornare (nessun parsing
+        // output).
+        let surface = engine.makeSurface(
+            cwd: cwd,
+            shell: nil,
+            env: ["RELAY_TAB_ID": tabID.uuidString]
+        )
         surface.onTitleChanged = onTitle
         surfaces[tabID] = surface
         return surface

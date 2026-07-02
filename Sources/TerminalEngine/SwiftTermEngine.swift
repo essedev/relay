@@ -8,8 +8,12 @@ import SwiftTerm
 public final class SwiftTermEngine: TerminalEngine {
     public init() {}
 
-    public func makeSurface(cwd: String?, shell: String?) -> TerminalSurfaceHandle {
-        SwiftTermSurface(cwd: cwd, shell: shell)
+    public func makeSurface(
+        cwd: String?,
+        shell: String?,
+        env: [String: String]
+    ) -> TerminalSurfaceHandle {
+        SwiftTermSurface(cwd: cwd, shell: shell, env: env)
     }
 }
 
@@ -21,15 +25,17 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
     private let terminal: LocalProcessTerminalView
     private let cwd: String?
     private let shell: String
+    private let extraEnv: [String: String]
     private var started = false
 
     var view: NSView {
         terminal
     }
 
-    init(cwd: String?, shell: String?) {
+    init(cwd: String?, shell: String?, env: [String: String]) {
         self.cwd = cwd
         self.shell = shell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        extraEnv = env
         terminal = LocalProcessTerminalView(frame: .zero)
         super.init()
         terminal.processDelegate = self
@@ -38,7 +44,10 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
     func start() {
         guard !started else { return }
         started = true
-        let env = Terminal.getEnvironmentVariables(termName: "xterm-256color")
+        var env = Terminal.getEnvironmentVariables(termName: "xterm-256color")
+        for (key, value) in extraEnv {
+            env.append("\(key)=\(value)")
+        }
         terminal.startProcess(executable: shell, environment: env, currentDirectory: cwd)
     }
 

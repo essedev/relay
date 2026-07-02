@@ -31,7 +31,10 @@ let package = Package(
 
         // Livello 3: UI (AppKit sul path caldo, SwiftUI nei pannelli isolati).
         .target(name: "TerminalHostUI", dependencies: ["Core", "TerminalEngine", "WorkspaceModel"]),
-        .target(name: "Panels", dependencies: ["Core", "WorkspaceModel", "AgentRuntime"]),
+        .target(
+            name: "Panels",
+            dependencies: ["Core", "AgentProtocol", "WorkspaceModel", "AgentRuntime"]
+        ),
 
         // Eseguibili.
         .executableTarget(
@@ -44,13 +47,15 @@ let package = Package(
         ),
         .executableTarget(
             name: "CLI",
-            dependencies: ["Core", "AgentProtocol", "HookInstaller"],
+            dependencies: ["Core", "AgentProtocol", "AgentRuntime", "HookInstaller"],
             path: "Sources/relay-cli"
         ),
 
         // Test (logica pura, veloce, senza AppKit).
         .testTarget(name: "AgentProtocolTests", dependencies: ["AgentProtocol"]),
         .testTarget(name: "WorkspaceModelTests", dependencies: ["WorkspaceModel", "AgentProtocol"]),
+        .testTarget(name: "AgentRuntimeTests", dependencies: ["AgentRuntime", "AgentProtocol"]),
+        .testTarget(name: "HookInstallerTests", dependencies: ["HookInstaller"]),
     ],
     swiftLanguageModes: [.v6]
 )
