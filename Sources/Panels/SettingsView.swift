@@ -1,11 +1,10 @@
 import SwiftUI
 import WorkspaceModel
 
-/// Pannello impostazioni (Cmd+,). Struttura a categorie (segmented themed, non `TabView` di
-/// sistema) con campo di ricerca che filtra per parole chiave. Ogni impostazione è un "blocco"
-/// dichiarativo (categoria + keywords + vista): unica fonte sia per le categorie sia per la
-/// ricerca,
-/// così aggiungere una voce è una riga sola. Le scelte passano per i setter di `AppSettings`.
+/// Pannello impostazioni (Cmd+,). Layout master-detail: sidebar con ricerca + lista categorie a
+/// sinistra, contenuto a destra. Ogni impostazione è un "blocco" dichiarativo (categoria + keywords
+/// + vista): unica fonte per categorie e ricerca, così aggiungere una voce è una riga. Le scelte
+/// passano per i setter di `AppSettings`.
 public struct SettingsView: View {
     let settings: AppSettings
     @State private var search = ""
@@ -17,73 +16,50 @@ public struct SettingsView: View {
 
     public var body: some View {
         let colors = ChromeColors(settings.theme)
-        VStack(spacing: 0) {
-            searchBar(colors)
+        HStack(spacing: 0) {
+            sidebar(colors)
             Divider()
-            content(colors)
+            detail(colors)
         }
-        .frame(width: 440, height: 330)
+        .frame(width: 580, height: 400)
         .background(colors.background)
     }
 
-    // MARK: - Struttura
+    // MARK: - Sidebar
 
-    @ViewBuilder
-    private func content(_ colors: ChromeColors) -> some View {
-        let blocks = allBlocks(colors)
-        if search.isEmpty {
-            byCategory(blocks, colors)
-        } else {
-            searchResults(blocks, colors)
-        }
-    }
-
-    private func byCategory(_ blocks: [SettingsBlock], _ colors: ChromeColors) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Picker("", selection: $category) {
-                ForEach(SettingsCategory.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(Theme.Spacing.md)
-
+    private func sidebar(_ colors: ChromeColors) -> some View {
+        VStack(spacing: 0) {
+            searchBar(colors)
             Divider()
-            page(blocks.filter { $0.category == category }, colors: colors, empty: nil)
-        }
-    }
-
-    private func searchResults(_ blocks: [SettingsBlock], _ colors: ChromeColors) -> some View {
-        let query = search.lowercased()
-        let matches = blocks.filter { block in block.keywords.contains { $0.contains(query) } }
-        return page(matches, colors: colors, empty: "No settings match \u{201C}\(search)\u{201D}")
-    }
-
-    private func page(
-        _ blocks: [SettingsBlock],
-        colors: ChromeColors,
-        empty: String?
-    ) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                if blocks.isEmpty, let empty {
-                    Text(empty)
-                        .font(Theme.Typography.item)
-                        .foregroundStyle(colors.secondary)
-                } else {
-                    ForEach(blocks) { $0.view }
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(SettingsCategory.allCases) { item in
+                        CategoryRow(
+                            category: item,
+                            selected: category == item && search.isEmpty,
+                            colors: colors,
+                            onSelect: {
+                                category = item
+                                search = ""
+                            }
+                        )
+                    }
                 }
-                Spacer(minLength: 0)
+                .padding(Theme.Spacing.sm)
             }
-            .padding(Theme.Spacing.lg)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 0)
         }
+        .frame(width: 184)
     }
 
     private func searchBar(_ colors: ChromeColors) -> some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "magnifyingglass").foregroundStyle(colors.secondary)
-            TextField("Search settings", text: $search)
+        HStack(spacing: Theme.Spacing.xs) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11))
+                .foregroundStyle(colors.secondary)
+            TextField("Search", text: $search)
                 .textFieldStyle(.plain)
+                .font(Theme.Typography.item)
                 .foregroundStyle(colors.foreground)
             if !search.isEmpty {
                 Button { search = "" } label: {
@@ -94,7 +70,39 @@ public struct SettingsView: View {
             }
         }
         .padding(.horizontal, Theme.Spacing.md)
-        .frame(height: 38)
+        .frame(height: 40)
+    }
+
+    // MARK: - Detail
+
+    private func detail(_ colors: ChromeColors) -> some View {
+        let blocks = allBlocks(colors)
+        let shown: [SettingsBlock]
+        let empty: String?
+        if search.isEmpty {
+            shown = blocks.filter { $0.category == category }
+            empty = nil
+        } else {
+            let query = search.lowercased()
+            shown = blocks.filter { block in block.keywords.contains { $0.contains(query) } }
+            empty = "No settings match \u{201C}\(search)\u{201D}"
+        }
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+                if shown.isEmpty, let empty {
+                    Text(empty)
+                        .font(Theme.Typography.item)
+                        .foregroundStyle(colors.secondary)
+                } else {
+                    ForEach(shown) { $0.view }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Blocchi (unica fonte: categorie + ricerca)
@@ -150,7 +158,7 @@ public struct SettingsView: View {
             ForEach(1 ..< 7, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 3)
                     .fill(Color(theme.ansiColor(index)))
-                    .frame(width: 18, height: 18)
+                    .frame(width: 20, height: 20)
             }
             Spacer()
             Text("Aa")
@@ -221,7 +229,7 @@ public struct SettingsView: View {
     }
 }
 
-/// Categoria di impostazioni (segmented in cima al pannello).
+/// Categoria di impostazioni (voce nella sidebar del pannello).
 private enum SettingsCategory: String, CaseIterable, Identifiable {
     case appearance
     case terminal
@@ -235,6 +243,45 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .appearance: "Appearance"
         case .terminal: "Terminal"
         }
+    }
+
+    var icon: String {
+        switch self {
+        case .appearance: "paintbrush"
+        case .terminal: "terminal"
+        }
+    }
+}
+
+/// Voce categoria nella sidebar, con selezione/hover dal tema (come le righe workspace).
+private struct CategoryRow: View {
+    let category: SettingsCategory
+    let selected: Bool
+    let colors: ChromeColors
+    let onSelect: () -> Void
+
+    @State private var hovered = false
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: category.icon)
+                .font(.system(size: 12))
+                .frame(width: 18)
+                .foregroundStyle(selected ? colors.accent : colors.secondary)
+            Text(category.title)
+                .font(Theme.Typography.item)
+                .foregroundStyle(colors.foreground)
+            Spacer()
+        }
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                .fill(selected ? colors.selection : hovered ? colors.hover : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .onHover { hovered = $0 }
     }
 }
 
