@@ -106,10 +106,20 @@ private struct WorkspaceRow: View {
             Image(systemName: workspace.pinned ? "pin.fill" : "folder")
                 .foregroundStyle(workspace.pinned ? colors.accent : colors.secondary)
                 .font(.system(size: 12))
-            Text(workspace.name)
-                .font(Theme.Typography.item)
-                .foregroundStyle(colors.foreground)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(workspace.name)
+                    .font(Theme.Typography.item)
+                    .foregroundStyle(colors.foreground)
+                    .lineLimit(1)
+                // Cosa succede nella tab selezionata: nome chat Claude (titolo OSC) o cwd.
+                if let subtitle = WindowTitle.workspaceSubtitle(workspace) {
+                    Text(subtitle)
+                        .font(Theme.Typography.subtitle)
+                        .foregroundStyle(colors.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
             Spacer(minLength: Theme.Spacing.xs)
             WorkspaceBadge(workspace: workspace, colors: colors)
         }

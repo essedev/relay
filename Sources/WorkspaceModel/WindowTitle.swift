@@ -20,6 +20,20 @@ public enum WindowTitle {
         return workspace.name
     }
 
+    /// Sottotitolo del workspace in sidebar: cosa sta succedendo nella sua tab selezionata.
+    /// Stessa priorità di `compose`, ma senza ripetere il nome del workspace: `nil` = niente riga.
+    public static func workspaceSubtitle(
+        _ workspace: Workspace,
+        home: String = NSHomeDirectory()
+    ) -> String? {
+        guard let tab = workspace.selectedTab else {
+            return workspace.rootPath.map { abbreviate($0, home: home) }
+        }
+        if tab.title != Tab.defaultTitle { return tab.title }
+        if let directory = tab.currentDirectory { return abbreviate(directory, home: home) }
+        return workspace.rootPath.map { abbreviate($0, home: home) }
+    }
+
     /// `~` al posto della home, come nei prompt.
     static func abbreviate(_ path: String, home: String) -> String {
         guard path.hasPrefix(home) else { return path }

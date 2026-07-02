@@ -63,9 +63,11 @@ public final class WorkspaceAreaController: NSViewController {
         // quindi la scrittura aggiorna i badge senza ri-armare questo observe (nessun loop).
         tab.attention = false
 
+        // La shell parte dalla cwd della tab (ereditata da Cmd+T o nota via OSC 7), fallback
+        // sulla cartella del workspace.
         let surface = registry.surface(
             for: tab.id,
-            cwd: workspace.rootPath,
+            cwd: tab.currentDirectory ?? workspace.rootPath,
             onTitle: { [weak tab] title in
                 guard let tab, !tab.hasCustomTitle else { return }
                 tab.title = title

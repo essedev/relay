@@ -36,3 +36,26 @@ private let home = "/Users/doppia"
     let workspace = Workspace(name: "w", tabs: [tab])
     #expect(WindowTitle.compose(workspace: workspace, tab: tab, home: home) == "/tmp/x")
 }
+
+// MARK: - Sottotitolo workspace (sidebar)
+
+@Test @MainActor func subtitleShowsSelectedTabTitle() {
+    let tab = Tab(title: "Fix login flow", currentDirectory: "\(home)/dev")
+    let workspace = Workspace(name: "w", rootPath: home, tabs: [tab])
+    #expect(WindowTitle.workspaceSubtitle(workspace, home: home) == "Fix login flow")
+}
+
+@Test @MainActor func subtitleFallsBackToCwdThenRoot() {
+    let withCwd = Workspace(
+        name: "w",
+        rootPath: home,
+        tabs: [Tab(currentDirectory: "\(home)/dev/relay")]
+    )
+    #expect(WindowTitle.workspaceSubtitle(withCwd, home: home) == "~/dev/relay")
+
+    let bare = Workspace(name: "w", rootPath: "\(home)/proj", tabs: [Tab()])
+    #expect(WindowTitle.workspaceSubtitle(bare, home: home) == "~/proj")
+
+    let empty = Workspace(name: "w", tabs: [Tab()])
+    #expect(WindowTitle.workspaceSubtitle(empty, home: home) == nil)
+}

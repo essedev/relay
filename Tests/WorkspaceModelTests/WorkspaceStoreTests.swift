@@ -21,6 +21,20 @@ import Testing
     #expect(ws.selectedTabID == tab.id)
 }
 
+@Test func addTabInheritsCurrentDirectoryFromSelectedTab() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "api")
+    ws.tabs[0].currentDirectory = "/Users/doppia/dev/relay"
+
+    let tab = store.addTab(to: ws)
+    #expect(tab.currentDirectory == "/Users/doppia/dev/relay")
+
+    // Senza cwd nota, la nuova tab non ne inventa una (fallback al rootPath a runtime).
+    let bare = store.createWorkspace(name: "other")
+    let bareTab = store.addTab(to: bare)
+    #expect(bareTab.currentDirectory == nil)
+}
+
 @Test func closeSelectedTabSelectsNeighbor() {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "api")
