@@ -14,7 +14,27 @@ private func freshDefaults() -> UserDefaults {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(settings.themeName == "Relay Dark")
     #expect(settings.theme.name == "Relay Dark")
-    #expect(settings.availableThemes.count == 2)
+    #expect(settings.availableThemes.count == 6)
+}
+
+@MainActor @Test func fontNameDefaultsToSystemAndOverridesTheme() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.fontName == nil)
+    #expect(settings.theme.fontName == nil) // monospace di sistema
+    settings.setFontName("Menlo")
+    #expect(settings.fontName == "Menlo")
+    #expect(settings.theme.fontName == "Menlo")
+}
+
+@MainActor @Test func fontNameNormalizesEmptyToNil() {
+    let settings = AppSettings(defaults: freshDefaults())
+    settings.setFontName("Menlo")
+    settings.setFontName("   ")
+    #expect(settings.fontName == nil)
+    settings.setFontName("Monaco")
+    settings.setFontName(nil)
+    #expect(settings.fontName == nil)
+    #expect(settings.theme.fontName == nil)
 }
 
 @MainActor @Test func fontSizeClampsAndReflectsInTheme() {
@@ -58,9 +78,11 @@ private func freshDefaults() -> UserDefaults {
     first.selectTheme("Relay Light")
     first.setFontSize(18)
     first.setCursorBlink(true)
+    first.setFontName("Menlo")
 
     let second = AppSettings(defaults: defaults)
     #expect(second.themeName == "Relay Light")
     #expect(second.fontSize == 18)
     #expect(second.cursorBlink)
+    #expect(second.fontName == "Menlo")
 }

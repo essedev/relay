@@ -1,3 +1,4 @@
+import Core
 import SwiftUI
 import WorkspaceModel
 
@@ -118,7 +119,7 @@ public struct SettingsView: View {
             SettingsBlock(
                 id: "font",
                 category: .appearance,
-                keywords: ["font", "size", "text", "zoom"],
+                keywords: ["font", "family", "typeface", "monospace", "size", "text", "zoom"],
                 view: AnyView(fontBlock(colors))
             ),
             SettingsBlock(
@@ -141,56 +142,42 @@ public struct SettingsView: View {
             Text("Theme")
                 .font(Theme.Typography.title)
                 .foregroundStyle(colors.foreground)
-            Picker("Theme", selection: themeBinding) {
+            // Lista selezionabile (scala oltre i due temi, il segmented no), ogni riga anteprima la
+            // sua palette.
+            VStack(spacing: 3) {
                 ForEach(settings.availableThemes, id: \.name) { theme in
-                    Text(theme.name).tag(theme.name)
+                    ThemeRow(
+                        theme: theme,
+                        selected: theme.name == settings.themeName,
+                        chrome: colors,
+                        onSelect: { settings.selectTheme(theme.name) }
+                    )
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            Text("PREVIEW")
-                .font(Theme.Typography.caption)
-                .foregroundStyle(colors.secondary)
-                .padding(.top, Theme.Spacing.xs)
-            palettePreview
-        }
-    }
-
-    /// Anteprima (sola lettura) della palette del tema selezionato: gli ANSI 1-6 e un campione di
-    /// testo su sfondo del tema. Non è un controllo, mostra soltanto com'è il tema.
-    private var palettePreview: some View {
-        let theme = settings.theme
-        return HStack(spacing: Theme.Spacing.xs) {
-            ForEach(1 ..< 7, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color(theme.ansiColor(index)))
-                    .frame(width: 20, height: 20)
-            }
-            Spacer()
-            Text("Aa")
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color(theme.foreground))
-                .padding(.horizontal, Theme.Spacing.sm)
-                .padding(.vertical, Theme.Spacing.xxs)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(theme.background))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .strokeBorder(Color(theme.selection), lineWidth: 1)
-                        )
-                )
         }
     }
 
     private func fontBlock(_ colors: ChromeColors) -> some View {
-        row("Font size", colors) {
-            Stepper(value: fontBinding, in: fontRange, step: 1) {
-                Text("\(Int(settings.fontSize)) pt")
-                    .font(Theme.Typography.item.monospacedDigit())
-                    .foregroundStyle(colors.foreground)
+        VStack(spacing: Theme.Spacing.md) {
+            row("Font family", colors) {
+                Picker("", selection: fontFamilyBinding) {
+                    Text("System").tag(Self.systemFontTag)
+                    ForEach(MonospaceFonts.families, id: \.self) { family in
+                        Text(family).tag(family)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
             }
-            .fixedSize()
+            row("Font size", colors) {
+                Stepper(value: fontBinding, in: fontRange, step: 1) {
+                    Text("\(Int(settings.fontSize)) pt")
+                        .font(Theme.Typography.item.monospacedDigit())
+                        .foregroundStyle(colors.foreground)
+                }
+                .fixedSize()
+            }
         }
     }
 
@@ -231,12 +218,19 @@ public struct SettingsView: View {
         AppSettings.minFontSize ... AppSettings.maxFontSize
     }
 
-    private var themeBinding: Binding<String> {
-        Binding(get: { settings.themeName }, set: { settings.selectTheme($0) })
-    }
-
     private var fontBinding: Binding<Double> {
         Binding(get: { settings.fontSize }, set: { settings.setFontSize($0) })
+    }
+
+    /// Tag sentinella per il monospace di sistema (`fontName == nil`): SwiftUI Picker non gestisce
+    /// bene i tag opzionali, quindi mappiamo nil a questa stringa al confine del binding.
+    private static let systemFontTag = "__system__"
+
+    private var fontFamilyBinding: Binding<String> {
+        Binding(
+            get: { settings.fontName ?? Self.systemFontTag },
+            set: { settings.setFontName($0 == Self.systemFontTag ? nil : $0) }
+        )
     }
 
     private var cursorBlinkBinding: Binding<Bool> {
@@ -304,6 +298,56 @@ private struct CategoryRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover { hovered = $0 }
+    }
+}
+
+/// Riga di scelta tema: nome + anteprima della palette del tema stesso (sfondo + qualche ANSI),
+/// con selezione/hover dal tema corrente. Cliccare seleziona.
+private struct ThemeRow: View {
+    let theme: RelayTheme
+    let selected: Bool
+    let chrome: ChromeColors
+    let onSelect: () -> Void
+
+    @State private var hovered = false
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 12))
+                .foregroundStyle(selected ? chrome.accent : chrome.secondary.opacity(0.4))
+            Text(theme.name)
+                .font(Theme.Typography.item)
+                .foregroundStyle(chrome.foreground)
+            Spacer()
+            swatches
+        }
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                .fill(selected ? chrome.selection : hovered ? chrome.hover : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .onHover { hovered = $0 }
+    }
+
+    /// Campioni ANSI (rosso, verde, blu, magenta) su sfondo del tema: mostra com'è davvero.
+    private var swatches: some View {
+        HStack(spacing: 3) {
+            ForEach([1, 2, 4, 5], id: \.self) { index in
+                Circle()
+                    .fill(Color(theme.ansiColor(index)))
+                    .frame(width: 10, height: 10)
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 4).fill(Color(theme.background)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4).strokeBorder(Color(theme.selection), lineWidth: 1)
+        )
     }
 }
 

@@ -20,8 +20,26 @@ import Testing
     }
 }
 
-@Test func registryHasDarkAndLight() {
-    #expect(RelayTheme.all.map(\.name) == ["Relay Dark", "Relay Light"])
+@Test func registryListsAllThemesInOrder() {
+    #expect(RelayTheme.all.map(\.name) == [
+        "Relay Dark", "Solarized Dark", "Gruvbox Dark",
+        "Relay Light", "Solarized Light", "Gruvbox Light",
+    ])
+}
+
+@Test func themeNamesAreUnique() {
+    let names = RelayTheme.all.map(\.name)
+    #expect(Set(names).count == names.count)
+}
+
+@Test func darkThemesReadAsDarkAndLightAsLight() {
+    // isDark guida l'appearance della finestra: i due gruppi devono classificarsi correttamente.
+    for name in ["Relay Dark", "Solarized Dark", "Gruvbox Dark"] {
+        #expect(RelayTheme.all.first { $0.name == name }?.isDark == true)
+    }
+    for name in ["Relay Light", "Solarized Light", "Gruvbox Light"] {
+        #expect(RelayTheme.all.first { $0.name == name }?.isDark == false)
+    }
 }
 
 @Test func withFontSizeChangesOnlySize() {

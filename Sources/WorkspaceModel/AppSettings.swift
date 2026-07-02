@@ -12,6 +12,9 @@ public final class AppSettings {
 
     public private(set) var themeName: String
     public private(set) var fontSize: Double
+    /// Font family del terminale; `nil` = monospace di sistema (SF Mono). Sovrascrive il `fontName`
+    /// del tema, come `fontSize`.
+    public private(set) var fontName: String?
     public private(set) var cursorBlink: Bool
     public private(set) var sidebarCollapsed: Bool
     /// Al re-focus di una tab ripristinata con sessione agente: `true` inietta il resume da solo,
@@ -25,6 +28,7 @@ public final class AppSettings {
         themeName = defaults.string(forKey: Keys.themeName) ?? RelayTheme.relayDark.name
         let savedSize = defaults.double(forKey: Keys.fontSize)
         fontSize = savedSize == 0 ? RelayTheme.relayDark.fontSize : savedSize
+        fontName = defaults.string(forKey: Keys.fontName)
         // Assente = false = caret fisso: il default di prodotto è niente blink.
         cursorBlink = defaults.bool(forKey: Keys.cursorBlink)
         sidebarCollapsed = defaults.bool(forKey: Keys.sidebarCollapsed)
@@ -36,10 +40,10 @@ public final class AppSettings {
         RelayTheme.all
     }
 
-    /// Tema effettivo: quello scelto, con font e blink del caret correnti sovrapposti.
+    /// Tema effettivo: quello scelto, con font family/size e blink del caret correnti sovrapposti.
     public var theme: RelayTheme {
         let base = RelayTheme.all.first { $0.name == themeName } ?? .relayDark
-        return base.withFontSize(fontSize).withCursorBlink(cursorBlink)
+        return base.withFontSize(fontSize).withCursorBlink(cursorBlink).withFontName(fontName)
     }
 
     public func selectTheme(_ name: String) {
@@ -61,6 +65,19 @@ public final class AppSettings {
 
     public func resetFontSize() {
         setFontSize(RelayTheme.relayDark.fontSize)
+    }
+
+    /// Sceglie il font family del terminale; `nil` (o vuoto) torna al monospace di sistema.
+    public func setFontName(_ name: String?) {
+        let normalized = name?.trimmingCharacters(in: .whitespaces)
+        let value = (normalized?.isEmpty ?? true) ? nil : normalized
+        guard value != fontName else { return }
+        fontName = value
+        if let value {
+            defaults.set(value, forKey: Keys.fontName)
+        } else {
+            defaults.removeObject(forKey: Keys.fontName)
+        }
     }
 
     public func setCursorBlink(_ enabled: Bool) {
@@ -88,6 +105,7 @@ public final class AppSettings {
     private enum Keys {
         static let themeName = "relay.theme.name"
         static let fontSize = "relay.theme.fontSize"
+        static let fontName = "relay.theme.fontName"
         static let cursorBlink = "relay.cursor.blink"
         static let sidebarCollapsed = "relay.sidebar.collapsed"
         static let autoResumeAgents = "relay.agents.autoResume"
