@@ -1,3 +1,4 @@
+import AgentProtocol
 import AppKit
 import Core
 import Panels
@@ -13,6 +14,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let engine: TerminalEngine = SwiftTermEngine()
     private lazy var agentCoordinator = AgentCoordinator(store: store)
     private var window: NSWindow!
+    private var splitVC: MainSplitViewController!
     private var settingsWindow: NSWindow?
     private var untitledCount = 0
     private var keyMonitor: Any?
@@ -30,8 +32,11 @@ final class AppController: NSObject, NSApplicationDelegate {
             store: store,
             settings: settings,
             engine: engine,
-            onNewWorkspace: onNewWorkspace
+            onNewWorkspace: onNewWorkspace,
+            onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
+            onCloseTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) }
         )
+        splitVC = split
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 700),
@@ -211,8 +216,8 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     @objc func closeCurrentTab(_: Any?) {
         guard let workspace = store.selectedWorkspace,
-              let tabID = workspace.selectedTabID else { return }
-        store.closeTab(tabID, in: workspace)
+              let tab = workspace.selectedTab else { return }
+        requestCloseTab(tab, in: workspace)
     }
 
     /// Cmd+1..9: seleziona il workspace all'indice (tag 0-based).
@@ -263,5 +268,94 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func buildMenu() {
         NSApp.mainMenu = MainMenuBuilder.build(target: self)
+    }
+}
+
+// MARK: - Chiusura con conferma
+
+/// Chiusura di tab e workspace con conferma quando c'è lavoro in corso. Vive in extension per
+/// tenere il corpo di `AppController` sul solo wiring: la policy (quando chiedere) e la
+/// presentazione (l'alert) stanno qui.
+extension AppController {
+    /// Chiude una tab, chiedendo conferma se nel suo pty gira un comando in foreground (build,
+    /// ssh, Claude...). Shell al prompt o tab mai realizzata -> chiude subito. Lo stato agente
+    /// arricchisce solo il messaggio. Chiudere l'ultima tab chiude il workspace (cascade nello
+    /// store): quel caso è già coperto dalla conferma della tab, niente doppio prompt.
+    func requestCloseTab(_ tab: WorkspaceModel.Tab, in workspace: Workspace) {
+        guard let process = splitVC.foregroundProcess(for: tab.id) else {
+            performCloseTab(tab, in: workspace)
+            return
+        }
+        confirmClose(
+            title: "Chiudere la tab «\(tab.title)»?",
+            info: closeInfo(process: process, agentState: tab.agentState)
+        ) { [weak self] in
+            self?.performCloseTab(tab, in: workspace)
+        }
+    }
+
+    /// Chiude un workspace, chiedendo conferma se una qualsiasi delle sue tab ha un comando in
+    /// foreground.
+    func requestCloseWorkspace(_ workspace: Workspace) {
+        let busy = workspace.tabs.filter { splitVC.foregroundProcess(for: $0.id) != nil }
+        guard !busy.isEmpty else {
+            performCloseWorkspace(workspace)
+            return
+        }
+        let info = busy.count == 1
+            ? "1 tab ha un processo in esecuzione, che verrà terminato."
+            : "\(busy.count) tab hanno processi in esecuzione, che verranno terminati."
+        confirmClose(
+            title: "Chiudere il workspace «\(workspace.name)»?",
+            info: info
+        ) { [weak self] in
+            self?.performCloseWorkspace(workspace)
+        }
+    }
+
+    /// Esegue la chiusura effettiva, poi ripristina l'invariante "almeno un workspace": chiudere
+    /// l'ultima tab (cascade sul workspace) o l'ultimo workspace ne apre subito uno default, così
+    /// la finestra non resta mai vuota.
+    private func performCloseTab(_ tab: WorkspaceModel.Tab, in workspace: Workspace) {
+        store.closeTab(tab.id, in: workspace)
+        ensureAtLeastOneWorkspace()
+    }
+
+    private func performCloseWorkspace(_ workspace: Workspace) {
+        store.closeWorkspace(workspace.id)
+        ensureAtLeastOneWorkspace()
+    }
+
+    private func ensureAtLeastOneWorkspace() {
+        if store.workspaces.isEmpty { createUntitledWorkspace() }
+    }
+
+    /// Messaggio della conferma: privilegia lo stato Claude quando l'agente è attivo, altrimenti
+    /// nomina il processo generico in esecuzione.
+    private func closeInfo(process: String, agentState: AgentState) -> String {
+        switch agentState {
+        case .running:
+            "Claude sta lavorando in questa tab. Chiudendo, la sessione verrà interrotta."
+        case .needsInput:
+            "Claude sta aspettando una tua risposta. Chiudendo, la sessione verrà interrotta."
+        default:
+            "«\(process)» è in esecuzione. Chiudendo la tab il processo verrà terminato."
+        }
+    }
+
+    /// Alert di conferma come sheet sulla finestra. Default sicuro: Invio annulla (non chiude).
+    private func confirmClose(title: String, info: String, onConfirm: @escaping () -> Void) {
+        guard let window else { onConfirm(); return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = info
+        let closeButton = alert.addButton(withTitle: "Chiudi")
+        let cancelButton = alert.addButton(withTitle: "Annulla")
+        closeButton.keyEquivalent = "" // Invio non deve chiudere per errore
+        cancelButton.keyEquivalent = "\r"
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn { onConfirm() }
+        }
     }
 }

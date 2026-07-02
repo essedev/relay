@@ -84,6 +84,16 @@ terminale, doppio click sulla strip = zoom.
 **Badge e navigazione**: contatore sul badge workspace quando ≥2 tab condividono lo stato più
 severo; `Cmd+T` eredita la cwd corrente della tab attiva.
 
+**Interazione sidebar/tab e chiusura**: lista workspace custom (`LazyVStack`, non `List`) per
+togliere l'highlight full-size del menu contestuale, padding riga allineato all'header, riordino via
+drag & drop, x di chiusura su hover per tab e workspace, rename inline del workspace dal menu
+contestuale (`TextField` in riga: commit su Invio/blur, Esc annulla, path sotto sempre visibile). I
+workspace con attenzione (`needs_input` o completato-non-visto) galleggiano in cima, sotto ai pinned
+(`orderedWorkspaces` derivato dallo stato, ordine canonico dello store invariato). Chiudere una
+tab/workspace chiede conferma se nel pty gira un comando in foreground (`tcgetpgrp` + safe-list shell,
+stato Claude solo per il messaggio); chiudere l'ultima tab chiude il workspace, e la finestra non
+resta mai senza workspace (se ne riapre uno default).
+
 **Tooling di test** (entrambi sul socket reale): `relay-cli simulate [coding|permission|burst]`
 dentro una tab, e `relay --demo NxM` per popolare l'app con sessioni concorrenti simulate.
 
@@ -91,9 +101,10 @@ Restano aperti (later): scelta del font family, altri temi, import da config Gho
 
 ## Milestone 2 - Persistence + rename (dogfood-ability)
 
-- Salvare/ripristinare il layout (workspace, tab, cwd, pin, ordine) su disco (snapshot JSON).
+- Salvare/ripristinare il layout (workspace, tab, cwd, pin, ordine, nomi) su disco (snapshot JSON).
   Al restore i pane nascono `unrealized`; la surface nasce al primo focus.
-- Rename di workspace e tab (doppio click -> TextField), rispettando `hasCustomTitle`.
+- Rename delle tab (inline, rispettando `hasCustomTitle`). Rename del workspace già fatto (menu
+  contestuale, inline).
 - Resume opzionale: `claude --resume <sessionId>` quando sicuro (dopo Milestone 1).
 
 ## Milestone 3 - Disciplina performance

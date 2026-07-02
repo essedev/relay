@@ -11,16 +11,23 @@ final class RightPaneController: NSViewController {
     private let store: WorkspaceStore
     private let settings: AppSettings
     private let engine: TerminalEngine
+    private let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
     private lazy var area = WorkspaceAreaController(
         store: store,
         engine: engine,
         settings: settings
     )
 
-    init(store: WorkspaceStore, settings: AppSettings, engine: TerminalEngine) {
+    init(
+        store: WorkspaceStore,
+        settings: AppSettings,
+        engine: TerminalEngine,
+        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void
+    ) {
         self.store = store
         self.settings = settings
         self.engine = engine
+        self.onCloseTab = onCloseTab
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -31,6 +38,11 @@ final class RightPaneController: NSViewController {
 
     override func loadView() {
         view = NSView()
+    }
+
+    /// Inoltra la query "processo in foreground" della tab all'area (registry delle surface).
+    func foregroundProcess(for tabID: UUID) -> String? {
+        area.foregroundProcess(for: tabID)
     }
 
     override func viewDidLoad() {
@@ -50,7 +62,9 @@ final class RightPaneController: NSViewController {
         // SwiftUI applicherebbe la safe area della title bar spingendo il contenuto in basso.
         titleBar.safeAreaRegions = []
 
-        let tabBar = NSHostingView(rootView: TabBarView(store: store, settings: settings))
+        let tabBar = NSHostingView(
+            rootView: TabBarView(store: store, settings: settings, onCloseTab: onCloseTab)
+        )
         tabBar.translatesAutoresizingMaskIntoConstraints = false
         tabBar.safeAreaRegions = []
 

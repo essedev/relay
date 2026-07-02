@@ -30,6 +30,16 @@ public final class WorkspaceStore {
         workspaces.filter { !$0.pinned }
     }
 
+    /// Ordine di visualizzazione: pinned (ordine manuale), poi i workspace con attenzione
+    /// (`needs_input`/completato), poi il resto. Partizione stabile: dentro ogni gruppo resta
+    /// l'ordine canonico di `workspaces`; il float è solo derivato dallo stato live (drag e
+    /// persistence agiscono sull'ordine canonico).
+    public var orderedWorkspaces: [Workspace] {
+        let pinned = workspaces.filter(\.pinned)
+        let rest = workspaces.filter { !$0.pinned }
+        return pinned + rest.filter(\.needsAttention) + rest.filter { !$0.needsAttention }
+    }
+
     // MARK: - Workspace
 
     @discardableResult
@@ -51,6 +61,14 @@ public final class WorkspaceStore {
         workspace.pinned.toggle()
     }
 
+    /// Rinomina un workspace. Nome vuoto (solo spazi) ignorato: si tiene quello vecchio.
+    public func renameWorkspace(_ id: UUID, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let workspace = workspaces.first(where: { $0.id == id }) else { return }
+        workspace.name = trimmed
+    }
+
     /// Rimuove un workspace. Ritorna gli id delle tab rimosse (per il teardown delle surface).
     @discardableResult
     public func closeWorkspace(_ id: UUID) -> [UUID] {
@@ -66,6 +84,19 @@ public final class WorkspaceStore {
 
     public func moveWorkspaces(fromOffsets: IndexSet, toOffset: Int) {
         workspaces.moveElements(fromOffsets: fromOffsets, toOffset: toOffset)
+    }
+
+    /// Sposta il workspace `id` nella posizione corrente di `targetID` (drag & drop nella sidebar):
+    /// il target e i successivi scorrono. No-op se un id non esiste o coincidono.
+    public func moveWorkspace(_ id: UUID, onto targetID: UUID) {
+        guard id != targetID,
+              let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
+        let moved = workspaces.remove(at: from)
+        guard let to = workspaces.firstIndex(where: { $0.id == targetID }) else {
+            workspaces.append(moved)
+            return
+        }
+        workspaces.insert(moved, at: to)
     }
 
     // MARK: - Tab
@@ -84,9 +115,15 @@ public final class WorkspaceStore {
     }
 
     /// Chiude una tab. Ritorna l'id rimosso (per il teardown della surface).
+    /// Chiudere l'ultima tab di un workspace chiude anche il workspace (cascade): un progetto
+    /// senza terminali non ha senso di esistere.
     @discardableResult
     public func closeTab(_ tabID: UUID, in workspace: Workspace) -> UUID? {
-        workspace.removeTab(tabID)
+        let removed = workspace.removeTab(tabID)
+        if removed != nil, workspace.tabs.isEmpty {
+            closeWorkspace(workspace.id)
+        }
+        return removed
     }
 
     public func renameTab(_ tabID: UUID, in workspace: Workspace, to title: String) {

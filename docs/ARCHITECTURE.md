@@ -209,8 +209,25 @@ ricrea al focus (la policy resta la stessa, cambia solo il meccanismo).
 - **Futuro: libghostty**, quando esce una C API embeddabile stabile (oggi internal-only/alpha,
   vedi Cycle 5). Rendering GPU superiore.
 - Entrambi dietro `TerminalEngine`, che espone un'interfaccia sottile: crea/distruggi surface,
-  scrivi input, leggi dimensioni/titolo/cwd, notifica output/bell/OSC. Il resto dell'app non
-  sa quale engine c'è sotto. Questo rende la migrazione un update localizzato, non un rewrite.
+  scrivi input, leggi dimensioni/titolo/cwd e il processo in foreground del pty, notifica
+  output/bell/OSC. Il resto dell'app non sa quale engine c'è sotto. Questo rende la migrazione un
+  update localizzato, non un rewrite.
+
+### Chiusura E Conferma
+
+Chiudere una tab o un workspace passa dal composition root (`AppController.requestClose*`), non
+direttamente dallo store: lì vive la policy. Prima di chiudere si guarda se nel pty gira un comando
+in foreground (`TerminalSurfaceHandle.foregroundProcessName()`: `tcgetpgrp` del pty confrontato col
+pid della shell, con safe-list per le shell interattive); se sì si conferma con un `NSAlert` sheet,
+altrimenti si chiude subito. Il gate è **il processo**, non l'agente: vale anche per build, ssh,
+editor, non solo Claude. Lo stato agente (`running`/`needs_input`) serve solo ad arricchire il
+messaggio. Tradeoff accettato: solo foreground - i job in background (`&`, dietro tmux) non contano;
+prenderli richiederebbe enumerare i discendenti della shell (più costoso, più falsi positivi).
+
+Invarianti: chiudere l'ultima tab di un workspace chiude il workspace (cascade in `closeTab`);
+chiudere l'ultimo workspace ne riapre uno default (la finestra non resta mai senza workspace). Il
+teardown delle surface resta reattivo (reconcile via `retain` in `WorkspaceAreaController`), non
+esplicito nel percorso di chiusura.
 
 ## Tema (Design System)
 
@@ -572,6 +589,12 @@ Costruito (UI/UX e tooling, fuori milestone):
 - chrome full-size content view: appearance che segue il tema, titolo contestuale centrato sul body
   (`WindowTitle`/OSC 7), toggle sidebar (`Cmd+B`) come overlay che insegue il bordo della sidebar,
   sottotitolo per workspace, `Cmd+T` che eredita la cwd corrente;
+- interazione e chiusura: lista workspace custom (`LazyVStack`, no highlight di sistema sul menu
+  contestuale), padding riga allineato all'header, riordino drag & drop, x di chiusura su hover per
+  tab e workspace, rename inline del workspace dal menu contestuale; float in cima (sotto ai pinned)
+  dei workspace con attenzione (`needs_input`/completato) via `orderedWorkspaces` derivato, ordine
+  canonico invariato; conferma di chiusura se nel pty gira un comando in foreground; ultima tab
+  chiude il workspace, ultimo workspace ne riapre uno default;
 - tooling di test: `relay-cli simulate` e `relay --demo NxM`, entrambi sul socket reale.
 
 Prossimo milestone: **persistence + rename** (dogfood-ability), vedi `docs/ROADMAP.md`.

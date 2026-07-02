@@ -1,5 +1,6 @@
 import AppKit
 import Core
+import Darwin
 import Foundation
 import SwiftTerm
 
@@ -103,6 +104,31 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         guard started else { return }
         terminal.terminate()
     }
+
+    /// Nome del comando in foreground del pty, `nil` se la shell è al prompt (safe da chiudere).
+    /// Meccanica standard dei terminali: `tcgetpgrp` dà il foreground process group del pty; se
+    /// coincide con il pid della shell la shell è al prompt, altrimenti gira un comando di cui
+    /// risolviamo il nome (`proc_name`). Le shell interattive annidate (safe-list) contano come
+    /// "al prompt": chiuderle non perde lavoro. Solo foreground: i job in background non contano.
+    func foregroundProcessName() -> String? {
+        guard started, terminal.process.running else { return nil }
+        let fd = terminal.process.childfd
+        guard fd >= 0 else { return nil }
+        let foreground = tcgetpgrp(fd)
+        guard foreground > 0, foreground != terminal.process.shellPid else { return nil }
+        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
+        guard proc_name(foreground, &buffer, UInt32(buffer.count)) > 0 else { return "process" }
+        let name = buffer.withUnsafeBufferPointer { pointer -> String in
+            guard let base = pointer.baseAddress else { return "" }
+            return String(cString: base)
+        }
+        return name.isEmpty ? "process" : (Self.safeForegroundNames.contains(name) ? nil : name)
+    }
+
+    /// Shell che, se in foreground, non fanno scattare la conferma di chiusura (sono "al prompt").
+    private static let safeForegroundNames: Set<String> = [
+        "zsh", "bash", "sh", "fish", "dash", "login",
+    ]
 
     // MARK: - LocalProcessTerminalViewDelegate (requisiti nonisolated del protocollo SwiftTerm)
 

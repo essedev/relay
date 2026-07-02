@@ -36,6 +36,12 @@ public final class WorkspaceAreaController: NSViewController {
         observe()
     }
 
+    /// Nome del comando in foreground nella tab (o `nil` se al prompt / non realizzata). Inoltra
+    /// alla registry; usato dalla conferma di chiusura nel composition root.
+    public func foregroundProcess(for tabID: UUID) -> String? {
+        registry.foregroundProcess(for: tabID)
+    }
+
     /// Bridge Observation -> AppKit: ri-renderizza quando cambiano le proprietà osservate lette
     /// in `render()`, poi si ri-arma.
     private func observe() {

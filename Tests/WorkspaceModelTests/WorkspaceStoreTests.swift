@@ -1,3 +1,4 @@
+import AgentProtocol
 import Foundation
 import Testing
 @testable import WorkspaceModel
@@ -49,6 +50,34 @@ import Testing
     #expect(ws.selectedTabID == first.id)
 }
 
+@Test func closingLastTabClosesWorkspace() {
+    let store = WorkspaceStore()
+    let first = store.createWorkspace(name: "a")
+    let second = store.createWorkspace(name: "b") // una sola tab
+    let onlyTab = second.tabs[0]
+
+    let removed = store.closeTab(onlyTab.id, in: second)
+
+    #expect(removed == onlyTab.id)
+    #expect(store.workspaces.map(\.id) == [first.id]) // il workspace vuoto è sparito
+    #expect(store.selectedWorkspaceID == first.id)
+}
+
+@Test func moveWorkspaceOntoTargetTakesItsPosition() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+
+    // c sopra a: c prende la posizione 0, a e b scorrono.
+    store.moveWorkspace(c.id, onto: a.id)
+    #expect(store.workspaces.map(\.id) == [c.id, a.id, b.id])
+
+    // id inesistente o uguale: no-op.
+    store.moveWorkspace(a.id, onto: a.id)
+    #expect(store.workspaces.map(\.id) == [c.id, a.id, b.id])
+}
+
 @Test func closeWorkspaceReturnsTabIDsAndSelectsNeighbor() {
     let store = WorkspaceStore()
     let first = store.createWorkspace(name: "a")
@@ -82,6 +111,35 @@ import Testing
     store.moveWorkspaces(fromOffsets: IndexSet(integer: 1), toOffset: 0)
 
     #expect(store.workspaces.map(\.id) == [b.id, a.id])
+}
+
+@Test func renameWorkspaceIgnoresEmpty() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "api")
+
+    store.renameWorkspace(ws.id, to: "  backend  ")
+    #expect(ws.name == "backend") // trim
+
+    store.renameWorkspace(ws.id, to: "   ")
+    #expect(ws.name == "backend") // vuoto ignorato
+}
+
+@Test func orderedWorkspacesFloatsAttentionUnderPinned() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+
+    // c pinnato; b chiede input -> ordine atteso: [c (pinned), b (attenzione), a (calmo)].
+    store.togglePin(c.id)
+    b.tabs[0].agentState = .needsInput
+
+    #expect(store.orderedWorkspaces.map(\.id) == [c.id, b.id, a.id])
+
+    // "completato non visto" (attention) galleggia come needs_input.
+    b.tabs[0].agentState = .idle
+    a.tabs[0].attention = true
+    #expect(store.orderedWorkspaces.map(\.id) == [c.id, a.id, b.id])
 }
 
 @Test func renameTabSetsCustomTitle() {

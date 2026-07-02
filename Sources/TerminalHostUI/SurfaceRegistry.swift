@@ -50,6 +50,13 @@ public final class SurfaceRegistry {
         }
     }
 
+    /// Nome del comando in foreground nella surface della tab, o `nil` se la shell è al prompt o
+    /// la tab non è ancora stata realizzata (nessuna surface -> nessun processo). Guida la
+    /// conferma di chiusura.
+    public func foregroundProcess(for tabID: UUID) -> String? {
+        surfaces[tabID]?.foregroundProcessName()
+    }
+
     /// Tiene vive solo le surface delle tab ancora esistenti; fa teardown delle altre.
     public func retain(_ aliveTabIDs: Set<UUID>) {
         for (id, surface) in surfaces where !aliveTabIDs.contains(id) {

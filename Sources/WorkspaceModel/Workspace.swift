@@ -1,3 +1,4 @@
+import AgentProtocol
 import Foundation
 
 /// Un progetto: raggruppa tab (terminali), sta nella sidebar, si pinna e si riordina.
@@ -30,6 +31,12 @@ public final class Workspace: Identifiable {
 
     public var selectedTab: Tab? {
         tabs.first { $0.id == selectedTabID }
+    }
+
+    /// Il workspace richiede attenzione: una sua tab aspetta input (`needs_input`) o ha completato
+    /// del lavoro non ancora visto (`attention`). Guida il float in cima alla sidebar.
+    public var needsAttention: Bool {
+        tabs.contains { $0.agentState == .needsInput || $0.attention }
     }
 
     // MARK: - Mutazioni tab (usate dallo store; qui per tenere l'invariante di selezione)

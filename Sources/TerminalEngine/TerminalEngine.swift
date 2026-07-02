@@ -21,6 +21,10 @@ public protocol TerminalSurfaceHandle: AnyObject {
     func teardown()
     /// Applica un tema (palette, colori base, font). Chiamato alla creazione e sui cambi.
     func apply(theme: RelayTheme)
+    /// Nome del comando in esecuzione in foreground nel pty, o `nil` se la shell è al prompt
+    /// (nessun comando attivo). Usato per chiedere conferma prima di chiudere una tab "occupata".
+    /// Confina i tipi dell'engine: espone solo un `String`.
+    func foregroundProcessName() -> String?
 }
 
 @MainActor

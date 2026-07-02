@@ -9,6 +9,7 @@ import WorkspaceModel
 @MainActor
 final class MainSplitViewController: NSSplitViewController {
     private let settings: AppSettings
+    private let right: RightPaneController
     private var sidebarItem: NSSplitViewItem!
     /// Notifica la larghezza corrente della sidebar (0 se collassata) a ogni resize, anche
     /// frame-by-frame durante l'animazione: guida la posizione dell'overlay toggle.
@@ -18,9 +19,17 @@ final class MainSplitViewController: NSSplitViewController {
         store: WorkspaceStore,
         settings: AppSettings,
         engine: TerminalEngine,
-        onNewWorkspace: @escaping () -> Void
+        onNewWorkspace: @escaping () -> Void,
+        onCloseWorkspace: @escaping (Workspace) -> Void,
+        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void
     ) {
         self.settings = settings
+        right = RightPaneController(
+            store: store,
+            settings: settings,
+            engine: engine,
+            onCloseTab: onCloseTab
+        )
         super.init(nibName: nil, bundle: nil)
 
         let sidebar = NSHostingController(
@@ -28,6 +37,7 @@ final class MainSplitViewController: NSSplitViewController {
                 store: store,
                 settings: settings,
                 onNewWorkspace: onNewWorkspace,
+                onCloseWorkspace: onCloseWorkspace,
                 // Al doppio click la finestra è già key (il primo click la attiva).
                 onTitleBarDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) }
             )
@@ -46,10 +56,15 @@ final class MainSplitViewController: NSSplitViewController {
         sidebarItem = item
         addSplitViewItem(item)
 
-        let right = RightPaneController(store: store, settings: settings, engine: engine)
         addSplitViewItem(NSSplitViewItem(viewController: right))
 
         observeSidebarState()
+    }
+
+    /// Inoltra la query "processo in foreground" della tab al right pane (registry delle surface).
+    /// Usata dalla conferma di chiusura nell'AppController.
+    func foregroundProcess(for tabID: UUID) -> String? {
+        right.foregroundProcess(for: tabID)
     }
 
     @available(*, unavailable)

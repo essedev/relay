@@ -4,9 +4,10 @@ Terminale macOS nativo agent-aware. Leggi `docs/ARCHITECTURE.md` prima di toccar
 e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `docs/ROADMAP.md`.
 
 Stato: V0 + **Milestone 1 (agent runtime + badge) fatta** + giro UI/UX (temi, chrome finestra,
-toggle sidebar, titolo/sottotitolo contestuale, tooling demo/sim). **Prossimo: Milestone 2
-(persistence + rename)** - vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una
-sessione Claude reale (`relay-cli hooks setup`, apri l'app, avvia `claude`).
+toggle sidebar, titolo/sottotitolo contestuale, chiusura con conferma + cascade, float per stato,
+rename inline del workspace, tooling demo/sim). **Prossimo: Milestone 2 (persistence + rename tab)**
+- vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Claude reale
+(`relay-cli hooks setup`, apri l'app, avvia `claude`).
 
 ## Comandi
 
@@ -88,5 +89,17 @@ sessione Claude reale (`relay-cli hooks setup`, apri l'app, avvia `claude`).
   su macOS 26. L'overlay insegue il bordo della sidebar via `splitViewDidResizeSubviews`.
 - Sidebar: `NSSplitViewItem(viewController:)` normale, non `sidebarWithViewController:` (macOS 26 lo
   stila come pannello glass flottante). Lo `NSScroller` interno di SwiftTerm è nascosto a mano.
-- Non ancora fatto: cap LRU sulle surface vive, split, persistence/rename del layout, bundle `.app`,
-  dashboard.
+- Lista workspace: `ScrollView` + `LazyVStack` custom, **non** `List`. La `List` disegna un highlight
+  full-size di sistema sotto la riga bersaglio del menu contestuale (fuori dal tema flat). Con la
+  VStack gestiamo noi selezione/hover/menu; il riordino è drag & drop (`draggable`/`dropDestination`
+  -> `WorkspaceStore.moveWorkspace(_:onto:)`), non `onMove`. La sidebar itera
+  `store.orderedWorkspaces` (derivato: pinned, poi con attenzione, poi resto) - **display-only**, non
+  toccare `store.workspaces` per ordinare: quello è l'ordine canonico (drag + futura persistence).
+  Rename inline del workspace dal menu contestuale (`WorkspaceStore.renameWorkspace`).
+- Chiusura tab/workspace: passa da `AppController.requestCloseTab/requestCloseWorkspace` (Cmd+W e le
+  x dei pannelli), che chiedono conferma via `NSAlert` sheet se nel pty gira un comando in foreground
+  (`TerminalSurfaceHandle.foregroundProcessName()` = `tcgetpgrp` vs `shellPid` + safe-list shell; solo
+  foreground, i job in background non contano). Chiudere l'ultima tab chiude il workspace (cascade in
+  `WorkspaceStore.closeTab`).
+- Non ancora fatto: cap LRU sulle surface vive, split, persistence del layout, rename delle tab,
+  bundle `.app`, dashboard.

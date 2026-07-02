@@ -3,13 +3,20 @@ import WorkspaceModel
 
 /// Tab bar del workspace selezionato: i terminali del progetto, gestiti a tab. Pannello SwiftUI
 /// isolato, montato sopra l'area del terminale (che è AppKit). Colori derivati dal tema corrente.
+/// La chiusura è delegata all'app (`onCloseTab`), che può chiedere conferma se la tab è occupata.
 public struct TabBarView: View {
     let store: WorkspaceStore
     let settings: AppSettings
+    let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
 
-    public init(store: WorkspaceStore, settings: AppSettings) {
+    public init(
+        store: WorkspaceStore,
+        settings: AppSettings,
+        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void
+    ) {
         self.store = store
         self.settings = settings
+        self.onCloseTab = onCloseTab
     }
 
     public var body: some View {
@@ -29,7 +36,13 @@ public struct TabBarView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Theme.Spacing.xs) {
                 ForEach(workspace.tabs) { tab in
-                    tabItem(tab, in: workspace, colors: colors)
+                    TabItemView(
+                        tab: tab,
+                        selected: tab.id == workspace.selectedTabID,
+                        colors: colors,
+                        onSelect: { store.selectTab(tab.id, in: workspace) },
+                        onClose: { onCloseTab(tab, workspace) }
+                    )
                 }
                 Button { store.addTab(to: workspace) } label: {
                     Image(systemName: "plus")
@@ -42,32 +55,41 @@ public struct TabBarView: View {
             .padding(.horizontal, Theme.Spacing.sm)
         }
     }
+}
 
-    private func tabItem(
-        _ tab: WorkspaceModel.Tab,
-        in workspace: Workspace,
-        colors: ChromeColors
-    ) -> some View {
-        let selected = tab.id == workspace.selectedTabID
-        return HStack(spacing: Theme.Spacing.xs) {
+/// Singola tab. View separata per lo stato di hover locale: la x compare su hover o sulla tab
+/// selezionata, così è sempre raggiungibile (anche con una sola tab) senza affollare la barra.
+private struct TabItemView: View {
+    let tab: WorkspaceModel.Tab
+    let selected: Bool
+    let colors: ChromeColors
+    let onSelect: () -> Void
+    let onClose: () -> Void
+
+    @State private var hovered = false
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.xs) {
             AgentBadge(kind: .forTab(tab), colors: colors)
             Text(tab.title)
                 .font(Theme.Typography.tab)
                 .foregroundStyle(colors.foreground)
                 .lineLimit(1)
-            Button { store.closeTab(tab.id, in: workspace) } label: {
+            Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 8, weight: .bold))
             }
             .buttonStyle(.borderless)
             .foregroundStyle(colors.secondary)
-            .opacity(workspace.tabs.count > 1 ? 1 : 0)
+            .opacity(hovered || selected ? 1 : 0)
+            .help("Close tab")
         }
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, Theme.Spacing.xs)
         .background(selected ? colors.selection : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.sm))
         .contentShape(Rectangle())
-        .onTapGesture { store.selectTab(tab.id, in: workspace) }
+        .onTapGesture(perform: onSelect)
+        .onHover { hovered = $0 }
     }
 }
