@@ -129,6 +129,9 @@ private struct WorkspaceRow: View {
             Image(systemName: workspace.pinned ? "pin.fill" : "folder")
                 .foregroundStyle(workspace.pinned ? colors.accent : colors.secondary)
                 .font(.system(size: 12))
+                // Larghezza fissa: i simboli SF hanno larghezze intrinseche diverse (pin più
+                // stretto di folder), altrimenti il testo scatta orizzontalmente al pin/unpin.
+                .frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
                 if editing {
                     nameField
