@@ -23,9 +23,14 @@ public enum Theme {
         public static let title = Font.system(size: 13, weight: .semibold)
         public static let item = Font.system(size: 13)
         public static let tab = Font.system(size: 12)
+        public static let windowTitle = Font.system(size: 12, weight: .medium)
     }
 
     public enum Metrics {
         public static let tabBarHeight: CGFloat = 34
+        /// Altezza della strip del titolo (allineata verticalmente ai semafori della finestra).
+        public static let titleBarHeight: CGFloat = 30
+        /// Spazio orizzontale occupato dai semafori: l'header della sidebar parte dopo.
+        public static let trafficLightsInset: CGFloat = 76
     }
 }

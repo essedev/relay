@@ -34,11 +34,15 @@ final class AppController: NSObject, NSApplicationDelegate {
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 700),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Relay"
+        // Il contenuto sale fino al bordo: il titolo visibile è la strip del right pane
+        // (ContextTitleBar), centrata sul body. Il title nativo resta per Mission Control/Cmd+Tab.
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
         window.contentViewController = split
         window.setFrameAutosaveName("RelayMainWindow")
         window.center()
@@ -48,8 +52,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// Titolo contestuale nella title bar, stile Otty: nome chat se c'è Claude, `user@host:path`
-    /// dalla shell, altrimenti cwd/workspace (logica in `WindowTitle`). Si ri-arma sui cambi.
+    /// Aggiorna il titolo nativo (nascosto in finestra, usato da Mission Control/Cmd+Tab).
+    /// La strip visibile (ContextTitleBar) legge la stessa logica via Observation.
     private func observeWindowTitle() {
         withObservationTracking {
             let workspace = store.selectedWorkspace

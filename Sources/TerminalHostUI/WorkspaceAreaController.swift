@@ -79,6 +79,10 @@ public final class WorkspaceAreaController: NSViewController {
         view.window?.makeFirstResponder(surface.view)
     }
 
+    /// Respiro attorno al testo del terminale (il container ha lo stesso background del tema,
+    /// quindi il padding è aria, non una cornice).
+    private static let terminalInset: CGFloat = 8
+
     private func setTerminal(_ terminal: NSView?) {
         guard currentTerminal !== terminal else { return }
         currentTerminal?.removeFromSuperview()
@@ -86,11 +90,12 @@ public final class WorkspaceAreaController: NSViewController {
         guard let terminal else { return }
         terminal.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(terminal)
+        let inset = Self.terminalInset
         NSLayoutConstraint.activate([
-            terminal.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            terminal.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            terminal.topAnchor.constraint(equalTo: container.topAnchor),
-            terminal.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            terminal.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: inset),
+            terminal.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -inset),
+            terminal.topAnchor.constraint(equalTo: container.topAnchor, constant: inset / 2),
+            terminal.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -inset),
         ])
     }
 }

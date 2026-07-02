@@ -36,6 +36,11 @@ final class RightPaneController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // Strip del titolo in cima al right pane: stessa riga verticale dei semafori (full-size
+        // content view), centrata sul body e non sull'intera finestra.
+        let titleBar = NSHostingView(rootView: ContextTitleBar(store: store, settings: settings))
+        titleBar.translatesAutoresizingMaskIntoConstraints = false
+
         let tabBar = NSHostingView(rootView: TabBarView(store: store, settings: settings))
         tabBar.translatesAutoresizingMaskIntoConstraints = false
 
@@ -43,10 +48,15 @@ final class RightPaneController: NSViewController {
         let areaView = area.view
         areaView.translatesAutoresizingMaskIntoConstraints = false
 
+        view.addSubview(titleBar)
         view.addSubview(tabBar)
         view.addSubview(areaView)
         NSLayoutConstraint.activate([
-            tabBar.topAnchor.constraint(equalTo: view.topAnchor),
+            titleBar.topAnchor.constraint(equalTo: view.topAnchor),
+            titleBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            titleBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            titleBar.heightAnchor.constraint(equalToConstant: Theme.Metrics.titleBarHeight),
+            tabBar.topAnchor.constraint(equalTo: titleBar.bottomAnchor),
             tabBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tabBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tabBar.heightAnchor.constraint(equalToConstant: Theme.Metrics.tabBarHeight),

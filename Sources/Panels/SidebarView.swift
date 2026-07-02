@@ -30,6 +30,8 @@ public struct SidebarView: View {
         .background(colors.background)
     }
 
+    /// Header sulla stessa riga dei semafori della finestra (full-size content view): parte dopo
+    /// il loro ingombro e ha la stessa altezza della strip del titolo per allineare le baseline.
     private func header(_ colors: ChromeColors) -> some View {
         HStack {
             Text("Relay")
@@ -43,8 +45,9 @@ public struct SidebarView: View {
             .foregroundStyle(colors.secondary)
             .help("New workspace")
         }
-        .padding(.horizontal, Theme.Spacing.md)
-        .padding(.vertical, Theme.Spacing.sm)
+        .padding(.leading, Theme.Metrics.trafficLightsInset)
+        .padding(.trailing, Theme.Spacing.md)
+        .frame(height: Theme.Metrics.titleBarHeight)
     }
 
     private func list(_ colors: ChromeColors) -> some View {
