@@ -62,17 +62,26 @@ Formato: JSON su disco (percorso da definire in Fase 5). Al restore tutti i pane
 Entità (model in `Sources/WorkspaceModel/`):
 
 ```text
-Workspace { id, name, rootPath?, pinned, tabs: [Tab], selectedTabID }   // in codice
-Tab       { id, title, hasCustomTitle }                                 // in codice
-Resume    { sessionId, agent, cwd, sanitizedCommand }                   // da aggiungere
+Workspace { id, name, rootPath?, pinned, tabs: [Tab], selectedTabID }        // in codice
+Tab       { id, title, hasCustomTitle, currentDirectory?, agentState, ... }  // in codice
+Resume    { sessionId, agent, cwd, sanitizedCommand }                        // da aggiungere
 ```
 
 L'ordine dei workspace è l'ordine dell'array (riordinabile). `selectedWorkspaceID` sta nello
-store. Le surface del terminale NON sono nel model: sono legate per `Tab.id` a runtime.
+store. `Tab.currentDirectory` è la cwd riportata dalla shell via OSC 7 (alimenta titolo, sottotitolo
+e l'ereditarietà cwd di `Cmd+T`). Lo stato agente (`agentState`/`attention`/`lastEventAt`) è runtime,
+non va persistito. Le surface del terminale NON sono nel model: sono legate per `Tab.id` a runtime.
 
 Resume: solo `sessionId`, `agent`, `cwd`, comando sanitizzato (`claude --resume <sessionId>`).
 
+## Preferenze (UserDefaults)
+
+Già implementate, distinte dallo snapshot del layout: `AppSettings` (`Sources/WorkspaceModel/`)
+persiste `themeName`, `fontSize`, `sidebarCollapsed` in `UserDefaults` (chiavi `relay.*`). Sono
+*preferenze* utente, non stato di sessione - per quello UserDefaults è il posto giusto.
+
 ## Stato
 
-In codice: `AgentState`, `AgentEventType`, `AgentStateEvent`, `WorkspaceStore`, `Workspace`, `Tab`.
-Da aggiungere quando servono: split (pane tree in `Tab`), resume, snapshot su disco, agent runtime.
+In codice: `AgentState`, `AgentEventType`, `AgentStateEvent`, `WorkspaceStore`, `Workspace`, `Tab`,
+`AppSettings`, agent runtime completo (receiver/client/coordinator/reducer).
+Da aggiungere quando servono: split (pane tree in `Tab`), resume, snapshot del layout su disco.

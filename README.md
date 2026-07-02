@@ -27,6 +27,7 @@ make help      # tutti i target
 - `Cmd+T` nuova tab, `Cmd+W` chiudi tab.
 - `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi).
 - `Cmd +/-` zoom del terminale, `Cmd+0` dimensione originale.
+- `Cmd+B` mostra/nasconde la sidebar.
 - `Cmd+,` impostazioni (tema, dimensione font).
 
 ## Aspetto

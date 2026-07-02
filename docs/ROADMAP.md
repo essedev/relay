@@ -61,14 +61,29 @@ Verifica GUI live (da fare quando comodo): `relay-cli hooks setup`, apri Relay, 
 una tab, e osserva il badge passare a running/needs_input/completed. `relay-cli hooks uninstall` per
 rimuovere.
 
-## Fatto - Tema e impostazioni (fuori milestone)
+## Fatto - UI/UX e tooling (fuori milestone)
 
-Sistema di temi: modello puro in `Core` (`RelayTheme`), terminale tematizzato (palette ANSI, colori
-base, font), chrome coerente, badge dai colori ANSI, pulse su `needs_input`. Due temi (Relay
-Dark/Light), zoom (`Cmd +/-`, `Cmd+0`) e pannello impostazioni (`Cmd+,`) con tema + dimensione font,
-persistiti in `UserDefaults` (`AppSettings`). Dettagli in `ARCHITECTURE.md` (Tema / Design System).
+Dopo Milestone 1, un giro di qualità sull'esperienza. Dettagli in `ARCHITECTURE.md`
+(Tema / Chrome E Finestra / Tooling).
 
-Restano aperti sul tema (later): scelta del font family, altri temi, import da config Ghostty.
+**Tema (design system)**: modello puro in `Core` (`RelayTheme`), terminale tematizzato (palette
+ANSI, colori base, font), chrome coerente, badge dai colori ANSI, pulse su `needs_input`. Due temi
+(Dark/Light), zoom (`Cmd +/-`, `Cmd+0`) e pannello impostazioni (`Cmd+,`), persistiti in
+`UserDefaults` (`AppSettings`). L'appearance della finestra segue la luminanza del tema.
+
+**Chrome e finestra**: full-size content view (contenuto a filo bordo), titolo contestuale centrato
+sul body (nome chat Claude via OSC, altrimenti cwd corrente OSC 7 o cartella workspace), toggle
+sidebar (`Cmd+B`) come overlay che insegue il bordo della sidebar, sidebar flat themed con selezione
+propria, sottotitolo per workspace (cosa succede nella tab selezionata), padding attorno al
+terminale, doppio click sulla strip = zoom.
+
+**Badge e navigazione**: contatore sul badge workspace quando ≥2 tab condividono lo stato più
+severo; `Cmd+T` eredita la cwd corrente della tab attiva.
+
+**Tooling di test** (entrambi sul socket reale): `relay-cli simulate [coding|permission|burst]`
+dentro una tab, e `relay --demo NxM` per popolare l'app con sessioni concorrenti simulate.
+
+Restano aperti (later): scelta del font family, altri temi, import da config Ghostty.
 
 ## Milestone 2 - Persistence + rename (dogfood-ability)
 
