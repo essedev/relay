@@ -3,9 +3,9 @@
 Terminale macOS nativo agent-aware. Leggi `docs/ARCHITECTURE.md` prima di toccare la struttura
 e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `docs/ROADMAP.md`.
 
-Stato: V0 + **Milestone 1 (agent runtime + badge) fatta** + giro UI/UX (temi, chrome finestra,
-toggle sidebar, titolo/sottotitolo contestuale, chiusura con conferma + cascade, float per stato,
-rename inline del workspace, tooling demo/sim). **Prossimo: Milestone 2 (persistence + rename tab)**
+Stato: V0 + **Milestone 1 (agent runtime + badge)** + giro UI/UX (temi, chrome, chiusura con
+conferma + cascade, float per stato) + **Milestone 2 (persistence layout + rename inline
+workspace/tab) fatta**. **Prossimo: Milestone 3 (disciplina performance: cap LRU surface + misure)**
 - vedi `docs/ROADMAP.md`. Resta da verificare a mano il badge con una sessione Claude reale
 (`relay-cli hooks setup`, apri l'app, avvia `claude`).
 
@@ -28,11 +28,12 @@ rename inline del workspace, tooling demo/sim). **Prossimo: Milestone 2 (persist
   (`TerminalEngine`) sia la chrome (`Panels`) lo convertono nei rispettivi tipi.
 - `AgentProtocol` - tipi evento/stato agente, puro. Niente I/O, niente AppKit.
 - `AgentRuntime` - trasporto eventi agente: `AgentEventReceiver` (server Unix socket),
-  `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket), `AgentSessionStore`
-  (actor, snapshot per sessionId). Puro, niente AppKit né WorkspaceModel.
+  `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),
+  `AgentSessionStore` (actor, snapshot per sessionId). Puro, niente AppKit né WorkspaceModel.
 - `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity` +
   `AgentStateReducer` + `AppSettings` (tema/font/cursore/sidebar, UserDefaults) + `WindowTitle`
-  (titolo e sottotitolo contestuali). Puro, niente AppKit. V0: una tab = un terminale (split futuro).
+  (titolo e sottotitolo contestuali) + `LayoutSnapshot` (Codable) con `snapshot()`/`restore(from:)`.
+  Puro, niente AppKit. V0: una tab = un terminale (split futuro).
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`).
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy) + `WorkspaceAreaController`
@@ -43,10 +44,12 @@ rename inline del workspace, tooling demo/sim). **Prossimo: Milestone 2 (persist
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
   scrittura atomica. Trasformazioni pure (`merge`/`remove`) separate dall'I/O per i test.
+- `LayoutStore` - persistence del layout: `load()`/`save(snapshot)` di `LayoutSnapshot` su disco
+  (JSON atomico, versionato, path iniettato). Dipende solo da `WorkspaceModel`, niente AppKit.
 - `RelayApp` (`Sources/relay`) - composition root: `AppController`, `MainSplitViewController`,
   `RightPaneController`, `RootOverlayController` (overlay toggle), `MainMenuBuilder`,
-  `AgentCoordinator` (unico punto che lega `AgentRuntime` a `WorkspaceModel`), `DemoMode`. Se cresce
-  oltre il wiring, manca un modulo.
+  `AgentCoordinator` (unico punto che lega `AgentRuntime` a `WorkspaceModel`), `LayoutAutosave`
+  (salvataggio debounced del layout), `DemoMode`. Se cresce oltre il wiring, manca un modulo.
 - `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status`,
   `claude-hook <state>` (invocato dagli hook: stdin + `RELAY_TAB_ID` -> socket) e `simulate`.
 
@@ -101,5 +104,10 @@ rename inline del workspace, tooling demo/sim). **Prossimo: Milestone 2 (persist
   (`TerminalSurfaceHandle.foregroundProcessName()` = `tcgetpgrp` vs `shellPid` + safe-list shell; solo
   foreground, i job in background non contano). Chiudere l'ultima tab chiude il workspace (cascade in
   `WorkspaceStore.closeTab`).
-- Non ancora fatto: cap LRU sulle surface vive, split, persistence del layout, rename delle tab,
-  bundle `.app`, dashboard.
+- Persistence layout: `~/.relay/layout.json` (override `RELAY_LAYOUT`; path **iniettato** in
+  `LayoutStore`, i test usano una dir temporanea, mai `~/.relay`). Salvataggio via `LayoutAutosave`
+  (debounced ~500ms + flush on `applicationWillTerminate`), che osserva `store.snapshot()`: dipende
+  solo dai campi persistiti, quindi gli eventi agente non scatenano scritture. **Demo mode non
+  persiste** (non istanzia l'autosave). Restore al boot ricade sul seed default se file
+  mancante/corrotto/versione ignota. Bump `LayoutSnapshot.currentVersion` se cambia lo schema.
+- Non ancora fatto: cap LRU sulle surface vive, split, bundle `.app`, dashboard, resume Claude.

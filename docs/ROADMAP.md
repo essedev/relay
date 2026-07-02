@@ -99,13 +99,15 @@ dentro una tab, e `relay --demo NxM` per popolare l'app con sessioni concorrenti
 
 Restano aperti (later): scelta del font family, altri temi, import da config Ghostty.
 
-## Milestone 2 - Persistence + rename (dogfood-ability)
+## Milestone 2 - Persistence + rename (dogfood-ability) - fatto
 
-- Salvare/ripristinare il layout (workspace, tab, cwd, pin, ordine, nomi) su disco (snapshot JSON).
-  Al restore i pane nascono `unrealized`; la surface nasce al primo focus.
-- Rename delle tab (inline, rispettando `hasCustomTitle`). Rename del workspace già fatto (menu
-  contestuale, inline).
-- Resume opzionale: `claude --resume <sessionId>` quando sicuro (dopo Milestone 1).
+- Layout salvato/ripristinato su disco (`~/.relay/layout.json`, versionato): `LayoutSnapshot`
+  Codable + modulo `LayoutStore` (I/O atomico) + `LayoutAutosave` (debounced-live + flush on quit).
+  Al restore i pane nascono `unrealized`; la surface nasce al primo focus. Demo mode non persiste.
+- Rename inline di workspace e tab dal menu contestuale (rispetta `hasCustomTitle`).
+- Test: round-trip encode/decode, snapshot->restore, file mancante/corrotto/versione ignota,
+  selezione validata; smoke test end-to-end save+restore.
+- Rimandato: resume opzionale `claude --resume <sessionId>` (fuori da questo giro).
 
 ## Milestone 3 - Disciplina performance
 
@@ -127,5 +129,6 @@ Restano aperti (later): scelta del font family, altri temi, import da config Gho
 
 ## Prossima azione
 
-Milestone 2 - persistence: snapshot JSON del layout (workspace, tab, cwd, pin, ordine) su disco, con
-restore che lascia i pane `unrealized` finché non c'è focus. Poi rename di workspace/tab.
+Milestone 3 - disciplina performance: cap LRU sulle surface vive (ora restano vive tutte le tab
+visitate) e chiusura delle misure rimandate (latenza input p99, memoria per surface a molte tab)
+contro i budget di `ARCHITECTURE.md`.

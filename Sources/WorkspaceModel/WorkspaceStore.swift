@@ -40,6 +40,61 @@ public final class WorkspaceStore {
         return pinned + rest.filter(\.needsAttention) + rest.filter { !$0.needsAttention }
     }
 
+    // MARK: - Persistence
+
+    /// Fotografa il layout corrente (per il salvataggio su disco). Solo dati persistenti: niente
+    /// stato agente né surface.
+    public func snapshot() -> LayoutSnapshot {
+        LayoutSnapshot(
+            selectedWorkspaceID: selectedWorkspaceID,
+            workspaces: workspaces.map { workspace in
+                WorkspaceSnapshot(
+                    id: workspace.id,
+                    name: workspace.name,
+                    rootPath: workspace.rootPath,
+                    pinned: workspace.pinned,
+                    selectedTabID: workspace.selectedTabID,
+                    tabs: workspace.tabs.map { tab in
+                        TabSnapshot(
+                            id: tab.id,
+                            title: tab.title,
+                            hasCustomTitle: tab.hasCustomTitle,
+                            currentDirectory: tab.currentDirectory
+                        )
+                    }
+                )
+            }
+        )
+    }
+
+    /// Ricostruisce workspace e tab da uno snapshot (al restore). Le tab nascono senza stato agente
+    /// e `unrealized`: la surface parte al primo focus (vedi lifecycle in ARCHITECTURE). La
+    /// selezione viene validata contro i workspace effettivamente ricostruiti.
+    public func restore(from snapshot: LayoutSnapshot) {
+        workspaces = snapshot.workspaces.map { workspace in
+            let tabs = workspace.tabs.map { tab in
+                Tab(
+                    id: tab.id,
+                    title: tab.title,
+                    hasCustomTitle: tab.hasCustomTitle,
+                    currentDirectory: tab.currentDirectory
+                )
+            }
+            return Workspace(
+                id: workspace.id,
+                name: workspace.name,
+                rootPath: workspace.rootPath,
+                pinned: workspace.pinned,
+                tabs: tabs,
+                selectedTabID: workspace.selectedTabID
+            )
+        }
+        let restoredID = snapshot.selectedWorkspaceID
+        selectedWorkspaceID = workspaces.contains { $0.id == restoredID }
+            ? restoredID
+            : workspaces.first?.id
+    }
+
     // MARK: - Workspace
 
     @discardableResult
@@ -127,8 +182,10 @@ public final class WorkspaceStore {
     }
 
     public func renameTab(_ tabID: UUID, in workspace: Workspace, to title: String) {
-        guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { return }
-        tab.title = title
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let tab = workspace.tabs.first(where: { $0.id == tabID }) else { return }
+        tab.title = trimmed
         tab.hasCustomTitle = true
     }
 

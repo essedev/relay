@@ -144,6 +144,7 @@ repo/
     TerminalHostUI/     AppKit: host view, split tree, focus, tastiera
     Panels/             SwiftUI: sidebar, dashboard, settings
     HookInstaller/      manipolazione ~/.claude/settings.json
+    LayoutStore/        persistence layout: snapshot JSON su disco (I/O), path iniettato
     CLI/                eseguibile `ourterm`
   docs/
   Makefile
@@ -399,7 +400,8 @@ Stato V0 (in codice, `WorkspaceModel`), `@Observable`:
 ```text
 WorkspaceStore { workspaces: [Workspace], selectedWorkspaceID }
 Workspace      { id, name, rootPath?, pinned, tabs: [Tab], selectedTabID }
-Tab            { id, title, hasCustomTitle }        // V0: una tab = un terminale
+Tab            { id, title, hasCustomTitle, currentDirectory?,        // V0: una tab = un terminale
+                 agentState, attention, lastEventAt }                 // runtime, non persistiti
 ```
 
 Futuro (quando servono):
@@ -415,7 +417,7 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
 - Gerarchia prodotto: **Workspace -> Tab -> terminale**. Lo split (pane tree dentro una tab) è
   previsto ma deprioritizzato (l'utente non lo usa molto).
 - Sidebar e tab bar leggono lo store e si aggiornano via Observation, senza toccare le surface.
-- Persistence: snapshot JSON del layout + metadata (non ancora implementata). Niente database.
+- Persistence: snapshot JSON del layout su disco (vedi Persistence Del Layout). Niente database.
 
 ### Binding Surface (lazy, fuori dal model)
 
@@ -424,6 +426,27 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
   `retain(aliveTabIDs)`). Il PTY di una tab non visibile resta vivo.
 - `WorkspaceAreaController` (AppKit) osserva lo store e scambia la view della surface attiva.
 - Non ancora fatto: cap LRU sulle surface vive (ora restano vive tutte le tab visitate).
+
+### Persistence Del Layout
+
+Il layout (workspace, tab, cwd, pin, ordine, nomi, selezione) sopravvive ai riavvii come snapshot
+JSON in `~/.relay/layout.json` (override `RELAY_LAYOUT`; path iniettato, i test usano una dir
+temporanea). Design:
+
+- **Tipi**: `LayoutSnapshot`/`WorkspaceSnapshot`/`TabSnapshot` Codable puri in `WorkspaceModel`, con
+  `version` per migrazioni. `WorkspaceStore.snapshot()`/`restore(from:)` convertono da/verso lo store.
+  **Non** si persiste lo stato agente (effimero) né le surface.
+- **I/O**: modulo `LayoutStore` (dipende solo da `WorkspaceModel`), scrittura atomica; `load()`
+  ritorna `nil` su file mancante/corrotto/versione ignota, così il boot ricade sul seed di default e
+  non crasha mai.
+- **Quando salvare**: `LayoutAutosave` (composition root) osserva lo store e salva **debounced**
+  (~500ms dopo l'ultimo cambio) + **flush sincrono** su `applicationWillTerminate`. Legge
+  `snapshot()` dentro l'observation tracking: dipende solo dai campi persistiti, quindi gli eventi
+  agente (cambi di `agentState`) non scatenano scritture.
+- **Restore**: al boot i pane rinascono `unrealized` (la surface parte al primo focus), la shell
+  riparte dalla cwd salvata; la selezione è validata contro i workspace ricostruiti.
+- **Demo mode non persiste**: `relay --demo` non istanzia l'autosave, per non sovrascrivere il file
+  reale.
 
 ### Resume
 
@@ -455,10 +478,11 @@ User input -> focused pane -> TerminalEngine surface / PTY -> processo -> output
 
 ```text
 App launch
-  -> carica snapshot layout (tutti i pane unrealized)
-  -> ricrea sidebar/tab/split come metadata
+  -> LayoutStore.load() (file mancante/corrotto -> seed default)
+  -> WorkspaceStore.restore(from:) (tutti i pane unrealized)
+  -> LayoutAutosave.start() (salvataggio debounced sui cambi successivi)
   -> al primo focus di un pane: realizza surface, ripristina cwd
-  -> resume agente opzionale con comando sanitizzato
+  -> resume agente opzionale con comando sanitizzato (fuori scope M2)
   -> rebind degli stati in arrivo per sessionId/paneId
 ```
 
@@ -597,7 +621,15 @@ Costruito (UI/UX e tooling, fuori milestone):
   chiude il workspace, ultimo workspace ne riapre uno default;
 - tooling di test: `relay-cli simulate` e `relay --demo NxM`, entrambi sul socket reale.
 
-Prossimo milestone: **persistence + rename** (dogfood-ability), vedi `docs/ROADMAP.md`.
+Costruito (Milestone 2, persistence + rename):
+
+- rename inline di workspace e tab dal menu contestuale (rispetta `hasCustomTitle`);
+- persistence del layout: `LayoutSnapshot` Codable (`WorkspaceModel`) + modulo `LayoutStore` (I/O
+  atomico su `~/.relay/layout.json`, versionato) + `LayoutAutosave` (debounced-live + flush on quit);
+  restore al boot con pane `unrealized`, demo mode esclusa; smoke test end-to-end save+restore.
+
+Prossimo milestone: **disciplina performance** (cap LRU surface + misure latenza/memoria), vedi
+`docs/ROADMAP.md`.
 
 Da fare dopo:
 

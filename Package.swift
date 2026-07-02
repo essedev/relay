@@ -28,6 +28,7 @@ let package = Package(
             dependencies: ["Core", .product(name: "SwiftTerm", package: "SwiftTerm")]
         ),
         .target(name: "HookInstaller", dependencies: ["Core", "AgentProtocol"]),
+        .target(name: "LayoutStore", dependencies: ["Core", "WorkspaceModel"]),
 
         // Livello 3: UI (AppKit sul path caldo, SwiftUI nei pannelli isolati).
         .target(name: "TerminalHostUI", dependencies: ["Core", "TerminalEngine", "WorkspaceModel"]),
@@ -41,7 +42,7 @@ let package = Package(
             name: "RelayApp",
             dependencies: [
                 "Core", "AgentProtocol", "AgentRuntime", "WorkspaceModel",
-                "TerminalEngine", "TerminalHostUI", "Panels", "HookInstaller",
+                "TerminalEngine", "TerminalHostUI", "Panels", "HookInstaller", "LayoutStore",
             ],
             path: "Sources/relay"
         ),
@@ -57,6 +58,10 @@ let package = Package(
         .testTarget(name: "WorkspaceModelTests", dependencies: ["WorkspaceModel", "AgentProtocol"]),
         .testTarget(name: "AgentRuntimeTests", dependencies: ["AgentRuntime", "AgentProtocol"]),
         .testTarget(name: "HookInstallerTests", dependencies: ["HookInstaller"]),
+        .testTarget(
+            name: "LayoutStoreTests",
+            dependencies: ["LayoutStore", "WorkspaceModel", "AgentProtocol"]
+        ),
         .testTarget(
             name: "PanelsTests",
             dependencies: ["Panels", "WorkspaceModel", "AgentProtocol"]

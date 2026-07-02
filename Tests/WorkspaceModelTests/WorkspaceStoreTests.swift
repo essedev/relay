@@ -151,4 +151,49 @@ import Testing
 
     #expect(tab.title == "server")
     #expect(tab.hasCustomTitle)
+
+    store.renameTab(tab.id, in: ws, to: "   ")
+    #expect(tab.title == "server") // vuoto ignorato
+}
+
+@Test func snapshotRestoreRoundTrips() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    store.renameTab(a.tabs[0].id, in: a, to: "shell")
+    a.tabs[0].currentDirectory = "/tmp/x"
+    let b = store.createWorkspace(name: "b")
+    store.addTab(to: b)
+    store.togglePin(b.id)
+    store.selectWorkspace(a.id)
+
+    let snap = store.snapshot()
+    let restored = WorkspaceStore()
+    restored.restore(from: snap)
+
+    // struttura identica: id, nomi, cwd, pin, ordine, selezione
+    #expect(restored.snapshot() == snap)
+    #expect(restored.selectedWorkspaceID == a.id)
+    #expect(restored.workspaces.map(\.name) == ["a", "b"])
+    #expect(restored.workspaces[1].pinned)
+    #expect(restored.workspaces[0].tabs[0].hasCustomTitle)
+    // Lo stato agente non è persistito: la tab rinasce `unknown`.
+    #expect(restored.workspaces[0].tabs[0].agentState == .unknown)
+}
+
+@Test func restoreValidatesSelectionFallback() {
+    let store = WorkspaceStore()
+    let ws = WorkspaceSnapshot(
+        id: UUID(),
+        name: "x",
+        rootPath: nil,
+        pinned: false,
+        selectedTabID: nil,
+        tabs: []
+    )
+    let snap = LayoutSnapshot(selectedWorkspaceID: UUID(),
+                              workspaces: [ws]) // selezione inesistente
+
+    store.restore(from: snap)
+
+    #expect(store.selectedWorkspaceID == store.workspaces.first?.id) // fallback al primo
 }

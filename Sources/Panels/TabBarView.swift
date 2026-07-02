@@ -41,6 +41,7 @@ public struct TabBarView: View {
                         selected: tab.id == workspace.selectedTabID,
                         colors: colors,
                         onSelect: { store.selectTab(tab.id, in: workspace) },
+                        onRename: { store.renameTab(tab.id, in: workspace, to: $0) },
                         onClose: { onCloseTab(tab, workspace) }
                     )
                 }
@@ -57,24 +58,44 @@ public struct TabBarView: View {
     }
 }
 
-/// Singola tab. View separata per lo stato di hover locale: la x compare su hover o sulla tab
-/// selezionata, così è sempre raggiungibile (anche con una sola tab) senza affollare la barra.
+/// Singola tab. View separata per lo stato locale (hover + editing): la x compare su hover o sulla
+/// tab selezionata, così è sempre raggiungibile (anche con una sola tab) senza affollare la barra;
+/// il rename dal menu contestuale scambia il titolo con un `TextField` inline.
 private struct TabItemView: View {
     let tab: WorkspaceModel.Tab
     let selected: Bool
     let colors: ChromeColors
     let onSelect: () -> Void
+    let onRename: (String) -> Void
     let onClose: () -> Void
 
     @State private var hovered = false
+    @State private var editing = false
+    @State private var draft = ""
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         HStack(spacing: Theme.Spacing.xs) {
             AgentBadge(kind: .forTab(tab), colors: colors)
-            Text(tab.title)
-                .font(Theme.Typography.tab)
-                .foregroundStyle(colors.foreground)
-                .lineLimit(1)
+            if editing {
+                TextField("", text: $draft)
+                    .textFieldStyle(.plain)
+                    .font(Theme.Typography.tab)
+                    .foregroundStyle(colors.foreground)
+                    .frame(width: 90)
+                    .focused($nameFocused)
+                    .onSubmit(commit)
+                    .onExitCommand(perform: cancel)
+                    .onChange(of: nameFocused) { _, focused in
+                        if !focused { commit() }
+                    }
+                    .onAppear { DispatchQueue.main.async { nameFocused = true } }
+            } else {
+                Text(tab.title)
+                    .font(Theme.Typography.tab)
+                    .foregroundStyle(colors.foreground)
+                    .lineLimit(1)
+            }
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 8, weight: .bold))
@@ -91,5 +112,24 @@ private struct TabItemView: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover { hovered = $0 }
+        .contextMenu {
+            Button("Rename", action: beginRename)
+            Button("Close", role: .destructive, action: onClose)
+        }
+    }
+
+    private func beginRename() {
+        draft = tab.title
+        editing = true
+    }
+
+    private func commit() {
+        guard editing else { return }
+        editing = false
+        onRename(draft)
+    }
+
+    private func cancel() {
+        editing = false
     }
 }

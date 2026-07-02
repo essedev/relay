@@ -1,6 +1,8 @@
 import AgentProtocol
+import AgentRuntime
 import AppKit
 import Core
+import LayoutStore
 import Panels
 import SwiftUI
 import TerminalEngine
@@ -13,12 +15,15 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let settings = AppSettings()
     private let engine: TerminalEngine = SwiftTermEngine()
     private lazy var agentCoordinator = AgentCoordinator(store: store)
+    private lazy var layoutStore = LayoutStore(path: RelayRuntimePaths.layoutPath)
     private var window: NSWindow!
     private var splitVC: MainSplitViewController!
     private var settingsWindow: NSWindow?
     private var untitledCount = 0
     private var keyMonitor: Any?
     private var demoDriver: DemoDriver?
+    /// Autosave del layout, attivo solo in modalità normale (la demo non tocca il file reale).
+    private var autosave: LayoutAutosave?
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
@@ -114,17 +119,27 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_: Notification) {
+        autosave?.flush() // flush sincrono finale (il debounce potrebbe non essere scaduto)
         demoDriver?.stop()
         agentCoordinator.stop()
     }
 
+    /// All'avvio: la demo ha il suo seed e non tocca il layout persistito; altrimenti si ripristina
+    /// dal disco (fallback al seed di default se manca/corrotto) e si attiva il salvataggio.
     private func seedIfNeeded() {
         if let config = DemoConfig.parse(from: CommandLine.arguments) {
             seedDemo(config)
             return
         }
-        guard store.workspaces.isEmpty else { return }
-        createUntitledWorkspace()
+        if let snapshot = layoutStore.load(), !snapshot.workspaces.isEmpty {
+            store.restore(from: snapshot)
+            log.info("layout restored: \(snapshot.workspaces.count) workspaces")
+        } else if store.workspaces.isEmpty {
+            createUntitledWorkspace()
+        }
+        let autosave = LayoutAutosave(store: store, layoutStore: layoutStore)
+        autosave.start()
+        self.autosave = autosave
     }
 
     /// Demo mode: N workspace da M tab, con sessioni agente simulate su ogni tab (eventi via

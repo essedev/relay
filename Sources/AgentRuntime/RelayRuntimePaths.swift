@@ -17,6 +17,15 @@ public enum RelayRuntimePaths {
         return (runtimeDirectory as NSString).appendingPathComponent("relay.sock")
     }
 
+    /// Path dello snapshot del layout (persistence). Override via `RELAY_LAYOUT` (test e istanze
+    /// multiple).
+    public static var layoutPath: String {
+        if let override = ProcessInfo.processInfo.environment["RELAY_LAYOUT"], !override.isEmpty {
+            return override
+        }
+        return (runtimeDirectory as NSString).appendingPathComponent("layout.json")
+    }
+
     /// Crea la directory runtime se manca. Idempotente.
     public static func ensureRuntimeDirectory() throws {
         try FileManager.default.createDirectory(
