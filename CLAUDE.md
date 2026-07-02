@@ -68,8 +68,10 @@ riprende la sessione).
 
 - libghostty non è ancora embeddabile stabile: engine v1 = SwiftTerm. Non reintrodurre zig o
   binari di fork senza una decisione esplicita (vedi ARCHITECTURE, sezione engine).
-- L'app è un eseguibile SwiftPM per ora; il bundling `.app` (Info.plist, entitlements, firma per
-  notifiche) arriva quando serve.
+- `make bundle` assembla `.build/Relay.app` (release + `bundle/Info.plist` + firma ad-hoc, bundle id
+  `dev.relay.app`); `make run-app` lo avvia. Serve per le notifiche: `UNUserNotificationCenter`
+  richiede un bundle id, da bare executable (`swift run`) crasha. In sviluppo puoi comunque usare
+  `make run` (niente notifiche). Firma vera (Developer ID) e icona: quando si distribuisce.
 - `Tab` è ambiguo: SwiftUI ha un suo `Tab`. Nei file che importano SwiftUI + WorkspaceModel usa
   `WorkspaceModel.Tab`.
 - Bridge Observation -> AppKit: `WorkspaceAreaController.observe()` usa `withObservationTracking`

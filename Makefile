@@ -1,7 +1,9 @@
 .DEFAULT_GOAL := help
 SWIFT := swift
 
-.PHONY: help install build run cli test lint format check clean
+.PHONY: help install build run cli test lint format check clean bundle run-app
+
+APP := .build/Relay.app
 
 help: ## Mostra questo aiuto
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -33,6 +35,18 @@ lint: ## Lint (SwiftFormat --lint + SwiftLint --strict)
 	swiftlint lint --strict
 
 check: lint build test ## Giro completo qualità (definition of done)
+
+bundle: ## Assembla Relay.app (release, firmato ad-hoc). Serve per le notifiche (bundle id)
+	$(SWIFT) build -c release
+	rm -rf $(APP)
+	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
+	cp .build/release/relay $(APP)/Contents/MacOS/relay
+	cp bundle/Info.plist $(APP)/Contents/Info.plist
+	codesign --force --sign - $(APP)
+	@echo "built $(APP)"
+
+run-app: bundle ## Assembla e avvia Relay.app (notifiche attive: gira dal bundle)
+	open $(APP)
 
 clean: ## Pulisce gli artifacts di build
 	$(SWIFT) package clean
