@@ -56,6 +56,15 @@ public struct RelayTheme: Sendable, Equatable {
         self.fontSize = fontSize
     }
 
+    /// Vero se il background è scuro (luminanza relativa Rec. 709 < 0.5). Guida l'appearance
+    /// AppKit della finestra (darkAqua/aqua), così i controlli di sistema restano leggibili.
+    public var isDark: Bool {
+        let red = Double(background.red) / 255
+        let green = Double(background.green) / 255
+        let blue = Double(background.blue) / 255
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5
+    }
+
     /// Copia con una dimensione font diversa (lo zoom cambia la size, non il tema).
     public func withFontSize(_ size: Double) -> RelayTheme {
         RelayTheme(

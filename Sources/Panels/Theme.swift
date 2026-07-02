@@ -16,12 +16,8 @@ public enum Theme {
         public static let md: CGFloat = 8
     }
 
-    public enum Colors {
-        public static let selection = Color.accentColor.opacity(0.18)
-        public static let accent = Color.accentColor
-        public static let secondary = Color.secondary
-        public static let separator = Color(nsColor: .separatorColor)
-    }
+    // Nota: niente enum Colors statico. I colori della chrome derivano dal tema corrente via
+    // `ChromeColors` (vedi ThemeColors.swift): un'unica fonte, coerente col terminale.
 
     public enum Typography {
         public static let title = Font.system(size: 13, weight: .semibold)

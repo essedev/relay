@@ -39,11 +39,36 @@ final class AppController: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "Relay"
+        window.titleVisibility = .hidden // la sidebar mostra già "Relay": strip pulita e integrata
         window.contentViewController = split
         window.setFrameAutosaveName("RelayMainWindow")
         window.center()
+        observeWindowTheme()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // MARK: - Tema della finestra
+
+    /// L'appearance AppKit segue il tema (darkAqua/aqua): i controlli di sistema (liste, header,
+    /// bottoni) restano leggibili su qualunque background. Title bar trasparente sul background
+    /// del tema, così la strip coi semafori è integrata. Si ri-arma sui cambi (Observation).
+    private func observeWindowTheme() {
+        withObservationTracking {
+            applyWindowChrome(settings.theme)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeWindowTheme() }
+        }
+    }
+
+    private func applyWindowChrome(_ theme: RelayTheme) {
+        let appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        let background = NSColor(relay: theme.background)
+        for target in [window, settingsWindow].compactMap(\.self) {
+            target.appearance = appearance
+            target.titlebarAppearsTransparent = true
+            target.backgroundColor = background
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
@@ -104,13 +129,14 @@ final class AppController: NSObject, NSApplicationDelegate {
             return
         }
         let hosting = NSHostingController(rootView: SettingsView(settings: settings))
-        hosting.preferredContentSize = NSSize(width: 360, height: 170)
+        hosting.preferredContentSize = NSSize(width: 380, height: 220)
         let panel = NSWindow(contentViewController: hosting)
         panel.title = "Settings"
         panel.styleMask = [.titled, .closable]
         panel.isReleasedWhenClosed = false
         panel.center()
         settingsWindow = panel
+        applyWindowChrome(settings.theme) // appearance/background coerenti da subito
         panel.makeKeyAndOrderFront(nil)
     }
 

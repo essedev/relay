@@ -49,11 +49,15 @@ public struct SidebarView: View {
 
     private func list(_ colors: ChromeColors) -> some View {
         List(selection: selectionBinding) {
-            Section("Workspaces") {
+            Section {
                 ForEach(store.workspaces) { workspace in
                     row(workspace, colors: colors).tag(workspace.id)
                 }
                 .onMove { store.moveWorkspaces(fromOffsets: $0, toOffset: $1) }
+            } header: {
+                Text("Workspaces")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(colors.secondary)
             }
         }
         .listStyle(.sidebar)

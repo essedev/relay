@@ -31,6 +31,11 @@ import Testing
     #expect(resized.ansi == RelayTheme.relayDark.ansi)
 }
 
+@Test func isDarkFollowsBackgroundLuminance() {
+    #expect(RelayTheme.relayDark.isDark)
+    #expect(!RelayTheme.relayLight.isDark)
+}
+
 @Test func ansiColorClampsOutOfRange() {
     #expect(RelayTheme.relayDark.ansiColor(-1) == RelayTheme.relayDark.foreground)
     #expect(RelayTheme.relayDark.ansiColor(99) == RelayTheme.relayDark.foreground)
