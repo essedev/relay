@@ -46,4 +46,7 @@ e `docs/CONVENTIONS.md` prima di scrivere codice.
   `WorkspaceModel.Tab`.
 - Bridge Observation -> AppKit: `WorkspaceAreaController.observe()` usa `withObservationTracking`
   e si ri-arma; leggi le proprietà osservate dentro `render()` o non verranno tracciate.
+- Shortcut numerici (Cmd/Option + 1..9): gestiti da un `NSEvent` local monitor in
+  `AppController`, non da keyEquivalent di menu. Motivo: i menu con solo Option non matchano (il
+  carattere è trasformato, es. Option+1 = "¡"). Le voci del menu "Go" sono solo cliccabili.
 - Non ancora fatto: cap LRU sulle surface vive, split, agent runtime/badge, persistence.

@@ -15,7 +15,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
         buildMenu()
-        installKeyMonitor()
+        installNavigationKeyMonitor()
         seedIfNeeded()
 
         let split = MainSplitViewController(store: store, engine: engine) { [weak self] in
@@ -78,33 +78,46 @@ final class AppController: NSObject, NSApplicationDelegate {
         store.closeTab(tabID, in: workspace)
     }
 
-    /// Navigazione a due assi (stile cmux). Via event monitor e non menu key equivalent: le
-    /// equivalenze di menu con solo Option non scattano in modo affidabile (e dipendono dal
-    /// layout di tastiera).
-    private func installKeyMonitor() {
+    /// Cmd+1..9: seleziona il workspace all'indice (tag 0-based).
+    @objc func selectWorkspaceByShortcut(_ sender: NSMenuItem) {
+        guard sender.tag < store.workspaces.count else { return }
+        store.selectWorkspace(store.workspaces[sender.tag].id)
+    }
+
+    /// Option+1..9: seleziona la tab all'indice nel workspace corrente (tag 0-based).
+    @objc func selectTabByShortcut(_ sender: NSMenuItem) {
+        guard let workspace = store.selectedWorkspace,
+              sender.tag < workspace.tabs.count else { return }
+        store.selectTab(workspace.tabs[sender.tag].id, in: workspace)
+    }
+
+    // MARK: - Navigazione da tastiera (Cmd/Option + 1..9)
+
+    /// Gli shortcut menu con solo Option non fanno match (AppKit confronta il carattere
+    /// trasformato, es. Option+1 = "¡"), quindi intercettiamo Cmd/Option + cifra qui, prima che
+    /// l'evento arrivi al terminale.
+    private func installNavigationKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            return MainActor.assumeIsolated { self.handleShortcut(event) } ? nil : event
+            guard let self, handleNavigationKey(event) else { return event }
+            return nil // consumato
         }
     }
 
-    /// Cmd+1..9 -> workspace, Option+1..9 -> tab nel workspace corrente. Ritorna true se consuma.
-    private func handleShortcut(_ event: NSEvent) -> Bool {
+    private func handleNavigationKey(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags == .command || flags == .option,
-              let chars = event.charactersIgnoringModifiers,
-              let digit = Int(chars), (1 ... 9).contains(digit)
-        else { return false }
+        guard flags == .command || flags == .option else { return false }
+        guard let chars = event.charactersIgnoringModifiers, chars.count == 1,
+              let digit = Int(chars), (1 ... 9).contains(digit) else { return false }
         let index = digit - 1
 
         if flags == .command {
-            guard index < store.workspaces.count else { return true }
-            store.selectWorkspace(store.workspaces[index].id)
-        } else {
-            guard let workspace = store.selectedWorkspace, index < workspace.tabs.count else {
-                return true
+            if index < store.workspaces.count {
+                store.selectWorkspace(store.workspaces[index].id)
             }
-            store.selectTab(workspace.tabs[index].id, in: workspace)
+        } else {
+            if let workspace = store.selectedWorkspace, index < workspace.tabs.count {
+                store.selectTab(workspace.tabs[index].id, in: workspace)
+            }
         }
         return true
     }
@@ -139,6 +152,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         fileMenu.addItem(.separator())
         addItem(to: fileMenu, "Close Tab", #selector(closeCurrentTab(_:)), "w")
 
+        mainMenu.addItem(makeGoMenuItem())
+
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
         let editMenu = NSMenu(title: "Edit")
@@ -156,6 +171,38 @@ final class AppController: NSObject, NSApplicationDelegate {
         )
 
         NSApp.mainMenu = mainMenu
+    }
+
+    /// Menu "Go": Cmd+1..9 per i workspace, Option+1..9 per le tab (i due assi, stile cmux).
+    private func makeGoMenuItem() -> NSMenuItem {
+        let goItem = NSMenuItem()
+        let goMenu = NSMenu(title: "Go")
+        goItem.submenu = goMenu
+
+        // Nessun keyEquivalent: gli shortcut sono gestiti dal monitor (vedi
+        // installNavigationKeyMonitor). Qui le voci restano cliccabili, con hint nel titolo.
+        for index in 1 ... 9 {
+            let item = NSMenuItem(
+                title: "Workspace \(index)  (⌘\(index))",
+                action: #selector(selectWorkspaceByShortcut(_:)),
+                keyEquivalent: ""
+            )
+            item.tag = index - 1
+            item.target = self
+            goMenu.addItem(item)
+        }
+        goMenu.addItem(.separator())
+        for index in 1 ... 9 {
+            let item = NSMenuItem(
+                title: "Tab \(index)  (⌥\(index))",
+                action: #selector(selectTabByShortcut(_:)),
+                keyEquivalent: ""
+            )
+            item.tag = index - 1
+            item.target = self
+            goMenu.addItem(item)
+        }
+        return goItem
     }
 
     private func addItem(to menu: NSMenu, _ title: String, _ action: Selector, _ key: String) {
