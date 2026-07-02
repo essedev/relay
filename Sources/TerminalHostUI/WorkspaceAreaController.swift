@@ -63,10 +63,17 @@ public final class WorkspaceAreaController: NSViewController {
         // quindi la scrittura aggiorna i badge senza ri-armare questo observe (nessun loop).
         tab.attention = false
 
-        let surface = registry.surface(for: tab.id, cwd: workspace.rootPath) { [weak tab] title in
-            guard let tab, !tab.hasCustomTitle else { return }
-            tab.title = title
-        }
+        let surface = registry.surface(
+            for: tab.id,
+            cwd: workspace.rootPath,
+            onTitle: { [weak tab] title in
+                guard let tab, !tab.hasCustomTitle else { return }
+                tab.title = title
+            },
+            onDirectory: { [weak tab] path in
+                tab?.currentDirectory = path
+            }
+        )
         setTerminal(surface.view)
         surface.start()
         view.window?.makeFirstResponder(surface.view)

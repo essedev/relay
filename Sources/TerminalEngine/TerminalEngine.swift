@@ -13,6 +13,8 @@ public protocol TerminalSurfaceHandle: AnyObject {
     var view: NSView { get }
     /// Notifica quando il programma cambia il titolo (OSC). Usato per auto-titolare la tab.
     var onTitleChanged: ((String) -> Void)? { get set }
+    /// Notifica quando la shell riporta la working directory (OSC 7). Path assoluto, già parsato.
+    var onDirectoryChanged: ((String) -> Void)? { get set }
     /// Avvia shell/processo. Lazy: chiamato al primo focus del pane (vedi lifecycle ARCHITECTURE).
     func start()
     /// Termina il processo e rilascia le risorse (chiusura tab/workspace).

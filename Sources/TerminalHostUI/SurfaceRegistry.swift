@@ -22,7 +22,8 @@ public final class SurfaceRegistry {
     public func surface(
         for tabID: UUID,
         cwd: String?,
-        onTitle: @escaping (String) -> Void
+        onTitle: @escaping (String) -> Void,
+        onDirectory: @escaping (String) -> Void
     ) -> TerminalSurfaceHandle {
         if let existing = surfaces[tabID] { return existing }
         // RELAY_TAB_ID lega la sessione al pane: lo ereditano shell -> agent -> hook, che lo
@@ -34,6 +35,7 @@ public final class SurfaceRegistry {
             env: ["RELAY_TAB_ID": tabID.uuidString]
         )
         surface.onTitleChanged = onTitle
+        surface.onDirectoryChanged = onDirectory
         surface.apply(theme: theme)
         surfaces[tabID] = surface
         return surface

@@ -71,7 +71,7 @@ public final class WorkspaceStore {
     // MARK: - Tab
 
     @discardableResult
-    public func addTab(to workspace: Workspace, title: String = "shell") -> Tab {
+    public func addTab(to workspace: Workspace, title: String = Tab.defaultTitle) -> Tab {
         workspace.appendTab(Tab(title: title), select: true)
     }
 

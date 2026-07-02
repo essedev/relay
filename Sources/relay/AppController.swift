@@ -39,13 +39,24 @@ final class AppController: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "Relay"
-        window.titleVisibility = .hidden // la sidebar mostra già "Relay": strip pulita e integrata
         window.contentViewController = split
         window.setFrameAutosaveName("RelayMainWindow")
         window.center()
         observeWindowTheme()
+        observeWindowTitle()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Titolo contestuale nella title bar, stile Otty: nome chat se c'è Claude, `user@host:path`
+    /// dalla shell, altrimenti cwd/workspace (logica in `WindowTitle`). Si ri-arma sui cambi.
+    private func observeWindowTitle() {
+        withObservationTracking {
+            let workspace = store.selectedWorkspace
+            window.title = WindowTitle.compose(workspace: workspace, tab: workspace?.selectedTab)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeWindowTitle() }
+        }
     }
 
     // MARK: - Tema della finestra

@@ -5,10 +5,15 @@ import Foundation
 /// La gerarchia a split (pane tree) potrà appendersi qui in futuro senza cambiare l'API esterna.
 @Observable
 public final class Tab: Identifiable {
+    /// Titolo di una tab appena nata, prima che il programma ne imposti uno via OSC.
+    public static let defaultTitle = "shell"
+
     public let id: UUID
     public var title: String
     /// L'utente ha rinominato la tab: non sovrascrivere il titolo con l'OSC del programma.
     public var hasCustomTitle: Bool
+    /// Working directory corrente riportata dalla shell (OSC 7). Alimenta il titolo contestuale.
+    public var currentDirectory: String?
 
     /// Stato agente corrente della sessione legata a questa tab. Guida il badge e l'aggregazione
     /// per severità nella sidebar. `.unknown` finché non arriva un evento hook.
@@ -23,8 +28,9 @@ public final class Tab: Identifiable {
 
     public init(
         id: UUID = UUID(),
-        title: String = "shell",
+        title: String = Tab.defaultTitle,
         hasCustomTitle: Bool = false,
+        currentDirectory: String? = nil,
         agentState: AgentState = .unknown,
         attention: Bool = false,
         lastEventAt: Date? = nil
@@ -32,6 +38,7 @@ public final class Tab: Identifiable {
         self.id = id
         self.title = title
         self.hasCustomTitle = hasCustomTitle
+        self.currentDirectory = currentDirectory
         self.agentState = agentState
         self.attention = attention
         self.lastEventAt = lastEventAt

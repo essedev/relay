@@ -22,6 +22,7 @@ public final class SwiftTermEngine: TerminalEngine {
 final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTerminalViewDelegate {
     let id = UUID()
     var onTitleChanged: ((String) -> Void)?
+    var onDirectoryChanged: ((String) -> Void)?
 
     private let terminal: LocalProcessTerminalView
     private let cwd: String?
@@ -102,6 +103,10 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         Task { @MainActor in self.onTitleChanged?(title) }
     }
 
-    nonisolated func hostCurrentDirectoryUpdate(source _: TerminalView, directory _: String?) {}
+    nonisolated func hostCurrentDirectoryUpdate(source _: TerminalView, directory: String?) {
+        guard let directory, let path = OSC7.path(from: directory) else { return }
+        Task { @MainActor in self.onDirectoryChanged?(path) }
+    }
+
     nonisolated func processTerminated(source _: TerminalView, exitCode _: Int32?) {}
 }

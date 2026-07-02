@@ -36,6 +36,10 @@ coerente. Due temi di default (Relay Dark/Light), font e dimensione regolabili d
 (`Cmd+,`), persistiti. Il modello di tema vive in `Core` (`RelayTheme`), unica fonte per terminale
 e chrome.
 
+La title bar mostra il contesto della tab attiva: il titolo impostato dal programma (Claude Code
+manda il nome della chat, zsh `user@host:path`), altrimenti la cwd corrente (OSC 7) abbreviata con
+`~`, altrimenti la cartella del workspace.
+
 ## Stato agente (hook Claude Code)
 
 Relay mostra lo stato di ogni agente come badge sulla tab e, aggregato, sul workspace nella sidebar
