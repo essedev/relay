@@ -67,9 +67,13 @@ Dopo Milestone 1, un giro di qualità sull'esperienza. Dettagli in `ARCHITECTURE
 (Tema / Chrome E Finestra / Tooling).
 
 **Tema (design system)**: modello puro in `Core` (`RelayTheme`), terminale tematizzato (palette
-ANSI, colori base, font), chrome coerente, badge dai colori ANSI, pulse su `needs_input`. Due temi
-(Dark/Light), zoom (`Cmd +/-`, `Cmd+0`) e pannello impostazioni (`Cmd+,`), persistiti in
+ANSI, colori base, font, blink del caret), chrome coerente, badge dai colori ANSI, pulse su
+`needs_input`. Due temi (Dark/Light), zoom (`Cmd +/-`, `Cmd+0`), blink cursore on/off, persistiti in
 `UserDefaults` (`AppSettings`). L'appearance della finestra segue la luminanza del tema.
+
+**Pannello impostazioni** (`Cmd+,`): master-detail themed - sidebar con ricerca e categorie
+(Appearance / Terminal), contenuto a destra. Voci come blocchi dichiarativi (categoria + keywords),
+la ricerca filtra cross-categoria. Anteprima palette sola lettura.
 
 **Chrome e finestra**: full-size content view (contenuto a filo bordo), titolo contestuale centrato
 sul body (nome chat Claude via OSC, altrimenti cwd corrente OSC 7 o cartella workspace), toggle

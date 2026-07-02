@@ -33,9 +33,9 @@ make help      # tutti i target
 ## Aspetto
 
 Tema del terminale curato (palette ANSI, quindi Claude Code/`git`/`ls` in palette), con chrome
-coerente. Due temi di default (Relay Dark/Light), font e dimensione regolabili dalle impostazioni
-(`Cmd+,`), persistiti. Il modello di tema vive in `Core` (`RelayTheme`), unica fonte per terminale
-e chrome.
+coerente. Due temi di default (Relay Dark/Light), dimensione font e blink del cursore regolabili dal
+pannello impostazioni (`Cmd+,`, master-detail con ricerca), tutto persistito. Il modello di tema
+vive in `Core` (`RelayTheme`), unica fonte per terminale e chrome.
 
 La title bar mostra il contesto della tab attiva: il titolo impostato dal programma (Claude Code
 manda il nome della chat, zsh `user@host:path`), altrimenti la cwd corrente (OSC 7) abbreviata con
