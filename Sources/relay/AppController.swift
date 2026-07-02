@@ -9,6 +9,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let store = WorkspaceStore()
     private let engine: TerminalEngine = SwiftTermEngine()
     private var window: NSWindow!
+    private var untitledCount = 0
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
@@ -39,13 +40,22 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func seedIfNeeded() {
         guard store.workspaces.isEmpty else { return }
-        let home = NSHomeDirectory()
-        store.createWorkspace(name: URL(fileURLWithPath: home).lastPathComponent, rootPath: home)
+        createUntitledWorkspace()
+    }
+
+    /// Workspace senza cartella: parte da home, l'utente ci naviga con `cd`.
+    private func createUntitledWorkspace() {
+        untitledCount += 1
+        store.createWorkspace(name: "Workspace \(untitledCount)", rootPath: NSHomeDirectory())
     }
 
     // MARK: - Actions
 
     @objc func newWorkspace(_: Any?) {
+        createUntitledWorkspace()
+    }
+
+    @objc func openFolderAsWorkspace(_: Any?) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -64,6 +74,19 @@ final class AppController: NSObject, NSApplicationDelegate {
         guard let workspace = store.selectedWorkspace,
               let tabID = workspace.selectedTabID else { return }
         store.closeTab(tabID, in: workspace)
+    }
+
+    /// Cmd+1..9: seleziona il workspace all'indice (tag 0-based).
+    @objc func selectWorkspaceByShortcut(_ sender: NSMenuItem) {
+        guard sender.tag < store.workspaces.count else { return }
+        store.selectWorkspace(store.workspaces[sender.tag].id)
+    }
+
+    /// Option+1..9: seleziona la tab all'indice nel workspace corrente (tag 0-based).
+    @objc func selectTabByShortcut(_ sender: NSMenuItem) {
+        guard let workspace = store.selectedWorkspace,
+              sender.tag < workspace.tabs.count else { return }
+        store.selectTab(workspace.tabs[sender.tag].id, in: workspace)
     }
 
     // MARK: - Menu
@@ -85,9 +108,18 @@ final class AppController: NSObject, NSApplicationDelegate {
         mainMenu.addItem(fileItem)
         let fileMenu = NSMenu(title: "File")
         fileItem.submenu = fileMenu
-        addItem(to: fileMenu, "New Workspace…", #selector(newWorkspace(_:)), "n")
+        addItem(to: fileMenu, "New Workspace", #selector(newWorkspace(_:)), "n")
         addItem(to: fileMenu, "New Tab", #selector(newTab(_:)), "t")
+        addItem(
+            to: fileMenu,
+            "Open Folder as Workspace…",
+            #selector(openFolderAsWorkspace(_:)),
+            "o"
+        )
+        fileMenu.addItem(.separator())
         addItem(to: fileMenu, "Close Tab", #selector(closeCurrentTab(_:)), "w")
+
+        mainMenu.addItem(makeGoMenuItem())
 
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
@@ -106,6 +138,38 @@ final class AppController: NSObject, NSApplicationDelegate {
         )
 
         NSApp.mainMenu = mainMenu
+    }
+
+    /// Menu "Go": Cmd+1..9 per i workspace, Option+1..9 per le tab (i due assi, stile cmux).
+    private func makeGoMenuItem() -> NSMenuItem {
+        let goItem = NSMenuItem()
+        let goMenu = NSMenu(title: "Go")
+        goItem.submenu = goMenu
+
+        for index in 1 ... 9 {
+            let item = NSMenuItem(
+                title: "Workspace \(index)",
+                action: #selector(selectWorkspaceByShortcut(_:)),
+                keyEquivalent: "\(index)"
+            )
+            item.keyEquivalentModifierMask = .command
+            item.tag = index - 1
+            item.target = self
+            goMenu.addItem(item)
+        }
+        goMenu.addItem(.separator())
+        for index in 1 ... 9 {
+            let item = NSMenuItem(
+                title: "Tab \(index)",
+                action: #selector(selectTabByShortcut(_:)),
+                keyEquivalent: "\(index)"
+            )
+            item.keyEquivalentModifierMask = .option
+            item.tag = index - 1
+            item.target = self
+            goMenu.addItem(item)
+        }
+        return goItem
     }
 
     private func addItem(to menu: NSMenu, _ title: String, _ action: Selector, _ key: String) {

@@ -19,6 +19,13 @@ make check     # giro qualità completo (lint + build + test)
 make help      # tutti i target
 ```
 
+## Scorciatoie
+
+- `Cmd+N` nuovo workspace (senza cartella, parte da home).
+- `Cmd+O` apri una cartella come workspace.
+- `Cmd+T` nuova tab, `Cmd+W` chiudi tab.
+- `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi).
+
 ## Documentazione
 
 - `docs/ARCHITECTURE.md` - tesi di prodotto, moduli, budget, engine, anti-pattern.
