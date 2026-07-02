@@ -39,6 +39,11 @@ struct ChromeColors {
         Color(theme.selection)
     }
 
+    /// Hover più tenue della selezione.
+    var hover: Color {
+        Color(theme.selection).opacity(0.45)
+    }
+
     var accent: Color {
         Color(theme.ansiColor(4))
     } // blu

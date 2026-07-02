@@ -139,6 +139,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         settings.resetFontSize()
     }
 
+    @objc func toggleSidebar(_: Any?) {
+        settings.toggleSidebar()
+    }
+
     @objc func openSettings(_: Any?) {
         if let settingsWindow {
             settingsWindow.makeKeyAndOrderFront(nil)
@@ -209,99 +213,6 @@ final class AppController: NSObject, NSApplicationDelegate {
     // MARK: - Menu
 
     private func buildMenu() {
-        let mainMenu = NSMenu()
-
-        let appItem = NSMenuItem()
-        mainMenu.addItem(appItem)
-        let appMenu = NSMenu()
-        appItem.submenu = appMenu
-        addItem(to: appMenu, "Settings…", #selector(openSettings(_:)), ",")
-        appMenu.addItem(.separator())
-        appMenu.addItem(
-            withTitle: "Quit Relay",
-            action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
-        )
-
-        let fileItem = NSMenuItem()
-        mainMenu.addItem(fileItem)
-        let fileMenu = NSMenu(title: "File")
-        fileItem.submenu = fileMenu
-        addItem(to: fileMenu, "New Workspace", #selector(newWorkspace(_:)), "n")
-        addItem(to: fileMenu, "New Tab", #selector(newTab(_:)), "t")
-        addItem(
-            to: fileMenu,
-            "Open Folder as Workspace…",
-            #selector(openFolderAsWorkspace(_:)),
-            "o"
-        )
-        fileMenu.addItem(.separator())
-        addItem(to: fileMenu, "Close Tab", #selector(closeCurrentTab(_:)), "w")
-
-        mainMenu.addItem(makeGoMenuItem())
-
-        let viewItem = NSMenuItem()
-        mainMenu.addItem(viewItem)
-        let viewMenu = NSMenu(title: "View")
-        viewItem.submenu = viewMenu
-        addItem(to: viewMenu, "Zoom In", #selector(zoomIn(_:)), "=")
-        addItem(to: viewMenu, "Zoom Out", #selector(zoomOut(_:)), "-")
-        addItem(to: viewMenu, "Actual Size", #selector(resetZoom(_:)), "0")
-
-        let editItem = NSMenuItem()
-        mainMenu.addItem(editItem)
-        let editMenu = NSMenu(title: "Edit")
-        editItem.submenu = editMenu
-        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(
-            withTitle: "Paste",
-            action: #selector(NSText.paste(_:)),
-            keyEquivalent: "v"
-        )
-        editMenu.addItem(
-            withTitle: "Select All",
-            action: #selector(NSText.selectAll(_:)),
-            keyEquivalent: "a"
-        )
-
-        NSApp.mainMenu = mainMenu
-    }
-
-    /// Menu "Go": Cmd+1..9 per i workspace, Option+1..9 per le tab (i due assi, stile cmux).
-    private func makeGoMenuItem() -> NSMenuItem {
-        let goItem = NSMenuItem()
-        let goMenu = NSMenu(title: "Go")
-        goItem.submenu = goMenu
-
-        // Nessun keyEquivalent: gli shortcut sono gestiti dal monitor (vedi
-        // installNavigationKeyMonitor). Qui le voci restano cliccabili, con hint nel titolo.
-        for index in 1 ... 9 {
-            let item = NSMenuItem(
-                title: "Workspace \(index)  (⌘\(index))",
-                action: #selector(selectWorkspaceByShortcut(_:)),
-                keyEquivalent: ""
-            )
-            item.tag = index - 1
-            item.target = self
-            goMenu.addItem(item)
-        }
-        goMenu.addItem(.separator())
-        for index in 1 ... 9 {
-            let item = NSMenuItem(
-                title: "Tab \(index)  (⌥\(index))",
-                action: #selector(selectTabByShortcut(_:)),
-                keyEquivalent: ""
-            )
-            item.tag = index - 1
-            item.target = self
-            goMenu.addItem(item)
-        }
-        return goItem
-    }
-
-    private func addItem(to menu: NSMenu, _ title: String, _ action: Selector, _ key: String) {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
-        item.target = self
-        menu.addItem(item)
+        NSApp.mainMenu = MainMenuBuilder.build(target: self)
     }
 }

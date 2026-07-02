@@ -12,6 +12,7 @@ public final class AppSettings {
 
     public private(set) var themeName: String
     public private(set) var fontSize: Double
+    public private(set) var sidebarCollapsed: Bool
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -20,6 +21,7 @@ public final class AppSettings {
         themeName = defaults.string(forKey: Keys.themeName) ?? RelayTheme.relayDark.name
         let savedSize = defaults.double(forKey: Keys.fontSize)
         fontSize = savedSize == 0 ? RelayTheme.relayDark.fontSize : savedSize
+        sidebarCollapsed = defaults.bool(forKey: Keys.sidebarCollapsed)
     }
 
     /// Temi selezionabili (per il picker delle impostazioni).
@@ -54,6 +56,11 @@ public final class AppSettings {
         setFontSize(RelayTheme.relayDark.fontSize)
     }
 
+    public func toggleSidebar() {
+        sidebarCollapsed.toggle()
+        defaults.set(sidebarCollapsed, forKey: Keys.sidebarCollapsed)
+    }
+
     private func persist() {
         defaults.set(themeName, forKey: Keys.themeName)
         defaults.set(fontSize, forKey: Keys.fontSize)
@@ -62,5 +69,6 @@ public final class AppSettings {
     private enum Keys {
         static let themeName = "relay.theme.name"
         static let fontSize = "relay.theme.fontSize"
+        static let sidebarCollapsed = "relay.sidebar.collapsed"
     }
 }

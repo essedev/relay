@@ -42,7 +42,8 @@ final class RightPaneController: NSViewController {
             rootView: ContextTitleBar(
                 store: store,
                 settings: settings,
-                onDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) }
+                onDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) },
+                onToggleSidebar: { [settings] in settings.toggleSidebar() }
             )
         )
         titleBar.translatesAutoresizingMaskIntoConstraints = false

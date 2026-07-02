@@ -10,37 +10,58 @@ public struct SidebarView: View {
     let onNewWorkspace: () -> Void
     /// Doppio click sull'header (riga dei semafori) = comportamento title bar di macOS (zoom).
     let onTitleBarDoubleClick: () -> Void
+    /// Chiude la sidebar (bottone in alto a destra; riappare nella strip del titolo).
+    let onToggleSidebar: () -> Void
 
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
         onNewWorkspace: @escaping () -> Void,
-        onTitleBarDoubleClick: @escaping () -> Void = {}
+        onTitleBarDoubleClick: @escaping () -> Void = {},
+        onToggleSidebar: @escaping () -> Void = {}
     ) {
         self.store = store
         self.settings = settings
         self.onNewWorkspace = onNewWorkspace
         self.onTitleBarDoubleClick = onTitleBarDoubleClick
+        self.onToggleSidebar = onToggleSidebar
     }
 
     public var body: some View {
         let colors = ChromeColors(settings.theme)
         return VStack(spacing: 0) {
-            header(colors)
-            Divider()
+            trafficLightsStrip
+            workspacesHeader(colors)
             list(colors)
         }
-        .frame(minWidth: 180)
+        .frame(minWidth: 200)
         .background(colors.background)
     }
 
-    /// Header sulla stessa riga dei semafori della finestra (full-size content view): parte dopo
-    /// il loro ingombro e ha la stessa altezza della strip del titolo per allineare le baseline.
-    private func header(_ colors: ChromeColors) -> some View {
+    /// Riga dei semafori (full-size content view): zona di drag e doppio click (zoom finestra),
+    /// col toggle della sidebar in alto a destra.
+    private var trafficLightsStrip: some View {
+        let colors = ChromeColors(settings.theme)
+        return HStack {
+            Spacer()
+            Button(action: onToggleSidebar) {
+                Image(systemName: "sidebar.leading")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(colors.secondary)
+            .help("Hide sidebar (⌘B)")
+        }
+        .padding(.trailing, Theme.Spacing.md)
+        .frame(height: Theme.Metrics.titleBarHeight)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { onTitleBarDoubleClick() }
+    }
+
+    private func workspacesHeader(_ colors: ChromeColors) -> some View {
         HStack {
-            Text("Relay")
-                .font(Theme.Typography.title)
-                .foregroundStyle(colors.foreground)
+            Text("Workspaces")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(colors.secondary)
             Spacer()
             Button(action: onNewWorkspace) {
                 Image(systemName: "plus")
@@ -49,39 +70,52 @@ public struct SidebarView: View {
             .foregroundStyle(colors.secondary)
             .help("New workspace")
         }
-        .padding(.leading, Theme.Metrics.trafficLightsInset)
-        .padding(.trailing, Theme.Spacing.md)
-        .frame(height: Theme.Metrics.titleBarHeight)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) { onTitleBarDoubleClick() }
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.top, Theme.Spacing.sm)
+        .padding(.bottom, Theme.Spacing.xs)
     }
 
+    /// Selezione disegnata da noi coi colori del tema (niente highlight di sistema): List senza
+    /// binding di selezione, righe custom con tap + hover, `onMove` per il riordino.
     private func list(_ colors: ChromeColors) -> some View {
-        List(selection: selectionBinding) {
-            Section {
-                ForEach(store.workspaces) { workspace in
-                    row(workspace, colors: colors).tag(workspace.id)
-                }
-                .onMove { store.moveWorkspaces(fromOffsets: $0, toOffset: $1) }
-            } header: {
-                Text("Workspaces")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(colors.secondary)
+        List {
+            ForEach(store.workspaces) { workspace in
+                WorkspaceRow(
+                    workspace: workspace,
+                    selected: workspace.id == store.selectedWorkspaceID,
+                    colors: colors,
+                    onSelect: { store.selectWorkspace(workspace.id) },
+                    onTogglePin: { store.togglePin(workspace.id) },
+                    onClose: { store.closeWorkspace(workspace.id) }
+                )
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(
+                    top: 1,
+                    leading: Theme.Spacing.sm,
+                    bottom: 1,
+                    trailing: Theme.Spacing.sm
+                ))
             }
+            .onMove { store.moveWorkspaces(fromOffsets: $0, toOffset: $1) }
         }
-        .listStyle(.sidebar)
+        .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(colors.background)
     }
+}
 
-    private var selectionBinding: Binding<UUID?> {
-        Binding(
-            get: { store.selectedWorkspaceID },
-            set: { if let id = $0 { store.selectWorkspace(id) } }
-        )
-    }
+/// Riga workspace con selezione/hover dal tema. View separata per lo stato di hover locale.
+private struct WorkspaceRow: View {
+    let workspace: Workspace
+    let selected: Bool
+    let colors: ChromeColors
+    let onSelect: () -> Void
+    let onTogglePin: () -> Void
+    let onClose: () -> Void
 
-    private func row(_ workspace: Workspace, colors: ChromeColors) -> some View {
+    @State private var hovered = false
+
+    var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: workspace.pinned ? "pin.fill" : "folder")
                 .foregroundStyle(workspace.pinned ? colors.accent : colors.secondary)
@@ -93,10 +127,18 @@ public struct SidebarView: View {
             Spacer(minLength: Theme.Spacing.xs)
             AgentBadge(kind: .forWorkspace(workspace), colors: colors)
         }
-        .padding(.vertical, Theme.Spacing.xxs)
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                .fill(selected ? colors.selection : hovered ? colors.hover : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .onHover { hovered = $0 }
         .contextMenu {
-            Button(workspace.pinned ? "Unpin" : "Pin") { store.togglePin(workspace.id) }
-            Button("Close", role: .destructive) { store.closeWorkspace(workspace.id) }
+            Button(workspace.pinned ? "Unpin" : "Pin", action: onTogglePin)
+            Button("Close", role: .destructive, action: onClose)
         }
     }
 }
