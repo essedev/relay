@@ -6,7 +6,9 @@ import AgentProtocol
 public enum AgentStateReducer {
     public struct Result: Equatable {
         public let state: AgentState
-        /// Marker "unread": c'è qualcosa da guardare non ancora visto.
+        /// Marker "completato non visto": lavoro finito (running -> idle) mentre non guardavi. Si
+        /// spegne alla visita. NON copre `needs_input`/`error`, che sono stati mostrati dal badge
+        /// finché lo stato non cambia (es. `needs_input` resta finché rispondi a Claude).
         public let attention: Bool
 
         public init(state: AgentState, attention: Bool) {
@@ -31,14 +33,12 @@ public enum AgentStateReducer {
             return Result(state: .idle, attention: currentAttention)
         }
 
+        // `attention` = solo "completato non visto". needs_input/error non lo usano: il loro badge
+        // è guidato dallo stato e resta finché lo stato cambia.
         let attention: Bool = if isVisible {
-            // La stai guardando: nessun marker unread, vedi lo stato dal vivo.
-            false
-        } else if incoming == .needsInput || incoming == .error {
-            true
+            false // visitando spegni il marker di completamento
         } else if incoming == .idle, current == .running {
-            // Lavoro completato mentre la tab non era in vista.
-            true
+            true // lavoro completato mentre la tab non era in vista
         } else {
             currentAttention
         }

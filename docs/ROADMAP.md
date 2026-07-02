@@ -39,8 +39,9 @@ Design (vedi `ARCHITECTURE.md`: Agent Runtime, Local Control API, Aggregazione S
    L'applicazione evento -> tab avviene in un coordinatore nel composition root (App), NON dentro
    `AgentRuntime` (che resta indipendente da `WorkspaceModel`).
 5. **Badge UI**: in `TabBarView` (per tab) e `SidebarView` (per workspace, aggregato con
-   `AgentSeverity`). `needs_input` = attention marker che resta finché non visiti la tab;
-   `running` = spinner; `idle` dopo `running` = completed marker.
+   `AgentSeverity`). `running`/`needs_input`/`error` sono stati: il badge li mostra finché lo stato
+   cambia (`needs_input` resta finché rispondi a Claude, non si spegne al focus). `idle` dopo
+   `running` = marker "completato" transitorio, si spegne alla visita.
 6. **Anti-rumore**: subagent stop != completamento del pane; niente notifiche su idle->idle.
 
 Exit criteria:
@@ -48,7 +49,8 @@ Exit criteria:
 - [x] un evento agente aggiorna il badge della sua tab via `paneId`, senza parsing output
   (transport + apply verificati a test e con l'app viva; conferma visiva con Claude reale a mano);
 - [x] il badge del workspace nella sidebar riflette il più severo tra le sue tab (`AgentSeverity`);
-- [x] `needs_input` è visibile e si pulisce alla visita (reducer + azzeramento in area controller);
+- [x] `needs_input` resta visibile finché rispondi a Claude (stato, non marker); il "completato"
+  si spegne alla visita (reducer + azzeramento in area controller);
 - [x] setup/uninstall hook ripetibile e non rompe Otty (test unit + round-trip su disco);
 - [x] `make check` verde, con test su receiver (socket end-to-end) e installer (fixture settings.json).
 

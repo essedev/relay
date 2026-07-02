@@ -21,7 +21,7 @@ private func makeFixture() -> Fixture {
     return Fixture(store: store, visibleTab: visible.tabs[0], hiddenTab: hidden.tabs[0])
 }
 
-@Test @MainActor func applyToHiddenTabRaisesAttention() {
+@Test @MainActor func needsInputSetsStateNotAttention() {
     let fixture = makeFixture()
     let applied = fixture.store.applyAgentState(
         paneId: fixture.hiddenTab.id.uuidString,
@@ -29,20 +29,35 @@ private func makeFixture() -> Fixture {
         at: Date(timeIntervalSince1970: 10)
     )
     #expect(applied)
+    // needs_input e' uno stato: il badge lo mostra dallo stato, senza marker "unread".
     #expect(fixture.hiddenTab.agentState == .needsInput)
-    #expect(fixture.hiddenTab.attention)
+    #expect(!fixture.hiddenTab.attention)
     #expect(fixture.hiddenTab.lastEventAt == Date(timeIntervalSince1970: 10))
 }
 
-@Test @MainActor func applyToVisibleTabStaysCalm() {
+@Test @MainActor func completedOnHiddenTabRaisesAttention() {
     let fixture = makeFixture()
-    let applied = fixture.store.applyAgentState(
-        paneId: fixture.visibleTab.id.uuidString,
-        state: .needsInput,
-        at: Date(timeIntervalSince1970: 10)
+    let tabID = fixture.hiddenTab.id.uuidString
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 1)
     )
-    #expect(applied)
-    #expect(fixture.visibleTab.agentState == .needsInput)
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
+    #expect(fixture.hiddenTab.agentState == .idle)
+    #expect(fixture.hiddenTab.attention) // completato mentre non guardavi
+}
+
+@Test @MainActor func completedOnVisibleTabStaysCalm() {
+    let fixture = makeFixture()
+    let tabID = fixture.visibleTab.id.uuidString
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 1)
+    )
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
+    #expect(fixture.visibleTab.agentState == .idle)
     #expect(!fixture.visibleTab.attention)
 }
 

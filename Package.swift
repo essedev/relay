@@ -56,6 +56,10 @@ let package = Package(
         .testTarget(name: "WorkspaceModelTests", dependencies: ["WorkspaceModel", "AgentProtocol"]),
         .testTarget(name: "AgentRuntimeTests", dependencies: ["AgentRuntime", "AgentProtocol"]),
         .testTarget(name: "HookInstallerTests", dependencies: ["HookInstaller"]),
+        .testTarget(
+            name: "PanelsTests",
+            dependencies: ["Panels", "WorkspaceModel", "AgentProtocol"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

@@ -13,9 +13,10 @@ public final class Tab: Identifiable {
     /// Stato agente corrente della sessione legata a questa tab. Guida il badge e l'aggregazione
     /// per severità nella sidebar. `.unknown` finché non arriva un evento hook.
     public var agentState: AgentState
-    /// Novità non ancora vista dall'utente (needs_input arrivato, o lavoro completato mentre la
-    /// tab non era in vista). Si spegne alla visita della tab. È il marker "unread", distinto dallo
-    /// stato: lo stato dice cosa fa l'agente, `attention` dice che c'è qualcosa da guardare.
+    /// Marker "completato non visto": lavoro finito (running -> idle) mentre la tab non era in
+    /// vista. Si spegne alla visita. Distinto dallo stato: `running`/`needs_input`/`error` sono
+    /// mostrati dal badge in base ad `agentState` finché lo stato non cambia (`needs_input` resta
+    /// finché rispondi a Claude, non si spegne al focus).
     public var attention: Bool
     /// Timestamp dell'ultimo evento agente applicato.
     public var lastEventAt: Date?

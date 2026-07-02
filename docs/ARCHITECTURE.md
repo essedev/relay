@@ -316,7 +316,11 @@ Severità: `needs_input` > `error` > `running` > `completed` non visto > `idle`.
 
 Regole:
 
-- `needs_input` resta visibile finché l'utente non visita il pane;
+- distinzione **stato vs marker**: `running`/`needs_input`/`error` sono stati e il badge li mostra
+  in base ad `agentState` finché lo stato cambia. `needs_input` resta finché la sessione è in attesa
+  (si spegne quando rispondi a Claude e parte un nuovo hook), **non** alla semplice visita del pane;
+- `attention` (`Tab.attention`) è solo il marker "completato non visto": lavoro finito
+  (`running` -> `idle`) mentre il pane non era in vista. Quello sì si spegne alla visita;
 - `idle` non genera rumore se la sessione era già idle;
 - `completed` esiste solo come transizione dopo `running`;
 - lo stop di un subagent non è il completamento del pane principale.

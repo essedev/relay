@@ -12,16 +12,17 @@ enum BadgeKind: Int {
     case error = 3
     case needsInput = 4
 
-    /// Badge di una singola tab. `running` è status (indipendente da attention); gli altri marker
-    /// dipendono da `attention`, così spariscono quando la tab viene visitata.
+    /// Badge di una singola tab. `running`/`needs_input`/`error` sono *stati*: il badge resta
+    /// finché
+    /// lo stato cambia (needs_input si spegne quando rispondi a Claude, non alla visita). Solo il
+    /// marker "completato" (idle dopo running) è transitorio e dipende da `attention`.
     static func forTab(_ tab: WorkspaceModel.Tab) -> BadgeKind {
-        if tab.agentState == .running { return .running }
-        guard tab.attention else { return .none }
         switch tab.agentState {
-        case .needsInput: return .needsInput
-        case .error: return .error
-        case .idle: return .completed
-        default: return .none
+        case .running: .running
+        case .needsInput: .needsInput
+        case .error: .error
+        case .idle: tab.attention ? .completed : .none
+        case .unknown: .none
         }
     }
 
