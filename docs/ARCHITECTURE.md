@@ -322,17 +322,36 @@ Regole:
 
 ## Data Model
 
+Stato V0 (in codice, `WorkspaceModel`), `@Observable`:
+
 ```text
-Workspace    { id, name, rootPath, pinned, sortIndex, createdAt }
-Tab          { id, workspaceId, title, sortIndex, paneTree }
-Pane         { id, tabId, cwd, lifecycle, agentSessionId? }
-AgentSession { sessionId, agent, paneId, state, lastEventAt, resumeCommand, bypass }
-AgentEvent   { sessionId, state, source, toolName?, reason?, timestamp }
+WorkspaceStore { workspaces: [Workspace], selectedWorkspaceID }
+Workspace      { id, name, rootPath?, pinned, tabs: [Tab], selectedTabID }
+Tab            { id, title, hasCustomTitle }        // V0: una tab = un terminale
 ```
 
-- Sidebar e dashboard leggono `Workspace` + aggregati: nessun accesso alle surface.
-- `AgentEvent` è una timeline JSONL con retention breve (debug e dashboard "ultimo evento").
-- Persistence v1: snapshot JSON del layout + metadata. Niente database finché non serve.
+Futuro (quando servono):
+
+```text
+Tab.paneTree   { split dei pane dentro una tab }    // split deprioritizzato dall'utente
+AgentSession   { sessionId, agent, tabId, state, lastEventAt, resumeCommand, bypass }
+AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
+```
+
+- Il model è puro e osservabile: **nessun riferimento alle surface del terminale**. Le surface
+  vive sono legate per `Tab.id` fuori dal model, in `SurfaceRegistry` (TerminalHostUI).
+- Gerarchia prodotto: **Workspace -> Tab -> terminale**. Lo split (pane tree dentro una tab) è
+  previsto ma deprioritizzato (l'utente non lo usa molto).
+- Sidebar e tab bar leggono lo store e si aggiornano via Observation, senza toccare le surface.
+- Persistence: snapshot JSON del layout + metadata (non ancora implementata). Niente database.
+
+### Binding Surface (lazy, fuori dal model)
+
+- `SurfaceRegistry` mappa `Tab.id -> TerminalSurfaceHandle`. La surface nasce alla **prima
+  visita** della tab (lazy) e viene distrutta quando la tab non esiste più (reconcile via
+  `retain(aliveTabIDs)`). Il PTY di una tab non visibile resta vivo.
+- `WorkspaceAreaController` (AppKit) osserva lo store e scambia la view della surface attiva.
+- Non ancora fatto: cap LRU sulle surface vive (ora restano vive tutte le tab visitate).
 
 ### Resume
 
@@ -468,11 +487,17 @@ Deciso e validato (Cycle 5):
   ritmi degli agenti (benchmark in `swiftterm-spike/`);
 - cap scrollback confermato come leva di memoria giusta.
 
-Da validare (misure di Fase 2, sull'app multi-surface reale):
+Costruito (V0, Cycle 6):
 
-- latenza input p99 contro il budget < 1 frame;
-- costo memoria incrementale per surface dentro un solo processo;
-- lifecycle surface lazy + LRU in app reale;
-- binding sessione -> pane;
-- socket locale al posto del file store;
-- badge UI in tempo reale.
+- app reale: Workspace -> Tab -> terminale, con sidebar (crea/seleziona/pin/riordina) e tab bar
+  (crea/seleziona/chiudi);
+- surface lazy per `Tab.id` con teardown per reconcile; terminale AppKit, chrome SwiftUI isolata;
+- menu e shortcut (New Workspace/Tab, Close Tab, Copy/Paste); folder picker per il workspace.
+
+Da fare (prossimi cicli):
+
+- latenza input p99 contro il budget < 1 frame (misura sull'app reale);
+- costo memoria incrementale per surface + cap LRU sulle surface vive;
+- split (pane tree dentro una tab), deprioritizzato;
+- agent runtime: socket locale, binding sessione -> tab, badge UI in tempo reale;
+- persistence del layout e resume.

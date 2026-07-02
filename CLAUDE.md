@@ -14,13 +14,16 @@ e `docs/CONVENTIONS.md` prima di scrivere codice.
 - `Core` - primitivi (logging). Nessuna dipendenza.
 - `AgentProtocol` - tipi evento/stato agente, puro. Niente I/O, niente AppKit.
 - `AgentRuntime` - store/receiver stato agente (actor).
-- `WorkspaceModel` - workspace/tab/pane, aggregazione severità. Niente AppKit.
-- `TerminalEngine` - astrazione engine + backend SwiftTerm. **Nessun tipo SwiftTerm deve
-  trapelare fuori da qui.**
-- `TerminalHostUI` - host AppKit della surface (path caldo, latenza).
-- `Panels` - pannelli SwiftUI isolati (sidebar, dashboard).
+- `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity`. Puro,
+  niente AppKit. V0: una tab = un terminale (split futuro).
+- `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
+  **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`).
+- `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy) + `WorkspaceAreaController`
+  (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
+- `Panels` - SwiftUI isolata: `Theme` (design tokens), `SidebarView`, `TabBarView`.
 - `HookInstaller` - hook Claude in ~/.claude/settings.json.
-- `RelayApp` (`Sources/relay`) - composition root. Se cresce oltre il wiring, manca un modulo.
+- `RelayApp` (`Sources/relay`) - composition root: `AppController`, `MainSplitViewController`,
+  `RightPaneController`, menu/shortcut. Se cresce oltre il wiring, manca un modulo.
 - `CLI` (`Sources/relay-cli`) - eseguibile `relay`.
 
 ## Regole che non si violano
@@ -39,3 +42,8 @@ e `docs/CONVENTIONS.md` prima di scrivere codice.
   binari di fork senza una decisione esplicita (vedi ARCHITECTURE, sezione engine).
 - L'app è un eseguibile SwiftPM per ora; il bundling `.app` (Info.plist, entitlements, firma per
   notifiche) arriva quando serve.
+- `Tab` è ambiguo: SwiftUI ha un suo `Tab`. Nei file che importano SwiftUI + WorkspaceModel usa
+  `WorkspaceModel.Tab`.
+- Bridge Observation -> AppKit: `WorkspaceAreaController.observe()` usa `withObservationTracking`
+  e si ri-arma; leggi le proprietà osservate dentro `render()` o non verranno tracciate.
+- Non ancora fatto: cap LRU sulle surface vive, split, agent runtime/badge, persistence.
