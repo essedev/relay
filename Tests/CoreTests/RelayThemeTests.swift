@@ -29,6 +29,20 @@ import Testing
     #expect(resized.fontSize == 20)
     #expect(resized.background == RelayTheme.relayDark.background)
     #expect(resized.ansi == RelayTheme.relayDark.ansi)
+    #expect(resized.cursorBlink == RelayTheme.relayDark.cursorBlink)
+}
+
+@Test func themesDefaultToSteadyCaret() {
+    for theme in RelayTheme.all {
+        #expect(!theme.cursorBlink)
+    }
+}
+
+@Test func withCursorBlinkChangesOnlyBlink() {
+    let blinking = RelayTheme.relayDark.withCursorBlink(true)
+    #expect(blinking.cursorBlink)
+    #expect(blinking.fontSize == RelayTheme.relayDark.fontSize)
+    #expect(blinking.ansi == RelayTheme.relayDark.ansi)
 }
 
 @Test func isDarkFollowsBackgroundLuminance() {

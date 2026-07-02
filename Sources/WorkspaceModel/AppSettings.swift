@@ -12,6 +12,7 @@ public final class AppSettings {
 
     public private(set) var themeName: String
     public private(set) var fontSize: Double
+    public private(set) var cursorBlink: Bool
     public private(set) var sidebarCollapsed: Bool
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -21,6 +22,8 @@ public final class AppSettings {
         themeName = defaults.string(forKey: Keys.themeName) ?? RelayTheme.relayDark.name
         let savedSize = defaults.double(forKey: Keys.fontSize)
         fontSize = savedSize == 0 ? RelayTheme.relayDark.fontSize : savedSize
+        // Assente = false = caret fisso: il default di prodotto è niente blink.
+        cursorBlink = defaults.bool(forKey: Keys.cursorBlink)
         sidebarCollapsed = defaults.bool(forKey: Keys.sidebarCollapsed)
     }
 
@@ -29,10 +32,10 @@ public final class AppSettings {
         RelayTheme.all
     }
 
-    /// Tema effettivo: quello scelto, con la dimensione font corrente applicata.
+    /// Tema effettivo: quello scelto, con font e blink del caret correnti sovrapposti.
     public var theme: RelayTheme {
         let base = RelayTheme.all.first { $0.name == themeName } ?? .relayDark
-        return base.withFontSize(fontSize)
+        return base.withFontSize(fontSize).withCursorBlink(cursorBlink)
     }
 
     public func selectTheme(_ name: String) {
@@ -56,6 +59,12 @@ public final class AppSettings {
         setFontSize(RelayTheme.relayDark.fontSize)
     }
 
+    public func setCursorBlink(_ enabled: Bool) {
+        guard enabled != cursorBlink else { return }
+        cursorBlink = enabled
+        defaults.set(cursorBlink, forKey: Keys.cursorBlink)
+    }
+
     public func toggleSidebar() {
         sidebarCollapsed.toggle()
         defaults.set(sidebarCollapsed, forKey: Keys.sidebarCollapsed)
@@ -69,6 +78,7 @@ public final class AppSettings {
     private enum Keys {
         static let themeName = "relay.theme.name"
         static let fontSize = "relay.theme.fontSize"
+        static let cursorBlink = "relay.cursor.blink"
         static let sidebarCollapsed = "relay.sidebar.collapsed"
     }
 }

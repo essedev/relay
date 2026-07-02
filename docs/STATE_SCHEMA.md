@@ -77,8 +77,10 @@ Resume: solo `sessionId`, `agent`, `cwd`, comando sanitizzato (`claude --resume 
 ## Preferenze (UserDefaults)
 
 Già implementate, distinte dallo snapshot del layout: `AppSettings` (`Sources/WorkspaceModel/`)
-persiste `themeName`, `fontSize`, `sidebarCollapsed` in `UserDefaults` (chiavi `relay.*`). Sono
-*preferenze* utente, non stato di sessione - per quello UserDefaults è il posto giusto.
+persiste `themeName`, `fontSize`, `cursorBlink`, `sidebarCollapsed` in `UserDefaults` (chiavi
+`relay.*`). Sono *preferenze* utente, non stato di sessione - per quello UserDefaults è il posto
+giusto. `fontSize` e `cursorBlink` sono sovrapposti al tema base (`RelayTheme.withFontSize` /
+`withCursorBlink`), così il terminale li applica insieme al resto della palette.
 
 ## Stato
 

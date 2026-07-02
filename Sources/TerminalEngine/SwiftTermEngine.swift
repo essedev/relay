@@ -42,10 +42,6 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         super.init()
         terminal.processDelegate = self
         hideScroller()
-        // Cursore fisso: SwiftTerm parte con `.blinkBlock` (caret animato). Passiamo a
-        // `.steadyBlock` sul Terminal sottostante, che notifica la view e rimuove l'animazione.
-        // Un'app interna può comunque richiedere il blink via DECSCUSR.
-        terminal.getTerminal().setCursorStyle(.steadyBlock)
         apply(theme: .relayDark) // default; la registry riapplica il tema corrente
     }
 
@@ -65,6 +61,9 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal.nativeForegroundColor = Self.nsColor(theme.foreground)
         terminal.caretColor = Self.nsColor(theme.cursor)
         terminal.selectedTextBackgroundColor = Self.nsColor(theme.selection)
+        // Blink del caret: SwiftTerm parte con `.blinkBlock`. `setCursorStyle` notifica la view e
+        // (dis)attiva l'animazione. Un'app interna può comunque richiederlo via DECSCUSR.
+        terminal.getTerminal().setCursorStyle(theme.cursorBlink ? .blinkBlock : .steadyBlock)
         if let fontName = theme.fontName, let font = NSFont(name: fontName, size: theme.fontSize) {
             terminal.font = font
         } else {

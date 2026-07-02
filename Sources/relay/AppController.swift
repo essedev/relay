@@ -198,7 +198,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             return
         }
         let hosting = NSHostingController(rootView: SettingsView(settings: settings))
-        hosting.preferredContentSize = NSSize(width: 380, height: 220)
+        hosting.preferredContentSize = NSSize(width: 440, height: 330)
         let panel = NSWindow(contentViewController: hosting)
         panel.title = "Settings"
         panel.styleMask = [.titled, .closable]

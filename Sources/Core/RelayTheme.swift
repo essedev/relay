@@ -35,6 +35,10 @@ public struct RelayTheme: Sendable, Equatable {
     /// Nome del font monospace; `nil` = font monospace di sistema (SF Mono).
     public let fontName: String?
     public let fontSize: Double
+    /// Se il caret lampeggia. Comportamento del cursore, accanto al suo colore (`cursor`). È una
+    /// preferenza globale uguale per tutti i temi: il default qui è `false` (caret fisso),
+    /// `AppSettings` lo overrida con la scelta utente (come `fontSize`).
+    public let cursorBlink: Bool
 
     public init(
         name: String,
@@ -44,7 +48,8 @@ public struct RelayTheme: Sendable, Equatable {
         selection: RelayColor,
         ansi: [RelayColor],
         fontName: String?,
-        fontSize: Double
+        fontSize: Double,
+        cursorBlink: Bool = false
     ) {
         self.name = name
         self.background = background
@@ -54,6 +59,7 @@ public struct RelayTheme: Sendable, Equatable {
         self.ansi = ansi
         self.fontName = fontName
         self.fontSize = fontSize
+        self.cursorBlink = cursorBlink
     }
 
     /// Vero se il background è scuro (luminanza relativa Rec. 709 < 0.5). Guida l'appearance
@@ -75,7 +81,23 @@ public struct RelayTheme: Sendable, Equatable {
             selection: selection,
             ansi: ansi,
             fontName: fontName,
-            fontSize: size
+            fontSize: size,
+            cursorBlink: cursorBlink
+        )
+    }
+
+    /// Copia con il blink del caret diverso (preferenza globale sovrapposta al tema).
+    public func withCursorBlink(_ enabled: Bool) -> RelayTheme {
+        RelayTheme(
+            name: name,
+            background: background,
+            foreground: foreground,
+            cursor: cursor,
+            selection: selection,
+            ansi: ansi,
+            fontName: fontName,
+            fontSize: fontSize,
+            cursorBlink: enabled
         )
     }
 

@@ -30,8 +30,8 @@ sessione Claude reale (`relay-cli hooks setup`, apri l'app, avvia `claude`).
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket), `AgentSessionStore`
   (actor, snapshot per sessionId). Puro, niente AppKit né WorkspaceModel.
 - `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity` +
-  `AgentStateReducer` + `AppSettings` (tema/font/sidebar, UserDefaults) + `WindowTitle` (titolo e
-  sottotitolo contestuali). Puro, niente AppKit. V0: una tab = un terminale (split futuro).
+  `AgentStateReducer` + `AppSettings` (tema/font/cursore/sidebar, UserDefaults) + `WindowTitle`
+  (titolo e sottotitolo contestuali). Puro, niente AppKit. V0: una tab = un terminale (split futuro).
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`).
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy) + `WorkspaceAreaController`

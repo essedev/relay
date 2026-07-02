@@ -34,6 +34,15 @@ private func freshDefaults() -> UserDefaults {
     #expect(settings.theme.name == "Relay Light")
 }
 
+@MainActor @Test func cursorBlinkDefaultsOffAndReflectsInTheme() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(!settings.cursorBlink)
+    #expect(!settings.theme.cursorBlink)
+    settings.setCursorBlink(true)
+    #expect(settings.cursorBlink)
+    #expect(settings.theme.cursorBlink)
+}
+
 @MainActor @Test func adjustAndReset() {
     let settings = AppSettings(defaults: freshDefaults())
     settings.setFontSize(13)
@@ -48,8 +57,10 @@ private func freshDefaults() -> UserDefaults {
     let first = AppSettings(defaults: defaults)
     first.selectTheme("Relay Light")
     first.setFontSize(18)
+    first.setCursorBlink(true)
 
     let second = AppSettings(defaults: defaults)
     #expect(second.themeName == "Relay Light")
     #expect(second.fontSize == 18)
+    #expect(second.cursorBlink)
 }

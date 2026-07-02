@@ -25,6 +25,7 @@ public enum Theme {
         public static let tab = Font.system(size: 12)
         public static let windowTitle = Font.system(size: 12, weight: .medium)
         public static let subtitle = Font.system(size: 11)
+        public static let caption = Font.system(size: 10, weight: .medium)
     }
 
     public enum Metrics {
