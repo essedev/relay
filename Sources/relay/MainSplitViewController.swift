@@ -26,8 +26,7 @@ final class MainSplitViewController: NSSplitViewController {
                 settings: settings,
                 onNewWorkspace: onNewWorkspace,
                 // Al doppio click la finestra è già key (il primo click la attiva).
-                onTitleBarDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) },
-                onToggleSidebar: { settings.toggleSidebar() }
+                onTitleBarDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) }
             )
         )
         // L'header della sidebar vive sulla riga dei semafori (full-size content view): niente

@@ -10,21 +10,17 @@ public struct SidebarView: View {
     let onNewWorkspace: () -> Void
     /// Doppio click sull'header (riga dei semafori) = comportamento title bar di macOS (zoom).
     let onTitleBarDoubleClick: () -> Void
-    /// Chiude la sidebar (bottone in alto a destra; riappare nella strip del titolo).
-    let onToggleSidebar: () -> Void
 
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
         onNewWorkspace: @escaping () -> Void,
-        onTitleBarDoubleClick: @escaping () -> Void = {},
-        onToggleSidebar: @escaping () -> Void = {}
+        onTitleBarDoubleClick: @escaping () -> Void = {}
     ) {
         self.store = store
         self.settings = settings
         self.onNewWorkspace = onNewWorkspace
         self.onTitleBarDoubleClick = onTitleBarDoubleClick
-        self.onToggleSidebar = onToggleSidebar
     }
 
     public var body: some View {
@@ -38,23 +34,13 @@ public struct SidebarView: View {
         .background(colors.background)
     }
 
-    /// Riga dei semafori (full-size content view): zona di drag e doppio click (zoom finestra),
-    /// col toggle della sidebar in alto a destra.
+    /// Riga dei semafori (full-size content view): vuota e pulita, zona di drag e doppio click
+    /// (zoom finestra). Il toggle della sidebar è un accessory della title bar (posizione fissa).
     private var trafficLightsStrip: some View {
-        let colors = ChromeColors(settings.theme)
-        return HStack {
-            Spacer()
-            Button(action: onToggleSidebar) {
-                Image(systemName: "sidebar.leading")
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(colors.secondary)
-            .help("Hide sidebar (⌘B)")
-        }
-        .padding(.trailing, Theme.Spacing.md)
-        .frame(height: Theme.Metrics.titleBarHeight)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) { onTitleBarDoubleClick() }
+        Color.clear
+            .frame(height: Theme.Metrics.titleBarHeight)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { onTitleBarDoubleClick() }
     }
 
     private func workspacesHeader(_ colors: ChromeColors) -> some View {

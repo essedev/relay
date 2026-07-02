@@ -30,7 +30,5 @@ public enum Theme {
         public static let tabBarHeight: CGFloat = 34
         /// Altezza della strip del titolo (allineata verticalmente ai semafori della finestra).
         public static let titleBarHeight: CGFloat = 30
-        /// Ingombro orizzontale dei semafori (quando la strip inizia dal bordo finestra).
-        public static let trafficLightsInset: CGFloat = 76
     }
 }
