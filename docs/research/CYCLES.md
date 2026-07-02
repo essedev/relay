@@ -560,3 +560,60 @@ sessioni Claude dopo un riavvio (resume).
 `make check` verde lungo tutto il ciclo (fino a 90 test). Prossimo: chiudere le misure di
 performance di M3 (latenza input p99, memoria per surface) per tarare il cap LRU, poi Milestone 4
 (bundle `.app`).
+
+## Cycle 10 - Misure M3, Bundle + Notifiche (M4), Temi e Font
+
+Stato: completato (chiusura M3 + Milestone 4 + espansione appearance). Baseline delle milestone
+chiuso.
+
+### Obiettivo
+
+Chiudere le misure di performance di M3 e tararne il cap; portare a casa Milestone 4 (bundle `.app`)
+e con essa le notifiche macOS complete (impostazioni + suono); aggiungere temi classici e la scelta
+del font family. Sempre con documentazione e test aggiornati.
+
+### Cosa è stato fatto
+
+- **Misure di performance (M3, chiuse)**: strumentazione integrata gated da `RELAY_PERF`
+  (`PerfSampler`): campiona RSS e surface vive, e cronometra l'hook di input
+  (`handleNavigationKey`) su keyDown sintetici dell'hot path. `LatencyStats` in `Core` (puro,
+  testato) riassume i campioni; cap LRU reso configurabile via `RELAY_SURFACE_CAP` per esplorare la
+  pendenza. Risultati (`docs/research/PERF.md`): latenza input aggiunta dallo shell **max 2.4µs**
+  (budget 16ms p99, ~4 ordini di grandezza di margine), **~0.3-0.5 MB per surface idle**, **~98 MB
+  con 30 surface vive**. Cap confermato a 12: non è un limite di memoria stretto ma una diga contro
+  la crescita illimitata.
+- **Milestone 4 - bundle `.app`**: `make bundle` assembla `.build/Relay.app` (release +
+  `bundle/Info.plist`, bundle id `dev.relay.app` = subsystem di logging, + firma ad-hoc); `make
+  run-app` lo avvia. Serve perché `UNUserNotificationCenter` richiede un bundle id (da bare
+  executable crasha). Verificato: il bundle parte pulito (rpath ok).
+- **Notifiche macOS complete**: trigger puro e testabile nel reducer
+  (`AgentStateReducer.notification`, coerente con le regole anti-rumore dei badge: needs_input alla
+  entrata, completato solo se non in vista). Lo store emette una `AgentNotification` (dato puro) via
+  callback `onNotifiableTransition` - `WorkspaceModel` resta senza AppKit. Il composition root
+  (`NotificationCoordinator`) applica preferenze + soppressione runtime (niente notifica se stai già
+  guardando la tab con Relay in primo piano) e consegna via `UNUserNotificationCenter`. Impostazioni
+  (categoria Notifications): master, per-tipo (needs input / finished), suono on/off + scelta suono
+  (alert di sistema), persistite in `AppSettings` (default on). Attive solo dal bundle.
+- **Temi e font**: quattro temi classici curati aggiunti al modello puro (`Core`): Solarized
+  Dark/Light e Gruvbox Dark/Light coi 16 ANSI canonici. Con sei temi il picker segmented non regge:
+  sostituito da una lista selezionabile, ogni riga anteprima la sua palette. Scelta font family
+  (`AppSettings.fontName` sovrascrive il tema come `fontSize`; picker che enumera i monospace
+  installati via `NSFontManager`).
+- **Dettaglio UI**: nel badge del workspace il contatore delle tab in quello stato spostato a
+  sinistra del pallino.
+
+### Note di ragionamento
+
+- La latenza input dello shell è trascurabile per costruzione: Relay non siede sul path di input
+  del terminale (SwiftTerm possiede keyDown), aggiunge solo un check dei modificatori. Il budget
+  keystroke-to-glyph è dominato dal rendering di SwiftTerm, fuori dal nostro controllo e fuori dal
+  budget "latenza aggiunta dallo shell".
+- Le notifiche riusano la logica anti-rumore dei badge invece di duplicarla: un unico classificatore
+  puro decide sia il marker sia la notifica. La soppressione "la stai già guardando" è l'unica parte
+  runtime, e vive nel composition root con `NSApp.isActive`.
+- Refactor per rispettare i limiti di dimensione file (lint 400/250): componenti e binding di
+  `SettingsView` estratti in `SettingsComponents.swift`; seeding demo in `DemoSeeder`.
+
+`make check` verde lungo tutto il ciclo (fino a 107 test). Verifica manuale residua: concedere il
+permesso notifiche al primo avvio dal bundle e vedere i banner (passo GUI). Prossimo giro a scelta:
+distribuzione firmata (Developer ID + icona), dashboard overview, oppure split.

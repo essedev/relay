@@ -97,7 +97,8 @@ resta mai senza workspace (se ne riapre uno default).
 **Tooling di test** (entrambi sul socket reale): `relay-cli simulate [coding|permission|burst]`
 dentro una tab, e `relay --demo NxM` per popolare l'app con sessioni concorrenti simulate.
 
-Restano aperti (later): scelta del font family, altri temi, import da config Ghostty.
+Fatto in seguito (vedi Milestone 4): scelta del font family e altri temi. Resta aperto (later):
+import da config Ghostty.
 
 ## Milestone 2 - Persistence + rename (dogfood-ability) - fatto
 
@@ -122,19 +123,24 @@ Restano aperti (later): scelta del font family, altri temi, import da config Gho
   latenza input aggiunta dallo shell max 2.4µs (budget 16ms p99), ~0.3-0.5 MB per surface idle,
   ~98 MB con 30 surface vive. Cap confermato a 12; knob `RELAY_SURFACE_CAP` per ri-tarare.
 
-## Milestone 4 - Bundle `.app`
+## Milestone 4 - Bundle `.app` + notifiche - fatto
 
-- Info.plist, bundle id, entitlements, firma. Sblocca notifiche macOS, installer hook
-  distribuibile e uso fuori da `swift run`.
+- Bundle `.app` (`make bundle` -> `.build/Relay.app`): `bundle/Info.plist` (bundle id
+  `dev.relay.app`) + firma ad-hoc; `make run-app` lo avvia. Sblocca l'uso fuori da `swift run`.
+- Notifiche macOS su `needs_input`/completato (`NotificationCoordinator` + `UNUserNotificationCenter`,
+  solo dal bundle), classificazione pura nel reducer, con impostazioni (categoria Notifications:
+  master, per-tipo, suono on/off + scelta suono). Soppressione se stai già guardando la tab.
+- Sei temi curati (Solarized/Gruvbox oltre a Relay Dark/Light) e scelta font family, nel pannello
+  impostazioni.
 
 ## Più avanti
 
+- Firma Developer ID + icona per la distribuzione; installer hook distribuibile.
 - Dashboard overview di tutti i workspace/agenti con jump-to.
 - Split (pane tree dentro una tab), deprioritizzato dall'utente.
-- Altri agenti (Codex/OpenCode), export timeline.
+- Altri agenti (Codex/OpenCode), export timeline; import da config Ghostty.
 
 ## Prossima azione
 
-Milestone 4 - bundle `.app` (Info.plist, bundle id, entitlements, firma), che sblocca le notifiche
-macOS (needs_input/completato), le relative impostazioni (abilita/stati/suono) e l'installer hook
-distribuibile.
+Baseline delle milestone chiuso. Prossimo giro a scelta dell'utente: distribuzione (firma Developer
+ID + icona + installer hook), dashboard overview, oppure split.

@@ -3,12 +3,13 @@
 Terminale macOS nativo agent-aware. Leggi `docs/ARCHITECTURE.md` prima di toccare la struttura
 e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `docs/ROADMAP.md`.
 
-Stato: V0 + **Milestone 1 (agent runtime + badge)** + giro UI/UX (temi, chrome, chiusura con
-conferma + cascade, float per stato) + **Milestone 2 (persistence layout + rename inline
-workspace/tab)** + **Milestone 3: cap LRU surface fatto** + **resume assistito Claude (barra +
-persistenza binding)**. **Prossimo: misure di performance (M3) per tarare il cap** - vedi
-`docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale (il resume
-riprende la sessione).
+Stato: V0 + **M1 (agent runtime + badge)** + giro UI/UX (temi, chrome, chiusura con conferma +
+cascade, float per stato) + **M2 (persistence layout + rename inline)** + **resume assistito Claude**
++ **M3 (cap LRU + misure performance chiuse, `docs/research/PERF.md`)** + **M4 (bundle `.app` +
+notifiche macOS con impostazioni e suono)** + sei temi curati e scelta font family. **Baseline delle
+milestone chiuso**; prossimo giro a scelta (distribuzione firmata, dashboard, split) - vedi
+`docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
+girano solo dal bundle (`make run-app`).
 
 ## Comandi
 
@@ -32,16 +33,17 @@ riprende la sessione).
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),
   `AgentSessionStore` (actor, snapshot per sessionId). Puro, niente AppKit né WorkspaceModel.
 - `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity` +
-  `AgentStateReducer` + `AppSettings` (tema/font/cursore/sidebar, UserDefaults) + `WindowTitle`
-  (titolo e sottotitolo contestuali) + `LayoutSnapshot` (Codable) con `snapshot()`/`restore(from:)`.
-  Puro, niente AppKit. V0: una tab = un terminale (split futuro).
+  `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
+  sidebar/notifiche, UserDefaults) + `WindowTitle` + `LayoutSnapshot` (Codable) +
+  `AgentNotification` (payload puro, emesso da `store.onNotifiableTransition`). Puro, niente AppKit.
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`).
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy, cap LRU via `SurfaceEvictionPolicy`
   pura) + `WorkspaceAreaController` (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
-  `ResumeBar`, `SettingsView`. I colori vengono dal tema (`AppSettings.theme`), non hardcoded.
+  `ResumeBar`, `SettingsView` (+ `SettingsComponents`), `MonospaceFonts`. I colori vengono dal tema
+  (`AppSettings.theme`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
   scrittura atomica. Trasformazioni pure (`merge`/`remove`) separate dall'I/O per i test.
@@ -49,8 +51,9 @@ riprende la sessione).
   (JSON atomico, versionato, path iniettato). Dipende solo da `WorkspaceModel`, niente AppKit.
 - `RelayApp` (`Sources/relay`) - composition root: `AppController`, `MainSplitViewController`,
   `RightPaneController`, `RootOverlayController` (overlay toggle), `MainMenuBuilder`,
-  `AgentCoordinator` (unico punto che lega `AgentRuntime` a `WorkspaceModel`), `LayoutAutosave`
-  (salvataggio debounced del layout), `DemoMode`. Se cresce oltre il wiring, manca un modulo.
+  `AgentCoordinator` (unico punto che lega `AgentRuntime` a `WorkspaceModel`),
+  `NotificationCoordinator` (unico punto che tocca `UNUserNotificationCenter`), `LayoutAutosave`,
+  `PerfSampler` (misure `RELAY_PERF`), `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
 - `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status`,
   `claude-hook <state>` (invocato dagli hook: stdin + `RELAY_TAB_ID` -> socket) e `simulate`.
 
@@ -72,6 +75,13 @@ riprende la sessione).
   `dev.relay.app`); `make run-app` lo avvia. Serve per le notifiche: `UNUserNotificationCenter`
   richiede un bundle id, da bare executable (`swift run`) crasha. In sviluppo puoi comunque usare
   `make run` (niente notifiche). Firma vera (Developer ID) e icona: quando si distribuisce.
+- Notifiche: il trigger è puro (`AgentStateReducer.notification`), lo store emette via
+  `onNotifiableTransition` e il `NotificationCoordinator` (solo se `Bundle.main.bundleIdentifier !=
+  nil`) filtra per preferenze + `NSApp.isActive` e consegna. Al primo avvio dal bundle macOS chiede
+  il permesso una volta: senza consenso i banner non arrivano (non è un bug del codice).
+- Misure di performance: `RELAY_PERF=1` accende `PerfSampler` (RSS + surface vive + latenza input,
+  categoria log `perf`, livello `.notice`); `RELAY_PERF_CYCLE=1` cicla il focus; `RELAY_SURFACE_CAP=N`
+  override del cap LRU. Vedi `docs/research/PERF.md` per numeri e metodo. Spento a regime.
 - `Tab` è ambiguo: SwiftUI ha un suo `Tab`. Nei file che importano SwiftUI + WorkspaceModel usa
   `WorkspaceModel.Tab`.
 - Bridge Observation -> AppKit: `WorkspaceAreaController.observe()` usa `withObservationTracking`

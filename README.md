@@ -28,14 +28,15 @@ make help      # tutti i target
 - `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi).
 - `Cmd +/-` zoom del terminale, `Cmd+0` dimensione originale.
 - `Cmd+B` mostra/nasconde la sidebar.
-- `Cmd+,` impostazioni (tema, dimensione font).
+- `Cmd+,` impostazioni (tema, font, notifiche).
 
 ## Aspetto
 
 Tema del terminale curato (palette ANSI, quindi Claude Code/`git`/`ls` in palette), con chrome
-coerente. Due temi di default (Relay Dark/Light), dimensione font e blink del cursore regolabili dal
-pannello impostazioni (`Cmd+,`, master-detail con ricerca), tutto persistito. Il modello di tema
-vive in `Core` (`RelayTheme`), unica fonte per terminale e chrome.
+coerente. Sei temi (scuri: Relay Dark, Solarized Dark, Gruvbox Dark; chiari: le controparti),
+scelta del font family (monospace installati), dimensione font e blink del cursore, tutto regolabile
+dal pannello impostazioni (`Cmd+,`, master-detail con ricerca) e persistito. Il modello di tema vive
+in `Core` (`RelayTheme`), unica fonte per terminale e chrome.
 
 La title bar mostra il contesto della tab attiva: il titolo impostato dal programma (Claude Code
 manda il nome della chat, zsh `user@host:path`), altrimenti la cwd corrente (OSC 7) abbreviata con
@@ -55,6 +56,10 @@ relay-cli hooks uninstall   # rimuove solo gli hook di Relay
 
 Poi apri Relay, avvia `claude` in una tab e i badge si aggiornano. `needs_input` resta finché non
 rispondi. Dettagli protocollo/binding in `docs/STATE_SCHEMA.md`.
+
+Con l'app avviata dal bundle (`make run-app`) arrivano anche le notifiche macOS quando un agente
+chiede input o finisce mentre non stai guardando la tab (impostazioni e suono in `Cmd+,`; il primo
+avvio chiede il permesso). Da `make run` (senza bundle) le notifiche sono disattivate.
 
 Per provare i badge senza una sessione Claude vera, dentro una tab di Relay:
 
