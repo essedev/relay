@@ -6,7 +6,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let log = RelayLog.logger("app")
     private var window: NSWindow!
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    func applicationDidFinishLaunching(_: Notification) {
         log.info("relay skeleton launched")
 
         let frame = NSRect(x: 0, y: 0, width: 900, height: 600)
@@ -22,7 +22,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+    func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         true
     }
 }

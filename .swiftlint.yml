@@ -8,7 +8,10 @@ opt_in_rules:
   - explicit_init
   - first_where
   - sorted_first_last
-  - unused_import
+
+# SwiftFormat aggiunge le trailing comma nelle collection multiline: allineiamo SwiftLint.
+trailing_comma:
+  mandatory_comma: true
 
 line_length:
   warning: 100

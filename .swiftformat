@@ -2,5 +2,5 @@
 --maxwidth 100
 --indent 4
 --self remove
---commas inline
+--commas always
 --exclude .build

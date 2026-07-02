@@ -1,6 +1,5 @@
 import AgentProtocol
 import Testing
-
 @testable import WorkspaceModel
 
 @Test func severityOrder() {

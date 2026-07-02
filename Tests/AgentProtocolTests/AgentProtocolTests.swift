@@ -1,7 +1,6 @@
+@testable import AgentProtocol
 import Foundation
 import Testing
-
-@testable import AgentProtocol
 
 @Test func agentStateRawValues() {
     #expect(AgentState.needsInput.rawValue == "needs_input")

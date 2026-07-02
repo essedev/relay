@@ -5,12 +5,14 @@ import Foundation
 public final class SwiftTermEngine: TerminalEngine {
     public init() {}
 
-    public func makeSurface(cwd: String?) -> TerminalSurfaceHandle {
+    public func makeSurface(cwd _: String?) -> TerminalSurfaceHandle {
         SwiftTermSurface(id: UUID())
     }
 }
 
 final class SwiftTermSurface: TerminalSurfaceHandle {
     let id: UUID
-    init(id: UUID) { self.id = id }
+    init(id: UUID) {
+        self.id = id
+    }
 }

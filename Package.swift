@@ -1,8 +1,8 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
-// Monolite modulare: un solo repo, molti moduli. Le dipendenze tra moduli sono imposte dal
-// compilatore (vedi docs/ARCHITECTURE.md). Regola: solo verso il basso, mai risalire.
+/// Monolite modulare: un solo repo, molti moduli. Le dipendenze tra moduli sono imposte dal
+/// compilatore (vedi docs/ARCHITECTURE.md). Regola: solo verso il basso, mai risalire.
 let package = Package(
     name: "relay",
     platforms: [.macOS(.v14)],

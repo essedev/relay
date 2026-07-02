@@ -9,9 +9,15 @@ public enum HookInstallerError: Error {
 public struct ClaudeHookInstaller {
     public init() {}
 
-    public func status() -> Bool { false }
+    public func status() -> Bool {
+        false
+    }
 
-    public func setup() throws { throw HookInstallerError.notImplemented }
+    public func setup() throws {
+        throw HookInstallerError.notImplemented
+    }
 
-    public func uninstall() throws { throw HookInstallerError.notImplemented }
+    public func uninstall() throws {
+        throw HookInstallerError.notImplemented
+    }
 }
