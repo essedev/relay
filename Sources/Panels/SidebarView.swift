@@ -125,13 +125,14 @@ private struct WorkspaceRow: View {
     @FocusState private var nameFocused: Bool
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: 0) {
             Image(systemName: workspace.pinned ? "pin.fill" : "folder")
                 .foregroundStyle(workspace.pinned ? colors.accent : colors.secondary)
                 .font(.system(size: 12))
                 // Larghezza fissa: i simboli SF hanno larghezze intrinseche diverse (pin più
                 // stretto di folder), altrimenti il testo scatta orizzontalmente al pin/unpin.
                 .frame(width: 16)
+                .padding(.trailing, Theme.Spacing.sm)
             VStack(alignment: .leading, spacing: 1) {
                 if editing {
                     nameField
@@ -151,8 +152,16 @@ private struct WorkspaceRow: View {
                         .truncationMode(.middle)
                 }
             }
-            Spacer(minLength: Theme.Spacing.xs)
-            if !editing { trailing }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Slot trailing riservato (pattern A): badge e x occupano lo stesso spazio, così su
+            // hover il sottotitolo non ri-tronca. `minWidth` (non width fissa) così i badge larghi
+            // (col contatore) non si clippano. In editing lo slot sparisce: il campo nome prende
+            // tutta la riga.
+            if !editing {
+                trailing
+                    .frame(minWidth: 14, alignment: .trailing)
+                    .padding(.leading, Theme.Spacing.xs)
+            }
         }
         .padding(.horizontal, Theme.Spacing.xs)
         .padding(.vertical, 5)
@@ -192,7 +201,7 @@ private struct WorkspaceRow: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain) // niente padding/bezel del bottone: glyph a filo come il badge
             .foregroundStyle(colors.secondary)
             .help("Close workspace")
         } else {
