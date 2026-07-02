@@ -11,6 +11,11 @@ public final class WorkspaceStore {
     public private(set) var workspaces: [Workspace]
     public var selectedWorkspaceID: UUID?
 
+    /// Effetto per le notifiche macOS: il composition root lo aggancia a `UNUserNotificationCenter`
+    /// e lo store lo chiama quando una transizione la merita. Dati puri, nessun AppKit qui.
+    /// `@ObservationIgnored`: è un hook imperativo, non stato osservato.
+    @ObservationIgnored public var onNotifiableTransition: ((AgentNotification) -> Void)?
+
     public init(workspaces: [Workspace] = []) {
         self.workspaces = workspaces
         selectedWorkspaceID = workspaces.first?.id
@@ -209,8 +214,9 @@ public final class WorkspaceStore {
         for workspace in workspaces {
             guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
             let isVisible = selectedWorkspaceID == workspace.id && workspace.selectedTabID == tab.id
+            let previousState = tab.agentState
             let result = AgentStateReducer.reduce(
-                current: tab.agentState,
+                current: previousState,
                 incoming: state,
                 isVisible: isVisible,
                 currentAttention: tab.attention
@@ -218,6 +224,20 @@ public final class WorkspaceStore {
             tab.agentState = result.state
             tab.attention = result.attention
             tab.lastEventAt = timestamp
+            // Notifica (needs_input / completato non visto): classificazione pura, effetto nel
+            // composition root. Emessa dopo aver aggiornato la tab (titolo aggiornato dagli hook).
+            if let kind = AgentStateReducer.notification(
+                current: previousState,
+                incoming: state,
+                isVisible: isVisible
+            ) {
+                onNotifiableTransition?(AgentNotification(
+                    kind: kind,
+                    tabTitle: tab.title,
+                    workspaceName: workspace.name,
+                    isVisible: isVisible
+                ))
+            }
             // Resume binding: aggiornato finché la sessione è viva, azzerato alla chiusura
             // (`unknown` = SessionEnd). `sessionId` vuoto (test/simulazioni base) non crea binding.
             if state == .unknown {

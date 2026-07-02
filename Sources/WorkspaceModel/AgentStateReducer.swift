@@ -45,4 +45,25 @@ public enum AgentStateReducer {
 
         return Result(state: incoming, attention: attention)
     }
+
+    /// Decide se una transizione merita una notifica macOS (nil = nessuna). Coerente con le regole
+    /// anti-rumore dei badge:
+    /// - `needs_input` alla *entrata* nello stato (non a ogni evento successivo);
+    /// - `completed` solo se il lavoro finisce (running -> idle) mentre la tab non è in vista.
+    ///
+    /// Puro: la soppressione runtime (app in primo piano) e le preferenze utente le applica il
+    /// composition root.
+    public static func notification(
+        current: AgentState,
+        incoming: AgentState,
+        isVisible: Bool
+    ) -> AgentNotificationKind? {
+        if incoming == .needsInput, current != .needsInput {
+            return .needsInput
+        }
+        if incoming == .idle, current == .running, !isVisible {
+            return .completed
+        }
+        return nil
+    }
 }

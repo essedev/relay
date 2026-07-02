@@ -134,6 +134,12 @@ public struct SettingsView: View {
                 keywords: ["agent", "claude", "resume", "session", "restore", "launch"],
                 view: AnyView(resumeBlock(colors))
             ),
+            SettingsBlock(
+                id: "notifications",
+                category: .notifications,
+                keywords: ["notification", "notify", "alert", "sound", "needs input", "finished"],
+                view: AnyView(notificationsBlock(colors))
+            ),
         ]
     }
 
@@ -198,6 +204,42 @@ public struct SettingsView: View {
         }
     }
 
+    /// Notifiche macOS: master + per-tipo + suono. I sotto-controlli si disabilitano col master.
+    private func notificationsBlock(_ colors: ChromeColors) -> some View {
+        let on = settings.notificationsEnabled
+        return VStack(spacing: Theme.Spacing.md) {
+            toggleRow("Enable notifications", colors, notificationsEnabledBinding)
+            Divider()
+            toggleRow("When Claude needs input", colors, notifyNeedsInputBinding).disabled(!on)
+            toggleRow("When Claude finishes", colors, notifyCompletedBinding).disabled(!on)
+            Divider()
+            toggleRow("Play sound", colors, notificationSoundBinding).disabled(!on)
+            row("Sound", colors) {
+                Picker("", selection: notificationSoundNameBinding) {
+                    ForEach(AppSettings.availableSounds, id: \.self) { name in
+                        Text(name).tag(name)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+            }
+            .disabled(!on || !settings.notificationSound)
+        }
+    }
+
+    private func toggleRow(
+        _ title: String,
+        _ colors: ChromeColors,
+        _ binding: Binding<Bool>
+    ) -> some View {
+        row(title, colors) {
+            Toggle("", isOn: binding)
+                .toggleStyle(.switch)
+                .labelsHidden()
+        }
+    }
+
     private func row(
         _ title: String,
         _ colors: ChromeColors,
@@ -211,150 +253,4 @@ public struct SettingsView: View {
             control()
         }
     }
-
-    // MARK: - Binding
-
-    private var fontRange: ClosedRange<Double> {
-        AppSettings.minFontSize ... AppSettings.maxFontSize
-    }
-
-    private var fontBinding: Binding<Double> {
-        Binding(get: { settings.fontSize }, set: { settings.setFontSize($0) })
-    }
-
-    /// Tag sentinella per il monospace di sistema (`fontName == nil`): SwiftUI Picker non gestisce
-    /// bene i tag opzionali, quindi mappiamo nil a questa stringa al confine del binding.
-    private static let systemFontTag = "__system__"
-
-    private var fontFamilyBinding: Binding<String> {
-        Binding(
-            get: { settings.fontName ?? Self.systemFontTag },
-            set: { settings.setFontName($0 == Self.systemFontTag ? nil : $0) }
-        )
-    }
-
-    private var cursorBlinkBinding: Binding<Bool> {
-        Binding(get: { settings.cursorBlink }, set: { settings.setCursorBlink($0) })
-    }
-
-    private var autoResumeBinding: Binding<Bool> {
-        Binding(get: { settings.autoResumeAgents }, set: { settings.setAutoResumeAgents($0) })
-    }
-}
-
-/// Categoria di impostazioni (voce nella sidebar del pannello).
-private enum SettingsCategory: String, CaseIterable, Identifiable {
-    case appearance
-    case terminal
-    case agents
-
-    var id: String {
-        rawValue
-    }
-
-    var title: String {
-        switch self {
-        case .appearance: "Appearance"
-        case .terminal: "Terminal"
-        case .agents: "Agents"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .appearance: "paintbrush"
-        case .terminal: "terminal"
-        case .agents: "sparkles"
-        }
-    }
-}
-
-/// Voce categoria nella sidebar, con selezione/hover dal tema (come le righe workspace).
-private struct CategoryRow: View {
-    let category: SettingsCategory
-    let selected: Bool
-    let colors: ChromeColors
-    let onSelect: () -> Void
-
-    @State private var hovered = false
-
-    var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: category.icon)
-                .font(.system(size: 12))
-                .frame(width: 18)
-                .foregroundStyle(selected ? colors.accent : colors.secondary)
-            Text(category.title)
-                .font(Theme.Typography.item)
-                .foregroundStyle(colors.foreground)
-            Spacer()
-        }
-        .padding(.horizontal, Theme.Spacing.sm)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(selected ? colors.selection : hovered ? colors.hover : Color.clear)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onSelect)
-        .onHover { hovered = $0 }
-    }
-}
-
-/// Riga di scelta tema: nome + anteprima della palette del tema stesso (sfondo + qualche ANSI),
-/// con selezione/hover dal tema corrente. Cliccare seleziona.
-private struct ThemeRow: View {
-    let theme: RelayTheme
-    let selected: Bool
-    let chrome: ChromeColors
-    let onSelect: () -> Void
-
-    @State private var hovered = false
-
-    var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 12))
-                .foregroundStyle(selected ? chrome.accent : chrome.secondary.opacity(0.4))
-            Text(theme.name)
-                .font(Theme.Typography.item)
-                .foregroundStyle(chrome.foreground)
-            Spacer()
-            swatches
-        }
-        .padding(.horizontal, Theme.Spacing.sm)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(selected ? chrome.selection : hovered ? chrome.hover : Color.clear)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onSelect)
-        .onHover { hovered = $0 }
-    }
-
-    /// Campioni ANSI (rosso, verde, blu, magenta) su sfondo del tema: mostra com'è davvero.
-    private var swatches: some View {
-        HStack(spacing: 3) {
-            ForEach([1, 2, 4, 5], id: \.self) { index in
-                Circle()
-                    .fill(Color(theme.ansiColor(index)))
-                    .frame(width: 10, height: 10)
-            }
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .background(RoundedRectangle(cornerRadius: 4).fill(Color(theme.background)))
-        .overlay(
-            RoundedRectangle(cornerRadius: 4).strokeBorder(Color(theme.selection), lineWidth: 1)
-        )
-    }
-}
-
-/// Un blocco di impostazioni: categoria + parole chiave per la ricerca + la sua vista.
-private struct SettingsBlock: Identifiable {
-    let id: String
-    let category: SettingsCategory
-    let keywords: [String]
-    let view: AnyView
 }

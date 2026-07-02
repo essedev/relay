@@ -70,3 +70,35 @@ private func makeFixture() -> Fixture {
     let fixture = makeFixture()
     #expect(!fixture.store.applyAgentState(paneId: "not-a-uuid", state: .running, at: Date()))
 }
+
+@Test @MainActor func emitsNeedsInputNotificationOnceOnEntry() {
+    let fixture = makeFixture()
+    var emitted: [AgentNotification] = []
+    fixture.store.onNotifiableTransition = { emitted.append($0) }
+    let tabID = fixture.hiddenTab.id.uuidString
+    fixture.store.applyAgentState(paneId: tabID, state: .needsInput, at: Date())
+    #expect(emitted.count == 1)
+    #expect(emitted.first?.kind == .needsInput)
+    #expect(emitted.first?.isVisible == false)
+    #expect(emitted.first?.workspaceName == "B")
+    // Un secondo evento needs_input non ri-notifica (è già in quello stato).
+    fixture.store.applyAgentState(paneId: tabID, state: .needsInput, at: Date())
+    #expect(emitted.count == 1)
+}
+
+@Test @MainActor func emitsCompletedNotificationOnlyWhenHidden() {
+    let fixture = makeFixture()
+    var emitted: [AgentNotification] = []
+    fixture.store.onNotifiableTransition = { emitted.append($0) }
+
+    let hidden = fixture.hiddenTab.id.uuidString
+    fixture.store.applyAgentState(paneId: hidden, state: .running, at: Date())
+    fixture.store.applyAgentState(paneId: hidden, state: .idle, at: Date())
+    #expect(emitted.map(\.kind) == [.completed]) // start non notifica, il completamento sì
+
+    emitted.removeAll()
+    let visible = fixture.visibleTab.id.uuidString
+    fixture.store.applyAgentState(paneId: visible, state: .running, at: Date())
+    fixture.store.applyAgentState(paneId: visible, state: .idle, at: Date())
+    #expect(emitted.isEmpty) // sulla tab in vista, completare non notifica
+}

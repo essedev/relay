@@ -1,6 +1,35 @@
 import AgentProtocol
 import AgentRuntime
 import Foundation
+import WorkspaceModel
+
+/// Seeding dello store per la demo: N workspace da M tab con titoli plausibili. Usa solo l'API
+/// pubblica dello store. Ritorna gli id di tutte le tab create (per avviare le sessioni simulate).
+@MainActor
+enum DemoSeeder {
+    private static let tabTitles = [
+        "agent", "build", "server", "tests", "logs", "repl", "infra", "docs", "db",
+    ]
+
+    static func seed(_ config: DemoConfig, into store: WorkspaceStore) -> [UUID] {
+        var allTabIDs: [UUID] = []
+        for index in 1 ... config.workspaces {
+            let workspace = store.createWorkspace(
+                name: "Demo \(index)",
+                rootPath: NSHomeDirectory()
+            )
+            // createWorkspace aggiunge già una tab: rinominala e aggiungi le altre.
+            store.renameTab(workspace.tabs[0].id, in: workspace, to: tabTitles[0])
+            for tabIndex in 1 ..< config.tabsPerWorkspace {
+                store.addTab(to: workspace, title: tabTitles[tabIndex % tabTitles.count])
+            }
+            workspace.selectedTabID = workspace.tabs.first?.id
+            allTabIDs.append(contentsOf: workspace.tabs.map(\.id))
+        }
+        store.selectWorkspace(store.workspaces[0].id)
+        return allTabIDs
+    }
+}
 
 /// Demo mode (`relay --demo [NxM]`): popola l'app con N workspace da M tab e simula sessioni
 /// agente concorrenti su ogni tab. Gli eventi passano dal socket reale (`AgentEventClient` ->

@@ -21,6 +21,19 @@ public final class AppSettings {
     /// `false` (default) mostra la barra "Resume". Default prudente: niente comandi automatici.
     public private(set) var autoResumeAgents: Bool
 
+    /// Notifiche macOS (default tutte on). Master + per-tipo + suono + scelta del suono.
+    public private(set) var notificationsEnabled: Bool
+    public private(set) var notifyOnNeedsInput: Bool
+    public private(set) var notifyOnCompleted: Bool
+    public private(set) var notificationSound: Bool
+    public private(set) var notificationSoundName: String
+
+    /// Suoni di notifica selezionabili (nomi dei classici alert di sistema, `.aiff`). "Default" usa
+    /// il suono di notifica di sistema.
+    public static let availableSounds = [
+        "Default", "Ping", "Glass", "Hero", "Submarine", "Funk", "Blow", "Pop",
+    ]
+
     @ObservationIgnored private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
@@ -33,6 +46,16 @@ public final class AppSettings {
         cursorBlink = defaults.bool(forKey: Keys.cursorBlink)
         sidebarCollapsed = defaults.bool(forKey: Keys.sidebarCollapsed)
         autoResumeAgents = defaults.bool(forKey: Keys.autoResumeAgents)
+        notificationsEnabled = Self.boolDefaultingTrue(defaults, Keys.notificationsEnabled)
+        notifyOnNeedsInput = Self.boolDefaultingTrue(defaults, Keys.notifyOnNeedsInput)
+        notifyOnCompleted = Self.boolDefaultingTrue(defaults, Keys.notifyOnCompleted)
+        notificationSound = Self.boolDefaultingTrue(defaults, Keys.notificationSound)
+        notificationSoundName = defaults.string(forKey: Keys.notificationSoundName) ?? "Default"
+    }
+
+    /// Bool con default `true` quando la chiave è assente (UserDefaults.bool darebbe `false`).
+    private static func boolDefaultingTrue(_ defaults: UserDefaults, _ key: String) -> Bool {
+        defaults.object(forKey: key) == nil ? true : defaults.bool(forKey: key)
     }
 
     /// Temi selezionabili (per il picker delle impostazioni).
@@ -97,6 +120,36 @@ public final class AppSettings {
         defaults.set(autoResumeAgents, forKey: Keys.autoResumeAgents)
     }
 
+    public func setNotificationsEnabled(_ enabled: Bool) {
+        guard enabled != notificationsEnabled else { return }
+        notificationsEnabled = enabled
+        defaults.set(enabled, forKey: Keys.notificationsEnabled)
+    }
+
+    public func setNotifyOnNeedsInput(_ enabled: Bool) {
+        guard enabled != notifyOnNeedsInput else { return }
+        notifyOnNeedsInput = enabled
+        defaults.set(enabled, forKey: Keys.notifyOnNeedsInput)
+    }
+
+    public func setNotifyOnCompleted(_ enabled: Bool) {
+        guard enabled != notifyOnCompleted else { return }
+        notifyOnCompleted = enabled
+        defaults.set(enabled, forKey: Keys.notifyOnCompleted)
+    }
+
+    public func setNotificationSound(_ enabled: Bool) {
+        guard enabled != notificationSound else { return }
+        notificationSound = enabled
+        defaults.set(enabled, forKey: Keys.notificationSound)
+    }
+
+    public func setNotificationSoundName(_ name: String) {
+        guard name != notificationSoundName else { return }
+        notificationSoundName = name
+        defaults.set(name, forKey: Keys.notificationSoundName)
+    }
+
     private func persist() {
         defaults.set(themeName, forKey: Keys.themeName)
         defaults.set(fontSize, forKey: Keys.fontSize)
@@ -109,5 +162,10 @@ public final class AppSettings {
         static let cursorBlink = "relay.cursor.blink"
         static let sidebarCollapsed = "relay.sidebar.collapsed"
         static let autoResumeAgents = "relay.agents.autoResume"
+        static let notificationsEnabled = "relay.notifications.enabled"
+        static let notifyOnNeedsInput = "relay.notifications.needsInput"
+        static let notifyOnCompleted = "relay.notifications.completed"
+        static let notificationSound = "relay.notifications.sound"
+        static let notificationSoundName = "relay.notifications.soundName"
     }
 }

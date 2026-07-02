@@ -72,6 +72,31 @@ private func freshDefaults() -> UserDefaults {
     #expect(settings.fontSize == 13)
 }
 
+@MainActor @Test func notificationsDefaultOn() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.notificationsEnabled)
+    #expect(settings.notifyOnNeedsInput)
+    #expect(settings.notifyOnCompleted)
+    #expect(settings.notificationSound)
+    #expect(settings.notificationSoundName == "Default")
+}
+
+@MainActor @Test func notificationSettingsPersist() {
+    let defaults = freshDefaults()
+    let first = AppSettings(defaults: defaults)
+    first.setNotificationsEnabled(false)
+    first.setNotifyOnCompleted(false)
+    first.setNotificationSound(false)
+    first.setNotificationSoundName("Glass")
+
+    let second = AppSettings(defaults: defaults)
+    #expect(!second.notificationsEnabled)
+    #expect(second.notifyOnNeedsInput) // non toccato: resta true
+    #expect(!second.notifyOnCompleted)
+    #expect(!second.notificationSound)
+    #expect(second.notificationSoundName == "Glass")
+}
+
 @MainActor @Test func persistsAcrossInstances() {
     let defaults = freshDefaults()
     let first = AppSettings(defaults: defaults)

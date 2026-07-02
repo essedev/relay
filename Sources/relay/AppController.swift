@@ -26,6 +26,8 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var autosave: LayoutAutosave?
     /// Strumentazione di performance, attiva solo con `RELAY_PERF=1` (misure M3).
     private var perf: PerfSampler?
+    /// Notifiche macOS, attive solo quando l'app gira dal bundle `.app` (serve un bundle id).
+    private var notifications: NotificationCoordinator?
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
@@ -70,6 +72,22 @@ final class AppController: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         startPerfSamplerIfEnabled()
+        setupNotificationsIfBundled()
+    }
+
+    /// Notifiche macOS: solo dal bundle `.app` (`UNUserNotificationCenter` richiede un bundle id;
+    /// da `swift run` crasherebbe). Aggancia l'effetto puro dello store al coordinatore.
+    private func setupNotificationsIfBundled() {
+        guard Bundle.main.bundleIdentifier != nil else {
+            log.info("notifications off: no bundle id (usa make run-app per abilitarle)")
+            return
+        }
+        let coordinator = NotificationCoordinator(settings: settings)
+        coordinator.requestAuthorization()
+        store.onNotifiableTransition = { [weak self] request in
+            self?.notifications?.handle(request)
+        }
+        notifications = coordinator
     }
 
     /// Attiva la strumentazione di performance solo su richiesta (`RELAY_PERF=1`). Legge le surface
@@ -160,30 +178,13 @@ final class AppController: NSObject, NSApplicationDelegate {
         self.autosave = autosave
     }
 
-    /// Demo mode: N workspace da M tab, con sessioni agente simulate su ogni tab (eventi via
-    /// socket reale). Le tab restano `unrealized` finché non le visiti: i badge vivono comunque.
+    /// Demo mode: popola lo store (logica in `DemoMode`) e avvia le sessioni simulate su ogni tab.
+    /// Le tab restano `unrealized` finché non le visiti: i badge vivono comunque.
     private func seedDemo(_ config: DemoConfig) {
-        let tabTitles = ["agent", "build", "server", "tests", "logs", "repl", "infra", "docs", "db"]
-        var allTabIDs: [UUID] = []
-        for index in 1 ... config.workspaces {
-            let workspace = store.createWorkspace(
-                name: "Demo \(index)",
-                rootPath: NSHomeDirectory()
-            )
-            // createWorkspace aggiunge già una tab: rinominala e aggiungi le altre.
-            store.renameTab(workspace.tabs[0].id, in: workspace, to: tabTitles[0])
-            for tabIndex in 1 ..< config.tabsPerWorkspace {
-                let title = tabTitles[tabIndex % tabTitles.count]
-                store.addTab(to: workspace, title: title)
-            }
-            workspace.selectedTabID = workspace.tabs.first?.id
-            allTabIDs.append(contentsOf: workspace.tabs.map(\.id))
-        }
-        store.selectWorkspace(store.workspaces[0].id)
-
+        let tabIDs = DemoSeeder.seed(config, into: store)
         let driver = DemoDriver()
         demoDriver = driver
-        driver.start(tabIDs: allTabIDs)
+        driver.start(tabIDs: tabIDs)
         log.info("demo mode: \(config.workspaces) workspaces x \(config.tabsPerWorkspace) tabs")
     }
 

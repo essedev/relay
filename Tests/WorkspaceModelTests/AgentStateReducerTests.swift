@@ -85,3 +85,39 @@ import Testing
     )
     #expect(result == AgentStateReducer.Result(state: .running, attention: false))
 }
+
+// MARK: - Classificatore notifiche
+
+@Test func notifiesOnNeedsInputEntry() {
+    #expect(AgentStateReducer.notification(
+        current: .idle, incoming: .needsInput, isVisible: false
+    ) == .needsInput)
+    // Anche se la tab è in vista: la soppressione "la stai guardando" è runtime, non qui.
+    #expect(AgentStateReducer.notification(
+        current: .running, incoming: .needsInput, isVisible: true
+    ) == .needsInput)
+}
+
+@Test func doesNotReNotifyNeedsInput() {
+    #expect(AgentStateReducer.notification(
+        current: .needsInput, incoming: .needsInput, isVisible: false
+    ) == nil)
+}
+
+@Test func notifiesOnCompletedOnlyWhenHidden() {
+    #expect(AgentStateReducer.notification(
+        current: .running, incoming: .idle, isVisible: false
+    ) == .completed)
+    #expect(AgentStateReducer.notification(
+        current: .running, incoming: .idle, isVisible: true
+    ) == nil)
+}
+
+@Test func noNotificationOnIdleToIdleStartOrUnknown() {
+    #expect(AgentStateReducer
+        .notification(current: .idle, incoming: .idle, isVisible: false) == nil)
+    #expect(AgentStateReducer
+        .notification(current: .idle, incoming: .running, isVisible: false) == nil)
+    #expect(AgentStateReducer
+        .notification(current: .running, incoming: .unknown, isVisible: false) == nil)
+}
