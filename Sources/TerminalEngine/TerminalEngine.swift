@@ -1,14 +1,20 @@
+import AppKit
 import Foundation
 
 // Astrazione sottile sull'engine terminale. Il resto dell'app parla con questi tipi, mai con
 // SwiftTerm o libghostty direttamente: così cambiare backend è un update localizzato.
-// Backend v1: SwiftTerm (dipendenza dichiarata nel Package). Wiring reale in Fase 2.
+// Backend v1: SwiftTerm. Espone solo `NSView` (tipo di piattaforma), mai tipi SwiftTerm.
 
+@MainActor
 public protocol TerminalSurfaceHandle: AnyObject {
     var id: UUID { get }
+    /// La view da inserire nell'albero AppKit. Tipo di piattaforma, non dell'engine.
+    var view: NSView { get }
+    /// Avvia shell/processo. Lazy: chiamato al primo focus del pane (vedi lifecycle ARCHITECTURE).
+    func start()
 }
 
+@MainActor
 public protocol TerminalEngine {
-    /// Crea una surface (lazy: chiamata al primo focus del pane, vedi ARCHITECTURE lifecycle).
-    func makeSurface(cwd: String?) -> TerminalSurfaceHandle
+    func makeSurface(cwd: String?, shell: String?) -> TerminalSurfaceHandle
 }
