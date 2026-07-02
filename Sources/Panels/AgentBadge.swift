@@ -32,6 +32,38 @@ enum BadgeKind: Int {
     }
 }
 
+/// Aggregato workspace: il badge più severo e quante tab lo condividono. Il contatore compare
+/// solo da 2 in su ("quanti Claude aspettano input" è la coda di lavoro, con 1 è rumore).
+struct WorkspaceBadgeInfo: Equatable {
+    let kind: BadgeKind
+    let count: Int
+
+    static func forWorkspace(_ workspace: Workspace) -> WorkspaceBadgeInfo {
+        let kinds = workspace.tabs.map(BadgeKind.forTab)
+        let top = kinds.max { $0.rawValue < $1.rawValue } ?? .none
+        let count = top == .none ? 0 : kinds.count { $0 == top }
+        return WorkspaceBadgeInfo(kind: top, count: count)
+    }
+}
+
+/// Badge del workspace in sidebar: stato più severo + contatore quando ≥2 tab lo condividono.
+struct WorkspaceBadge: View {
+    let workspace: Workspace
+    let colors: ChromeColors
+
+    var body: some View {
+        let info = WorkspaceBadgeInfo.forWorkspace(workspace)
+        HStack(spacing: Theme.Spacing.xxs) {
+            AgentBadge(kind: info.kind, colors: colors)
+            if info.count >= 2 {
+                Text("\(info.count)")
+                    .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(colors.secondary)
+            }
+        }
+    }
+}
+
 /// Vista del badge di stato agente. Piccola, colori derivati dal tema (`ChromeColors`).
 struct AgentBadge: View {
     let kind: BadgeKind

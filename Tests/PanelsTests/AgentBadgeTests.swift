@@ -42,3 +42,21 @@ private func tab(_ state: AgentState, attention: Bool = false) -> Tab {
     let workspace = Workspace(name: "w", tabs: [tab(.running), tab(.idle, attention: true)])
     #expect(BadgeKind.forWorkspace(workspace) == .running)
 }
+
+/// Il contatore conta solo le tab nello stato più severo, non tutti gli agenti attivi.
+@Test func workspaceBadgeCountsOnlyTopState() {
+    let workspace = Workspace(
+        name: "w",
+        tabs: [tab(.needsInput), tab(.needsInput), tab(.running), tab(.idle)]
+    )
+    let info = WorkspaceBadgeInfo.forWorkspace(workspace)
+    #expect(info == WorkspaceBadgeInfo(kind: .needsInput, count: 2))
+}
+
+@Test func workspaceBadgeSingleAndEmpty() {
+    let single = Workspace(name: "w", tabs: [tab(.running)])
+    #expect(WorkspaceBadgeInfo.forWorkspace(single) == WorkspaceBadgeInfo(kind: .running, count: 1))
+
+    let quiet = Workspace(name: "w", tabs: [tab(.idle), tab(.unknown)])
+    #expect(WorkspaceBadgeInfo.forWorkspace(quiet) == WorkspaceBadgeInfo(kind: .none, count: 0))
+}

@@ -111,7 +111,7 @@ private struct WorkspaceRow: View {
                 .foregroundStyle(colors.foreground)
                 .lineLimit(1)
             Spacer(minLength: Theme.Spacing.xs)
-            AgentBadge(kind: .forWorkspace(workspace), colors: colors)
+            WorkspaceBadge(workspace: workspace, colors: colors)
         }
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, 5)
