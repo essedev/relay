@@ -20,6 +20,12 @@ public final class SurfaceRegistry {
         self.engine = engine
     }
 
+    /// Numero di surface attualmente vive (PTY + emulatore in memoria). Guida le misure di memoria
+    /// (M3) e la taratura del cap LRU.
+    public var liveSurfaceCount: Int {
+        surfaces.count
+    }
+
     /// Ritorna la surface della tab, creandola alla prima chiamata. Ogni chiamata segna la tab come
     /// la più recente (per la LRU).
     public func surface(

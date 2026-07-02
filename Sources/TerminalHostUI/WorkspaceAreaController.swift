@@ -47,6 +47,11 @@ public final class WorkspaceAreaController: NSViewController {
         registry.sendText(to: tabID, text)
     }
 
+    /// Surface attualmente vive (per la strumentazione di performance, misure M3).
+    public var liveSurfaceCount: Int {
+        registry.liveSurfaceCount
+    }
+
     /// Bridge Observation -> AppKit: ri-renderizza quando cambiano le proprietà osservate lette
     /// in `render()`, poi si ri-arma.
     private func observe() {
@@ -93,13 +98,16 @@ public final class WorkspaceAreaController: NSViewController {
 
         // Cap LRU: dopo aver reso viva la tab corrente, sfratta le surface idle meno recenti oltre
         // il cap (mai la visibile né quelle con lavoro vivo). Rinascono lazy al re-focus.
-        registry.enforceLRU(cap: Self.liveSurfaceCap, keep: tab.id)
+        registry.enforceLRU(cap: liveSurfaceCap, keep: tab.id)
     }
 
-    /// Massimo di surface vive tenute in memoria. Generoso per ora (l'uso tipico è ben sotto):
-    /// bounda la crescita senza sfrattare in condizioni normali. Da tarare con le misure di
-    /// memoria.
-    private static let liveSurfaceCap = 12
+    /// Massimo di surface vive tenute in memoria. Default 12, tarato sulle misure di memoria (M3,
+    /// `docs/research/PERF.md`): ~0.3-0.5 MB per surface idle, 12 surface stanno ampiamente nel
+    /// budget. Override via `RELAY_SURFACE_CAP` (le misure lo usano per esplorare la pendenza).
+    private let liveSurfaceCap: Int = {
+        let raw = ProcessInfo.processInfo.environment["RELAY_SURFACE_CAP"].flatMap(Int.init) ?? 0
+        return raw > 0 ? raw : 12
+    }()
 
     /// Respiro attorno al testo del terminale (il container ha lo stesso background del tema,
     /// quindi il padding è aria, non una cornice).

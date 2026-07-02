@@ -112,14 +112,15 @@ Restano aperti (later): scelta del font family, altri temi, import da config Gho
   auto-inject col setting `autoResumeAgents`, default off), che scrive `claude --resume <id>` nel
   PTY. Lazy (un agente alla volta), non un big-bang al boot.
 
-## Milestone 3 - Disciplina performance (in corso)
+## Milestone 3 - Disciplina performance - fatto
 
-- **Fatto**: cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy`
-  pura, cap in `WorkspaceAreaController`). Sfratta le meno recenti solo se idle (shell senza figli:
-  copre foreground/background/agente), mai la visibile; al re-focus la surface rinasce lazy alla cwd
-  salvata (scrollback perso). Cap generoso (12), da tarare con le misure.
-- **Da fare**: chiudere le misure rimandate contro i budget di `ARCHITECTURE.md` (latenza input p99
-  e memoria per surface a molte tab) e tarare il cap.
+- Cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy` pura, cap in
+  `WorkspaceAreaController`). Sfratta le meno recenti solo se idle (shell senza figli: copre
+  foreground/background/agente), mai la visibile; al re-focus la surface rinasce lazy alla cwd
+  salvata (scrollback perso).
+- Misure di performance chiuse (`docs/research/PERF.md`) con strumentazione integrata (`RELAY_PERF`):
+  latenza input aggiunta dallo shell max 2.4µs (budget 16ms p99), ~0.3-0.5 MB per surface idle,
+  ~98 MB con 30 surface vive. Cap confermato a 12; knob `RELAY_SURFACE_CAP` per ri-tarare.
 
 ## Milestone 4 - Bundle `.app`
 
@@ -134,5 +135,6 @@ Restano aperti (later): scelta del font family, altri temi, import da config Gho
 
 ## Prossima azione
 
-Milestone 3 - chiudere le misure di performance (latenza input p99, memoria per surface a molte
-tab) contro i budget di `ARCHITECTURE.md`, e con quei numeri tarare il cap LRU (già implementato).
+Milestone 4 - bundle `.app` (Info.plist, bundle id, entitlements, firma), che sblocca le notifiche
+macOS (needs_input/completato), le relative impostazioni (abilita/stati/suono) e l'installer hook
+distribuibile.

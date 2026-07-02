@@ -24,6 +24,8 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var demoDriver: DemoDriver?
     /// Autosave del layout, attivo solo in modalità normale (la demo non tocca il file reale).
     private var autosave: LayoutAutosave?
+    /// Strumentazione di performance, attiva solo con `RELAY_PERF=1` (misure M3).
+    private var perf: PerfSampler?
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
@@ -66,6 +68,21 @@ final class AppController: NSObject, NSApplicationDelegate {
         observeWindowTitle()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+
+        startPerfSamplerIfEnabled()
+    }
+
+    /// Attiva la strumentazione di performance solo su richiesta (`RELAY_PERF=1`). Legge le surface
+    /// vive dallo split e ci si aggancia il timing del monitor di input.
+    private func startPerfSamplerIfEnabled() {
+        guard PerfSampler.isEnabled else { return }
+        let perf = PerfSampler(
+            store: store,
+            liveSurfaceCount: { [weak splitVC] in splitVC?.liveSurfaceCount ?? 0 },
+            inputHook: { [weak self] event in _ = self?.handleNavigationKey(event) }
+        )
+        perf.start()
+        self.perf = perf
     }
 
     /// Toggle sidebar: overlay a posizione fissa accanto ai semafori, sopra il contenuto. Non si
@@ -120,6 +137,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_: Notification) {
         autosave?.flush() // flush sincrono finale (il debounce potrebbe non essere scaduto)
+        perf?.stop()
         demoDriver?.stop()
         agentCoordinator.stop()
     }

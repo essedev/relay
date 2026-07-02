@@ -67,6 +67,11 @@ final class MainSplitViewController: NSSplitViewController {
         right.foregroundProcess(for: tabID)
     }
 
+    /// Surface vive nel right pane (strumentazione di performance, misure M3).
+    var liveSurfaceCount: Int {
+        right.liveSurfaceCount
+    }
+
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("MainSplitViewController is programmatic-only")

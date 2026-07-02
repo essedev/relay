@@ -52,6 +52,11 @@ final class RightPaneController: NSViewController {
         area.foregroundProcess(for: tabID)
     }
 
+    /// Surface vive nell'area (strumentazione di performance, misure M3).
+    var liveSurfaceCount: Int {
+        area.liveSurfaceCount
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 

@@ -65,7 +65,9 @@ verificata contro questa lista.
 | Scrollback per surface | 10k righe default, configurabile |
 | Costo di un workspace mai aperto | ~0 (solo metadata) |
 
-I numeri sono target iniziali: lo spike engine (Fase 1) li valida o li corregge.
+I numeri erano target iniziali; le misure di Milestone 3 (`docs/research/PERF.md`) confermano il
+budget di latenza input (max 2.4µs, ~4 ordini di grandezza di margine) e tarano il cap LRU sulla
+memoria per surface.
 
 ## Modello Di Prodotto
 
@@ -651,16 +653,19 @@ Costruito (resume agenti, follow-on M2):
   `surface.sendText` inietta `claude --resume <id>`. Solo sessionId/agent/cwd/label salvati. Vedi
   #Resume.
 
-Costruito (Milestone 3, in corso):
+Costruito (Milestone 3):
 
 - cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy` pura, cap in
   `WorkspaceAreaController`): sfratta le meno recenti solo se idle, mai la visibile né quelle con
-  lavoro vivo. Restano da fare le misure (latenza input p99, memoria per surface) per tarare il cap.
+  lavoro vivo;
+- misure di performance chiuse (`docs/research/PERF.md`), strumentazione `RELAY_PERF` integrata:
+  latenza input aggiunta dallo shell max 2.4µs (budget 16ms p99, ~4 ordini di grandezza di margine),
+  ~0.3-0.5 MB per surface idle e ~98 MB con 30 surface vive. Cap confermato a 12, knob
+  `RELAY_SURFACE_CAP` per ri-tarare.
 
-Prossimo: misure di performance (M3) poi bundle `.app` (M4), vedi `docs/ROADMAP.md`.
+Prossimo: bundle `.app` (M4, sblocca le notifiche macOS), vedi `docs/ROADMAP.md`.
 
 Da fare dopo:
 
-- misure latenza input e memoria a N surface (per tarare il cap LRU);
 - bundle `.app` (notifiche macOS, installer hook distribuibile);
 - split (pane tree dentro una tab), deprioritizzato; dashboard overview.
