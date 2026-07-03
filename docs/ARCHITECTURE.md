@@ -683,8 +683,13 @@ Costruito (Milestone 3):
 
 Costruito (Milestone 4, bundle + notifiche):
 
-- bundle `.app` (`make bundle`): `bundle/Info.plist` (bundle id `dev.relay.app`) + firma ad-hoc,
-  `make run-app` lo avvia. Sblocca le notifiche (serve un bundle id);
+- bundle `.app` (`make bundle`): `bundle/Info.plist` (bundle id `dev.relay.app`) + icona + firma
+  ad-hoc, `make run-app` lo avvia. Sblocca le notifiche (serve un bundle id);
+- icona dell'app generata proceduralmente (`bundle/make-icon.swift`, Core Graphics headless ->
+  `bundle/AppIcon.icns` via `make icon`): prompt terminale (chevron accento + cursore a blocco) su
+  squircle scuro della palette Relay Dark;
+- installer locale non firmato: `make dmg` (`.build/Relay.dmg`, drag su /Applications) e
+  `make install-app`. Firma Developer ID + notarizzazione: solo per la distribuzione a terzi;
 - notifiche macOS su `needs_input`/completato (`NotificationCoordinator` +
   `UNUserNotificationCenter`), classificazione pura nel reducer, preferenze in `AppSettings`
   (master, per-tipo, suono + scelta suono). Vedi #Notifiche macOS;
@@ -692,5 +697,5 @@ Costruito (Milestone 4, bundle + notifiche):
 
 Da fare dopo:
 
-- firma Developer ID + icona per la distribuzione; installer hook distribuibile;
+- distribuzione: firma Developer ID + notarizzazione + dmg firmato; installer hook distribuibile;
 - split (pane tree dentro una tab), deprioritizzato; dashboard overview.

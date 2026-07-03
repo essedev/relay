@@ -14,11 +14,18 @@ Requisiti: Xcode/Swift 6, macOS 14+. Per lint: `brew install swiftlint swiftform
 
 ```bash
 make build     # build
-make run       # avvia l'app (finestra Relay)
+make run       # avvia l'app (finestra Relay, senza notifiche)
 make test      # test
 make check     # giro qualità completo (lint + build + test)
+make run-app   # avvia dal bundle .app (notifiche attive)
+make install-app  # installa Relay.app in /Applications
+make dmg       # crea .build/Relay.dmg (installer locale, non firmato)
 make help      # tutti i target
 ```
+
+Le notifiche macOS richiedono un bundle id, quindi girano solo dall'app impacchettata
+(`make run-app`/`install-app`), non da `make run`. L'installer `.dmg` è locale e non firmato: la
+prima apertura è click-destro > Apri. Per distribuirlo a terzi servono Developer ID + notarizzazione.
 
 ## Scorciatoie
 

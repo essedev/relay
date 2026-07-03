@@ -126,7 +126,11 @@ import da config Ghostty.
 ## Milestone 4 - Bundle `.app` + notifiche - fatto
 
 - Bundle `.app` (`make bundle` -> `.build/Relay.app`): `bundle/Info.plist` (bundle id
-  `dev.relay.app`) + firma ad-hoc; `make run-app` lo avvia. Sblocca l'uso fuori da `swift run`.
+  `dev.relay.app`) + icona + firma ad-hoc; `make run-app` lo avvia. Sblocca l'uso fuori da `swift run`.
+- Icona dell'app generata proceduralmente (`bundle/make-icon.swift` -> `bundle/AppIcon.icns` via
+  `make icon`): prompt terminale (chevron + cursore a blocco) su squircle scuro.
+- Installer locale non firmato: `make dmg` (`.build/Relay.dmg`, drag su /Applications) e
+  `make install-app`.
 - Notifiche macOS su `needs_input`/completato (`NotificationCoordinator` + `UNUserNotificationCenter`,
   solo dal bundle), classificazione pura nel reducer, con impostazioni (categoria Notifications:
   master, per-tipo, suono on/off + scelta suono). Soppressione se stai già guardando la tab.
@@ -135,12 +139,13 @@ import da config Ghostty.
 
 ## Più avanti
 
-- Firma Developer ID + icona per la distribuzione; installer hook distribuibile.
+- Distribuzione: firma Developer ID + notarizzazione + dmg firmato; installer hook distribuibile.
 - Dashboard overview di tutti i workspace/agenti con jump-to.
 - Split (pane tree dentro una tab), deprioritizzato dall'utente.
 - Altri agenti (Codex/OpenCode), export timeline; import da config Ghostty.
 
 ## Prossima azione
 
-Baseline delle milestone chiuso. Prossimo giro a scelta dell'utente: distribuzione (firma Developer
-ID + icona + installer hook), dashboard overview, oppure split.
+Baseline delle milestone chiuso, con app installabile in locale (bundle + icona + dmg). Prossimo
+giro a scelta dell'utente: distribuzione firmata (Developer ID + notarizzazione), dashboard overview,
+oppure split.

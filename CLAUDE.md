@@ -6,10 +6,11 @@ e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `d
 Stato: V0 + **M1 (agent runtime + badge)** + giro UI/UX (temi, chrome, chiusura con conferma +
 cascade, float per stato) + **M2 (persistence layout + rename inline)** + **resume assistito Claude**
 + **M3 (cap LRU + misure performance chiuse, `docs/research/PERF.md`)** + **M4 (bundle `.app` +
-notifiche macOS con impostazioni e suono)** + sei temi curati e scelta font family. **Baseline delle
-milestone chiuso**; prossimo giro a scelta (distribuzione firmata, dashboard, split) - vedi
-`docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
-girano solo dal bundle (`make run-app`).
+notifiche macOS con impostazioni e suono + icona + installer locale `make dmg`/`install-app`)** + sei
+temi curati e scelta font family. **Baseline delle milestone chiuso**, app installabile in locale;
+prossimo giro a scelta (distribuzione firmata, dashboard, split) - vedi `docs/ROADMAP.md`. Pipeline
+hook -> badge -> resume validata a mano con Claude reale; le notifiche girano solo dal bundle
+(`make run-app`).
 
 ## Comandi
 

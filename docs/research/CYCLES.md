@@ -583,9 +583,15 @@ del font family. Sempre con documentazione e test aggiornati.
   con 30 surface vive**. Cap confermato a 12: non è un limite di memoria stretto ma una diga contro
   la crescita illimitata.
 - **Milestone 4 - bundle `.app`**: `make bundle` assembla `.build/Relay.app` (release +
-  `bundle/Info.plist`, bundle id `dev.relay.app` = subsystem di logging, + firma ad-hoc); `make
-  run-app` lo avvia. Serve perché `UNUserNotificationCenter` richiede un bundle id (da bare
+  `bundle/Info.plist`, bundle id `dev.relay.app` = subsystem di logging, + icona + firma ad-hoc);
+  `make run-app` lo avvia. Serve perché `UNUserNotificationCenter` richiede un bundle id (da bare
   executable crasha). Verificato: il bundle parte pulito (rpath ok).
+- **Icona e installer locale**: icona generata proceduralmente (`bundle/make-icon.swift`, Core
+  Graphics headless -> `bundle/AppIcon.icns` via `make icon`): concept "prompt" (chevron accento +
+  cursore a blocco allineato, gap netto) su squircle scuro della palette Relay Dark, iterata a vista
+  su feedback. Installer locale non firmato: `make dmg` (`.build/Relay.dmg`, drag su /Applications) e
+  `make install-app`. Distribuzione a terzi (Developer ID + notarizzazione) lasciata fuori: richiede
+  account a pagamento.
 - **Notifiche macOS complete**: trigger puro e testabile nel reducer
   (`AgentStateReducer.notification`, coerente con le regole anti-rumore dei badge: needs_input alla
   entrata, completato solo se non in vista). Lo store emette una `AgentNotification` (dato puro) via
@@ -614,6 +620,7 @@ del font family. Sempre con documentazione e test aggiornati.
 - Refactor per rispettare i limiti di dimensione file (lint 400/250): componenti e binding di
   `SettingsView` estratti in `SettingsComponents.swift`; seeding demo in `DemoSeeder`.
 
-`make check` verde lungo tutto il ciclo (fino a 107 test). Verifica manuale residua: concedere il
-permesso notifiche al primo avvio dal bundle e vedere i banner (passo GUI). Prossimo giro a scelta:
-distribuzione firmata (Developer ID + icona), dashboard overview, oppure split.
+`make check` verde lungo tutto il ciclo (fino a 107 test). L'app è installabile in locale
+(`make install-app`/`make dmg`) con icona propria. Verifica manuale residua: concedere il permesso
+notifiche al primo avvio dal bundle e vedere i banner (passo GUI). Prossimo giro a scelta:
+distribuzione firmata (Developer ID + notarizzazione), dashboard overview, oppure split.
