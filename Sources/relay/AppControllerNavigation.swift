@@ -1,4 +1,5 @@
 import AppKit
+import Panels
 import WorkspaceModel
 
 /// Handler di navigazione e comandi terminale da menu, estratti dal corpo di `AppController` per
@@ -49,14 +50,28 @@ extension AppController {
             matching: [.keyDown, .leftMouseDown]
         ) { [weak self] event in
             guard let self else { return event }
-            if event.type == .keyDown, handleNavigationKey(event) {
-                return nil // shortcut di navigazione consumato
+            // Mentre il recorder registra, il monitor è trasparente: l'evento arriva al recorder.
+            if settings.isCapturingShortcut { return event }
+            if event.type == .keyDown {
+                if handleNavigationKey(event) { return nil } // select 1..9 (fissi)
+                if let action = shortcutAction(for: event) {
+                    perform(action)
+                    return nil // hotkey rimappabile consumato
+                }
             }
+            // Input grezzo (tasto senza binding, o click) sulla tab in vista = interazione: il
+            // marker di completamento si spegne (mark-read).
             if let tab = store.selectedWorkspace?.selectedTab, tab.attention {
                 tab.attention = false
             }
             return event
         }
+    }
+
+    /// L'azione rimappata sulla combinazione dell'evento, se qualcuna la usa.
+    private func shortcutAction(for event: NSEvent) -> ShortcutAction? {
+        guard let combo = KeyEventBridge.combo(from: event) else { return nil }
+        return settings.keybindings.first { $0.value == combo }?.key
     }
 
     func handleNavigationKey(_ event: NSEvent) -> Bool {

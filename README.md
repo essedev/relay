@@ -31,16 +31,19 @@ prima apertura è click-destro > Apri. Per distribuirlo a terzi servono Develope
 
 - `Cmd+N` nuovo workspace (senza cartella, parte da home).
 - `Cmd+O` apri una cartella come workspace.
-- `Cmd+T` nuova tab, `Cmd+W` chiudi tab.
-- `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi).
-- `Cmd+J` salta alla prossima tab che richiede attenzione (aspetta input o ha completato).
-- `Cmd+F` cerca nello scrollback del terminale, `Cmd+K` pulisce il terminale.
+- `Cmd+T` nuova tab, `Cmd+W` chiudi tab, `Cmd+Shift+W` chiudi workspace.
+- `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi, fissi).
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` scorri le tab, `Cmd+Option +/-` scorri i workspace.
+- `Cmd+J` / `Cmd+Shift+J` salta alla prossima/precedente tab che richiede attenzione.
+- `Cmd+F` cerca nel terminale, `Cmd+G` / `Cmd+Shift+G` risultato successivo/precedente,
+  `Cmd+K` pulisce il terminale.
 - `Cmd +/-` zoom del terminale, `Cmd+0` dimensione originale.
-- `Cmd+B` mostra/nasconde la sidebar.
-- `Cmd+,` impostazioni (tema, font, notifiche).
+- `Cmd+B` mostra/nasconde la sidebar, `Cmd+,` impostazioni.
 
-La finestra si sposta trascinando dalla fascia del titolo in alto (non dal corpo/terminale);
-doppio click sulla fascia = zoom, come una title bar nativa.
+Le scorciatoie (tranne i select-by-number e i comandi di sistema) sono **rimappabili** da
+Impostazioni > Shortcuts: clicca una combinazione, premi la nuova (conflitti segnalati, reset
+disponibile). La finestra si sposta trascinando dalla fascia del titolo in alto (non dal
+corpo/terminale); doppio click sulla fascia = zoom, come una title bar nativa.
 
 ## Aspetto
 

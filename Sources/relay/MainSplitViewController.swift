@@ -75,6 +75,11 @@ final class MainSplitViewController: NSSplitViewController {
         right.toggleFind()
     }
 
+    /// Risultato successivo/precedente: apre la find bar se chiusa, altrimenti scorre.
+    func findStep(forward: Bool) {
+        right.findStep(forward: forward)
+    }
+
     /// Pulisce il terminale della tab attiva (Cmd+K).
     func clearActiveTerminal() {
         right.clearActiveTerminal()

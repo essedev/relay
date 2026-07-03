@@ -102,9 +102,10 @@ Fatto in seguito (vedi Milestone 4): scelta del font family e altri temi. Altre 
 terminale (inserisce i path escaped, come Terminal.app), ricerca nello scrollback (`Cmd+F`, motore
 SwiftTerm, find bar flottante), clear del terminale (`Cmd+K`), jump alla prossima tab che richiede
 attenzione (`Cmd+J`, ciclico), trascinamento finestra solo dalle strip del titolo (`WindowDragArea`,
-non `isMovableByWindowBackground`) e ring di attenzione colorato attorno al terminale con mark-read su
-interazione (modello ispirato a cmux, vedi `docs/research/CYCLES.md`). Resta aperto (later): import da
-config Ghostty.
+non `isMovableByWindowBackground`), ring di attenzione colorato attorno al terminale con mark-read su
+interazione (modello ispirato a cmux, vedi `docs/research/CYCLES.md`) e scorciatoie rimappabili
+(cicla tab/workspace, chiudi workspace, find next/prev, jump indietro; recorder in Impostazioni >
+Shortcuts). Resta aperto (later): import da config Ghostty.
 
 ## Milestone 2 - Persistence + rename (dogfood-ability) - fatto
 

@@ -70,6 +70,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     case terminal
     case agents
     case notifications
+    case shortcuts
 
     var id: String {
         rawValue
@@ -81,6 +82,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .terminal: "Terminal"
         case .agents: "Agents"
         case .notifications: "Notifications"
+        case .shortcuts: "Shortcuts"
         }
     }
 
@@ -90,6 +92,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .terminal: "terminal"
         case .agents: "sparkles"
         case .notifications: "bell"
+        case .shortcuts: "keyboard"
         }
     }
 }

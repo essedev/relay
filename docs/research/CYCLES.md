@@ -704,5 +704,29 @@ differenza. Il ring copre l'intera zona, il terminale è inset di più. Tarato a
 più sottile) con gap ampio dal cursore, cursore più alto e slanciato; il cursore resta l'elemento
 dominante. Verifica visiva rigenerando il PNG di preview prima dell'`.icns` (`make icon`).
 
-`make check` verde (118 test). Prossimo giro a scelta: distribuzione firmata (Developer ID +
+### Scorciatoie rimappabili + gap hotkey
+
+Valutata la completezza degli hotkey (mancavano cicla tab/workspace, chiudi workspace, find
+next/prev, jump indietro) e chiesto lo scope della sezione impostazioni: scelta la rimappatura
+completa (non solo il cheat-sheet). Architettura a **un solo punto di dispatch**: invece dei
+`keyEquivalent` di menu (che non gestiscono ogni combo e li avevo già dovuti aggirare per i numeri),
+tutte le azioni rimappabili passano dallo stesso `NSEvent` local monitor, che matcha la `KeyCombo`
+dell'evento contro i binding ed esegue `perform(action)`. Vantaggio: rimappare è solo aggiornare un
+dizionario; gestisce qualsiasi combinazione. I menu mostrano la combo nel titolo (`keyEquivalent`
+vuoto, niente doppio trigger), ricostruiti al cambio.
+
+- Modello puro in `WorkspaceModel` (`ShortcutAction`, `KeyCombo`), persistenza + conflitti in
+  `AppSettings` (JSON in UserDefaults, default per azione). Nuove azioni cicliche nello store
+  (`selectAdjacentTab/Workspace`, `focusPrevAttention`), testate.
+- `KeyEventBridge` (NSEvent -> KeyCombo) in Panels, così lo usano sia il recorder sia il monitor
+  (relay sta sopra Panels). Tasti speciali per keyCode, caratteri via `charactersIgnoringModifiers`.
+- Recorder in impostazioni (`ShortcutsList`): clic su una combo -> monitor temporaneo cattura la
+  nuova (Esc annulla), con `settings.isCapturingShortcut` che fa da parte il monitor globale.
+  Conflitti segnalati, combo di sistema rifiutate, reset per azione o globale. Categoria "Shortcuts"
+  con sezione fissa read-only per i select-by-number.
+
+Gotcha: `keyDown`/`mouseDown` di SwiftTerm sono `public` non `open` (già scoperto per il ring), per
+questo l'intercettazione è tutta nel monitor, non in override della view.
+
+`make check` verde (125 test). Prossimo giro a scelta: distribuzione firmata (Developer ID +
 notarizzazione), dashboard overview, oppure split.

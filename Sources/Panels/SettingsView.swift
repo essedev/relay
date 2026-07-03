@@ -140,6 +140,12 @@ public struct SettingsView: View {
                 keywords: ["notification", "notify", "alert", "sound", "needs input", "finished"],
                 view: AnyView(notificationsBlock(colors))
             ),
+            SettingsBlock(
+                id: "shortcuts",
+                category: .shortcuts,
+                keywords: ["shortcut", "shortcuts", "hotkey", "keys", "keyboard", "keybinding"],
+                view: AnyView(ShortcutsList(settings: settings, colors: colors))
+            ),
         ]
     }
 

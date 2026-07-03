@@ -71,6 +71,11 @@ final class RightPaneController: NSViewController {
         if findBarHost == nil { showFindBar() } else { closeFind() }
     }
 
+    /// Find next/prev: apre la find bar se chiusa (poi cerchi digitando), altrimenti scorre.
+    func findStep(forward: Bool) {
+        if findBarHost == nil { showFindBar() } else { runSearch(forward: forward) }
+    }
+
     private func showFindBar() {
         let bar = FindBar(
             model: findModel,

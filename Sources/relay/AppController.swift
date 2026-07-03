@@ -12,7 +12,7 @@ import WorkspaceModel
 final class AppController: NSObject, NSApplicationDelegate {
     private let log = RelayLog.logger("app")
     let store = WorkspaceStore()
-    private let settings = AppSettings()
+    let settings = AppSettings() // internal: letto dal monitor/menu delle scorciatoie
     private let engine: TerminalEngine = SwiftTermEngine()
     private lazy var agentCoordinator = AgentCoordinator(store: store)
     private lazy var layoutStore = LayoutStore(path: RelayRuntimePaths.layoutPath)
@@ -31,7 +31,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
-        buildMenu()
+        observeKeybindings()
         installNavigationKeyMonitor()
         agentCoordinator.start()
         seedIfNeeded()
@@ -54,6 +54,9 @@ final class AppController: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "Relay"
+        // Sotto questa soglia sidebar + terminale non hanno più spazio utile: la sidebar tiene la
+        // sua larghezza minima (200) e al terminale resta abbastanza per lavorare.
+        window.contentMinSize = NSSize(width: 700, height: 460)
         // Il contenuto sale fino al bordo: il titolo visibile è la strip del right pane
         // (ContextTitleBar), centrata sul body. Il title nativo resta per Mission Control/Cmd+Tab.
         window.titleVisibility = .hidden
@@ -265,8 +268,13 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     // MARK: - Menu
 
-    private func buildMenu() {
-        NSApp.mainMenu = MainMenuBuilder.build(target: self)
+    /// Ricostruisce il menu quando cambia un keybinding (i titoli portano la combo), e si ri-arma.
+    private func observeKeybindings() {
+        withObservationTracking {
+            NSApp.mainMenu = MainMenuBuilder.build(target: self, settings: settings)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeKeybindings() }
+        }
     }
 }
 

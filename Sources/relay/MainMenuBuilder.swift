@@ -1,161 +1,155 @@
 import AppKit
+import WorkspaceModel
 
-/// Costruisce il menu principale. Le azioni sono selector sul target (AppController): qui c'è solo
-/// la struttura, così il controller resta wiring.
+/// Costruisce il menu principale. Le azioni rimappabili sono voci `performShortcut` con la combo
+/// (dai keybinding) mostrata nel titolo: l'hotkey vero lo gestisce il monitor in
+/// `AppControllerNavigation`, non il `keyEquivalent` (che non gestisce tutte le combo). Restano
+/// fisse col loro `keyEquivalent` solo Copy/Paste/Select All (responder), Quit e Settings.
 @MainActor
 enum MainMenuBuilder {
-    static func build(target: AnyObject) -> NSMenu {
+    static func build(target: AnyObject, settings: AppSettings) -> NSMenu {
         let mainMenu = NSMenu()
-        mainMenu.addItem(makeAppMenuItem(target: target))
-        mainMenu.addItem(makeFileMenuItem(target: target))
-        mainMenu.addItem(makeGoMenuItem(target: target))
-        mainMenu.addItem(makeViewMenuItem(target: target))
-        mainMenu.addItem(makeEditMenuItem(target: target))
+        mainMenu.addItem(appMenu(target))
+        mainMenu.addItem(fileMenu(target, settings))
+        mainMenu.addItem(goMenu(target, settings))
+        mainMenu.addItem(viewMenu(target, settings))
+        mainMenu.addItem(editMenu(target, settings))
         return mainMenu
     }
 
-    private static func makeAppMenuItem(target: AnyObject) -> NSMenuItem {
-        let appItem = NSMenuItem()
-        let appMenu = NSMenu()
-        appItem.submenu = appMenu
-        addItem(to: appMenu, "Settings…", #selector(AppController.openSettings(_:)), ",", target)
-        appMenu.addItem(.separator())
-        appMenu.addItem(
-            withTitle: "Quit Relay",
+    // MARK: - Voci
+
+    /// Voce di un'azione rimappabile: clic -> `performShortcut`, combo nel titolo, l'hotkey al
+    /// monitor. `keyEquivalent` vuoto per non fare doppio trigger con il monitor.
+    private static func actionItem(
+        _ action: ShortcutAction,
+        _ settings: AppSettings,
+        _ target: AnyObject
+    ) -> NSMenuItem {
+        let item = NSMenuItem(
+            title: "\(action.label)   \(settings.binding(for: action).display)",
+            action: #selector(AppController.performShortcut(_:)),
+            keyEquivalent: ""
+        )
+        item.representedObject = action
+        item.target = target
+        return item
+    }
+
+    private static func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
+        let item = NSMenuItem()
+        let menu = NSMenu(title: title)
+        for sub in items {
+            menu.addItem(sub)
+        }
+        item.submenu = menu
+        return item
+    }
+
+    // MARK: - Menu
+
+    private static func appMenu(_ target: AnyObject) -> NSMenuItem {
+        let settingsItem = NSMenuItem(
+            title: "Settings…",
+            action: #selector(AppController.openSettings(_:)),
+            keyEquivalent: ","
+        )
+        settingsItem.target = target
+        let quit = NSMenuItem(
+            title: "Quit Relay",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )
-        return appItem
+        return submenu("Relay", [settingsItem, .separator(), quit])
     }
 
-    private static func makeFileMenuItem(target: AnyObject) -> NSMenuItem {
-        let fileItem = NSMenuItem()
-        let fileMenu = NSMenu(title: "File")
-        fileItem.submenu = fileMenu
-        addItem(
-            to: fileMenu,
-            "New Workspace",
-            #selector(AppController.newWorkspace(_:)),
-            "n",
-            target
-        )
-        addItem(to: fileMenu, "New Tab", #selector(AppController.newTab(_:)), "t", target)
-        addItem(
-            to: fileMenu,
-            "Open Folder as Workspace…",
-            #selector(AppController.openFolderAsWorkspace(_:)),
-            "o",
-            target
-        )
-        fileMenu.addItem(.separator())
-        addItem(
-            to: fileMenu,
-            "Close Tab",
-            #selector(AppController.closeCurrentTab(_:)),
-            "w",
-            target
-        )
-        return fileItem
+    private static func fileMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
+        submenu("File", [
+            actionItem(.newWorkspace, settings, target),
+            actionItem(.newTab, settings, target),
+            actionItem(.openFolder, settings, target),
+            .separator(),
+            actionItem(.closeTab, settings, target),
+            actionItem(.closeWorkspace, settings, target),
+        ])
     }
 
-    /// Menu "Go": Cmd+1..9 per i workspace, Option+1..9 per le tab (i due assi, stile cmux).
-    /// Nessun keyEquivalent: gli shortcut sono gestiti dall'event monitor in AppController (i menu
-    /// con solo Option non fanno match); le voci restano cliccabili, con hint nel titolo.
-    private static func makeGoMenuItem(target: AnyObject) -> NSMenuItem {
-        let goItem = NSMenuItem()
-        let goMenu = NSMenu(title: "Go")
-        goItem.submenu = goMenu
-
-        // Cmd+J (keyEquivalent vero: Cmd+lettera fa match, a differenza di Option+cifra).
-        addItem(
-            to: goMenu,
-            "Next Attention",
-            #selector(AppController.jumpToAttention(_:)),
-            "j",
-            target
-        )
-        goMenu.addItem(.separator())
-
+    /// Go: attenzione, cicli tab/workspace, poi i select-by-number (fissi, gestiti dal monitor: il
+    /// titolo porta l'hint della combo).
+    private static func goMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
+        var items: [NSMenuItem] = [
+            actionItem(.nextAttention, settings, target),
+            actionItem(.prevAttention, settings, target),
+            .separator(),
+            actionItem(.cycleTabForward, settings, target),
+            actionItem(.cycleTabBackward, settings, target),
+            actionItem(.cycleWorkspaceForward, settings, target),
+            actionItem(.cycleWorkspaceBackward, settings, target),
+            .separator(),
+        ]
         for index in 1 ... 9 {
-            let item = NSMenuItem(
-                title: "Workspace \(index)  (⌘\(index))",
-                action: #selector(AppController.selectWorkspaceByShortcut(_:)),
-                keyEquivalent: ""
-            )
-            item.tag = index - 1
-            item.target = target
-            goMenu.addItem(item)
+            items.append(numberItem(
+                "Workspace \(index)   ⌘\(index)",
+                #selector(AppController.selectWorkspaceByShortcut(_:)),
+                index - 1,
+                target
+            ))
         }
-        goMenu.addItem(.separator())
+        items.append(.separator())
         for index in 1 ... 9 {
-            let item = NSMenuItem(
-                title: "Tab \(index)  (⌥\(index))",
-                action: #selector(AppController.selectTabByShortcut(_:)),
-                keyEquivalent: ""
-            )
-            item.tag = index - 1
-            item.target = target
-            goMenu.addItem(item)
+            items.append(numberItem(
+                "Tab \(index)   ⌥\(index)",
+                #selector(AppController.selectTabByShortcut(_:)),
+                index - 1,
+                target
+            ))
         }
-        return goItem
+        return submenu("Go", items)
     }
 
-    private static func makeViewMenuItem(target: AnyObject) -> NSMenuItem {
-        let viewItem = NSMenuItem()
-        let viewMenu = NSMenu(title: "View")
-        viewItem.submenu = viewMenu
-        addItem(
-            to: viewMenu,
-            "Toggle Sidebar",
-            #selector(AppController.toggleSidebar(_:)),
-            "b",
-            target
-        )
-        viewMenu.addItem(.separator())
-        addItem(to: viewMenu, "Zoom In", #selector(AppController.zoomIn(_:)), "=", target)
-        addItem(to: viewMenu, "Zoom Out", #selector(AppController.zoomOut(_:)), "-", target)
-        addItem(to: viewMenu, "Actual Size", #selector(AppController.resetZoom(_:)), "0", target)
-        return viewItem
+    private static func numberItem(
+        _ title: String,
+        _ action: Selector,
+        _ tag: Int,
+        _ target: AnyObject
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.tag = tag
+        item.target = target
+        return item
     }
 
-    private static func makeEditMenuItem(target: AnyObject) -> NSMenuItem {
-        let editItem = NSMenuItem()
-        let editMenu = NSMenu(title: "Edit")
-        editItem.submenu = editMenu
-        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(
-            withTitle: "Paste",
+    private static func viewMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
+        submenu("View", [
+            actionItem(.toggleSidebar, settings, target),
+            .separator(),
+            actionItem(.zoomIn, settings, target),
+            actionItem(.zoomOut, settings, target),
+            actionItem(.actualSize, settings, target),
+        ])
+    }
+
+    /// Edit: Copy/Paste/Select All restano `keyEquivalent` (responder chain di SwiftTerm); find e
+    /// clear sono azioni rimappabili.
+    private static func editMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
+        let copy = NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        let paste = NSMenuItem(
+            title: "Paste",
             action: #selector(NSText.paste(_:)),
             keyEquivalent: "v"
         )
-        editMenu.addItem(
-            withTitle: "Select All",
+        let selectAll = NSMenuItem(
+            title: "Select All",
             action: #selector(NSText.selectAll(_:)),
             keyEquivalent: "a"
         )
-        editMenu.addItem(.separator())
-        // Target esplicito (non responder chain): Cmd+F/Cmd+K funzionano anche col terminale in
-        // focus, intercettati prima che l'evento arrivi al pty.
-        addItem(to: editMenu, "Find…", #selector(AppController.performFind(_:)), "f", target)
-        addItem(
-            to: editMenu,
-            "Clear to Start",
-            #selector(AppController.clearTerminal(_:)),
-            "k",
-            target
-        )
-        return editItem
-    }
-
-    private static func addItem(
-        to menu: NSMenu,
-        _ title: String,
-        _ action: Selector,
-        _ key: String,
-        _ target: AnyObject
-    ) {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
-        item.target = target
-        menu.addItem(item)
+        return submenu("Edit", [
+            copy, paste, selectAll,
+            .separator(),
+            actionItem(.find, settings, target),
+            actionItem(.findNext, settings, target),
+            actionItem(.findPrevious, settings, target),
+            actionItem(.clear, settings, target),
+        ])
     }
 }

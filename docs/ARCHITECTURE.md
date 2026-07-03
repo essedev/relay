@@ -282,8 +282,8 @@ root:
 - Find bar (`Cmd+F`): overlay flottante in alto a destra sul terminale (`FindBar` + `FindModel`
   osservabile), motore di ricerca di SwiftTerm esposto via `TerminalSurfaceHandle.search`. `Cmd+K`
   pulisce il terminale (`clear`), `Cmd+J` salta alla prossima tab in attenzione
-  (`WorkspaceStore.focusNextAttention`). Sono keyEquivalent veri del menu (non l'event monitor dei
-  Cmd/Option+cifra), così scattano anche col terminale in focus.
+  (`WorkspaceStore.focusNextAttention`). Sono azioni rimappabili (vedi sotto), gestite dal monitor
+  così scattano anche col terminale in focus.
 - Sidebar: `NSSplitViewItem` normale, **non** `sidebarWithViewController:` (su macOS 26 quello stila
   la sidebar come pannello glass flottante, in conflitto col design flat themed). Righe con
   selezione/hover dai colori del tema (niente highlight di sistema), sottotitolo per riga
@@ -291,6 +291,27 @@ root:
 - OSC 7: la cwd riportata dalla shell (`Core.OSC7` -> `Tab.currentDirectory`) alimenta titolo,
   sottotitolo e l'ereditarietà cwd di `Cmd+T` (la nuova tab parte dove stai lavorando, non alla
   radice del workspace).
+
+## Scorciatoie (keybinding rimappabili)
+
+Le azioni sono un enum puro (`ShortcutAction`, in `WorkspaceModel`) con label, gruppo e combo di
+default; la combinazione è `KeyCombo` (tasto normalizzato + modificatori, `Codable`, indipendente da
+AppKit). `AppSettings` tiene il dizionario `[ShortcutAction: KeyCombo]`, persistito in UserDefaults
+(JSON), con default e rilevamento conflitti.
+
+**Un solo punto di dispatch**: tutte le azioni rimappabili passano dall'`NSEvent` local monitor del
+composition root, **non** dai `keyEquivalent` di menu (che non gestiscono ogni combinazione, es.
+Option-only o `Ctrl+Tab`). Il monitor converte l'evento in `KeyCombo` (`KeyEventBridge`, in Panels
+così lo usa anche il recorder), cerca l'azione nei binding e chiama `perform(action)`
+(`ShortcutRuntime`). I menu mostrano la combo nel **titolo** con `keyEquivalent` vuoto (niente doppio
+trigger) e si ricostruiscono al cambio binding (`observeKeybindings`). Restano fissi con
+`keyEquivalent` vero solo i comandi di sistema (Copy/Paste/Select All via responder, Quit, Settings)
+e i select-by-number.
+
+Il **recorder** (impostazioni) installa un monitor locale temporaneo e alza
+`settings.isCapturingShortcut`: il monitor globale si fa da parte, così l'evento arriva al recorder
+invece di eseguire l'azione. Rifiuta le combo di sistema e segnala i conflitti; reset per singola
+azione o globale.
 
 ## Tooling Di Test (Simulatore E Demo)
 

@@ -9,7 +9,8 @@ cascade, float per stato) + **M2 (persistence layout + rename inline)** + **resu
 notifiche macOS con impostazioni e suono + icona + installer locale `make dmg`/`install-app`)** + sei
 temi curati e scelta font family + **giro terminale (find `Cmd+F`, clear `Cmd+K`, jump-to-attention
 `Cmd+J`), drag finestra solo dalla title strip, ring di attenzione attorno al terminale + mark-read
-su interazione (modello ispirato a cmux)**. **Baseline delle milestone chiuso**, app
+su interazione (modello ispirato a cmux), scorciatoie rimappabili (recorder in impostazioni)**.
+**Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, dashboard, split) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
 girano solo dal bundle (`make run-app`).
@@ -38,8 +39,9 @@ girano solo dal bundle (`make run-app`).
   `AgentSessionStore` (actor, snapshot per sessionId). Puro, niente AppKit né WorkspaceModel.
 - `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity` +
   `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
-  sidebar/notifiche, UserDefaults) + `WindowTitle` + `LayoutSnapshot` (Codable) +
-  `AgentNotification` (payload puro, emesso da `store.onNotifiableTransition`). Puro, niente AppKit.
+  sidebar/notifiche/**keybindings**, UserDefaults) + `WindowTitle` + `LayoutSnapshot` (Codable) +
+  `AgentNotification` + `ShortcutAction`/`KeyCombo` (azioni rimappabili + combinazione pura). Puro,
+  niente AppKit.
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`). `RelayTerminalView`
   (sottoclasse della view SwiftTerm) aggiunge il drop di file: inserisce i path escaped
@@ -50,7 +52,8 @@ girano solo dal bundle (`make run-app`).
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
   `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `WindowDragArea` (drag finestra dalla title
-  strip), `SettingsView` (+ `SettingsComponents`), `MonospaceFonts`. I colori vengono dal tema
+  strip), `SettingsView` (+ `SettingsComponents`), `ShortcutsList` (recorder shortcut), `KeyEventBridge`
+  (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori vengono dal tema
   (`AppSettings.theme`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
@@ -61,7 +64,8 @@ girano solo dal bundle (`make run-app`).
   `RightPaneController`, `RootOverlayController` (overlay toggle), `MainMenuBuilder`,
   `AgentCoordinator` (unico punto che lega `AgentRuntime` a `WorkspaceModel`),
   `NotificationCoordinator` (unico punto che tocca `UNUserNotificationCenter`), `LayoutAutosave`,
-  `PerfSampler` (misure `RELAY_PERF`), `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
+  `PerfSampler` (misure `RELAY_PERF`), `ShortcutRuntime` (`perform(action)` + `KeyEventBridge`),
+  `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
 - `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status`,
   `claude-hook <state>` (invocato dagli hook: stdin + `RELAY_TAB_ID` -> socket) e `simulate`.
 
@@ -112,6 +116,14 @@ girano solo dal bundle (`make run-app`).
   carattere è trasformato, es. Option+1 = "¡"). Le voci del menu "Go" sono solo cliccabili
   (`AppControllerNavigation`). **Cmd+N segue l'ordine visivo della sidebar** (`orderedWorkspaces`),
   non quello canonico: Cmd+1 apre sempre la riga in cima anche col float dei completati.
+- Shortcut rimappabili: **tutte** le azioni rimappabili passano dallo **stesso** local monitor
+  (non da keyEquivalent di menu, che non gestisce ogni combo). Il monitor converte l'evento in
+  `KeyCombo` (`KeyEventBridge`) e cerca l'azione in `settings.keybindings`, poi `perform(action)`
+  (`ShortcutRuntime`). I menu mostrano la combo **nel titolo** con `keyEquivalent` vuoto (niente
+  doppio trigger); il menu si ricostruisce al cambio binding (`observeKeybindings`). Fissi (con
+  keyEquivalent vero): Copy/Paste/Select All (responder SwiftTerm), Quit, Settings, e i select
+  1..9. Il recorder in impostazioni alza `settings.isCapturingShortcut`: il monitor si fa da parte
+  così l'evento arriva al recorder invece di eseguire l'azione. Default e conflitti in `AppSettings`.
 - Agent binding: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'env della surface e torna dall'hook
   come `paneId`. Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio è
   gestito da `unlink` prima del `bind`, quindi non blocca il riavvio.

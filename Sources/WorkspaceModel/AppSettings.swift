@@ -28,6 +28,15 @@ public final class AppSettings {
     public private(set) var notificationSound: Bool
     public private(set) var notificationSoundName: String
 
+    /// Combinazioni per le azioni rimappabili. Dizionario completo (ogni `ShortcutAction`), che
+    /// parte dai default e sovrascrive con quanto salvato. I select-by-number e i comandi di
+    /// sistema non sono rimappabili e non stanno qui.
+    public private(set) var keybindings: [ShortcutAction: KeyCombo]
+
+    /// Vero mentre il recorder cattura una combinazione: il monitor globale si fa da parte (non
+    /// esegue azioni né mark-read), così l'evento arriva al recorder. Transitorio, non persistito.
+    @ObservationIgnored public var isCapturingShortcut = false
+
     /// Suoni di notifica selezionabili (nomi dei classici alert di sistema, `.aiff`). "Default" usa
     /// il suono di notifica di sistema.
     public static let availableSounds = [
@@ -51,6 +60,23 @@ public final class AppSettings {
         notifyOnCompleted = Self.boolDefaultingTrue(defaults, Keys.notifyOnCompleted)
         notificationSound = Self.boolDefaultingTrue(defaults, Keys.notificationSound)
         notificationSoundName = defaults.string(forKey: Keys.notificationSoundName) ?? "Default"
+        keybindings = Self.loadKeybindings(defaults)
+    }
+
+    /// Parte dai default e sovrascrive con le combo salvate (per rawValue), ignorando azioni non
+    /// più esistenti: così aggiungere una nuova azione non richiede migrazioni.
+    private static func loadKeybindings(_ defaults: UserDefaults) -> [ShortcutAction: KeyCombo] {
+        var result: [ShortcutAction: KeyCombo] = [:]
+        for action in ShortcutAction.allCases {
+            result[action] = action.defaultCombo
+        }
+        guard let data = defaults.data(forKey: Keys.keybindings),
+              let saved = try? JSONDecoder().decode([String: KeyCombo].self, from: data)
+        else { return result }
+        for (raw, combo) in saved {
+            if let action = ShortcutAction(rawValue: raw) { result[action] = combo }
+        }
+        return result
     }
 
     /// Bool con default `true` quando la chiave è assente (UserDefaults.bool darebbe `false`).
@@ -150,6 +176,42 @@ public final class AppSettings {
         defaults.set(name, forKey: Keys.notificationSoundName)
     }
 
+    // MARK: - Keybindings
+
+    /// La combinazione per l'azione (default se non rimappata).
+    public func binding(for action: ShortcutAction) -> KeyCombo {
+        keybindings[action] ?? action.defaultCombo
+    }
+
+    public func setBinding(_ combo: KeyCombo, for action: ShortcutAction) {
+        guard keybindings[action] != combo else { return }
+        keybindings[action] = combo
+        persistKeybindings()
+    }
+
+    public func resetBinding(for action: ShortcutAction) {
+        setBinding(action.defaultCombo, for: action)
+    }
+
+    public func resetAllShortcuts() {
+        for action in ShortcutAction.allCases {
+            keybindings[action] = action.defaultCombo
+        }
+        persistKeybindings()
+    }
+
+    /// Azione (diversa da `excluding`) che usa già `combo`: per segnalare un conflitto in UI.
+    public func conflict(for combo: KeyCombo, excluding: ShortcutAction) -> ShortcutAction? {
+        keybindings.first { $0.key != excluding && $0.value == combo }?.key
+    }
+
+    private func persistKeybindings() {
+        let raw = Dictionary(uniqueKeysWithValues: keybindings.map { ($0.key.rawValue, $0.value) })
+        if let data = try? JSONEncoder().encode(raw) {
+            defaults.set(data, forKey: Keys.keybindings)
+        }
+    }
+
     private func persist() {
         defaults.set(themeName, forKey: Keys.themeName)
         defaults.set(fontSize, forKey: Keys.fontSize)
@@ -167,5 +229,6 @@ public final class AppSettings {
         static let notifyOnCompleted = "relay.notifications.completed"
         static let notificationSound = "relay.notifications.sound"
         static let notificationSoundName = "relay.notifications.soundName"
+        static let keybindings = "relay.shortcuts.bindings"
     }
 }
