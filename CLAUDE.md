@@ -98,7 +98,9 @@ hook -> badge -> resume validata a mano con Claude reale; le notifiche girano so
   e si ri-arma; leggi le proprietà osservate dentro `render()` o non verranno tracciate.
 - Shortcut numerici (Cmd/Option + 1..9): gestiti da un `NSEvent` local monitor in
   `AppController`, non da keyEquivalent di menu. Motivo: i menu con solo Option non matchano (il
-  carattere è trasformato, es. Option+1 = "¡"). Le voci del menu "Go" sono solo cliccabili.
+  carattere è trasformato, es. Option+1 = "¡"). Le voci del menu "Go" sono solo cliccabili
+  (`AppControllerNavigation`). **Cmd+N segue l'ordine visivo della sidebar** (`orderedWorkspaces`),
+  non quello canonico: Cmd+1 apre sempre la riga in cima anche col float dei completati.
 - Agent binding: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'env della surface e torna dall'hook
   come `paneId`. Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio è
   gestito da `unlink` prima del `bind`, quindi non blocca il riavvio.

@@ -11,7 +11,7 @@ import WorkspaceModel
 @MainActor
 final class AppController: NSObject, NSApplicationDelegate {
     private let log = RelayLog.logger("app")
-    private let store = WorkspaceStore()
+    let store = WorkspaceStore()
     private let settings = AppSettings()
     private let engine: TerminalEngine = SwiftTermEngine()
     private lazy var agentCoordinator = AgentCoordinator(store: store)
@@ -259,19 +259,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         requestCloseTab(tab, in: workspace)
     }
 
-    /// Cmd+1..9: seleziona il workspace all'indice (tag 0-based).
-    @objc func selectWorkspaceByShortcut(_ sender: NSMenuItem) {
-        guard sender.tag < store.workspaces.count else { return }
-        store.selectWorkspace(store.workspaces[sender.tag].id)
-    }
-
-    /// Option+1..9: seleziona la tab all'indice nel workspace corrente (tag 0-based).
-    @objc func selectTabByShortcut(_ sender: NSMenuItem) {
-        guard let workspace = store.selectedWorkspace,
-              sender.tag < workspace.tabs.count else { return }
-        store.selectTab(workspace.tabs[sender.tag].id, in: workspace)
-    }
-
     // MARK: - Navigazione da tastiera (Cmd/Option + 1..9)
 
     /// Gli shortcut menu con solo Option non fanno match (AppKit confronta il carattere
@@ -292,8 +279,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         let index = digit - 1
 
         if flags == .command {
-            if index < store.workspaces.count {
-                store.selectWorkspace(store.workspaces[index].id)
+            // Ordine della sidebar (con float dei completati/attenzione), non quello canonico:
+            // Cmd+N segue la posizione visiva della riga.
+            let ordered = store.orderedWorkspaces
+            if index < ordered.count {
+                store.selectWorkspace(ordered[index].id)
             }
         } else {
             if let workspace = store.selectedWorkspace, index < workspace.tabs.count {
