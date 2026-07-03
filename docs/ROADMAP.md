@@ -149,10 +149,48 @@ Shortcuts). Resta aperto (later): import da config Ghostty.
 - Distribuzione: firma Developer ID + notarizzazione + dmg firmato; installer hook distribuibile.
 - Dashboard overview di tutti i workspace/agenti con jump-to.
 - Split (pane tree dentro una tab), deprioritizzato dall'utente.
-- Altri agenti (Codex/OpenCode), export timeline; import da config Ghostty.
+- **Generalizzazione multi-agente (Codex / opencode)** - vedi sotto.
+- Export timeline; import da config Ghostty.
+
+### Generalizzazione multi-agente
+
+Prevista by design fin dall'inizio (tesi di prodotto: "molti coding agent", non "molte sessioni
+Claude"; il protocollo resta aperto, `ARCHITECTURE.md` #Fonti-Stato e #Fuori-Scope-Baseline). Non
+ancora pianificata come lavoro: qui il piano.
+
+Stato del codice (misurato): il **core è già agnostico** - il wire ha il campo `agent`, gli stati
+sono normalizzati, il reducer e `ResumeBinding` non conoscono Claude. La Claude-centricità è
+**confinata** a `HookInstaller/ClaudeHookInstaller.swift`, il comando `relay-cli claude-hook`
+(`ClaudeHookCommand`), il comando di resume (`claude --resume <id>`) e alcune stringhe UI
+(NotificationCoordinator, AppController, ResumeBar, SettingsView). Il boundary progettuale è già nel
+posto giusto.
+
+Cosa espone ogni agente (verificato luglio 2026): **Codex** ha hook con nomi di evento quasi
+identici a Claude (`PreToolUse`, `PermissionRequest`, `PostToolUse`, `SessionStart`, `Stop`,
+`UserPromptSubmit`, `SubagentStop`) via `hooks.json` o `[hooks]` in `config.toml` - stesso paradigma,
+cambia solo il vettore di installazione. **opencode** espone un event bus (`session.created`,
+`session.idle`, permission events) consumato da un plugin TS - segnali chiari, vettore diverso (un
+plugin che scrive sul socket, non un hook shell).
+
+Piano in tre passi, quando si apre il giro:
+
+1. **Spike di verifica per agente**: cosa espone ognuno e quanto è affidabile il segnale, in
+   particolare `needs_input` (le approval mode variano tra agenti). Non solo Codex/opencode: mappare
+   il modello reale, non assumerlo.
+2. **Refactor `AgentIntegration` + Codex insieme**: estrarre l'astrazione **mentre** si aggiunge il
+   secondo agente (regola di due), non prima. Astrarre su un solo esempio ripete la trappola
+   "interfaccia modellata troppo intorno a un backend" già nota per `TerminalEngine`. Codex prima
+   perché il paradigma hook è quasi identico (mapping quasi copia-incolla, cambia il vettore).
+3. **opencode come secondo banco di prova** del boundary (plugin TS -> socket). È il modello più
+   diverso: se l'astrazione regge qui, regge.
+
+Rischio da tenere in conto: il differenziatore ("stati affidabili senza parsing output") vale finché
+ogni agente dà un segnale altrettanto affidabile; N integrazioni = N pipeline che evolvono e si
+rompono. **Resta fuori scope** l'orchestrazione multi-agent nella stessa sessione (cosa diversa dal
+supportare più agenti; `ARCHITECTURE.md` #Fuori-Scope-Baseline).
 
 ## Prossima azione
 
 Baseline delle milestone chiuso, con app installabile in locale (bundle + icona + dmg). Prossimo
 giro a scelta dell'utente: distribuzione firmata (Developer ID + notarizzazione), dashboard overview,
-oppure split.
+split, oppure generalizzazione multi-agente (Codex/opencode, vedi Più avanti).
