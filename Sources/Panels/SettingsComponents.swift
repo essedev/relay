@@ -56,7 +56,10 @@ extension SettingsView {
     var notificationSoundNameBinding: Binding<String> {
         Binding(
             get: { settings.notificationSoundName },
-            set: { settings.setNotificationSoundName($0) }
+            set: {
+                settings.setNotificationSoundName($0)
+                NotificationSoundPreview.play($0) // anteprima udibile alla scelta
+            }
         )
     }
 }
