@@ -33,10 +33,11 @@ public final class Workspace: Identifiable {
         tabs.first { $0.id == selectedTabID }
     }
 
-    /// Il workspace richiede attenzione: una sua tab aspetta input (`needs_input`) o ha completato
-    /// del lavoro non ancora visto (`attention`). Guida il float in cima alla sidebar.
+    /// Il workspace richiede attenzione *fresca*: una sua tab aspetta input (`needs_input`) o ha
+    /// completato del lavoro non ancora visto (`unseen`). Guida il float in cima alla sidebar.
+    /// I sospesi (`pending`) NON galleggiano: sono un segnale quieto (punto dimesso + dashboard).
     public var needsAttention: Bool {
-        tabs.contains { $0.agentState == .needsInput || $0.attention }
+        tabs.contains { $0.agentState == .needsInput || $0.attention == .unseen }
     }
 
     // MARK: - Mutazioni tab (usate dallo store; qui per tenere l'invariante di selezione)

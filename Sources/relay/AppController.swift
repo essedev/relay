@@ -18,6 +18,9 @@ final class AppController: NSObject, NSApplicationDelegate {
     private lazy var layoutStore = LayoutStore(path: RelayRuntimePaths.layoutPath)
     private var window: NSWindow!
     var splitVC: MainSplitViewController! // internal: usato dalle extension in altri file
+    var rootController: RootOverlayController! // internal: overlay dashboard (extension)
+    /// Host dell'overlay dashboard quando è aperta (`nil` = chiusa). Vedi AppControllerDashboard.
+    var dashboardHost: NSView?
     private var settingsWindow: NSWindow?
     private var untitledCount = 0
     var keyMonitor: Any? // internal: installato dall'extension di navigazione
@@ -65,6 +68,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         // custom), rese trascinabili con `WindowDragArea`. Vedi ContextTitleBar/SidebarView.
         window.isMovableByWindowBackground = false
         let root = RootOverlayController(content: split, overlay: makeSidebarToggleOverlay())
+        rootController = root
         split.onSidebarWidthChange = { [weak root] width in
             root?.sidebarWidthDidChange(width)
         }
@@ -160,9 +164,11 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     /// Tornando in primo piano, un completamento sulla tab in vista fa un flash del ring per
     /// richiamare l'occhio. Il marker **non** si spegne qui: lo fa solo l'interazione col
-    /// terminale.
+    /// terminale. La decadenza dei sospesi (se attiva) si applica qui: momento naturale di
+    /// rientro, senza bisogno di timer.
     func applicationDidBecomeActive(_: Notification) {
         splitVC?.flashAttentionRing()
+        applyPendingDecayIfEnabled()
     }
 
     func applicationWillTerminate(_: Notification) {
@@ -182,6 +188,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         if let snapshot = layoutStore.load(), !snapshot.workspaces.isEmpty {
             store.restore(from: snapshot)
             log.info("layout restored: \(snapshot.workspaces.count) workspaces")
+            applyPendingDecayIfEnabled() // i sospesi scaduti mentre l'app era chiusa
         } else if store.workspaces.isEmpty {
             createUntitledWorkspace()
         }

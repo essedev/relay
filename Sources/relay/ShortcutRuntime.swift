@@ -19,6 +19,7 @@ extension AppController {
         case .cycleTabBackward: store.selectAdjacentTab(forward: false)
         case .nextAttention: store.focusNextAttention()
         case .prevAttention: store.focusPrevAttention()
+        case .toggleDashboard: toggleDashboard()
         case .find: splitVC.toggleFind()
         case .findNext: splitVC.findStep(forward: true)
         case .findPrevious: splitVC.findStep(forward: false)

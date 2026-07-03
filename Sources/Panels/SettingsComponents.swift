@@ -34,6 +34,10 @@ extension SettingsView {
         Binding(get: { settings.autoResumeAgents }, set: { settings.setAutoResumeAgents($0) })
     }
 
+    var pendingDecayBinding: Binding<Int> {
+        Binding(get: { settings.pendingDecayHours }, set: { settings.setPendingDecayHours($0) })
+    }
+
     var notificationsEnabledBinding: Binding<Bool> {
         Binding(
             get: { settings.notificationsEnabled },

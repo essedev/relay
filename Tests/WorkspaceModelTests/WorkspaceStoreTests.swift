@@ -136,10 +136,23 @@ import Testing
 
     #expect(store.orderedWorkspaces.map(\.id) == [c.id, b.id, a.id])
 
-    // "completato non visto" (attention) galleggia come needs_input.
+    // "completato non visto" (unseen) galleggia come needs_input.
     b.tabs[0].agentState = .idle
-    a.tabs[0].attention = true
+    a.tabs[0].attention = .unseen
     #expect(store.orderedWorkspaces.map(\.id) == [c.id, a.id, b.id])
+
+    // Il sospeso (pending) NON galleggia: segnale quieto, l'ordine resta quello canonico.
+    a.tabs[0].attention = .pending
+    #expect(store.orderedWorkspaces.map(\.id) == [c.id, a.id, b.id])
+}
+
+@Test func pendingDoesNotFloatWorkspaces() {
+    let store = WorkspaceStore()
+    store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    b.tabs[0].attention = .pending
+    // b in sospeso ma niente float: solo l'attenzione fresca riordina la sidebar.
+    #expect(store.orderedWorkspaces.map(\.name) == ["a", "b"])
 }
 
 @Test func renameTabSetsCustomTitle() {

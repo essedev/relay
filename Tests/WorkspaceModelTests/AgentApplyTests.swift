@@ -31,11 +31,11 @@ private func makeFixture() -> Fixture {
     #expect(applied)
     // needs_input e' uno stato: il badge lo mostra dallo stato, senza marker "unread".
     #expect(fixture.hiddenTab.agentState == .needsInput)
-    #expect(!fixture.hiddenTab.attention)
+    #expect(fixture.hiddenTab.attention == .none)
     #expect(fixture.hiddenTab.lastEventAt == Date(timeIntervalSince1970: 10))
 }
 
-@Test @MainActor func completedOnHiddenTabRaisesAttention() {
+@Test @MainActor func completedOnHiddenTabRaisesUnseen() {
     let fixture = makeFixture()
     let tabID = fixture.hiddenTab.id.uuidString
     fixture.store.applyAgentState(
@@ -45,10 +45,10 @@ private func makeFixture() -> Fixture {
     )
     fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
     #expect(fixture.hiddenTab.agentState == .idle)
-    #expect(fixture.hiddenTab.attention) // completato mentre non guardavi
+    #expect(fixture.hiddenTab.attention == .unseen) // completato mentre non guardavi
 }
 
-@Test @MainActor func completedOnVisibleTabStaysCalm() {
+@Test @MainActor func completedOnVisibleTabBecomesPending() {
     let fixture = makeFixture()
     let tabID = fixture.visibleTab.id.uuidString
     fixture.store.applyAgentState(
@@ -58,7 +58,8 @@ private func makeFixture() -> Fixture {
     )
     fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
     #expect(fixture.visibleTab.agentState == .idle)
-    #expect(!fixture.visibleTab.attention)
+    // Guardavi: percezione già avvenuta -> "in sospeso" (quieto), non forte.
+    #expect(fixture.visibleTab.attention == .pending)
 }
 
 @Test @MainActor func applyUnknownTabIsNoOp() {
@@ -94,19 +95,20 @@ private func makeFixture() -> Fixture {
     let tabID = fixture.visibleTab.id.uuidString
     fixture.store.applyAgentState(paneId: tabID, state: .running, at: Date(), appActive: false)
     fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(), appActive: false)
-    #expect(fixture.visibleTab.attention) // completato non visto, anche se selezionata
+    #expect(fixture.visibleTab.attention == .unseen) // completato non visto, anche se selezionata
     #expect(emitted.map(\.kind) == [.completed])
 }
 
-@Test @MainActor func activeAppOnSelectedTabStaysCalm() {
-    // Relay in primo piano sulla tab in vista: completare non accende marker né notifica.
+@Test @MainActor func activeAppOnSelectedTabGoesPendingWithoutNotifying() {
+    // Relay in primo piano sulla tab in vista: completare non notifica (lo stai guardando);
+    // il marker nasce quieto ("in sospeso"), non forte.
     let fixture = makeFixture()
     var emitted: [AgentNotification] = []
     fixture.store.onNotifiableTransition = { emitted.append($0) }
     let tabID = fixture.visibleTab.id.uuidString
     fixture.store.applyAgentState(paneId: tabID, state: .running, at: Date(), appActive: true)
     fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(), appActive: true)
-    #expect(!fixture.visibleTab.attention)
+    #expect(fixture.visibleTab.attention == .pending)
     #expect(emitted.isEmpty)
 }
 

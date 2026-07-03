@@ -10,9 +10,10 @@ notifiche macOS con impostazioni e suono + icona + installer locale `make dmg`/`
 dodici temi curati e scelta font family + **giro terminale (find `Cmd+F`, clear `Cmd+K`,
 jump-to-attention `Cmd+J`), drag finestra solo dalla title strip, ring di attenzione attorno al
 terminale + mark-read su interazione (modello ispirato a cmux), scorciatoie rimappabili (recorder
-in impostazioni)**.
+in impostazioni)** + **dashboard di triage (`Cmd+D`) e attenzione a tre livelli (unseen -> pending
+-> risolto, con dismiss e decadenza opzionale)**.
 **Baseline delle milestone chiuso**, app
-installabile in locale; prossimo giro a scelta (distribuzione firmata, dashboard, split) - vedi
+installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
 girano solo dal bundle (`make run-app`).
 
@@ -42,10 +43,11 @@ girano solo dal bundle (`make run-app`).
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),
   `AgentSessionStore` (actor, snapshot per sessionId). Puro, niente AppKit né WorkspaceModel.
 - `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity` +
+  `AttentionLevel` (marker post-completamento a tre livelli: unseen/pending, vedi gotcha) +
   `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
-  sidebar/notifiche/**keybindings**, UserDefaults) + `WindowTitle` + `LayoutSnapshot` (Codable) +
-  `AgentNotification` + `ShortcutAction`/`KeyCombo` (azioni rimappabili + combinazione pura). Puro,
-  niente AppKit.
+  sidebar/notifiche/**keybindings**/decadenza sospesi, UserDefaults) + `WindowTitle` +
+  `LayoutSnapshot` (Codable) + `AgentNotification` + `ShortcutAction`/`KeyCombo` (azioni
+  rimappabili + combinazione pura). Puro, niente AppKit.
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`). `RelayTerminalView`
   (sottoclasse della view SwiftTerm) aggiunge il drop di file: inserisce i path escaped
@@ -55,7 +57,8 @@ girano solo dal bundle (`make run-app`).
   `AttentionRingView` (bordo colorato di stato attorno al terminale). Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
-  `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `WindowDragArea` (drag finestra dalla title
+  `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `Dashboard` (`DashboardModel` puro +
+  `DashboardView`: griglia di triage delle sessioni), `WindowDragArea` (drag finestra dalla title
   strip), `SettingsView` (+ `SettingsComponents`), `ShortcutsList` (recorder shortcut), `KeyEventBridge`
   (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori vengono dal tema
   (`AppSettings.theme`), non hardcoded.
@@ -65,10 +68,11 @@ girano solo dal bundle (`make run-app`).
 - `LayoutStore` - persistence del layout: `load()`/`save(snapshot)` di `LayoutSnapshot` su disco
   (JSON atomico, versionato, path iniettato). Dipende solo da `WorkspaceModel`, niente AppKit.
 - `RelayApp` (`Sources/relay`) - composition root: `AppController`, `MainSplitViewController`,
-  `RightPaneController`, `RootOverlayController` (overlay toggle), `MainMenuBuilder`,
-  `AgentCoordinator` (unico punto che lega `AgentRuntime` a `WorkspaceModel`),
-  `NotificationCoordinator` (unico punto che tocca `UNUserNotificationCenter`), `LayoutAutosave`,
-  `PerfSampler` (misure `RELAY_PERF`), `ShortcutRuntime` (`perform(action)` + `KeyEventBridge`),
+  `RightPaneController`, `RootOverlayController` (overlay toggle + overlay full-window della
+  dashboard), `MainMenuBuilder`, `AgentCoordinator` (unico punto che lega `AgentRuntime` a
+  `WorkspaceModel`), `NotificationCoordinator` (unico punto che tocca `UNUserNotificationCenter`),
+  `LayoutAutosave`, `PerfSampler` (misure `RELAY_PERF`), `ShortcutRuntime` (`perform(action)` +
+  `KeyEventBridge`), `AppControllerDashboard` (apri/chiudi dashboard + decadenza sospesi),
   `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
 - `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status`,
   `claude-hook <state>` (invocato dagli hook: stdin + `RELAY_TAB_ID` -> socket) e `simulate`.
@@ -108,12 +112,16 @@ girano solo dal bundle (`make run-app`).
 - Notifiche: il trigger è puro (`AgentStateReducer.notification`), lo store emette via
   `onNotifiableTransition` e il `NotificationCoordinator` (solo se `Bundle.main.bundleIdentifier !=
   nil`) filtra per preferenze e consegna. `isVisible = tab selezionata && NSApp.isActive`: se Relay è
-  in background notifica anche sulla tab selezionata. Il marker "completato" (`attention`) **non** si
-  spegne al semplice ritorno in foreground né alla selezione della tab (altrimenti sparirebbe prima
-  che tu lo veda; aprire una tab completata mostra il ring verde + flash): la visita reale è
-  **interagire** col terminale in vista (tasto o click, via il monitor in `AppControllerNavigation`,
-  solo se il marker è acceso). Al ritorno in foreground un flash del ring richiama l'occhio, senza
-  spegnere. Modello ispirato a cmux (vedi CYCLES). Il coordinatore è
+  in background notifica anche sulla tab selezionata. Il marker "completato" (`attention`, enum
+  `AttentionLevel`) **non** si spegne al semplice ritorno in foreground né alla selezione della tab
+  (altrimenti sparirebbe prima che tu lo veda; aprire una tab completata mostra il ring verde +
+  flash): l'interazione col terminale in vista (tasto o click, via il monitor in
+  `AppControllerNavigation`) **declassa** `unseen` -> `pending` ("in sospeso": visto ma mai
+  ripreso), non spegne. Risolvono solo la ripresa vera (prompt -> running, nel reducer), il dismiss
+  (card della dashboard) o la chiusura tab; opzionale la decadenza (`pendingDecayHours`, default
+  mai). Un completamento sulla tab in vista nasce direttamente `pending`. Al ritorno in foreground
+  un flash del ring richiama l'occhio, senza spegnere. Modello ispirato a cmux (vedi CYCLES),
+  esteso col livello quieto. Il coordinatore è
   `UNUserNotificationCenterDelegate` e forza `willPresent -> [.banner,.sound,.list]`: **senza, i
   banner sono soppressi quando Relay è frontmost**. Al primo avvio dal bundle macOS chiede il
   permesso una volta; una firma ad-hoc che cambia a ogni reinstall può farlo decadere (log
@@ -160,12 +168,14 @@ girano solo dal bundle (`make run-app`).
   terminale in focus. Search/clear passano dal protocollo `TerminalSurfaceHandle` (niente tipi
   SwiftTerm fuori dall'engine).
 - Ring di attenzione (`AttentionRingView`): bordo colorato attorno al terminale della tab in vista
-  che ne segnala lo stato (verde = completato, statico + flash; giallo/rosso pulsante = aspetta
-  input/errore). Colori dai colori ANSI del tema, coerenti coi badge. Overlay con `hitTest` nil
-  (non intercetta eventi); i terminali si inseriscono `positioned: .below` così resta in cima.
+  che ne segnala lo stato (verde = completato non visto, statico + flash; giallo/rosso pulsante =
+  aspetta input/errore). Il ring risponde solo a `unseen`: un sospeso (`pending`) non accende il
+  bordo (segnale quieto: badge ad anello vuoto + dashboard), altrimenti useresti la shell con un
+  ring verde permanente. Colori dai colori ANSI del tema, coerenti coi badge. Overlay con `hitTest`
+  nil (non intercetta eventi); i terminali si inseriscono `positioned: .below` così resta in cima.
   L'observer del ring (`observeRing`) è **separato** da `render()` e **non** scrive `attention`:
   altrimenti un completamento sulla tab in vista si spegnerebbe da solo (loop col reset della
-  visita). Lo spegnimento (mark-read) lo fa solo l'interazione col terminale (monitor key/mouse).
+  visita). Il declassamento (mark-read) lo fa solo l'interazione col terminale (monitor key/mouse).
 - Toggle sidebar: è un overlay a livello finestra (`RootOverlayController`), **non** un
   `NSTitlebarAccessoryViewController` - quello non viene renderizzato con `titleVisibility = .hidden`
   su macOS 26. L'overlay insegue il bordo della sidebar via `splitViewDidResizeSubviews`.
@@ -188,7 +198,10 @@ girano solo dal bundle (`make run-app`).
   (debounced ~500ms + flush on `applicationWillTerminate`), che osserva `store.snapshot()`: dipende
   solo dai campi persistiti, quindi gli eventi agente non scatenano scritture. **Demo mode non
   persiste** (non istanzia l'autosave). Restore al boot ricade sul seed default se file
-  mancante/corrotto/versione ignota. Bump `LayoutSnapshot.currentVersion` se cambia lo schema.
+  mancante/corrotto/versione ignota. Bump `LayoutSnapshot.currentVersion` **solo per cambi
+  breaking**: la load scarta le versioni diverse (= butta il layout dell'utente); un campo nuovo
+  opzionale (es. `pendingSince`) è additivo e non bumpa. Il sospeso persiste come `pendingSince`
+  nel `TabSnapshot` (anche `unseen` degrada a pending al riavvio: il segnale forte sarebbe stantio).
 - Cap LRU surface: `SurfaceRegistry.enforceLRU(cap:keep:)` sfratta le meno recenti **solo se idle**
   (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente), mai la
   visibile. Eviction = teardown SwiftTerm (scrollback perso, shell ricreata alla cwd al re-focus).
@@ -201,4 +214,13 @@ girano solo dal bundle (`make run-app`).
   inietta da solo. **Il wiring della barra vive nel composition root (RelayApp), non in
   TerminalHostUI**: il path caldo non dipende da Panels. Il resume è **lazy** (al focus), mai in
   massa al boot.
-- Non ancora fatto: split, bundle `.app`, dashboard; misure performance (per il cap LRU).
+- Dashboard (`Cmd+D`, azione rimappabile `toggleDashboard`): overlay full-window
+  (`RootOverlayController.presentFullOverlay`, wiring in `AppControllerDashboard`). Griglia flat
+  delle sessioni agente per urgenza, card con età e dismiss, filtro e navigazione da tastiera.
+  Logica pura in `Panels/DashboardModel` (testata); solo dati del model, funziona anche per tab
+  sfrattate dal cap LRU (niente preview del terminale: richiederebbe surface vive). **Mentre è
+  aperta il monitor si fa da parte**: i tasti vanno al filtro (niente nav 1..9, niente mark-read),
+  resta attivo solo il toggle per chiuderla; Esc lo gestisce la vista (`onExitCommand`). La
+  decadenza dei sospesi si applica a boot/foreground/apertura dashboard (niente timer).
+- Non ancora fatto: split, distribuzione firmata Developer ID, generalizzazione multi-agente
+  (Codex/opencode).

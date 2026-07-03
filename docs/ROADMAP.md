@@ -144,10 +144,32 @@ Shortcuts). Resta aperto (later): import da config Ghostty.
 - Dodici temi curati (Solarized, Gruvbox, Tokyo Night, Catppuccin e GitHub oltre a Relay
   Dark/Light) e scelta font family, nel pannello impostazioni.
 
+## Fatto - Dashboard + attenzione a tre livelli (post-M4)
+
+Il problema: il mark-read a interazione confondeva percezione ("l'ho visto") con risoluzione ("me
+ne sono occupato") - clic sulla notifica, occhiata, distrazione, e la sessione che aspettava una
+risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione-Stati-E-Badge e
+#Dashboard-Delle-Sessioni.
+
+- **Attention a tre livelli** (`AttentionLevel`): `unseen` (completato non visto, segnale forte:
+  float, ring, notifica) -> l'interazione **declassa** a `pending` ("in sospeso", quieto e
+  persistente: punto dimesso in sidebar, niente float) -> risolve solo la ripresa vera (prompt ->
+  running), il dismiss esplicito o la chiusura tab. Il sospeso sopravvive alla fine sessione e al
+  riavvio (`pendingSince` nel `TabSnapshot`, campo additivo senza bump).
+- **Decadenza opzionale** dei sospesi (`AppSettings.pendingDecayHours`, default 0 = mai; 4/12/24h
+  in Impostazioni > Agents), applicata a boot/foreground/apertura dashboard, senza timer.
+- **Dashboard overlay** (`Cmd+D`, rimappabile): griglia flat delle sessioni agente ordinata per
+  urgenza (needs_input > error > unseen > pending > running > idle/resume, poi recency), card con
+  stato/titolo/chip workspace colorato (stabile, dai colori ANSI)/età dell'ultimo evento, dismiss
+  su hover, type-to-filter, frecce + Invio per saltare, Esc chiude. Logica pura testata
+  (`DashboardModel`), vista in `Panels`, wiring nel composition root.
+- **`Cmd+J` a due livelli**: prima l'attenzione fresca, esauriti quelli i sospesi.
+
 ## Più avanti
 
 - Distribuzione: firma Developer ID + notarizzazione + dmg firmato; installer hook distribuibile.
-- Dashboard overview di tutti i workspace/agenti con jump-to.
+- Dashboard: evoluzioni oltre l'MVP (azioni inline resume/chiudi, contatori in header, toggle
+  raggruppa-per-workspace, preview ultime righe - richiede surface vive).
 - Split (pane tree dentro una tab), deprioritizzato dall'utente.
 - **Generalizzazione multi-agente (Codex / opencode)** - vedi sotto.
 - Export timeline; import da config Ghostty.
@@ -191,6 +213,6 @@ supportare più agenti; `ARCHITECTURE.md` #Fuori-Scope-Baseline).
 
 ## Prossima azione
 
-Baseline delle milestone chiuso, con app installabile in locale (bundle + icona + dmg). Prossimo
-giro a scelta dell'utente: distribuzione firmata (Developer ID + notarizzazione), dashboard overview,
-split, oppure generalizzazione multi-agente (Codex/opencode, vedi Più avanti).
+Baseline delle milestone chiuso, con app installabile in locale (bundle + icona + dmg) e dashboard
+di triage delle sessioni. Prossimo giro a scelta dell'utente: distribuzione firmata (Developer ID +
+notarizzazione), split, oppure generalizzazione multi-agente (Codex/opencode, vedi Più avanti).

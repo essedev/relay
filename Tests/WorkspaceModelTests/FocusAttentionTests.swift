@@ -31,7 +31,7 @@ import Testing
     let store = WorkspaceStore()
     let a = store.createWorkspace(name: "A")
     let b = store.createWorkspace(name: "B")
-    a.tabs[0].attention = true // completamento non visto
+    a.tabs[0].attention = .unseen // completamento non visto
     b.tabs[0].agentState = .needsInput
     store.selectWorkspace(a.id) // parte dalla tab in attenzione A
 
@@ -41,6 +41,27 @@ import Testing
     // Ancora -> cicla e torna ad A.
     #expect(store.focusNextAttention())
     #expect(store.selectedWorkspaceID == a.id)
+}
+
+/// Due livelli: finché c'è attenzione fresca (needs_input/unseen) il jump ignora i sospesi;
+/// esauriti i freschi, passa ai sospesi.
+@Test func jumpPrefersFreshOverPending() {
+    let store = WorkspaceStore()
+    let current = store.createWorkspace(name: "current")
+    let pending = store.createWorkspace(name: "pending")
+    let fresh = store.createWorkspace(name: "fresh")
+    pending.tabs[0].attention = .pending
+    fresh.tabs[0].attention = .unseen
+    store.selectWorkspace(current.id)
+
+    // Col fresco presente, il jump lo preferisce al sospeso (anche se viene dopo).
+    #expect(store.focusNextAttention())
+    #expect(store.selectedWorkspaceID == fresh.id)
+
+    // Fresco risolto: il jump ripiega sul sospeso.
+    fresh.tabs[0].attention = .none
+    #expect(store.focusNextAttention())
+    #expect(store.selectedWorkspaceID == pending.id)
 }
 
 @Test func jumpReachesAnotherTabInSameWorkspace() {

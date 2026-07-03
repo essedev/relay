@@ -35,8 +35,8 @@ import Testing
     let store = WorkspaceStore()
     let a = store.createWorkspace(name: "A")
     let b = store.createWorkspace(name: "B")
-    a.tabs[0].attention = true
-    b.tabs[0].attention = true
+    a.tabs[0].attention = .unseen
+    b.tabs[0].attention = .unseen
     store.selectWorkspace(a.id)
 
     // Da A (prima con attenzione), indietro fa wrap all'ultima = B.

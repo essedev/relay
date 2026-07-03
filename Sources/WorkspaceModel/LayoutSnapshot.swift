@@ -4,7 +4,9 @@ import Foundation
 /// Puro e `Codable`; l'I/O su disco vive fuori dal model (modulo `LayoutStore`). Non contiene stato
 /// agente (effimero) né surface (ricreate lazy al focus). Il `version` abilita migrazioni future.
 public struct LayoutSnapshot: Codable, Equatable {
-    /// Versione dello schema. Bump quando cambia la forma; `LayoutStore` scarta versioni ignote.
+    /// Versione dello schema. Bump solo per cambi breaking (la load scarta le versioni diverse,
+    /// buttando il layout dell'utente): un campo nuovo opzionale è additivo e NON bumpa, decodifica
+    /// pulita in entrambe le direzioni (assente -> nil; ignoto -> ignorato).
     public static let currentVersion = 1
 
     public var version: Int
@@ -53,18 +55,24 @@ public struct TabSnapshot: Codable, Equatable {
     public var hasCustomTitle: Bool
     public var currentDirectory: String?
     public var resume: ResumeBinding?
+    /// Completamento mai ripreso ("in sospeso") e il suo timestamp: al restore la tab riparte
+    /// `pending` con questa età (dashboard, decadenza). `nil` = niente sospeso. Campo additivo
+    /// (assente nei layout vecchi -> nil), per questo non ha richiesto un bump di versione.
+    public var pendingSince: Date?
 
     public init(
         id: UUID,
         title: String,
         hasCustomTitle: Bool,
         currentDirectory: String?,
-        resume: ResumeBinding? = nil
+        resume: ResumeBinding? = nil,
+        pendingSince: Date? = nil
     ) {
         self.id = id
         self.title = title
         self.hasCustomTitle = hasCustomTitle
         self.currentDirectory = currentDirectory
         self.resume = resume
+        self.pendingSince = pendingSince
     }
 }

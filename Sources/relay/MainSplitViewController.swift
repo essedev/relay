@@ -90,6 +90,11 @@ final class MainSplitViewController: NSSplitViewController {
         right.flashAttentionRing()
     }
 
+    /// Riporta il focus al terminale attivo (dopo la chiusura di un overlay, es. dashboard).
+    func focusTerminal() {
+        right.focusTerminal()
+    }
+
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("MainSplitViewController is programmatic-only")

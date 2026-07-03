@@ -74,7 +74,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
     case newWorkspace, openFolder, closeWorkspace
     case cycleWorkspaceForward, cycleWorkspaceBackward
     case newTab, closeTab, cycleTabForward, cycleTabBackward
-    case nextAttention, prevAttention
+    case nextAttention, prevAttention, toggleDashboard
     case find, findNext, findPrevious, clear
     case toggleSidebar, zoomIn, zoomOut, actualSize
 
@@ -95,6 +95,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         case .cycleTabBackward: "Previous tab"
         case .nextAttention: "Next attention"
         case .prevAttention: "Previous attention"
+        case .toggleDashboard: "Agent dashboard"
         case .find: "Find"
         case .findNext: "Find next"
         case .findPrevious: "Find previous"
@@ -113,7 +114,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
             .workspace
         case .newTab, .closeTab, .cycleTabForward, .cycleTabBackward:
             .tab
-        case .nextAttention, .prevAttention:
+        case .nextAttention, .prevAttention, .toggleDashboard:
             .agent
         case .find, .findNext, .findPrevious, .clear:
             .terminal
@@ -135,6 +136,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         case .cycleTabBackward: KeyCombo(key: "tab", modifiers: [.control, .shift])
         case .nextAttention: KeyCombo(key: "j", modifiers: [.command])
         case .prevAttention: KeyCombo(key: "j", modifiers: [.command, .shift])
+        case .toggleDashboard: KeyCombo(key: "d", modifiers: [.command])
         case .find: KeyCombo(key: "f", modifiers: [.command])
         case .findNext: KeyCombo(key: "g", modifiers: [.command])
         case .findPrevious: KeyCombo(key: "g", modifiers: [.command, .shift])

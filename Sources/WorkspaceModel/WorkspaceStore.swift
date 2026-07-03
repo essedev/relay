@@ -65,7 +65,11 @@ public final class WorkspaceStore {
                             title: tab.title,
                             hasCustomTitle: tab.hasCustomTitle,
                             currentDirectory: tab.currentDirectory,
-                            resume: tab.resume
+                            resume: tab.resume,
+                            // Un completamento mai ripreso sopravvive al riavvio come "in
+                            // sospeso": anche `unseen` degrada a pending (al restore il segnale
+                            // forte sarebbe stantio; il posto giusto è la dashboard).
+                            pendingSince: tab.attention == .none ? nil : tab.lastEventAt
                         )
                     }
                 )
@@ -84,6 +88,8 @@ public final class WorkspaceStore {
                     title: tab.title,
                     hasCustomTitle: tab.hasCustomTitle,
                     currentDirectory: tab.currentDirectory,
+                    attention: tab.pendingSince == nil ? .none : .pending,
+                    lastEventAt: tab.pendingSince, // ancora l'età del sospeso (dashboard, decay)
                     resume: tab.resume
                 )
             }
@@ -178,9 +184,10 @@ public final class WorkspaceStore {
 
     /// Porta in vista la prossima (`focusNextAttention`) o precedente (`focusPrevAttention`) tab
     /// che
-    /// richiede attenzione (aspetta input o ha completato del lavoro non visto), in ordine visivo
-    /// (`orderedWorkspaces` + ordine tab) e ciclico rispetto alla selezione corrente. Salta sempre
-    /// la corrente. No-op se nessuna tab la richiede. Ritorna `true` se la selezione è cambiata.
+    /// richiede attenzione, in ordine visivo (`orderedWorkspaces` + ordine tab) e ciclico rispetto
+    /// alla selezione corrente. Due livelli: prima l'attenzione fresca (aspetta input o completato
+    /// non visto); esauriti quelli, i sospesi (`pending`). Salta sempre la corrente. No-op se
+    /// nessuna tab la richiede. Ritorna `true` se la selezione è cambiata.
     @discardableResult
     public func focusNextAttention() -> Bool {
         focusAttention(forward: true)
@@ -196,9 +203,12 @@ public final class WorkspaceStore {
         let flat: [(ws: Workspace, tab: Tab)] = orderedWorkspaces.flatMap { ws in
             ws.tabs.map { (ws, $0) }
         }
-        let hits = flat.indices.filter {
-            flat[$0].tab.agentState == .needsInput || flat[$0].tab.attention
+        let fresh = flat.indices.filter {
+            flat[$0].tab.agentState == .needsInput || flat[$0].tab.attention == .unseen
         }
+        let hits = fresh.isEmpty
+            ? flat.indices.filter { flat[$0].tab.attention == .pending }
+            : fresh
         guard !hits.isEmpty else { return false }
         let current = flat.firstIndex {
             $0.ws.id == selectedWorkspaceID && $0.tab.id == $0.ws.selectedTabID
@@ -307,5 +317,37 @@ public final class WorkspaceStore {
             return true
         }
         return false
+    }
+}
+
+// MARK: - Attenzione (dismiss e decadenza)
+
+public extension WorkspaceStore {
+    /// Dismiss esplicito dell'attenzione di una tab ("era done, niente da fare"): spegne il
+    /// marker a qualunque livello (unseen o pending). Ritorna `true` se c'era qualcosa da spegnere.
+    @discardableResult
+    func dismissAttention(_ tabID: UUID) -> Bool {
+        for workspace in workspaces {
+            guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
+            guard tab.attention != .none else { return false }
+            tab.attention = .none
+            return true
+        }
+        return false
+    }
+
+    /// Decadenza opzionale dei sospesi: spegne i `pending` il cui ultimo evento è più vecchio di
+    /// `cutoff`. Chiamata dal composition root quando la preferenza è attiva (boot, ritorno in
+    /// foreground, apertura dashboard). Ritorna quanti ne ha spenti.
+    @discardableResult
+    func decayPending(olderThan cutoff: Date) -> Int {
+        var decayed = 0
+        for tab in workspaces.flatMap(\.tabs) {
+            guard tab.attention == .pending,
+                  (tab.lastEventAt ?? .distantPast) < cutoff else { continue }
+            tab.attention = .none
+            decayed += 1
+        }
+        return decayed
     }
 }

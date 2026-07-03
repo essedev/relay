@@ -18,11 +18,13 @@ public final class Tab: Identifiable {
     /// Stato agente corrente della sessione legata a questa tab. Guida il badge e l'aggregazione
     /// per severità nella sidebar. `.unknown` finché non arriva un evento hook.
     public var agentState: AgentState
-    /// Marker "completato non visto": lavoro finito (running -> idle) mentre la tab non era in
-    /// vista. Si spegne alla visita. Distinto dallo stato: `running`/`needs_input`/`error` sono
-    /// mostrati dal badge in base ad `agentState` finché lo stato non cambia (`needs_input` resta
-    /// finché rispondi a Claude, non si spegne al focus).
-    public var attention: Bool
+    /// Attenzione post-completamento a tre livelli (vedi `AttentionLevel`): `unseen` = completato
+    /// mentre non guardavi (forte), `pending` = visto ma mai ripreso (quieto, persistente).
+    /// L'interazione declassa unseen -> pending; risolve solo la ripresa (prompt -> running), il
+    /// dismiss o la chiusura. Distinto dallo stato: `running`/`needs_input`/`error` sono mostrati
+    /// dal badge in base ad `agentState` finché lo stato non cambia (`needs_input` resta finché
+    /// rispondi a Claude, non si spegne al focus).
+    public var attention: AttentionLevel
     /// Timestamp dell'ultimo evento agente applicato.
     public var lastEventAt: Date?
 
@@ -36,7 +38,7 @@ public final class Tab: Identifiable {
         hasCustomTitle: Bool = false,
         currentDirectory: String? = nil,
         agentState: AgentState = .unknown,
-        attention: Bool = false,
+        attention: AttentionLevel = .none,
         lastEventAt: Date? = nil,
         resume: ResumeBinding? = nil
     ) {

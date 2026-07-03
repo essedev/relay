@@ -135,6 +135,12 @@ public struct SettingsView: View {
                 view: AnyView(resumeBlock(colors))
             ),
             SettingsBlock(
+                id: "pending",
+                category: .agents,
+                keywords: ["pending", "attention", "decay", "expire", "completed", "dismiss"],
+                view: AnyView(pendingBlock(colors))
+            ),
+            SettingsBlock(
                 id: "notifications",
                 category: .notifications,
                 keywords: ["notification", "notify", "alert", "sound", "needs input", "finished"],
@@ -207,6 +213,21 @@ public struct SettingsView: View {
             Toggle("", isOn: autoResumeBinding)
                 .toggleStyle(.switch)
                 .labelsHidden()
+        }
+    }
+
+    /// Decadenza dei completamenti "in sospeso" (visti ma mai ripresi). "Never" (default) = si
+    /// spengono solo con ripresa, dismiss o chiusura tab: niente perdita silenziosa.
+    private func pendingBlock(_ colors: ChromeColors) -> some View {
+        row("Auto-dismiss pending after", colors) {
+            Picker("", selection: pendingDecayBinding) {
+                ForEach(AppSettings.pendingDecayOptions, id: \.self) { hours in
+                    Text(hours == 0 ? "Never" : "\(hours)h").tag(hours)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
         }
     }
 

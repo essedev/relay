@@ -7,22 +7,28 @@ import WorkspaceModel
 /// Il `rawValue` è anche l'ordine di severità per l'aggregazione a livello workspace.
 enum BadgeKind: Int {
     case none = 0
-    case completed = 1
-    case running = 2
-    case error = 3
-    case needsInput = 4
+    case pending = 1
+    case completed = 2
+    case running = 3
+    case error = 4
+    case needsInput = 5
 
     /// Badge di una singola tab. `running`/`needs_input`/`error` sono *stati*: il badge resta
     /// finché
-    /// lo stato cambia (needs_input si spegne quando rispondi a Claude, non alla visita). Solo il
-    /// marker "completato" (idle dopo running) è transitorio e dipende da `attention`.
+    /// lo stato cambia (needs_input si spegne quando rispondi a Claude, non alla visita). Il
+    /// completamento dipende da `attention`: `unseen` = pieno (forte), `pending` = dimesso
+    /// (sospeso). Vale anche a sessione finita (`unknown`): il sospeso sopravvive.
     static func forTab(_ tab: WorkspaceModel.Tab) -> BadgeKind {
         switch tab.agentState {
         case .running: .running
         case .needsInput: .needsInput
         case .error: .error
-        case .idle: tab.attention ? .completed : .none
-        case .unknown: .none
+        case .idle, .unknown:
+            switch tab.attention {
+            case .unseen: .completed
+            case .pending: .pending
+            case .none: .none
+            }
         }
     }
 
@@ -85,6 +91,11 @@ struct AgentBadge: View {
             dot(colors.error)
         case .completed:
             dot(colors.completed)
+        case .pending:
+            // Punto quieto del sospeso: anello vuoto, stesso verde del completato ma dimesso.
+            Circle()
+                .strokeBorder(colors.completed.opacity(0.55), lineWidth: 1.5)
+                .frame(width: 8, height: 8)
         }
     }
 

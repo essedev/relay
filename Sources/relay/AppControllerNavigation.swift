@@ -52,6 +52,17 @@ extension AppController {
             guard let self else { return event }
             // Mentre il recorder registra, il monitor è trasparente: l'evento arriva al recorder.
             if settings.isCapturingShortcut { return event }
+            // Dashboard aperta: i tasti vanno alla vista (filtro, frecce, Invio; Esc lo gestisce
+            // lei). Resta attivo solo il toggle per chiuderla; niente nav 1..9 e niente mark-read
+            // (stai facendo triage, non usando la tab sotto l'overlay).
+            if isDashboardOpen {
+                let action = event.type == .keyDown ? shortcutAction(for: event) : nil
+                if action == .toggleDashboard {
+                    perform(.toggleDashboard)
+                    return nil
+                }
+                return event
+            }
             if event.type == .keyDown {
                 if handleNavigationKey(event) { return nil } // select 1..9 (fissi)
                 if let action = shortcutAction(for: event) {
@@ -59,10 +70,12 @@ extension AppController {
                     return nil // hotkey rimappabile consumato
                 }
             }
-            // Input grezzo (tasto senza binding, o click) sulla tab in vista = interazione: il
-            // marker di completamento si spegne (mark-read).
-            if let tab = store.selectedWorkspace?.selectedTab, tab.attention {
-                tab.attention = false
+            // Input grezzo (tasto senza binding, o click) sulla tab in vista = interazione: la
+            // percezione declassa il completamento da forte a quieto (unseen -> pending), non lo
+            // spegne. Risolvono solo la ripresa vera (prompt -> running, via reducer), il dismiss
+            // o la chiusura: "l'ho visto" non è "me ne sono occupato".
+            if let tab = store.selectedWorkspace?.selectedTab, tab.attention == .unseen {
+                tab.attention = .pending
             }
             return event
         }

@@ -10,6 +10,8 @@ final class RootOverlayController: NSViewController {
     private let overlay: NSView
     private var overlayLeading: NSLayoutConstraint?
     private var lastKnownSidebarWidth: CGFloat = 0
+    /// Overlay full-window corrente (dashboard): sopra tutto, uno alla volta.
+    private var fullOverlay: NSView?
     /// Spazio orizzontale dei semafori: l'overlay non va mai più a sinistra di così.
     private static let trafficLightsInset: CGFloat = 78
 
@@ -55,6 +57,26 @@ final class RootOverlayController: NSViewController {
         ])
         // Riallinea con l'ultima larghezza vista: i resize dello split possono precedere il load.
         sidebarWidthDidChange(lastKnownSidebarWidth)
+    }
+
+    /// Monta un overlay a tutta finestra sopra qualunque cosa (dashboard). Uno alla volta: un
+    /// overlay nuovo sostituisce il precedente.
+    func presentFullOverlay(_ overlayView: NSView) {
+        dismissFullOverlay()
+        overlayView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(overlayView) // ultimo aggiunto = sopra contenuto e toggle sidebar
+        NSLayoutConstraint.activate([
+            overlayView.topAnchor.constraint(equalTo: view.topAnchor),
+            overlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        fullOverlay = overlayView
+    }
+
+    func dismissFullOverlay() {
+        fullOverlay?.removeFromSuperview()
+        fullOverlay = nil
     }
 
     /// Segue la larghezza corrente della sidebar (chiamato a ogni resize, anche frame-by-frame

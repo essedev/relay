@@ -20,6 +20,10 @@ public final class AppSettings {
     /// Al re-focus di una tab ripristinata con sessione agente: `true` inietta il resume da solo,
     /// `false` (default) mostra la barra "Resume". Default prudente: niente comandi automatici.
     public private(set) var autoResumeAgents: Bool
+    /// Decadenza dei completamenti "in sospeso" (`AttentionLevel.pending`): dopo queste ore il
+    /// marker si spegne da solo. `0` (default) = mai: la perdita silenziosa è proprio il problema
+    /// che il sospeso risolve, chi vuole la lista auto-pulita attiva la decadenza esplicitamente.
+    public private(set) var pendingDecayHours: Int
 
     /// Notifiche macOS (default tutte on). Master + per-tipo + suono + scelta del suono.
     public private(set) var notificationsEnabled: Bool
@@ -43,6 +47,9 @@ public final class AppSettings {
         "Default", "Ping", "Glass", "Hero", "Submarine", "Funk", "Blow", "Pop",
     ]
 
+    /// Opzioni di decadenza dei sospesi, in ore (`0` = mai).
+    public static let pendingDecayOptions = [0, 4, 12, 24]
+
     @ObservationIgnored private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
@@ -55,6 +62,8 @@ public final class AppSettings {
         cursorBlink = defaults.bool(forKey: Keys.cursorBlink)
         sidebarCollapsed = defaults.bool(forKey: Keys.sidebarCollapsed)
         autoResumeAgents = defaults.bool(forKey: Keys.autoResumeAgents)
+        // Assente = 0 = mai (integer(forKey:) torna già 0 per chiave mancante).
+        pendingDecayHours = defaults.integer(forKey: Keys.pendingDecayHours)
         notificationsEnabled = Self.boolDefaultingTrue(defaults, Keys.notificationsEnabled)
         notifyOnNeedsInput = Self.boolDefaultingTrue(defaults, Keys.notifyOnNeedsInput)
         notifyOnCompleted = Self.boolDefaultingTrue(defaults, Keys.notifyOnCompleted)
@@ -146,6 +155,13 @@ public final class AppSettings {
         defaults.set(autoResumeAgents, forKey: Keys.autoResumeAgents)
     }
 
+    public func setPendingDecayHours(_ hours: Int) {
+        let clamped = max(0, hours)
+        guard clamped != pendingDecayHours else { return }
+        pendingDecayHours = clamped
+        defaults.set(clamped, forKey: Keys.pendingDecayHours)
+    }
+
     public func setNotificationsEnabled(_ enabled: Bool) {
         guard enabled != notificationsEnabled else { return }
         notificationsEnabled = enabled
@@ -224,6 +240,7 @@ public final class AppSettings {
         static let cursorBlink = "relay.cursor.blink"
         static let sidebarCollapsed = "relay.sidebar.collapsed"
         static let autoResumeAgents = "relay.agents.autoResume"
+        static let pendingDecayHours = "relay.agents.pendingDecayHours"
         static let notificationsEnabled = "relay.notifications.enabled"
         static let notifyOnNeedsInput = "relay.notifications.needsInput"
         static let notifyOnCompleted = "relay.notifications.completed"

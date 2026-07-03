@@ -78,6 +78,7 @@ enum MainMenuBuilder {
     /// titolo porta l'hint della combo).
     private static func goMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
         var items: [NSMenuItem] = [
+            actionItem(.toggleDashboard, settings, target),
             actionItem(.nextAttention, settings, target),
             actionItem(.prevAttention, settings, target),
             .separator(),

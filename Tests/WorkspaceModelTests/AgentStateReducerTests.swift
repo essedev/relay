@@ -7,41 +7,53 @@ import Testing
         current: .idle,
         incoming: .idle,
         isVisible: false,
-        currentAttention: false
+        currentAttention: .none
     )
-    #expect(result == AgentStateReducer.Result(state: .idle, attention: false))
+    #expect(result == AgentStateReducer.Result(state: .idle, attention: .none))
 }
 
-@Test func completedWhileHiddenRaisesAttention() {
+@Test func idleToIdlePreservesPending() {
+    let result = AgentStateReducer.reduce(
+        current: .idle,
+        incoming: .idle,
+        isVisible: true,
+        currentAttention: .pending
+    )
+    #expect(result == AgentStateReducer.Result(state: .idle, attention: .pending))
+}
+
+@Test func completedWhileHiddenRaisesUnseen() {
     let result = AgentStateReducer.reduce(
         current: .running,
         incoming: .idle,
         isVisible: false,
-        currentAttention: false
+        currentAttention: .none
     )
-    #expect(result == AgentStateReducer.Result(state: .idle, attention: true))
+    #expect(result == AgentStateReducer.Result(state: .idle, attention: .unseen))
 }
 
-@Test func completedWhileVisibleStaysCalm() {
+/// Completare mentre guardi: la percezione è già avvenuta, il marker nasce direttamente "in
+/// sospeso" (quieto). Non sparisce: se ti distrai senza riprendere, la dashboard lo ricorda.
+@Test func completedWhileVisibleBecomesPending() {
     let result = AgentStateReducer.reduce(
         current: .running,
         incoming: .idle,
         isVisible: true,
-        currentAttention: false
+        currentAttention: .none
     )
-    #expect(result == AgentStateReducer.Result(state: .idle, attention: false))
+    #expect(result == AgentStateReducer.Result(state: .idle, attention: .pending))
 }
 
-/// needs_input è uno stato, non un marker: non tocca `attention` (il badge lo mostra dallo stato,
+/// needs_input è uno stato, non un marker: non usa `attention` (il badge lo mostra dallo stato,
 /// e resta finché rispondi a Claude - non si spegne alla visita).
 @Test func needsInputDoesNotUseAttentionWhenHidden() {
     let result = AgentStateReducer.reduce(
         current: .running,
         incoming: .needsInput,
         isVisible: false,
-        currentAttention: false
+        currentAttention: .none
     )
-    #expect(result == AgentStateReducer.Result(state: .needsInput, attention: false))
+    #expect(result == AgentStateReducer.Result(state: .needsInput, attention: .none))
 }
 
 @Test func needsInputDoesNotUseAttentionWhenVisible() {
@@ -49,9 +61,9 @@ import Testing
         current: .running,
         incoming: .needsInput,
         isVisible: true,
-        currentAttention: false
+        currentAttention: .none
     )
-    #expect(result == AgentStateReducer.Result(state: .needsInput, attention: false))
+    #expect(result == AgentStateReducer.Result(state: .needsInput, attention: .none))
 }
 
 @Test func errorDoesNotUseAttention() {
@@ -59,31 +71,63 @@ import Testing
         current: .running,
         incoming: .error,
         isVisible: false,
-        currentAttention: false
+        currentAttention: .none
     )
-    #expect(result == AgentStateReducer.Result(state: .error, attention: false))
+    #expect(result == AgentStateReducer.Result(state: .error, attention: .none))
 }
 
-/// Un evento running mentre sei altrove non cancella un "completato non visto" gia' presente
-/// (comunque il badge running ha precedenza finche' lo stato e' running).
-@Test func runningPreservesExistingCompletedMarker() {
+// MARK: - Risoluzione (la ripresa vera spegne il marker)
+
+/// La conversazione che riparte (il tuo prompt -> running) è l'evento di risoluzione: spegne il
+/// marker a qualunque livello, anche se non stai guardando la tab.
+@Test func runningResolvesUnseen() {
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .running,
         isVisible: false,
-        currentAttention: true
+        currentAttention: .unseen
     )
-    #expect(result == AgentStateReducer.Result(state: .running, attention: true))
+    #expect(result == AgentStateReducer.Result(state: .running, attention: .none))
 }
 
-@Test func visitingClearsCompletedMarker() {
+@Test func runningResolvesPending() {
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .running,
         isVisible: true,
-        currentAttention: true
+        currentAttention: .pending
     )
-    #expect(result == AgentStateReducer.Result(state: .running, attention: false))
+    #expect(result == AgentStateReducer.Result(state: .running, attention: .none))
+}
+
+@Test func needsInputResolvesPending() {
+    let result = AgentStateReducer.reduce(
+        current: .idle,
+        incoming: .needsInput,
+        isVisible: false,
+        currentAttention: .pending
+    )
+    #expect(result == AgentStateReducer.Result(state: .needsInput, attention: .none))
+}
+
+/// Fine sessione (unknown): un completamento mai ripreso resta tale - la tab e il suo output
+/// esistono ancora. Si spegne solo con dismiss, decadenza o chiusura tab.
+@Test func sessionEndPreservesAttention() {
+    let unseen = AgentStateReducer.reduce(
+        current: .idle,
+        incoming: .unknown,
+        isVisible: false,
+        currentAttention: .unseen
+    )
+    #expect(unseen == AgentStateReducer.Result(state: .unknown, attention: .unseen))
+
+    let pending = AgentStateReducer.reduce(
+        current: .idle,
+        incoming: .unknown,
+        isVisible: true,
+        currentAttention: .pending
+    )
+    #expect(pending == AgentStateReducer.Result(state: .unknown, attention: .pending))
 }
 
 // MARK: - Classificatore notifiche

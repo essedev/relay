@@ -64,6 +64,11 @@ final class RightPaneController: NSViewController {
         area.flashAttentionRing()
     }
 
+    /// Riporta il focus al terminale attivo (dopo la chiusura di un overlay).
+    func focusTerminal() {
+        area.focusTerminal()
+    }
+
     // MARK: - Ricerca (Cmd+F)
 
     /// Mostra o chiude la find bar (overlay flottante sul terminale).
