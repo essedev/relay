@@ -3,7 +3,7 @@
 # Source of truth della versione: ./VERSION. Bump quel file, poi `make release`.
 #
 # Idempotente per versione: se il tag vX esiste gia, si ferma (bumpa VERSION prima).
-# Env: SIGN_IDENTITY (default '-' ad-hoc), passato al bundle.
+# Firma: default self-signed stabile (scripts/setup-signing.sh). Per ad-hoc: SIGN_IDENTITY=- make release.
 set -euo pipefail
 
 REPO="essedev/relay"
@@ -17,7 +17,7 @@ cd "$ROOT"
 VERSION="$(cat VERSION)"
 TAG="v${VERSION}"
 DMG=".build/Relay-${VERSION}.dmg"
-SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+SIGN_IDENTITY="${SIGN_IDENTITY:-Relay Self-Signed}"
 
 info()  { printf '\033[36m==>\033[0m %s\n' "$1"; }
 fail()  { printf '\033[31merrore:\033[0m %s\n' "$1" >&2; exit 1; }
@@ -47,6 +47,14 @@ if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
 fi
 
 info "release $TAG (sign=$SIGN_IDENTITY)"
+
+# --- Firma -----------------------------------------------------------------
+# Firma non-adhoc: setup-signing.sh garantisce cert + keychain in search list + unlock + trust
+# (idempotente). Se il trust manca esce non-zero con le istruzioni.
+if [ "$SIGN_IDENTITY" != "-" ]; then
+  bash "$ROOT/scripts/setup-signing.sh" \
+    || fail "firma '$SIGN_IDENTITY' non pronta (vedi sopra), oppure rilascia ad-hoc: SIGN_IDENTITY=- make release"
+fi
 
 # --- Build dmg -------------------------------------------------------------
 info "build dmg"

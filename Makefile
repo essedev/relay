@@ -5,7 +5,8 @@ SWIFT := swift
 VERSION := $(shell cat VERSION)
 # Identita di firma per codesign. '-' = ad-hoc (default). Per un self-signed stabile
 # (identita costante tra le build: niente 'Apri comunque' ricorrente, notifiche non decadono)
-# passare il nome del certificato: make bundle SIGN_IDENTITY="Relay Self-Signed".
+# usare il cert dedicato: SIGN_IDENTITY="Relay Self-Signed" (lo prepara scripts/setup-signing.sh;
+# `make release` fa tutto da solo). L'identita e' risolta dalla search list dei keychain.
 SIGN_IDENTITY ?= -
 
 .PHONY: help install build run cli test lint format check clean bundle run-app dmg install-app icon release
@@ -53,7 +54,7 @@ bundle: ## Assembla Relay.app (release, firma $(SIGN_IDENTITY), versione da ./VE
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" $(APP)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP)/Contents/Info.plist
 	cp bundle/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
-	codesign --force --sign $(SIGN_IDENTITY) $(APP)
+	codesign --force --sign "$(SIGN_IDENTITY)" $(APP)
 	@echo "built $(APP) (v$(VERSION), sign=$(SIGN_IDENTITY))"
 
 run-app: bundle ## Assembla e avvia Relay.app (notifiche attive: gira dal bundle)
@@ -85,7 +86,7 @@ install-app: bundle ## Installa Relay.app in /Applications (uso locale)
 	@echo "installed /Applications/Relay.app"
 
 release: ## Pubblica la release corrente (VERSION): dmg -> GitHub Release -> aggiorna il tap brew
-	SIGN_IDENTITY="$(SIGN_IDENTITY)" ./scripts/release.sh
+	./scripts/release.sh
 
 clean: ## Pulisce gli artifacts di build
 	$(SWIFT) package clean
