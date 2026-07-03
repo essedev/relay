@@ -46,8 +46,8 @@ final class MainSplitViewController: NSSplitViewController {
         // Item normale, non `sidebarWithViewController:`: su macOS 26 quello stila la sidebar come
         // pannello glass flottante (box, materiale, margini), in conflitto col design flat themed.
         let item = NSSplitViewItem(viewController: sidebar)
-        item.minimumThickness = 200
-        item.maximumThickness = 340
+        item.minimumThickness = CGFloat(AppSettings.minSidebarWidth)
+        item.maximumThickness = CGFloat(AppSettings.maxSidebarWidth)
         // Il resize della finestra va al body: la sidebar tiene la sua larghezza.
         item.holdingPriority = NSLayoutConstraint.Priority(260)
         item.canCollapse = true
@@ -100,10 +100,29 @@ final class MainSplitViewController: NSSplitViewController {
         fatalError("MainSplitViewController is programmatic-only")
     }
 
+    /// Applica la larghezza persistita alla prima passata di layout (quando la sidebar e espansa):
+    /// dopo, il resize manuale la aggiorna e la persiste da solo.
+    private var didApplyInitialWidth = false
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        guard !didApplyInitialWidth, view.bounds.width > 0 else { return }
+        didApplyInitialWidth = true
+        if !settings.sidebarCollapsed {
+            splitView.setPosition(CGFloat(settings.sidebarWidth), ofDividerAt: 0)
+        }
+    }
+
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
         guard let sidebarView = splitView.arrangedSubviews.first else { return }
-        onSidebarWidthChange?(sidebarView.isHidden ? 0 : sidebarView.frame.width)
+        let visibleWidth = sidebarView.isHidden ? 0 : sidebarView.frame.width
+        onSidebarWidthChange?(visibleWidth)
+        // Persisti solo quando espansa e assestata: durante il collapse la larghezza va a 0, non va
+        // salvata (perderei il valore). `setSidebarWidth` clampa e ignora i no-op.
+        if !sidebarView.isHidden, visibleWidth >= CGFloat(AppSettings.minSidebarWidth) {
+            settings.setSidebarWidth(Double(visibleWidth))
+        }
     }
 
     /// Lo stato del collapse vive in `AppSettings` (persistito); qui lo si applica all'item,

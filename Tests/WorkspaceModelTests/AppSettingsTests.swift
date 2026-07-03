@@ -72,6 +72,20 @@ private func freshDefaults() -> UserDefaults {
     #expect(settings.fontSize == 13)
 }
 
+@MainActor @Test func sidebarWidthDefaultsClampsAndPersists() {
+    let defaults = freshDefaults()
+    let first = AppSettings(defaults: defaults)
+    #expect(first.sidebarWidth == AppSettings.defaultSidebarWidth)
+    first.setSidebarWidth(500)
+    #expect(first.sidebarWidth == AppSettings.maxSidebarWidth)
+    first.setSidebarWidth(0)
+    #expect(first.sidebarWidth == AppSettings.minSidebarWidth)
+    first.setSidebarWidth(280)
+
+    let second = AppSettings(defaults: defaults)
+    #expect(second.sidebarWidth == 280)
+}
+
 @MainActor @Test func notificationsDefaultOn() {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(settings.notificationsEnabled)
