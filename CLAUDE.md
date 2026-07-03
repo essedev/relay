@@ -8,7 +8,8 @@ cascade, float per stato) + **M2 (persistence layout + rename inline)** + **resu
 + **M3 (cap LRU + misure performance chiuse, `docs/research/PERF.md`)** + **M4 (bundle `.app` +
 notifiche macOS con impostazioni e suono + icona + installer locale `make dmg`/`install-app`)** + sei
 temi curati e scelta font family + **giro terminale (find `Cmd+F`, clear `Cmd+K`, jump-to-attention
-`Cmd+J`) e drag finestra solo dalla title strip**. **Baseline delle milestone chiuso**, app
+`Cmd+J`), drag finestra solo dalla title strip, ring di attenzione attorno al terminale + mark-read
+su interazione (modello ispirato a cmux)**. **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, dashboard, split) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
 girano solo dal bundle (`make run-app`).
@@ -44,7 +45,8 @@ girano solo dal bundle (`make run-app`).
   (sottoclasse della view SwiftTerm) aggiunge il drop di file: inserisce i path escaped
   (`Core.ShellEscape`, testato) nel PTY, come Terminal.app. SwiftTerm non lo fa da solo.
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy, cap LRU via `SurfaceEvictionPolicy`
-  pura) + `WorkspaceAreaController` (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
+  pura) + `WorkspaceAreaController` (AppKit, osserva lo store, scambia il terminale attivo) +
+  `AttentionRingView` (bordo colorato di stato attorno al terminale). Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
   `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `WindowDragArea` (drag finestra dalla title
@@ -89,9 +91,11 @@ girano solo dal bundle (`make run-app`).
   `onNotifiableTransition` e il `NotificationCoordinator` (solo se `Bundle.main.bundleIdentifier !=
   nil`) filtra per preferenze e consegna. `isVisible = tab selezionata && NSApp.isActive`: se Relay è
   in background notifica anche sulla tab selezionata. Il marker "completato" (`attention`) **non** si
-  spegne al semplice ritorno in foreground (altrimenti il float in cima alla sidebar sparirebbe prima
-  che tu lo veda): la visita reale è digitare nella tab in vista (`keyMonitor` in `AppController`,
-  solo se il marker è acceso) o riselezionarla (il render dell'area lo azzera). Il coordinatore è
+  spegne al semplice ritorno in foreground né alla selezione della tab (altrimenti sparirebbe prima
+  che tu lo veda; aprire una tab completata mostra il ring verde + flash): la visita reale è
+  **interagire** col terminale in vista (tasto o click, via il monitor in `AppControllerNavigation`,
+  solo se il marker è acceso). Al ritorno in foreground un flash del ring richiama l'occhio, senza
+  spegnere. Modello ispirato a cmux (vedi CYCLES). Il coordinatore è
   `UNUserNotificationCenterDelegate` e forza `willPresent -> [.banner,.sound,.list]`: **senza, i
   banner sono soppressi quando Relay è frontmost**. Al primo avvio dal bundle macOS chiede il
   permesso una volta; una firma ad-hoc che cambia a ogni reinstall può farlo decadere (log
@@ -129,6 +133,13 @@ girano solo dal bundle (`make run-app`).
   sull'ordine visivo). Sono keyEquivalent veri del menu (non l'event monitor): funzionano col
   terminale in focus. Search/clear passano dal protocollo `TerminalSurfaceHandle` (niente tipi
   SwiftTerm fuori dall'engine).
+- Ring di attenzione (`AttentionRingView`): bordo colorato attorno al terminale della tab in vista
+  che ne segnala lo stato (verde = completato, statico + flash; giallo/rosso pulsante = aspetta
+  input/errore). Colori dai colori ANSI del tema, coerenti coi badge. Overlay con `hitTest` nil
+  (non intercetta eventi); i terminali si inseriscono `positioned: .below` così resta in cima.
+  L'observer del ring (`observeRing`) è **separato** da `render()` e **non** scrive `attention`:
+  altrimenti un completamento sulla tab in vista si spegnerebbe da solo (loop col reset della
+  visita). Lo spegnimento (mark-read) lo fa solo l'interazione col terminale (monitor key/mouse).
 - Toggle sidebar: è un overlay a livello finestra (`RootOverlayController`), **non** un
   `NSTitlebarAccessoryViewController` - quello non viene renderizzato con `titleVisibility = .hidden`
   su macOS 26. L'overlay insegue il bordo della sidebar via `splitViewDidResizeSubviews`.

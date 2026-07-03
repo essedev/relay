@@ -80,6 +80,11 @@ final class MainSplitViewController: NSSplitViewController {
         right.clearActiveTerminal()
     }
 
+    /// Flash del ring di attenzione (ritorno in foreground).
+    func flashAttentionRing() {
+        right.flashAttentionRing()
+    }
+
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("MainSplitViewController is programmatic-only")

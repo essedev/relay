@@ -35,4 +35,47 @@ extension AppController {
     @objc func jumpToAttention(_: Any?) {
         store.focusNextAttention()
     }
+
+    // MARK: - Monitor tastiera/mouse
+
+    /// Un solo monitor locale per: (1) navigazione Cmd/Option + 1..9 - gli shortcut menu con solo
+    /// Option non fanno match (AppKit confronta il carattere trasformato, es. Option+1 = "¡"); (2)
+    /// mark-read - tasto o click mentre l'app è attiva "usano" la tab in vista e spengono il marker
+    /// di completamento (la visita reale, non il semplice ritorno in foreground). Non filtro il
+    /// click all'area del terminale: risalire al frame non vale la complessità, e interagire con
+    /// l'app col completamento in vista vale comunque come "visto".
+    func installNavigationKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.keyDown, .leftMouseDown]
+        ) { [weak self] event in
+            guard let self else { return event }
+            if event.type == .keyDown, handleNavigationKey(event) {
+                return nil // shortcut di navigazione consumato
+            }
+            if let tab = store.selectedWorkspace?.selectedTab, tab.attention {
+                tab.attention = false
+            }
+            return event
+        }
+    }
+
+    func handleNavigationKey(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags == .command || flags == .option else { return false }
+        guard let chars = event.charactersIgnoringModifiers, chars.count == 1,
+              let digit = Int(chars), (1 ... 9).contains(digit) else { return false }
+        let index = digit - 1
+
+        if flags == .command {
+            // Ordine della sidebar (con float dei completati/attenzione), non quello canonico:
+            // Cmd+N segue la posizione visiva della riga.
+            let ordered = store.orderedWorkspaces
+            if index < ordered.count {
+                store.selectWorkspace(ordered[index].id)
+            }
+        } else if let workspace = store.selectedWorkspace, index < workspace.tabs.count {
+            store.selectTab(workspace.tabs[index].id, in: workspace)
+        }
+        return true
+    }
 }

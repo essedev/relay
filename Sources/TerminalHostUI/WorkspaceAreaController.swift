@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import Observation
 import TerminalEngine
 import WorkspaceModel
@@ -13,6 +14,9 @@ public final class WorkspaceAreaController: NSViewController {
     private let registry: SurfaceRegistry
     private let container = NSView()
     private var currentTerminal: NSView?
+    private let attentionRing = AttentionRingView(frame: .zero)
+    /// Ultimo stato del ring: rileva l'accensione di un completamento per il flash.
+    private var lastRingState: RingState = .none
 
     public init(store: WorkspaceStore, engine: TerminalEngine, settings: AppSettings) {
         self.store = store
@@ -33,7 +37,26 @@ public final class WorkspaceAreaController: NSViewController {
 
     override public func viewDidLoad() {
         super.viewDidLoad()
+        mountAttentionRing()
         observe()
+        observeRing()
+    }
+
+    /// Il ring di attenzione copre l'intera zona (il gap dal bordo lo dà il suo `strokeInset`),
+    /// più esterno del terminale, che è inset di più: fra i due resta l'aria contenuto-ring.
+    /// Overlay decorativo (`hitTest` nil): il terminale sotto riceve gli eventi. I terminali si
+    /// inseriscono sotto di lui (`setTerminal`), così resta sempre in cima senza ri-montarlo.
+    private func mountAttentionRing() {
+        attentionRing.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(attentionRing)
+        // Il ring copre l'intera zona (il gap dal bordo lo dà `strokeInset`): sta più esterno del
+        // terminale, che è inset di più, così resta aria tra contenuto e ring.
+        NSLayoutConstraint.activate([
+            attentionRing.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            attentionRing.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            attentionRing.topAnchor.constraint(equalTo: container.topAnchor),
+            attentionRing.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
     }
 
     /// Nome del comando in foreground nella tab (o `nil` se al prompt / non realizzata). Inoltra
@@ -86,6 +109,71 @@ public final class WorkspaceAreaController: NSViewController {
         }
     }
 
+    // MARK: - Ring di attenzione
+
+    /// Stato del ring per la tab in vista. Coerente con `BadgeKind.forTab` (Panels): completato
+    /// dipende da `attention`; needs_input/error sono stati persistenti.
+    private enum RingState: Equatable {
+        case none, completed, needsInput, error
+    }
+
+    /// Bridge Observation -> ring: aggiorna il bordo quando cambia stato/attention della tab in
+    /// vista, la selezione o il tema. Separato da `observe()` perché **non** scrive `attention`
+    /// (niente loop col reset della visita): un completamento sulla tab già in vista accende il
+    /// ring
+    /// senza spegnersi da solo. La visita reale la fa l'interazione (`surface.onInteraction`).
+    private func observeRing() {
+        withObservationTracking {
+            updateRing()
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeRing() }
+        }
+    }
+
+    private func updateRing() {
+        let state = ringState(for: store.selectedWorkspace?.selectedTab)
+        if let spec = ringSpec(state, theme: settings.theme) {
+            attentionRing.update(color: spec.color, pulsing: spec.pulsing)
+        } else {
+            attentionRing.update(color: nil, pulsing: false)
+        }
+        // Un completamento appena acceso fa un flash per richiamare l'occhio.
+        if state == .completed, lastRingState != .completed {
+            attentionRing.flash()
+        }
+        lastRingState = state
+    }
+
+    private func ringState(for tab: Tab?) -> RingState {
+        guard let tab else { return .none }
+        switch tab.agentState {
+        case .needsInput: return .needsInput
+        case .error: return .error
+        case .idle: return tab.attention ? .completed : .none
+        case .running, .unknown: return .none
+        }
+    }
+
+    /// Colore (dai colori ANSI del tema, come i badge) e se pulsa. Completato = verde statico;
+    /// aspetta-input = giallo pulsante; errore = rosso pulsante.
+    private func ringSpec(
+        _ state: RingState,
+        theme: RelayTheme
+    ) -> (color: NSColor, pulsing: Bool)? {
+        switch state {
+        case .none: nil
+        case .completed: (NSColor(relay: theme.ansiColor(2)), false)
+        case .needsInput: (NSColor(relay: theme.ansiColor(3)), true)
+        case .error: (NSColor(relay: theme.ansiColor(1)), true)
+        }
+    }
+
+    /// Flash del ring al ritorno in foreground: richiama l'occhio su un completamento in vista.
+    /// No-op se il ring è spento o pulsa già.
+    public func flashAttentionRing() {
+        attentionRing.flash()
+    }
+
     private func render() {
         // Legge settings.theme: entra nel tracking, così un cambio tema/zoom ri-renderizza e
         // propaga il tema alle surface vive (no-op se invariato).
@@ -99,9 +187,9 @@ public final class WorkspaceAreaController: NSViewController {
             return
         }
 
-        // Visita: la tab in vista non ha più novità da segnalare. `attention` non è letta qui,
-        // quindi la scrittura aggiorna i badge senza ri-armare questo observe (nessun loop).
-        tab.attention = false
+        // Nota: selezionare la tab **non** spegne più `attention` (lo faceva il vecchio modello).
+        // Aprire una tab completata mostra il ring verde + flash; il mark-read lo fa solo
+        // l'interazione col terminale (monitor key/mouse). Vedi observeRing / gotcha attention.
 
         // La shell parte dalla cwd della tab (ereditata da Cmd+T o nota via OSC 7), fallback
         // sulla cartella del workspace.
@@ -134,8 +222,11 @@ public final class WorkspaceAreaController: NSViewController {
     }()
 
     /// Respiro attorno al testo del terminale (il container ha lo stesso background del tema,
-    /// quindi il padding è aria, non una cornice).
-    private static let terminalInset: CGFloat = 8
+    /// quindi
+    /// il padding è aria, non una cornice). Più largo del `strokeInset` del ring: lo spazio tra i
+    /// due
+    /// è l'aria fra contenuto e ring.
+    private static let terminalInset: CGFloat = 12
 
     private func setTerminal(_ terminal: NSView?) {
         guard currentTerminal !== terminal else { return }
@@ -143,12 +234,13 @@ public final class WorkspaceAreaController: NSViewController {
         currentTerminal = terminal
         guard let terminal else { return }
         terminal.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(terminal)
+        // Sotto il ring di attenzione, che resta l'overlay in cima.
+        container.addSubview(terminal, positioned: .below, relativeTo: attentionRing)
         let inset = Self.terminalInset
         NSLayoutConstraint.activate([
             terminal.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: inset),
             terminal.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -inset),
-            terminal.topAnchor.constraint(equalTo: container.topAnchor, constant: inset / 2),
+            terminal.topAnchor.constraint(equalTo: container.topAnchor, constant: inset),
             terminal.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -inset),
         ])
     }

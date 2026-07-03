@@ -665,5 +665,36 @@ chiedono attenzione. Quattro rifiniture:
   `mouseDownCanMoveWindow` non si propaga in modo affidabile sotto hosting SwiftUI. `Cmd+F`/`Cmd+K`/
   `Cmd+J` sono keyEquivalent veri del menu (non l'event monitor): funzionano col terminale in focus.
 
+### Modello attention (ring + mark-read, ispirato a cmux)
+
+Emerso da un feedback: al ritorno in foreground non si vedeva quale chat avesse finito, e non era
+chiaro *quando* un completamento si segnava come "letto". Prima di intervenire abbiamo analizzato il
+codice reale di cmux (Swift nativo, open source `manaflow-ai/cmux`), non la doc marketing. Scoperte:
+
+- cmux sul desktop **non** colora il bordo per stato: ring **sempre blu**, binario letto/non letto
+  (`Panel.swift` -> `.systemBlue`); i colori per stato (working/needs-input/done) esistono solo
+  nella app mobile. La distinzione la lascia al testo della notifica.
+- Il ring persistente **non pulsa**: statico, con un **flash** momentaneo (doppio blink 0.9s,
+  `[1,0,1,0]`) all'arrivo e al ritorno in foreground. Due layer distinti (ring + flash).
+- Il mark-read è una **matrice per contesto** (`NotificationDismissalModel`): il **focus del pane
+  non basta**, **solo l'interazione reale** (typing/click nel terminale, `.terminalInteraction`)
+  spegne l'unread manuale. Nessun timer di auto-read. `Cmd+Shift+U` salta all'unread più recente.
+
+Cosa abbiamo adottato per Relay (divergendo dove utile):
+
+- **Ring di stato colorato** (`AttentionRingView`), non binario come cmux: più informativo, e
+  abbiamo già i colori nel design system. Verde = completato (statico + flash all'accensione/ritorno,
+  idea presa da cmux: niente pulse infinito che stanca), giallo/rosso pulsante = aspetta input/errore.
+  Colori dai colori ANSI del tema, coerenti coi badge. Overlay `hitTest` nil sopra il terminale.
+- **Mark-read = interazione** (tasto o click, dal monitor locale), non il semplice ritorno in
+  foreground - che invece fa solo un flash. Confermato dall'analisi cmux. Il ring vive in un observer
+  separato dal `render()` del terminale, che **non** scrive `attention` (altrimenti il completamento
+  sulla tab in vista si spegnerebbe da solo: loop col reset della visita).
+- `Cmd+J` (già fatto nel giro precedente) = il loro `Cmd+Shift+U`.
+
+Nota tecnica: `keyDown`/`mouseDown` di SwiftTerm sono `public` non `open`, quindi non overridabili da
+un altro modulo; l'interazione si cattura con un `NSEvent` local monitor (`[.keyDown, .leftMouseDown]`)
+nel composition root, non con un override nella view.
+
 `make check` verde (118 test). Prossimo giro a scelta: distribuzione firmata (Developer ID +
 notarizzazione), dashboard overview, oppure split.

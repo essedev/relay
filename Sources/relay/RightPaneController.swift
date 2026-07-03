@@ -59,6 +59,11 @@ final class RightPaneController: NSViewController {
         area.clearActiveTerminal()
     }
 
+    /// Flash del ring di attenzione (ritorno in foreground).
+    func flashAttentionRing() {
+        area.flashAttentionRing()
+    }
+
     // MARK: - Ricerca (Cmd+F)
 
     /// Mostra o chiude la find bar (overlay flottante sul terminale).

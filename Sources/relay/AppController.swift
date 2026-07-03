@@ -20,7 +20,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     var splitVC: MainSplitViewController! // internal: usato dalle extension in altri file
     private var settingsWindow: NSWindow?
     private var untitledCount = 0
-    private var keyMonitor: Any?
+    var keyMonitor: Any? // internal: installato dall'extension di navigazione
     private var demoDriver: DemoDriver?
     /// Autosave del layout, attivo solo in modalità normale (la demo non tocca il file reale).
     private var autosave: LayoutAutosave?
@@ -155,6 +155,13 @@ final class AppController: NSObject, NSApplicationDelegate {
         true
     }
 
+    /// Tornando in primo piano, un completamento sulla tab in vista fa un flash del ring per
+    /// richiamare l'occhio. Il marker **non** si spegne qui: lo fa solo l'interazione col
+    /// terminale.
+    func applicationDidBecomeActive(_: Notification) {
+        splitVC?.flashAttentionRing()
+    }
+
     func applicationWillTerminate(_: Notification) {
         autosave?.flush() // flush sincrono finale (il debounce potrebbe non essere scaduto)
         perf?.stop()
@@ -254,47 +261,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         guard let workspace = store.selectedWorkspace,
               let tab = workspace.selectedTab else { return }
         requestCloseTab(tab, in: workspace)
-    }
-
-    // MARK: - Navigazione da tastiera (Cmd/Option + 1..9)
-
-    /// Gli shortcut menu con solo Option non fanno match (AppKit confronta il carattere
-    /// trasformato, es. Option+1 = "¡"), quindi intercettiamo Cmd/Option + cifra qui, prima che
-    /// l'evento arrivi al terminale.
-    private func installNavigationKeyMonitor() {
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            if handleNavigationKey(event) { return nil } // shortcut consumato
-            // Digitare nella tab in vista è la visita reale: spegne il marker di completamento (non
-            // lo fa il semplice ritorno in foreground, così al rientro vedi cos'è cambiato). Setto
-            // solo se acceso: evitare di notificare gli observer a ogni keystroke.
-            if let tab = store.selectedWorkspace?.selectedTab, tab.attention {
-                tab.attention = false
-            }
-            return event
-        }
-    }
-
-    private func handleNavigationKey(_ event: NSEvent) -> Bool {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags == .command || flags == .option else { return false }
-        guard let chars = event.charactersIgnoringModifiers, chars.count == 1,
-              let digit = Int(chars), (1 ... 9).contains(digit) else { return false }
-        let index = digit - 1
-
-        if flags == .command {
-            // Ordine della sidebar (con float dei completati/attenzione), non quello canonico:
-            // Cmd+N segue la posizione visiva della riga.
-            let ordered = store.orderedWorkspaces
-            if index < ordered.count {
-                store.selectWorkspace(ordered[index].id)
-            }
-        } else {
-            if let workspace = store.selectedWorkspace, index < workspace.tabs.count {
-                store.selectTab(workspace.tabs[index].id, in: workspace)
-            }
-        }
-        return true
     }
 
     // MARK: - Menu

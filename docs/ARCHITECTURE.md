@@ -424,9 +424,18 @@ la tab non è in vista). Chiave: **"in vista" = tab selezionata *e* Relay in pri
 calcola `isVisible = isSelected && appActive` in `applyAgentState` (`appActive = NSApp.isActive`,
 passato dal composition root): se Relay è in background non la stai guardando davvero, anche se è la
 tab selezionata, quindi il completato resta segnalato (`attention`) e la notifica parte. Il marker
-`attention` **non** si spegne al semplice ritorno in foreground: sparirebbe il float in cima alla
-sidebar prima che l'utente lo veda. La visita reale è digitare nella tab in vista (il `keyMonitor`
-azzera il marker, solo se acceso) o riselezionare la tab (il render dell'area lo azzera).
+`attention` **non** si spegne al ritorno in foreground né alla selezione della tab: sparirebbe il
+segnale prima che l'utente lo veda (aprire una tab completata mostra il ring verde + flash). La
+visita reale è **interagire** col terminale (tasto o click, dal monitor locale). Modello ispirato al
+notification ring di cmux (analisi in `docs/research/CYCLES.md`).
+
+Il segnale forte è un **ring colorato attorno al terminale** della tab in vista
+(`AttentionRingView`, TerminalHostUI): verde = completato (statico, con un flash all'accensione e al
+ritorno in foreground), giallo/rosso pulsante = aspetta input/errore. Colori dai colori ANSI del
+tema, coerenti coi badge. Il suo observer (`observeRing`) è separato dal `render()` del terminale e
+non scrive `attention`, così un completamento sulla tab in vista accende il ring senza spegnersi da
+solo (nessun loop col reset della visita). Le tab non in vista restano coi badge (tab bar) e il float
+in cima alla sidebar.
 
 Lo store emette una `AgentNotification` (dato puro) via callback `onNotifiableTransition` -
 `WorkspaceModel` resta senza AppKit (riceve solo il `Bool appActive`). Il composition root
