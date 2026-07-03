@@ -15,6 +15,8 @@ final class RightPaneController: NSViewController {
     private let engine: TerminalEngine
     private let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
     private var resumeBarHost: NSView?
+    private let findModel = FindModel()
+    private var findBarHost: NSView?
     /// Top dell'area terminale: pinnato a `tabBar` senza barra, alla barra quando c'è (così la
     /// barra spinge giù il terminale invece di coprirlo). Riferimenti stabili per lo swap.
     private var tabBar: NSView!
@@ -52,6 +54,58 @@ final class RightPaneController: NSViewController {
         area.foregroundProcess(for: tabID)
     }
 
+    /// Pulisce il terminale della tab attiva (Cmd+K).
+    func clearActiveTerminal() {
+        area.clearActiveTerminal()
+    }
+
+    // MARK: - Ricerca (Cmd+F)
+
+    /// Mostra o chiude la find bar (overlay flottante sul terminale).
+    func toggleFind() {
+        if findBarHost == nil { showFindBar() } else { closeFind() }
+    }
+
+    private func showFindBar() {
+        let bar = FindBar(
+            model: findModel,
+            theme: settings.theme,
+            onSearch: { [weak self] forward in self?.runSearch(forward: forward) },
+            onClose: { [weak self] in self?.closeFind() }
+        )
+        let host = NSHostingView(rootView: bar)
+        host.translatesAutoresizingMaskIntoConstraints = false
+        host.safeAreaRegions = []
+        view.addSubview(host)
+        // Flotta in alto a destra dell'area terminale, senza spostare il layout.
+        NSLayoutConstraint.activate([
+            host.topAnchor.constraint(equalTo: area.view.topAnchor, constant: Theme.Spacing.sm),
+            host.trailingAnchor.constraint(
+                equalTo: area.view.trailingAnchor,
+                constant: -Theme.Spacing.md
+            ),
+        ])
+        findBarHost = host
+        view.window?.makeFirstResponder(host)
+    }
+
+    private func runSearch(forward: Bool) {
+        guard findBarHost != nil else { return }
+        let result = area.searchActive(findModel.query, forward: forward)
+        findModel.current = result.current
+        findModel.total = result.total
+    }
+
+    private func closeFind() {
+        guard let host = findBarHost else { return }
+        area.endSearchActive()
+        host.removeFromSuperview()
+        findBarHost = nil
+        findModel.query = ""
+        findModel.resetCounts()
+        area.focusTerminal() // il focus torna al terminale
+    }
+
     /// Surface vive nell'area (strumentazione di performance, misure M3).
     var liveSurfaceCount: Int {
         area.liveSurfaceCount
@@ -63,11 +117,7 @@ final class RightPaneController: NSViewController {
         // Strip del titolo in cima al right pane: stessa riga verticale dei semafori (full-size
         // content view), centrata sul body e non sull'intera finestra.
         let titleBar = NSHostingView(
-            rootView: ContextTitleBar(
-                store: store,
-                settings: settings,
-                onDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) }
-            )
+            rootView: ContextTitleBar(store: store, settings: settings)
         )
         titleBar.translatesAutoresizingMaskIntoConstraints = false
         // Il layout della chrome è esplicito (constraint dal top della finestra): senza questo,

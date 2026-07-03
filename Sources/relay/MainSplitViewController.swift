@@ -37,9 +37,7 @@ final class MainSplitViewController: NSSplitViewController {
                 store: store,
                 settings: settings,
                 onNewWorkspace: onNewWorkspace,
-                onCloseWorkspace: onCloseWorkspace,
-                // Al doppio click la finestra è già key (il primo click la attiva).
-                onTitleBarDoubleClick: { TitleBarActions.handleDoubleClick(in: NSApp.keyWindow) }
+                onCloseWorkspace: onCloseWorkspace
             )
         )
         // L'header della sidebar vive sulla riga dei semafori (full-size content view): niente
@@ -70,6 +68,16 @@ final class MainSplitViewController: NSSplitViewController {
     /// Surface vive nel right pane (strumentazione di performance, misure M3).
     var liveSurfaceCount: Int {
         right.liveSurfaceCount
+    }
+
+    /// Mostra/chiude la find bar sul terminale attivo (Cmd+F).
+    func toggleFind() {
+        right.toggleFind()
+    }
+
+    /// Pulisce il terminale della tab attiva (Cmd+K).
+    func clearActiveTerminal() {
+        right.clearActiveTerminal()
     }
 
     @available(*, unavailable)

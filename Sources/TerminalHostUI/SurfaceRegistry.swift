@@ -73,6 +73,22 @@ public final class SurfaceRegistry {
         surfaces[tabID]?.sendText(text)
     }
 
+    /// Pulisce il terminale della tab (Cmd+K). No-op se la tab non è realizzata.
+    public func clear(_ tabID: UUID) {
+        surfaces[tabID]?.clear()
+    }
+
+    /// Cerca nel buffer della tab e ritorna posizione/totale per il contatore. `(0, 0)` se la tab
+    /// non è realizzata.
+    public func search(_ tabID: UUID, term: String, forward: Bool) -> (current: Int, total: Int) {
+        surfaces[tabID]?.search(term, forward: forward) ?? (0, 0)
+    }
+
+    /// Termina la ricerca nella tab (pulisce selezione e stato). No-op se non realizzata.
+    public func endSearch(_ tabID: UUID) {
+        surfaces[tabID]?.endSearch()
+    }
+
     /// Tiene vive solo le surface delle tab ancora esistenti; fa teardown delle altre.
     public func retain(_ aliveTabIDs: Set<UUID>) {
         for (id, surface) in surfaces where !aliveTabIDs.contains(id) {

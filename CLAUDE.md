@@ -7,10 +7,11 @@ Stato: V0 + **M1 (agent runtime + badge)** + giro UI/UX (temi, chrome, chiusura 
 cascade, float per stato) + **M2 (persistence layout + rename inline)** + **resume assistito Claude**
 + **M3 (cap LRU + misure performance chiuse, `docs/research/PERF.md`)** + **M4 (bundle `.app` +
 notifiche macOS con impostazioni e suono + icona + installer locale `make dmg`/`install-app`)** + sei
-temi curati e scelta font family. **Baseline delle milestone chiuso**, app installabile in locale;
-prossimo giro a scelta (distribuzione firmata, dashboard, split) - vedi `docs/ROADMAP.md`. Pipeline
-hook -> badge -> resume validata a mano con Claude reale; le notifiche girano solo dal bundle
-(`make run-app`).
+temi curati e scelta font family + **giro terminale (find `Cmd+F`, clear `Cmd+K`, jump-to-attention
+`Cmd+J`) e drag finestra solo dalla title strip**. **Baseline delle milestone chiuso**, app
+installabile in locale; prossimo giro a scelta (distribuzione firmata, dashboard, split) - vedi
+`docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
+girano solo dal bundle (`make run-app`).
 
 ## Comandi
 
@@ -46,7 +47,8 @@ hook -> badge -> resume validata a mano con Claude reale; le notifiche girano so
   pura) + `WorkspaceAreaController` (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
-  `ResumeBar`, `SettingsView` (+ `SettingsComponents`), `MonospaceFonts`. I colori vengono dal tema
+  `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `WindowDragArea` (drag finestra dalla title
+  strip), `SettingsView` (+ `SettingsComponents`), `MonospaceFonts`. I colori vengono dal tema
   (`AppSettings.theme`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
@@ -115,6 +117,16 @@ hook -> badge -> resume validata a mano con Claude reale; le notifiche girano so
 - Chrome full-size content view: le `NSHostingView` della chrome (title strip, sidebar, overlay)
   devono avere `safeAreaRegions = []`, altrimenti SwiftUI applica la safe area della title bar e
   spinge il contenuto sotto i semafori. Il layout verticale lo gestiamo noi.
+- Drag finestra: **non** `isMovableByWindowBackground` (trascinerebbe anche il terminale). Le due
+  strip in alto (`ContextTitleBar` nel right pane, `trafficLightsStrip` nella sidebar) usano
+  `WindowDragArea` (NSView pura con `performDrag` + doppio click = zoom secondo la preferenza
+  macOS). NSView pura, non un gesture SwiftUI: `mouseDownCanMoveWindow` non si propaga in modo
+  affidabile sotto hosting SwiftUI.
+- Find/Clear/Jump: `Cmd+F` (find bar flottante sul terminale, motore search di SwiftTerm),
+  `Cmd+K` (clear = `ESC[3J` + Ctrl+L al pty), `Cmd+J` (`WorkspaceStore.focusNextAttention`, ciclico
+  sull'ordine visivo). Sono keyEquivalent veri del menu (non l'event monitor): funzionano col
+  terminale in focus. Search/clear passano dal protocollo `TerminalSurfaceHandle` (niente tipi
+  SwiftTerm fuori dall'engine).
 - Toggle sidebar: è un overlay a livello finestra (`RootOverlayController`), **non** un
   `NSTitlebarAccessoryViewController` - quello non viene renderizzato con `titleVisibility = .hidden`
   su macOS 26. L'overlay insegue il bordo della sidebar via `splitViewDidResizeSubviews`.

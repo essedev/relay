@@ -14,21 +14,17 @@ public struct SidebarView: View {
     let settings: AppSettings
     let onNewWorkspace: () -> Void
     let onCloseWorkspace: (Workspace) -> Void
-    /// Doppio click sull'header (riga dei semafori) = comportamento title bar di macOS (zoom).
-    let onTitleBarDoubleClick: () -> Void
 
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
         onNewWorkspace: @escaping () -> Void,
-        onCloseWorkspace: @escaping (Workspace) -> Void,
-        onTitleBarDoubleClick: @escaping () -> Void = {}
+        onCloseWorkspace: @escaping (Workspace) -> Void
     ) {
         self.store = store
         self.settings = settings
         self.onNewWorkspace = onNewWorkspace
         self.onCloseWorkspace = onCloseWorkspace
-        self.onTitleBarDoubleClick = onTitleBarDoubleClick
     }
 
     public var body: some View {
@@ -45,10 +41,8 @@ public struct SidebarView: View {
     /// Riga dei semafori (full-size content view): vuota e pulita, zona di drag e doppio click
     /// (zoom finestra). Il toggle della sidebar è un accessory della title bar (posizione fissa).
     private var trafficLightsStrip: some View {
-        Color.clear
+        WindowDragArea()
             .frame(height: Theme.Metrics.titleBarHeight)
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2) { onTitleBarDoubleClick() }
     }
 
     private func workspacesHeader(_ colors: ChromeColors) -> some View {

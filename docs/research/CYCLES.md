@@ -640,5 +640,30 @@ del font family. Sempre con documentazione e test aggiornati.
   `Core.ShellEscape`.
 
 `make check` verde lungo tutto il ciclo (fino a 114 test). L'app è installabile in locale
-(`make install-app`/`make dmg`) con icona propria, notifiche verificate dal vivo. Prossimo giro a
-scelta: distribuzione firmata (Developer ID + notarizzazione), dashboard overview, oppure split.
+(`make install-app`/`make dmg`) con icona propria, notifiche verificate dal vivo.
+
+### Giro "qualità terminale" (find, clear, jump, drag finestra)
+
+Analisi dello stato: verificato nel codice che copy/paste e link cliccabili erano già coperti da
+SwiftTerm (nessun gap), mentre mancavano ricerca, clear e un modo per navigare gli agenti che
+chiedono attenzione. Quattro rifiniture:
+
+- **Find nello scrollback** (`Cmd+F`): il motore c'era già in SwiftTerm (`findNext`/`findPrevious`/
+  `searchMatchSummary`), mancava l'esposizione. Aggiunto al protocollo `TerminalSurfaceHandle`
+  (`search`/`endSearch`, solo `Int` in uscita: nessun tipo SwiftTerm fuori dall'engine) e una
+  `FindBar` flottante in alto a destra sul terminale (stile browser) con contatore "3/12", frecce
+  su/giù, Invio/Esc. `FindModel` osservabile guida il contatore.
+- **Clear** (`Cmd+K`): `ESC[3J` svuota lo scrollback del buffer, poi Ctrl+L al pty fa ripulire lo
+  schermo alla shell e ridisegnare il prompt (come Cmd+K di iTerm).
+- **Jump-to-attention** (`Cmd+J`): `WorkspaceStore.focusNextAttention` porta in vista la prossima
+  tab in `needs_input`/completata-non-vista, in ordine visivo (`orderedWorkspaces`) e ciclico,
+  saltando sempre la corrente. È il differenziatore del parallelismo agent. Testato (ciclo,
+  salta-corrente, no-op, intra-workspace).
+- **Drag finestra solo dalla title strip**: rimosso `isMovableByWindowBackground` (trascinava anche
+  il terminale). Le due strip in alto usano `WindowDragArea`, una NSView pura con `performDrag` +
+  doppio click = zoom secondo la preferenza macOS. NSView pura e non un gesture SwiftUI perché
+  `mouseDownCanMoveWindow` non si propaga in modo affidabile sotto hosting SwiftUI. `Cmd+F`/`Cmd+K`/
+  `Cmd+J` sono keyEquivalent veri del menu (non l'event monitor): funzionano col terminale in focus.
+
+`make check` verde (118 test). Prossimo giro a scelta: distribuzione firmata (Developer ID +
+notarizzazione), dashboard overview, oppure split.

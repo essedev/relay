@@ -10,7 +10,7 @@ enum MainMenuBuilder {
         mainMenu.addItem(makeFileMenuItem(target: target))
         mainMenu.addItem(makeGoMenuItem(target: target))
         mainMenu.addItem(makeViewMenuItem(target: target))
-        mainMenu.addItem(makeEditMenuItem())
+        mainMenu.addItem(makeEditMenuItem(target: target))
         return mainMenu
     }
 
@@ -66,6 +66,16 @@ enum MainMenuBuilder {
         let goMenu = NSMenu(title: "Go")
         goItem.submenu = goMenu
 
+        // Cmd+J (keyEquivalent vero: Cmd+lettera fa match, a differenza di Option+cifra).
+        addItem(
+            to: goMenu,
+            "Next Attention",
+            #selector(AppController.jumpToAttention(_:)),
+            "j",
+            target
+        )
+        goMenu.addItem(.separator())
+
         for index in 1 ... 9 {
             let item = NSMenuItem(
                 title: "Workspace \(index)  (⌘\(index))",
@@ -108,7 +118,7 @@ enum MainMenuBuilder {
         return viewItem
     }
 
-    private static func makeEditMenuItem() -> NSMenuItem {
+    private static func makeEditMenuItem(target: AnyObject) -> NSMenuItem {
         let editItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
         editItem.submenu = editMenu
@@ -122,6 +132,17 @@ enum MainMenuBuilder {
             withTitle: "Select All",
             action: #selector(NSText.selectAll(_:)),
             keyEquivalent: "a"
+        )
+        editMenu.addItem(.separator())
+        // Target esplicito (non responder chain): Cmd+F/Cmd+K funzionano anche col terminale in
+        // focus, intercettati prima che l'evento arrivi al pty.
+        addItem(to: editMenu, "Find…", #selector(AppController.performFind(_:)), "f", target)
+        addItem(
+            to: editMenu,
+            "Clear to Start",
+            #selector(AppController.clearTerminal(_:)),
+            "k",
+            target
         )
         return editItem
     }

@@ -33,9 +33,14 @@ prima apertura è click-destro > Apri. Per distribuirlo a terzi servono Develope
 - `Cmd+O` apri una cartella come workspace.
 - `Cmd+T` nuova tab, `Cmd+W` chiudi tab.
 - `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi).
+- `Cmd+J` salta alla prossima tab che richiede attenzione (aspetta input o ha completato).
+- `Cmd+F` cerca nello scrollback del terminale, `Cmd+K` pulisce il terminale.
 - `Cmd +/-` zoom del terminale, `Cmd+0` dimensione originale.
 - `Cmd+B` mostra/nasconde la sidebar.
 - `Cmd+,` impostazioni (tema, font, notifiche).
+
+La finestra si sposta trascinando dalla fascia del titolo in alto (non dal corpo/terminale);
+doppio click sulla fascia = zoom, come una title bar nativa.
 
 ## Aspetto
 

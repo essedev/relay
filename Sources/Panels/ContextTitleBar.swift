@@ -7,17 +7,10 @@ import WorkspaceModel
 public struct ContextTitleBar: View {
     let store: WorkspaceStore
     let settings: AppSettings
-    /// Doppio click sulla strip = comportamento title bar di macOS (zoom); gestito dall'host.
-    let onDoubleClick: () -> Void
 
-    public init(
-        store: WorkspaceStore,
-        settings: AppSettings,
-        onDoubleClick: @escaping () -> Void = {}
-    ) {
+    public init(store: WorkspaceStore, settings: AppSettings) {
         self.store = store
         self.settings = settings
-        self.onDoubleClick = onDoubleClick
     }
 
     public var body: some View {
@@ -32,7 +25,8 @@ public struct ContextTitleBar: View {
             .frame(maxWidth: .infinity)
             .frame(height: Theme.Metrics.titleBarHeight)
             .background(colors.background)
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2) { onDoubleClick() }
+            // Trascinamento finestra + doppio click (zoom) come una title bar: la strip è solo
+            // testo, l'area copre tutto sopra di essa.
+            .overlay(WindowDragArea())
     }
 }

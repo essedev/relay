@@ -17,7 +17,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private lazy var agentCoordinator = AgentCoordinator(store: store)
     private lazy var layoutStore = LayoutStore(path: RelayRuntimePaths.layoutPath)
     private var window: NSWindow!
-    private var splitVC: MainSplitViewController!
+    var splitVC: MainSplitViewController! // internal: usato dalle extension in altri file
     private var settingsWindow: NSWindow?
     private var untitledCount = 0
     private var keyMonitor: Any?
@@ -58,7 +58,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         // (ContextTitleBar), centrata sul body. Il title nativo resta per Mission Control/Cmd+Tab.
         window.titleVisibility = .hidden
         window.titlebarSeparatorStyle = .none
-        window.isMovableByWindowBackground = true
+        // Niente drag dal corpo: la finestra si sposta solo dalle strip in alto (title bar
+        // custom), rese trascinabili con `WindowDragArea`. Vedi ContextTitleBar/SidebarView.
+        window.isMovableByWindowBackground = false
         let root = RootOverlayController(content: split, overlay: makeSidebarToggleOverlay())
         split.onSidebarWidthChange = { [weak root] width in
             root?.sidebarWidthDidChange(width)

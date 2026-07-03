@@ -176,6 +176,29 @@ public final class WorkspaceStore {
         workspace.selectedTabID = tabID
     }
 
+    /// Porta in vista la prossima tab che richiede attenzione (aspetta input o ha completato del
+    /// lavoro non visto), in ordine visivo (`orderedWorkspaces` + ordine tab) e ciclico rispetto
+    /// alla selezione corrente. Seleziona sia il workspace sia la tab. Salta sempre la corrente
+    /// (premendo ripetutamente si scorrono tutte), riparte dall'inizio dopo l'ultima. No-op se
+    /// nessuna tab richiede attenzione. Ritorna `true` se la selezione è cambiata.
+    @discardableResult
+    public func focusNextAttention() -> Bool {
+        let flat: [(ws: Workspace, tab: Tab)] = orderedWorkspaces.flatMap { ws in
+            ws.tabs.map { (ws, $0) }
+        }
+        let attentionIndices = flat.indices.filter {
+            flat[$0].tab.agentState == .needsInput || flat[$0].tab.attention
+        }
+        guard !attentionIndices.isEmpty else { return false }
+        let currentIndex = flat.firstIndex {
+            $0.ws.id == selectedWorkspaceID && $0.tab.id == $0.ws.selectedTabID
+        } ?? -1
+        let target = flat[attentionIndices.first { $0 > currentIndex } ?? attentionIndices[0]]
+        selectedWorkspaceID = target.ws.id
+        target.ws.selectedTabID = target.tab.id
+        return true
+    }
+
     /// Chiude una tab. Ritorna l'id rimosso (per il teardown della surface).
     /// Chiudere l'ultima tab di un workspace chiude anche il workspace (cascade): un progetto
     /// senza terminali non ha senso di esistere.

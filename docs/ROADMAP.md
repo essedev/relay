@@ -98,9 +98,11 @@ resta mai senza workspace (se ne riapre uno default).
 dentro una tab, e `relay --demo NxM` per popolare l'app con sessioni concorrenti simulate.
 
 Fatto in seguito (vedi Milestone 4): scelta del font family e altri temi. Altre rifiniture:
-`Cmd+1..9` segue l'ordine visivo della sidebar (`orderedWorkspaces`), e drag & drop di file nel
-terminale (inserisce i path escaped, come Terminal.app). Resta aperto (later): import da config
-Ghostty.
+`Cmd+1..9` segue l'ordine visivo della sidebar (`orderedWorkspaces`), drag & drop di file nel
+terminale (inserisce i path escaped, come Terminal.app), ricerca nello scrollback (`Cmd+F`, motore
+SwiftTerm, find bar flottante), clear del terminale (`Cmd+K`), jump alla prossima tab che richiede
+attenzione (`Cmd+J`, ciclico) e trascinamento finestra solo dalle strip del titolo (`WindowDragArea`,
+non `isMovableByWindowBackground`). Resta aperto (later): import da config Ghostty.
 
 ## Milestone 2 - Persistence + rename (dogfood-ability) - fatto
 

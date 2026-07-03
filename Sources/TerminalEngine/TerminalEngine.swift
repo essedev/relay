@@ -32,6 +32,15 @@ public protocol TerminalSurfaceHandle: AnyObject {
     /// Scrive testo nello stdin del processo (come se digitato). Usato per iniettare il comando di
     /// resume dell'agente al re-focus di una tab ripristinata. No-op se non ancora avviata.
     func sendText(_ text: String)
+    /// Pulisce il terminale: svuota lo scrollback e ripulisce lo schermo riportando il prompt in
+    /// cima (come Cmd+K). No-op se non avviata.
+    func clear()
+    /// Cerca `term` nel buffer, seleziona e scorre alla prossima (`forward`) o precedente
+    /// occorrenza. Ritorna posizione corrente (1-based, 0 se nessun match) e totale, per un
+    /// contatore "3/12". `term` vuoto azzera. Confina i tipi dell'engine: solo `Int` in uscita.
+    func search(_ term: String, forward: Bool) -> (current: Int, total: Int)
+    /// Termina la ricerca: azzera stato e selezione.
+    func endSearch()
 }
 
 @MainActor

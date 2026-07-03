@@ -116,6 +116,31 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal.process.send(data: ArraySlice(Array(text.utf8)))
     }
 
+    /// Pulisce il terminale come Cmd+K: `ESC[3J` svuota lo scrollback del buffer, poi Ctrl+L al pty
+    /// fa ripulire lo schermo alla shell e ridisegnare il prompt (comportamento nativo).
+    func clear() {
+        guard started, terminal.process.running else { return }
+        terminal.getTerminal().feed(text: "\u{1b}[3J")
+        terminal.process.send(data: ArraySlice([0x0C])) // Ctrl+L
+    }
+
+    /// Cerca nel buffer via l'engine (findNext/findPrevious di SwiftTerm) e ritorna il riepilogo
+    /// posizione/totale per il contatore. I tipi SwiftTerm (SearchService) restano confinati qui.
+    func search(_ term: String, forward: Bool) -> (current: Int, total: Int) {
+        guard started, !term.isEmpty else { return (0, 0) }
+        if forward {
+            terminal.findNext(term, scrollToResult: true)
+        } else {
+            terminal.findPrevious(term, scrollToResult: true)
+        }
+        let summary = terminal.searchMatchSummary(term)
+        return (current: summary.index, total: summary.total)
+    }
+
+    func endSearch() {
+        terminal.clearSearch()
+    }
+
     /// Nome del comando in foreground del pty, `nil` se la shell è al prompt (safe da chiudere).
     /// Meccanica standard dei terminali: `tcgetpgrp` dà il foreground process group del pty; se
     /// coincide con il pid della shell la shell è al prompt, altrimenti gira un comando di cui

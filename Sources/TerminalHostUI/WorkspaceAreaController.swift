@@ -47,6 +47,30 @@ public final class WorkspaceAreaController: NSViewController {
         registry.sendText(to: tabID, text)
     }
 
+    /// Pulisce il terminale della tab attiva (Cmd+K).
+    public func clearActiveTerminal() {
+        guard let tabID = store.selectedWorkspace?.selectedTab?.id else { return }
+        registry.clear(tabID)
+    }
+
+    /// Cerca nel terminale della tab attiva; ritorna posizione/totale per il contatore.
+    public func searchActive(_ term: String, forward: Bool) -> (current: Int, total: Int) {
+        guard let tabID = store.selectedWorkspace?.selectedTab?.id else { return (0, 0) }
+        return registry.search(tabID, term: term, forward: forward)
+    }
+
+    /// Termina la ricerca nella tab attiva (pulisce selezione e stato).
+    public func endSearchActive() {
+        guard let tabID = store.selectedWorkspace?.selectedTab?.id else { return }
+        registry.endSearch(tabID)
+    }
+
+    /// Restituisce il focus al terminale attivo (es. dopo aver chiuso la find bar).
+    public func focusTerminal() {
+        guard let terminal = currentTerminal else { return }
+        view.window?.makeFirstResponder(terminal)
+    }
+
     /// Surface attualmente vive (per la strumentazione di performance, misure M3).
     public var liveSurfaceCount: Int {
         registry.liveSurfaceCount

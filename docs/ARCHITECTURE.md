@@ -273,6 +273,17 @@ root:
 - `ContextTitleBar` (in cima al right pane): strip del titolo centrata sul body, contenuto da
   `WindowTitle` - titolo OSC del programma (Claude manda il nome della chat, zsh `user@host:path`),
   altrimenti cwd corrente (OSC 7) abbreviata con `~`, altrimenti cartella/nome del workspace.
+- Drag finestra: **non** `isMovableByWindowBackground` (trascinerebbe anche il terminale). Le due
+  strip in alto (`ContextTitleBar`, `trafficLightsStrip` della sidebar) usano `WindowDragArea`: una
+  NSView pura (via `NSViewRepresentable`) che in `mouseDown` fa `performDrag` e, sul doppio click,
+  lo zoom/minimizza secondo la preferenza macOS. NSView pura e non un gesture SwiftUI perché
+  `mouseDownCanMoveWindow` non si propaga in modo affidabile sotto hosting SwiftUI, mentre
+  `performDrag` è deterministico.
+- Find bar (`Cmd+F`): overlay flottante in alto a destra sul terminale (`FindBar` + `FindModel`
+  osservabile), motore di ricerca di SwiftTerm esposto via `TerminalSurfaceHandle.search`. `Cmd+K`
+  pulisce il terminale (`clear`), `Cmd+J` salta alla prossima tab in attenzione
+  (`WorkspaceStore.focusNextAttention`). Sono keyEquivalent veri del menu (non l'event monitor dei
+  Cmd/Option+cifra), così scattano anche col terminale in focus.
 - Sidebar: `NSSplitViewItem` normale, **non** `sidebarWithViewController:` (su macOS 26 quello stila
   la sidebar come pannello glass flottante, in conflitto col design flat themed). Righe con
   selezione/hover dai colori del tema (niente highlight di sistema), sottotitolo per riga
