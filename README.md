@@ -8,6 +8,19 @@ Stato: V0 (Workspace -> Tab -> terminale) + agent runtime. Engine v1 SwiftTerm d
 `TerminalEngine` (libghostty backend futuro). Decisioni, benchmark e log della ricerca:
 `docs/research/` (`CYCLES.md`).
 
+## Installazione
+
+```sh
+brew install --cask essedev/relay/relay
+```
+
+Aggiornamenti: `brew update && brew upgrade --cask relay`. In alternativa scarica il `.dmg`
+dall'ultima [release](https://github.com/essedev/relay/releases/latest) e trascina Relay in
+Applications.
+
+L'app non è firmata con Developer ID Apple: al primo avvio macOS la blocca. Apri **Impostazioni di
+Sistema > Privacy e Sicurezza** e premi **Apri comunque** (una volta sola per versione).
+
 ## Sviluppo
 
 Requisiti: Xcode/Swift 6, macOS 14+. Per lint: `brew install swiftlint swiftformat`.
@@ -19,13 +32,18 @@ make test      # test
 make check     # giro qualità completo (lint + build + test)
 make run-app   # avvia dal bundle .app (notifiche attive)
 make install-app  # installa Relay.app in /Applications
-make dmg       # crea .build/Relay.dmg (installer locale, non firmato)
+make dmg       # crea .build/Relay-<version>.dmg (installer, non firmato Developer ID)
+make release   # pubblica la release corrente (VERSION): dmg -> GitHub Release -> tap brew
 make help      # tutti i target
 ```
 
 Le notifiche macOS richiedono un bundle id, quindi girano solo dall'app impacchettata
-(`make run-app`/`install-app`), non da `make run`. L'installer `.dmg` è locale e non firmato: la
-prima apertura è click-destro > Apri. Per distribuirlo a terzi servono Developer ID + notarizzazione.
+(`make run-app`/`install-app`), non da `make run`.
+
+**Distribuzione**: la versione sta in `./VERSION` (semver). Per rilasciare: bumpa `VERSION`,
+`make check`, commit, poi `make release` (routine in `CLAUDE.md`). L'installer non è firmato con
+Developer ID né notarizzato, quindi il primo avvio richiede "Apri comunque"; la meccanica di firma
+Developer ID + notarizzazione non è ancora in piedi.
 
 ## Scorciatoie
 

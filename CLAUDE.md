@@ -21,6 +21,9 @@ girano solo dal bundle (`make run-app`).
 - `make build` / `make test` / `make run` / `make check` (definition of done prima di un commit
   grosso e sempre prima di proporre un push).
 - Lint: `brew install swiftlint swiftformat` (installati in locale).
+- **Release**: `make release` (routine sotto). Versione = `./VERSION` (semver). Bumpa VERSION,
+  `make check`, commit, poi `make release`: **è pubblicazione** (push tag + GitHub Release + tap
+  brew), chiedi il via prima di lanciarla.
 - **Simulatore agente**: `relay-cli simulate [coding|permission|burst] [--loops N] [--fast]`,
   da lanciare *dentro una tab di Relay*: recita una chat finta e manda eventi reali al socket
   (stesso client/wire degli hook). Per testare badge/aggregazioni senza sessioni Claude vere.
@@ -85,11 +88,21 @@ girano solo dal bundle (`make run-app`).
 - libghostty non è ancora embeddabile stabile: engine v1 = SwiftTerm. Non reintrodurre zig o
   binari di fork senza una decisione esplicita (vedi ARCHITECTURE, sezione engine).
 - `make bundle` assembla `.build/Relay.app` (release + `bundle/Info.plist` + `AppIcon.icns` + firma
-  ad-hoc, bundle id `dev.relay.app`); `make run-app` lo avvia, `make install-app` lo copia in
-  `/Applications`, `make dmg` fa `.build/Relay.dmg` (installer **locale, non firmato**: si apre con
-  click-destro > Apri; per distribuirlo a terzi serve Developer ID + notarizzazione). Serve per le
-  notifiche: `UNUserNotificationCenter` richiede un bundle id, da bare executable (`swift run`)
-  crasha; in sviluppo `make run` va bene (niente notifiche).
+  `SIGN_IDENTITY`, default `-` ad-hoc, bundle id `dev.relay.app`; versione iniettata da `./VERSION`
+  via PlistBuddy); `make run-app` lo avvia, `make install-app` lo copia in `/Applications`,
+  `make dmg` fa `.build/Relay-<version>.dmg` (installer **non firmato Developer ID**: primo avvio con
+  "Apri comunque"). Serve per le notifiche: `UNUserNotificationCenter` richiede un bundle id, da bare
+  executable (`swift run`) crasha; in sviluppo `make run` va bene (niente notifiche).
+- **Distribuzione (brew tap)**: Relay è distribuito via `brew install --cask essedev/relay/relay`.
+  Il tap è il repo pubblico `essedev/homebrew-relay` (cask `Casks/relay.rb`), il cask scarica il
+  `.dmg` dalle Release di `essedev/relay`. La routine `scripts/release.sh` (via `make release`):
+  check working tree pulito + branch main + account gh `essedev`; blocca se il tag `vX` esiste già
+  (idempotente per versione); `make dmg` -> sha256 -> `git tag vX` + push -> `gh release create` con
+  l'asset -> clona il tap, aggiorna `version`+`sha256` nel cask (l'URL li interpola) e pusha. Per
+  rilasciare: bumpa `./VERSION`, commit, **poi** `make release`. Firma: ad-hoc cambia identità a
+  ogni build (il collega rifà "Apri comunque" a ogni upgrade e le notifiche possono decadere); per
+  un self-signed stabile crea un cert di code signing e passa `SIGN_IDENTITY="<nome cert>"`. Developer
+  ID + notarizzazione non ancora in piedi (toglierebbe l'"Apri comunque").
 - Icona: `bundle/make-icon.swift` (Core Graphics puro, headless) la disegna; `make icon` rigenera
   `bundle/AppIcon.icns` (committato). Cambi al disegno -> `make icon` poi `make bundle`.
 - Notifiche: il trigger è puro (`AgentStateReducer.notification`), lo store emette via
