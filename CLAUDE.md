@@ -38,7 +38,9 @@ hook -> badge -> resume validata a mano con Claude reale; le notifiche girano so
   sidebar/notifiche, UserDefaults) + `WindowTitle` + `LayoutSnapshot` (Codable) +
   `AgentNotification` (payload puro, emesso da `store.onNotifiableTransition`). Puro, niente AppKit.
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
-  **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`).
+  **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`). `RelayTerminalView`
+  (sottoclasse della view SwiftTerm) aggiunge il drop di file: inserisce i path escaped
+  (`Core.ShellEscape`, testato) nel PTY, come Terminal.app. SwiftTerm non lo fa da solo.
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy, cap LRU via `SurfaceEvictionPolicy`
   pura) + `WorkspaceAreaController` (AppKit, osserva lo store, scambia il terminale attivo). Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),

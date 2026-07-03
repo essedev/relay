@@ -25,7 +25,7 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
     var onTitleChanged: ((String) -> Void)?
     var onDirectoryChanged: ((String) -> Void)?
 
-    private let terminal: LocalProcessTerminalView
+    private let terminal: RelayTerminalView
     private let cwd: String?
     private let shell: String
     private let extraEnv: [String: String]
@@ -39,9 +39,13 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         self.cwd = cwd
         self.shell = shell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         extraEnv = env
-        terminal = LocalProcessTerminalView(frame: .zero)
+        terminal = RelayTerminalView(frame: .zero)
         super.init()
         terminal.processDelegate = self
+        // Drop di file: inserisce i path (escaped) nell'input, come Terminal.app.
+        terminal.onFilesDropped = { [weak self] urls in
+            self?.sendText(ShellEscape.joined(urls.map(\.path)))
+        }
         hideScroller()
         apply(theme: .relayDark) // default; la registry riapplica il tema corrente
     }
