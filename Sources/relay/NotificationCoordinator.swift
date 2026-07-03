@@ -10,22 +10,52 @@ import WorkspaceModel
 /// Richiede un bundle id (Milestone 4): da bare executable `UNUserNotificationCenter.current()` non
 /// esiste. Il chiamante lo istanzia solo quando l'app gira dal bundle.
 @MainActor
-final class NotificationCoordinator {
+final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate {
     private let settings: AppSettings
     private let center = UNUserNotificationCenter.current()
     private let log = RelayLog.logger("notifications")
 
     init(settings: AppSettings) {
         self.settings = settings
+        super.init()
+        center.delegate = self
     }
 
-    /// Chiede l'autorizzazione al boot. Se negata, `center.add` viene ignorato in silenzio.
+    /// Presenta il banner anche con Relay in primo piano: notifichiamo solo per tab non "in vista"
+    /// (altra tab o app in background), quindi il banner va mostrato comunque. Di default macOS
+    /// sopprime le notifiche dell'app frontmost, ecco perché sembravano non arrivare.
+    nonisolated func userNotificationCenter(
+        _: UNUserNotificationCenter,
+        willPresent _: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions)
+            -> Void
+    ) {
+        completionHandler([.banner, .sound, .list])
+    }
+
+    /// Chiede l'autorizzazione al boot e logga l'esito + lo stato corrente (diagnostica: una
+    /// firma ad-hoc che cambia a ogni reinstall può far decadere il permesso concesso prima).
     func requestAuthorization() {
-        center.requestAuthorization(options: [.alert, .sound]) { [weak self] _, error in
-            guard let error else { return }
+        center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
             Task { @MainActor in
-                let message = error.localizedDescription
-                self?.log.error("notification auth failed: \(message, privacy: .public)")
+                if let error {
+                    self?.log.error("auth failed: \(error.localizedDescription, privacy: .public)")
+                } else {
+                    self?.log.notice("auth granted=\(granted, privacy: .public)")
+                }
+                self?.logStatus()
+            }
+        }
+    }
+
+    /// Logga lo stato di autorizzazione corrente (authorized/denied/notDetermined + alert setting).
+    private func logStatus() {
+        center.getNotificationSettings { [weak self] current in
+            let status = current.authorizationStatus.rawValue
+            let alert = current.alertSetting.rawValue
+            Task { @MainActor in
+                let line = "auth status=\(status) alert=\(alert)"
+                self?.log.notice("\(line, privacy: .public)")
             }
         }
     }
@@ -52,11 +82,17 @@ final class NotificationCoordinator {
         if settings.notificationSound {
             content.sound = Self.sound(named: settings.notificationSoundName)
         }
+        log.notice("deliver: \(content.title, privacy: .public)") // solo il tipo, non il contenuto
         center.add(UNNotificationRequest(
             identifier: UUID().uuidString,
             content: content,
             trigger: nil
-        ))
+        )) { [weak self] error in
+            guard let error else { return }
+            Task { @MainActor in
+                self?.log.error("add failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     private static func title(for kind: AgentNotificationKind) -> String {

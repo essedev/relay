@@ -82,8 +82,13 @@ hook -> badge -> resume validata a mano con Claude reale; le notifiche girano so
   `bundle/AppIcon.icns` (committato). Cambi al disegno -> `make icon` poi `make bundle`.
 - Notifiche: il trigger è puro (`AgentStateReducer.notification`), lo store emette via
   `onNotifiableTransition` e il `NotificationCoordinator` (solo se `Bundle.main.bundleIdentifier !=
-  nil`) filtra per preferenze + `NSApp.isActive` e consegna. Al primo avvio dal bundle macOS chiede
-  il permesso una volta: senza consenso i banner non arrivano (non è un bug del codice).
+  nil`) filtra per preferenze e consegna. `isVisible = tab selezionata && NSApp.isActive`: se Relay è
+  in background notifica anche sulla tab selezionata; al ritorno in primo piano
+  (`applicationDidBecomeActive`) la tab in vista viene visitata. Il coordinatore è
+  `UNUserNotificationCenterDelegate` e forza `willPresent -> [.banner,.sound,.list]`: **senza, i
+  banner sono soppressi quando Relay è frontmost**. Al primo avvio dal bundle macOS chiede il
+  permesso una volta; una firma ad-hoc che cambia a ogni reinstall può farlo decadere (log
+  `auth status` al boot: 2 = authorized).
 - Misure di performance: `RELAY_PERF=1` accende `PerfSampler` (RSS + surface vive + latenza input,
   categoria log `perf`, livello `.notice`); `RELAY_PERF_CYCLE=1` cicla il focus; `RELAY_SURFACE_CAP=N`
   override del cap LRU. Vedi `docs/research/PERF.md` per numeri e metodo. Spento a regime.

@@ -415,8 +415,11 @@ in primo piano (`applicationDidBecomeActive`) la tab in vista viene "visitata" e
 Lo store emette una `AgentNotification` (dato puro) via callback `onNotifiableTransition` -
 `WorkspaceModel` resta senza AppKit (riceve solo il `Bool appActive`). Il composition root
 (`NotificationCoordinator`) applica le preferenze utente (`AppSettings`: master, per-tipo, suono) e
-sopprime `needs_input` se `isVisible`, poi consegna via `UNUserNotificationCenter`. **Richiede il
-bundle `.app`** (serve un bundle id): da `swift run` le notifiche sono disattivate, non è un errore.
+sopprime `needs_input` se `isVisible`, poi consegna via `UNUserNotificationCenter`. Il coordinatore
+è anche `UNUserNotificationCenterDelegate` e in `willPresent` ritorna `[.banner, .sound, .list]`:
+senza, macOS **sopprime i banner quando Relay è l'app in primo piano**, e noi notifichiamo apposta
+per le tab non in vista anche con l'app attiva. **Richiede il bundle `.app`** (serve un bundle id):
+da `swift run` le notifiche sono disattivate, non è un errore.
 
 ## Data Model
 
