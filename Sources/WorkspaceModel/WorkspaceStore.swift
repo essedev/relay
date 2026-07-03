@@ -199,8 +199,10 @@ public final class WorkspaceStore {
     // MARK: - Stato agente
 
     /// Applica un evento agente alla tab identificata da `paneId` (= `RELAY_TAB_ID` = `Tab.id`).
-    /// Lo store calcola `isVisible` (workspace + tab selezionati) e delega la transizione al
-    /// reducer.
+    /// `isVisible` = tab in vista **e** app in primo piano (`appActive`): se Relay è in background
+    /// non la stai guardando davvero, anche se è la tab selezionata, quindi il completamento resta
+    /// segnalato e la notifica parte. `appActive` lo passa il composition root (`NSApp.isActive`);
+    /// default `true` per i test/chiamate diretti.
     /// Ritorna `false` se `paneId` non è un UUID valido o non corrisponde a nessuna tab (no-op).
     @discardableResult
     public func applyAgentState(
@@ -208,12 +210,15 @@ public final class WorkspaceStore {
         agent: String = "",
         sessionId: String = "",
         state: AgentState,
-        at timestamp: Date
+        at timestamp: Date,
+        appActive: Bool = true
     ) -> Bool {
         guard let tabID = UUID(uuidString: paneId) else { return false }
         for workspace in workspaces {
             guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
-            let isVisible = selectedWorkspaceID == workspace.id && workspace.selectedTabID == tab.id
+            let isSelected = selectedWorkspaceID == workspace.id
+                && workspace.selectedTabID == tab.id
+            let isVisible = isSelected && appActive
             let previousState = tab.agentState
             let result = AgentStateReducer.reduce(
                 current: previousState,

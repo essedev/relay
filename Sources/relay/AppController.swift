@@ -153,6 +153,11 @@ final class AppController: NSObject, NSApplicationDelegate {
         true
     }
 
+    /// Tornando in primo piano, la tab in vista è "guardata": spegne il marker di completamento.
+    func applicationDidBecomeActive(_: Notification) {
+        store.selectedWorkspace?.selectedTab?.attention = false
+    }
+
     func applicationWillTerminate(_: Notification) {
         autosave?.flush() // flush sincrono finale (il debounce potrebbe non essere scaduto)
         perf?.stop()

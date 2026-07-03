@@ -1,4 +1,3 @@
-import AppKit
 import Core
 import UserNotifications
 import WorkspaceModel
@@ -37,8 +36,9 @@ final class NotificationCoordinator {
         switch request.kind {
         case .needsInput:
             guard settings.notifyOnNeedsInput else { return }
-            // Se la stai già guardando (tab in vista e Relay in primo piano) la notifica è rumore.
-            if request.isVisible, NSApp.isActive { return }
+            // `isVisible` include già "Relay in primo piano": se è vero la stai guardando, è
+            // rumore.
+            if request.isVisible { return }
         case .completed:
             guard settings.notifyOnCompleted else { return }
         }

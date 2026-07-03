@@ -1,5 +1,6 @@
 import AgentProtocol
 import AgentRuntime
+import AppKit
 import Core
 import Foundation
 import WorkspaceModel
@@ -50,12 +51,15 @@ final class AgentCoordinator {
         // Binding via paneId (= RELAY_TAB_ID = Tab.id). La logica di transizione vive nello store.
         // Passo agent + sessionId: lo store cattura il binding di resume sulla tab.
         guard let paneId = event.paneId else { return }
+        // `NSApp.isActive`: se Relay è in background la tab non è "in vista" per l'utente, così il
+        // completato resta segnalato e la notifica parte anche sulla tab selezionata.
         store.applyAgentState(
             paneId: paneId,
             agent: event.agent,
             sessionId: event.sessionId,
             state: event.state,
-            at: event.timestamp
+            at: event.timestamp,
+            appActive: NSApp.isActive
         )
     }
 }

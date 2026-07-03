@@ -86,6 +86,30 @@ private func makeFixture() -> Fixture {
     #expect(emitted.count == 1)
 }
 
+@Test @MainActor func inactiveAppTreatsSelectedTabAsHidden() {
+    // Relay in background: anche la tab in vista completa "non vista" -> marker acceso + notifica.
+    let fixture = makeFixture()
+    var emitted: [AgentNotification] = []
+    fixture.store.onNotifiableTransition = { emitted.append($0) }
+    let tabID = fixture.visibleTab.id.uuidString
+    fixture.store.applyAgentState(paneId: tabID, state: .running, at: Date(), appActive: false)
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(), appActive: false)
+    #expect(fixture.visibleTab.attention) // completato non visto, anche se selezionata
+    #expect(emitted.map(\.kind) == [.completed])
+}
+
+@Test @MainActor func activeAppOnSelectedTabStaysCalm() {
+    // Relay in primo piano sulla tab in vista: completare non accende marker né notifica.
+    let fixture = makeFixture()
+    var emitted: [AgentNotification] = []
+    fixture.store.onNotifiableTransition = { emitted.append($0) }
+    let tabID = fixture.visibleTab.id.uuidString
+    fixture.store.applyAgentState(paneId: tabID, state: .running, at: Date(), appActive: true)
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(), appActive: true)
+    #expect(!fixture.visibleTab.attention)
+    #expect(emitted.isEmpty)
+}
+
 @Test @MainActor func emitsCompletedNotificationOnlyWhenHidden() {
     let fixture = makeFixture()
     var emitted: [AgentNotification] = []

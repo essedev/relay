@@ -406,12 +406,17 @@ Regole:
 Le notifiche riusano le stesse regole anti-rumore dei badge. La decisione è pura e testabile
 (`AgentStateReducer.notification(current:incoming:isVisible:)`): notifica alla **entrata** in
 `needs_input` (non a ogni evento successivo) e al **completamento non visto** (running -> idle mentre
-la tab non è in vista). Lo store, dentro `applyAgentState`, emette una `AgentNotification` (dato puro)
-via callback `onNotifiableTransition` - `WorkspaceModel` resta senza AppKit. Il composition root
+la tab non è in vista). Chiave: **"in vista" = tab selezionata *e* Relay in primo piano**. Lo store
+calcola `isVisible = isSelected && appActive` in `applyAgentState` (`appActive = NSApp.isActive`,
+passato dal composition root): se Relay è in background non la stai guardando davvero, anche se è la
+tab selezionata, quindi il completato resta segnalato (`attention`) e la notifica parte. Al ritorno
+in primo piano (`applicationDidBecomeActive`) la tab in vista viene "visitata" e il marker si spegne.
+
+Lo store emette una `AgentNotification` (dato puro) via callback `onNotifiableTransition` -
+`WorkspaceModel` resta senza AppKit (riceve solo il `Bool appActive`). Il composition root
 (`NotificationCoordinator`) applica le preferenze utente (`AppSettings`: master, per-tipo, suono) e
-la soppressione runtime (niente notifica se stai già guardando la tab e Relay è in primo piano), poi
-consegna via `UNUserNotificationCenter`. **Richiede il bundle `.app`** (serve un bundle id): da
-`swift run` le notifiche sono disattivate, non è un errore.
+sopprime `needs_input` se `isVisible`, poi consegna via `UNUserNotificationCenter`. **Richiede il
+bundle `.app`** (serve un bundle id): da `swift run` le notifiche sono disattivate, non è un errore.
 
 ## Data Model
 
