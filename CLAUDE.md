@@ -88,8 +88,10 @@ girano solo dal bundle (`make run-app`).
 - Notifiche: il trigger è puro (`AgentStateReducer.notification`), lo store emette via
   `onNotifiableTransition` e il `NotificationCoordinator` (solo se `Bundle.main.bundleIdentifier !=
   nil`) filtra per preferenze e consegna. `isVisible = tab selezionata && NSApp.isActive`: se Relay è
-  in background notifica anche sulla tab selezionata; al ritorno in primo piano
-  (`applicationDidBecomeActive`) la tab in vista viene visitata. Il coordinatore è
+  in background notifica anche sulla tab selezionata. Il marker "completato" (`attention`) **non** si
+  spegne al semplice ritorno in foreground (altrimenti il float in cima alla sidebar sparirebbe prima
+  che tu lo veda): la visita reale è digitare nella tab in vista (`keyMonitor` in `AppController`,
+  solo se il marker è acceso) o riselezionarla (il render dell'area lo azzera). Il coordinatore è
   `UNUserNotificationCenterDelegate` e forza `willPresent -> [.banner,.sound,.list]`: **senza, i
   banner sono soppressi quando Relay è frontmost**. Al primo avvio dal bundle macOS chiede il
   permesso una volta; una firma ad-hoc che cambia a ogni reinstall può farlo decadere (log

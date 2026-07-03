@@ -155,11 +155,6 @@ final class AppController: NSObject, NSApplicationDelegate {
         true
     }
 
-    /// Tornando in primo piano, la tab in vista è "guardata": spegne il marker di completamento.
-    func applicationDidBecomeActive(_: Notification) {
-        store.selectedWorkspace?.selectedTab?.attention = false
-    }
-
     func applicationWillTerminate(_: Notification) {
         autosave?.flush() // flush sincrono finale (il debounce potrebbe non essere scaduto)
         perf?.stop()
@@ -268,8 +263,15 @@ final class AppController: NSObject, NSApplicationDelegate {
     /// l'evento arrivi al terminale.
     private func installNavigationKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, handleNavigationKey(event) else { return event }
-            return nil // consumato
+            guard let self else { return event }
+            if handleNavigationKey(event) { return nil } // shortcut consumato
+            // Digitare nella tab in vista è la visita reale: spegne il marker di completamento (non
+            // lo fa il semplice ritorno in foreground, così al rientro vedi cos'è cambiato). Setto
+            // solo se acceso: evitare di notificare gli observer a ogni keystroke.
+            if let tab = store.selectedWorkspace?.selectedTab, tab.attention {
+                tab.attention = false
+            }
+            return event
         }
     }
 

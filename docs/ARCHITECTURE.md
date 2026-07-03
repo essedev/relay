@@ -423,8 +423,10 @@ Le notifiche riusano le stesse regole anti-rumore dei badge. La decisione è pur
 la tab non è in vista). Chiave: **"in vista" = tab selezionata *e* Relay in primo piano**. Lo store
 calcola `isVisible = isSelected && appActive` in `applyAgentState` (`appActive = NSApp.isActive`,
 passato dal composition root): se Relay è in background non la stai guardando davvero, anche se è la
-tab selezionata, quindi il completato resta segnalato (`attention`) e la notifica parte. Al ritorno
-in primo piano (`applicationDidBecomeActive`) la tab in vista viene "visitata" e il marker si spegne.
+tab selezionata, quindi il completato resta segnalato (`attention`) e la notifica parte. Il marker
+`attention` **non** si spegne al semplice ritorno in foreground: sparirebbe il float in cima alla
+sidebar prima che l'utente lo veda. La visita reale è digitare nella tab in vista (il `keyMonitor`
+azzera il marker, solo se acceso) o riselezionare la tab (il render dell'area lo azzera).
 
 Lo store emette una `AgentNotification` (dato puro) via callback `onNotifiableTransition` -
 `WorkspaceModel` resta senza AppKit (riceve solo il `Bool appActive`). Il composition root
