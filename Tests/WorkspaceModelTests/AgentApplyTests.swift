@@ -112,6 +112,35 @@ private func makeFixture() -> Fixture {
     #expect(emitted.isEmpty)
 }
 
+/// `/clear` o `/new`: SessionStart(clear) arriva come idle con `resetsAttention`. Un sospeso
+/// residuo del completamento precedente si spegne, senza notificare.
+@Test @MainActor func activeReEngagementClearsPending() {
+    let fixture = makeFixture()
+    var emitted: [AgentNotification] = []
+    fixture.store.onNotifiableTransition = { emitted.append($0) }
+    let tabID = fixture.hiddenTab.id.uuidString
+    // Completamento non visto -> unseen.
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 1)
+    )
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
+    #expect(fixture.hiddenTab.attention == .unseen)
+    emitted.removeAll()
+
+    // /clear: idle con re-engagement -> marker spento, nessuna notifica.
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .idle,
+        at: Date(timeIntervalSince1970: 3),
+        resetsAttention: true
+    )
+    #expect(fixture.hiddenTab.agentState == .idle)
+    #expect(fixture.hiddenTab.attention == .none)
+    #expect(emitted.isEmpty)
+}
+
 @Test @MainActor func emitsCompletedNotificationOnlyWhenHidden() {
     let fixture = makeFixture()
     var emitted: [AgentNotification] = []

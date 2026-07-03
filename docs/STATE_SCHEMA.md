@@ -35,6 +35,12 @@ Mapping Claude -> stato (installato in `settings.json` da `ClaudeHookInstaller`)
 Il `matcher` esiste solo per gli eventi tool. `SubagentStop` non è mappato di proposito: lo stop di
 un subagent non è il completamento del pane principale (anti-rumore).
 
+**Ri-presa attiva (`resetsAttention`)**: `SessionStart` porta un `source` (`startup`/`resume`/
+`clear`/`compact`). Su `clear` (= `/clear`, `/new`) e `resume` il CLI lo legge dallo stdin e marca
+l'evento `resetsAttention: true`: lo `state` resta `idle` (l'agente è fermo in attesa) ma il marker
+di attenzione in sospeso si spegne, come farebbe il primo prompt. `startup`/`compact` restano `idle`
+neutro. Il campo `source` esiste solo sul SessionStart, quindi discrimina da uno `Stop` idle.
+
 **Binding sessione -> pane**: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'ambiente della surface;
 lo ereditano shell -> agent -> hook, e il CLI lo rimanda come `paneId`. Nessun parsing dell'output.
 

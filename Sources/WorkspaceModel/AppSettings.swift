@@ -10,6 +10,9 @@ public final class AppSettings {
     public static let minFontSize: Double = 9
     public static let maxFontSize: Double = 28
     public static let defaultSidebarWidth: Double = 250
+    /// Decadenza dei sospesi attiva di default: un promemoria quieto che non tocchi per mezza
+    /// giornata è rumore (banner blindness). Deve stare tra le `pendingDecayOptions`.
+    public static let defaultPendingDecayHours = 12
     public static let minSidebarWidth: Double = 200
     public static let maxSidebarWidth: Double = 340
 
@@ -27,8 +30,9 @@ public final class AppSettings {
     /// `false` (default) mostra la barra "Resume". Default prudente: niente comandi automatici.
     public private(set) var autoResumeAgents: Bool
     /// Decadenza dei completamenti "in sospeso" (`AttentionLevel.pending`): dopo queste ore il
-    /// marker si spegne da solo. `0` (default) = mai: la perdita silenziosa è proprio il problema
-    /// che il sospeso risolve, chi vuole la lista auto-pulita attiva la decadenza esplicitamente.
+    /// marker si spegne da solo. Default `defaultPendingDecayHours` (12h): il sospeso è il segnale
+    /// *quieto* e già visto, tenerlo per sempre è banner blindness. `0` = mai (opt-out esplicito):
+    /// il segnale forte `unseen` resta comunque intatto, non scade mai da solo.
     public private(set) var pendingDecayHours: Int
 
     /// Notifiche macOS (default tutte on). Master + per-tipo + suono + scelta del suono.
@@ -71,8 +75,11 @@ public final class AppSettings {
         let savedSidebarWidth = defaults.double(forKey: Keys.sidebarWidth)
         sidebarWidth = savedSidebarWidth == 0 ? Self.defaultSidebarWidth : savedSidebarWidth
         autoResumeAgents = defaults.bool(forKey: Keys.autoResumeAgents)
-        // Assente = 0 = mai (integer(forKey:) torna già 0 per chiave mancante).
-        pendingDecayHours = defaults.integer(forKey: Keys.pendingDecayHours)
+        // Chiave assente -> default attivo (12h); un `0` salvato (opt-out esplicito) va rispettato,
+        // quindi distinguo "mai scritto" da "scritto 0" (integer(forKey:) torna 0 in entrambi).
+        pendingDecayHours = defaults.object(forKey: Keys.pendingDecayHours) == nil
+            ? Self.defaultPendingDecayHours
+            : defaults.integer(forKey: Keys.pendingDecayHours)
         notificationsEnabled = Self.boolDefaultingTrue(defaults, Keys.notificationsEnabled)
         notifyOnNeedsInput = Self.boolDefaultingTrue(defaults, Keys.notifyOnNeedsInput)
         notifyOnCompleted = Self.boolDefaultingTrue(defaults, Keys.notifyOnCompleted)

@@ -117,10 +117,14 @@ girano solo dal bundle (`make run-app`).
   (altrimenti sparirebbe prima che tu lo veda; aprire una tab completata mostra il ring verde +
   flash): l'interazione col terminale in vista (tasto o click, via il monitor in
   `AppControllerNavigation`) **declassa** `unseen` -> `pending` ("in sospeso": visto ma mai
-  ripreso), non spegne. Risolvono solo la ripresa vera (prompt -> running, nel reducer), il dismiss
-  (card della dashboard) o la chiusura tab; opzionale la decadenza (`pendingDecayHours`, default
-  mai). Un completamento sulla tab in vista nasce direttamente `pending`. Al ritorno in foreground
-  un flash del ring richiama l'occhio, senza spegnere. Modello ispirato a cmux (vedi CYCLES),
+  ripreso), non spegne. Risolve solo un'azione **attiva** sulla conversazione - la ripresa vera
+  (prompt -> running) o una ri-presa attiva (`/clear`, `/resume`: SessionStart `source` clear/resume
+  -> `resetsAttention`, letto dal CLI, spegne il sospeso mantenendo `state` idle) - più il dismiss
+  (card della dashboard), la chiusura tab e la decadenza (`pendingDecayHours`, default **12h**: il
+  sospeso è il segnale quieto e già visto, tenerlo per sempre è banner blindness; `unseen` invece
+  non scade mai da solo). Un completamento sulla tab in vista nasce direttamente `pending`. Al
+  ritorno in foreground un flash del ring richiama l'occhio, senza spegnere. Modello ispirato a cmux
+  (vedi CYCLES),
   esteso col livello quieto. Il coordinatore è
   `UNUserNotificationCenterDelegate` e forza `willPresent -> [.banner,.sound,.list]`: **senza, i
   banner sono soppressi quando Relay è frontmost**. Al primo avvio dal bundle macOS chiede il

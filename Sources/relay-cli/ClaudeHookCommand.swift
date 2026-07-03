@@ -3,9 +3,9 @@ import AgentRuntime
 import Foundation
 
 /// Comando invocato dagli hook Claude: `relay-cli claude-hook <state>`. Legge lo stdin JSON di
-/// Claude (per `session_id`) e `RELAY_TAB_ID` dall'env (binding pane), poi manda un
-/// `AgentStateEvent` al socket del receiver. Fail-safe: qualunque errore -> exit 0 silenzioso, così
-/// un problema di Relay non rompe mai Claude.
+/// Claude (per `session_id` e il `source` del SessionStart) e `RELAY_TAB_ID` dall'env (binding
+/// pane), poi manda un `AgentStateEvent` al socket del receiver. Fail-safe: qualunque errore ->
+/// exit 0 silenzioso, così un problema di Relay non rompe mai Claude.
 enum ClaudeHookCommand {
     static func run(stateArg: String?) -> Int32 {
         guard let stateArg, let state = AgentState(rawValue: stateArg) else { return 0 }
@@ -13,24 +13,34 @@ enum ClaudeHookCommand {
         let env = ProcessInfo.processInfo.environment
         let paneId = env["RELAY_TAB_ID"]
         let stdin = FileHandle.standardInput.readDataToEndOfFile()
+        let payload = try? JSONSerialization.jsonObject(with: stdin) as? [String: Any]
 
         let event = AgentStateEvent(
             agent: "claude",
-            sessionId: sessionId(fromStdin: stdin, env: env) ?? paneId ?? "unknown",
+            sessionId: sessionId(from: payload, env: env) ?? paneId ?? "unknown",
             paneId: paneId,
             state: state,
             source: .hook,
             confidence: 1,
-            timestamp: Date()
+            timestamp: Date(),
+            resetsAttention: isReEngagement(payload: payload)
         )
         try? AgentEventClient.send(event)
         return 0
     }
 
-    private static func sessionId(fromStdin data: Data, env: [String: String]) -> String? {
-        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        if let sid = object?["session_id"] as? String, !sid.isEmpty { return sid }
+    private static func sessionId(from payload: [String: Any]?, env: [String: String]) -> String? {
+        if let sid = payload?["session_id"] as? String, !sid.isEmpty { return sid }
         if let sid = env["CLAUDE_SESSION_ID"], !sid.isEmpty { return sid }
         return nil
+    }
+
+    /// `/clear` e `/new` (e la ripresa di una conversazione) arrivano come `SessionStart` con un
+    /// `source` dedicato: sono ri-prese attive che risolvono il completamento in sospeso. `startup`
+    /// (avvio normale) e `compact` (il contesto resta) NON lo sono. Il campo `source` esiste solo
+    /// sul SessionStart, quindi discrimina da solo (uno `Stop` idle non ce l'ha).
+    private static func isReEngagement(payload: [String: Any]?) -> Bool {
+        guard let source = payload?["source"] as? String else { return false }
+        return source == "clear" || source == "resume"
     }
 }

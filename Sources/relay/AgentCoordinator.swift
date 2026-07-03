@@ -59,7 +59,8 @@ final class AgentCoordinator {
             sessionId: event.sessionId,
             state: event.state,
             at: event.timestamp,
-            appActive: NSApp.isActive
+            appActive: NSApp.isActive,
+            resetsAttention: event.resetsAttention
         )
     }
 }

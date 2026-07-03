@@ -130,6 +130,43 @@ import Testing
     #expect(pending == AgentStateReducer.Result(state: .unknown, attention: .pending))
 }
 
+// MARK: - Ri-presa attiva (clear/resume) risolve il sospeso
+
+/// Il caso centrale: dopo lo `Stop` la tab è già `idle` con un sospeso; un `/clear` arriva come
+/// idle->idle e senza il flag lo preserverebbe (anti-rumore). Con `resetsAttention` lo spegne,
+/// scavalcando l'anti-rumore.
+@Test func resetResolvesPendingOnIdleToIdle() {
+    let result = AgentStateReducer.reduce(
+        current: .idle,
+        incoming: .idle,
+        isVisible: true,
+        currentAttention: .pending,
+        resetsAttention: true
+    )
+    #expect(result == AgentStateReducer.Result(state: .idle, attention: .none))
+}
+
+/// Anche il segnale forte (`unseen`, es. `--resume` di una tab completata non vista) si spegne:
+/// riaprire quella conversazione dimostra che te ne stai occupando.
+@Test func resetResolvesUnseen() {
+    let result = AgentStateReducer.reduce(
+        current: .idle,
+        incoming: .idle,
+        isVisible: false,
+        currentAttention: .unseen,
+        resetsAttention: true
+    )
+    #expect(result == AgentStateReducer.Result(state: .idle, attention: .none))
+}
+
+/// Una ri-presa non notifica mai, nemmeno se per caso arriva mentre lo stato era `running`
+/// (`/clear` a metà lavoro): non è un completamento.
+@Test func resetNeverNotifies() {
+    #expect(AgentStateReducer.notification(
+        current: .running, incoming: .idle, isVisible: false, resetsAttention: true
+    ) == nil)
+}
+
 // MARK: - Classificatore notifiche
 
 @Test func notifiesOnNeedsInputEntry() {

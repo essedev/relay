@@ -275,7 +275,8 @@ public final class WorkspaceStore {
         sessionId: String = "",
         state: AgentState,
         at timestamp: Date,
-        appActive: Bool = true
+        appActive: Bool = true,
+        resetsAttention: Bool = false
     ) -> Bool {
         guard let tabID = UUID(uuidString: paneId) else { return false }
         for workspace in workspaces {
@@ -288,7 +289,8 @@ public final class WorkspaceStore {
                 current: previousState,
                 incoming: state,
                 isVisible: isVisible,
-                currentAttention: tab.attention
+                currentAttention: tab.attention,
+                resetsAttention: resetsAttention
             )
             tab.agentState = result.state
             tab.attention = result.attention
@@ -298,7 +300,8 @@ public final class WorkspaceStore {
             if let kind = AgentStateReducer.notification(
                 current: previousState,
                 incoming: state,
-                isVisible: isVisible
+                isVisible: isVisible,
+                resetsAttention: resetsAttention
             ) {
                 onNotifiableTransition?(AgentNotification(
                     kind: kind,

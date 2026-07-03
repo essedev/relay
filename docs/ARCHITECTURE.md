@@ -364,6 +364,11 @@ Mapping Claude v1:
 confermati sulla doc Claude Code corrente (luglio 2026). Nota: nello spike gli stati usano i nomi
 Otty (`processing`, `awaiting`, `idle`); nell'app si usano i nomi prodotto qui sopra.
 
+Il `SessionStart` porta un `source`: su `clear` (`/clear`, `/new`) e `resume` il CLI marca l'evento
+`resetsAttention` (lo `state` resta `idle`), che nel reducer risolve il completamento in sospeso -
+una ri-presa attiva della conversazione è, come il primo prompt, prova che te ne stai occupando.
+Vedi `STATE_SCHEMA.md` per il dettaglio.
+
 ### Local Control API
 
 Trasporto: Unix domain socket (`~/.relay/relay.sock`, override `RELAY_SOCKET`), JSON lines. Il

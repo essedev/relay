@@ -1,7 +1,9 @@
 /// Livello di attenzione di una tab dopo un completamento. Modella la distinzione tra percezione
 /// ("l'ho visto") e risoluzione ("me ne sono occupato"): l'interazione col terminale declassa il
-/// segnale da forte a quieto, ma lo spengono solo la ripresa vera della conversazione (prompt ->
-/// running), un dismiss esplicito, la chiusura della tab o la decadenza opzionale.
+/// segnale da forte a quieto, ma lo spengono solo un'azione *attiva* sulla conversazione - la
+/// ripresa vera (prompt -> running) o una ri-presa attiva (`/clear`, `/resume`, via
+/// `resetsAttention`) - un
+/// dismiss esplicito, la chiusura della tab o la decadenza (attiva di default).
 public enum AttentionLevel: String, Sendable, Codable {
     /// Nessun segnale.
     case none

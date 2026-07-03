@@ -26,6 +26,12 @@ public struct AgentStateEvent: Sendable, Codable, Equatable {
     public let source: AgentStateSource
     public let confidence: Double
     public let timestamp: Date
+    /// L'evento è una ri-presa attiva della conversazione (SessionStart `clear`/`resume`), non un
+    /// semplice stato: risolve il marker di attenzione (`AttentionLevel`). Lo `state` resta `.idle`
+    /// (l'agente dopo clear/resume è comunque fermo in attesa), il flag ne cambia solo l'effetto
+    /// sul
+    /// completamento in sospeso. Default `false`; decode retrocompatibile (chiave assente = false).
+    public let resetsAttention: Bool
 
     public init(
         agent: String,
@@ -34,7 +40,8 @@ public struct AgentStateEvent: Sendable, Codable, Equatable {
         state: AgentState,
         source: AgentStateSource,
         confidence: Double,
-        timestamp: Date
+        timestamp: Date,
+        resetsAttention: Bool = false
     ) {
         self.agent = agent
         self.sessionId = sessionId
@@ -43,5 +50,20 @@ public struct AgentStateEvent: Sendable, Codable, Equatable {
         self.source = source
         self.confidence = confidence
         self.timestamp = timestamp
+        self.resetsAttention = resetsAttention
+    }
+
+    /// Decode tollerante: un evento da un CLI più vecchio (senza `resetsAttention`) resta valido.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        agent = try container.decode(String.self, forKey: .agent)
+        sessionId = try container.decode(String.self, forKey: .sessionId)
+        paneId = try container.decodeIfPresent(String.self, forKey: .paneId)
+        state = try container.decode(AgentState.self, forKey: .state)
+        source = try container.decode(AgentStateSource.self, forKey: .source)
+        confidence = try container.decode(Double.self, forKey: .confidence)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        resetsAttention = try container
+            .decodeIfPresent(Bool.self, forKey: .resetsAttention) ?? false
     }
 }
