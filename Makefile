@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 SWIFT := swift
 
-.PHONY: help install build run cli test lint format check clean bundle run-app
+.PHONY: help install build run cli test lint format check clean bundle run-app dmg install-app icon
 
 APP := .build/Relay.app
 
@@ -42,11 +42,37 @@ bundle: ## Assembla Relay.app (release, firmato ad-hoc). Serve per le notifiche 
 	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	cp .build/release/relay $(APP)/Contents/MacOS/relay
 	cp bundle/Info.plist $(APP)/Contents/Info.plist
+	cp bundle/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
 	codesign --force --sign - $(APP)
 	@echo "built $(APP)"
 
 run-app: bundle ## Assembla e avvia Relay.app (notifiche attive: gira dal bundle)
 	open $(APP)
+
+icon: ## Rigenera bundle/AppIcon.icns dal generatore Core Graphics
+	@tmp=$$(mktemp -d); \
+	$(SWIFT) bundle/make-icon.swift $$tmp/icon-1024.png; \
+	iconset=$$tmp/AppIcon.iconset; mkdir -p $$iconset; \
+	for s in 16 32 128 256 512; do \
+		sips -z $$s $$s $$tmp/icon-1024.png --out $$iconset/icon_$${s}x$${s}.png >/dev/null; \
+		sips -z $$((s*2)) $$((s*2)) $$tmp/icon-1024.png --out $$iconset/icon_$${s}x$${s}@2x.png >/dev/null; \
+	done; \
+	iconutil -c icns $$iconset -o bundle/AppIcon.icns; \
+	echo "rigenerata bundle/AppIcon.icns"
+
+dmg: bundle ## Crea .build/Relay.dmg (installer locale, NON firmato: click-destro > Apri)
+	rm -rf .build/dmg && mkdir -p .build/dmg
+	cp -R $(APP) .build/dmg/Relay.app
+	ln -s /Applications .build/dmg/Applications
+	rm -f .build/Relay.dmg
+	hdiutil create -volname Relay -srcfolder .build/dmg -ov -format UDZO .build/Relay.dmg
+	rm -rf .build/dmg
+	@echo "built .build/Relay.dmg"
+
+install-app: bundle ## Installa Relay.app in /Applications (uso locale)
+	rm -rf /Applications/Relay.app
+	cp -R $(APP) /Applications/Relay.app
+	@echo "installed /Applications/Relay.app"
 
 clean: ## Pulisce gli artifacts di build
 	$(SWIFT) package clean

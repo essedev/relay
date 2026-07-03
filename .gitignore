@@ -9,3 +9,7 @@ DerivedData/
 
 # Local secrets / auth state - mai committare
 .env*
+
+# artefatti generati dell icona (l icns vive in bundle/)
+/icon-1024.png
+/AppIcon-1024.png

@@ -71,10 +71,14 @@ girano solo dal bundle (`make run-app`).
 
 - libghostty non è ancora embeddabile stabile: engine v1 = SwiftTerm. Non reintrodurre zig o
   binari di fork senza una decisione esplicita (vedi ARCHITECTURE, sezione engine).
-- `make bundle` assembla `.build/Relay.app` (release + `bundle/Info.plist` + firma ad-hoc, bundle id
-  `dev.relay.app`); `make run-app` lo avvia. Serve per le notifiche: `UNUserNotificationCenter`
-  richiede un bundle id, da bare executable (`swift run`) crasha. In sviluppo puoi comunque usare
-  `make run` (niente notifiche). Firma vera (Developer ID) e icona: quando si distribuisce.
+- `make bundle` assembla `.build/Relay.app` (release + `bundle/Info.plist` + `AppIcon.icns` + firma
+  ad-hoc, bundle id `dev.relay.app`); `make run-app` lo avvia, `make install-app` lo copia in
+  `/Applications`, `make dmg` fa `.build/Relay.dmg` (installer **locale, non firmato**: si apre con
+  click-destro > Apri; per distribuirlo a terzi serve Developer ID + notarizzazione). Serve per le
+  notifiche: `UNUserNotificationCenter` richiede un bundle id, da bare executable (`swift run`)
+  crasha; in sviluppo `make run` va bene (niente notifiche).
+- Icona: `bundle/make-icon.swift` (Core Graphics puro, headless) la disegna; `make icon` rigenera
+  `bundle/AppIcon.icns` (committato). Cambi al disegno -> `make icon` poi `make bundle`.
 - Notifiche: il trigger è puro (`AgentStateReducer.notification`), lo store emette via
   `onNotifiableTransition` e il `NotificationCoordinator` (solo se `Bundle.main.bundleIdentifier !=
   nil`) filtra per preferenze + `NSApp.isActive` e consegna. Al primo avvio dal bundle macOS chiede
