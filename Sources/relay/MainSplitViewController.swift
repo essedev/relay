@@ -118,11 +118,12 @@ final class MainSplitViewController: NSSplitViewController {
         guard let sidebarView = splitView.arrangedSubviews.first else { return }
         let visibleWidth = sidebarView.isHidden ? 0 : sidebarView.frame.width
         onSidebarWidthChange?(visibleWidth)
-        // Persisti solo quando espansa e assestata: durante il collapse la larghezza va a 0, non va
-        // salvata (perderei il valore). `setSidebarWidth` clampa e ignora i no-op.
-        if !sidebarView.isHidden, visibleWidth >= CGFloat(AppSettings.minSidebarWidth) {
-            settings.setSidebarWidth(Double(visibleWidth))
-        }
+        // Salva solo dopo l'applicazione iniziale: altrimenti i resize transitori del boot
+        // sovrascrivono il valore persistito prima che `viewDidLayout` lo applichi. E solo se
+        // espansa (durante il collapse la larghezza va a 0). `setSidebarWidth` clampa e dedup.
+        guard didApplyInitialWidth, !sidebarView.isHidden,
+              visibleWidth >= CGFloat(AppSettings.minSidebarWidth) else { return }
+        settings.setSidebarWidth(Double(visibleWidth))
     }
 
     /// Lo stato del collapse vive in `AppSettings` (persistito); qui lo si applica all'item,
