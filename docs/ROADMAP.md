@@ -141,8 +141,8 @@ Shortcuts). Resta aperto (later): import da config Ghostty.
 - Notifiche macOS su `needs_input`/completato (`NotificationCoordinator` + `UNUserNotificationCenter`,
   solo dal bundle), classificazione pura nel reducer, con impostazioni (categoria Notifications:
   master, per-tipo, suono on/off + scelta suono). Soppressione se stai già guardando la tab.
-- Sei temi curati (Solarized/Gruvbox oltre a Relay Dark/Light) e scelta font family, nel pannello
-  impostazioni.
+- Dodici temi curati (Solarized, Gruvbox, Tokyo Night, Catppuccin e GitHub oltre a Relay
+  Dark/Light) e scelta font family, nel pannello impostazioni.
 
 ## Più avanti
 

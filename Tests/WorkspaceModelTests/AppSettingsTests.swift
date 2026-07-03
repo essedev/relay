@@ -14,7 +14,7 @@ private func freshDefaults() -> UserDefaults {
     let settings = AppSettings(defaults: freshDefaults())
     #expect(settings.themeName == "Relay Dark")
     #expect(settings.theme.name == "Relay Dark")
-    #expect(settings.availableThemes.count == 6)
+    #expect(settings.availableThemes.count == 12)
 }
 
 @MainActor @Test func fontNameDefaultsToSystemAndOverridesTheme() {

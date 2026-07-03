@@ -48,7 +48,8 @@ corpo/terminale); doppio click sulla fascia = zoom, come una title bar nativa.
 ## Aspetto
 
 Tema del terminale curato (palette ANSI, quindi Claude Code/`git`/`ls` in palette), con chrome
-coerente. Sei temi (scuri: Relay Dark, Solarized Dark, Gruvbox Dark; chiari: le controparti),
+coerente. Dodici temi in sei coppie dark/light (Relay, Solarized, Gruvbox, Tokyo Night,
+Catppuccin, GitHub),
 scelta del font family (monospace installati), dimensione font e blink del cursore, tutto regolabile
 dal pannello impostazioni (`Cmd+,`, master-detail con ricerca) e persistito. Il modello di tema vive
 in `Core` (`RelayTheme`), unica fonte per terminale e chrome.
