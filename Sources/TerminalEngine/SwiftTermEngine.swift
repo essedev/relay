@@ -98,6 +98,11 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         guard !started else { return }
         started = true
         var env = Terminal.getEnvironmentVariables(termName: "xterm-256color")
+        // Dichiara il supporto al kitty keyboard protocol (SwiftTerm lo implementa).
+        // Claude Code lo attiva solo per terminali noti: KITTY_WINDOW_ID lo segnala
+        // senza spoofare TERM_PROGRAM a un altro terminale (claude-code#27868).
+        // NB: NON settare anche TERM_PROGRAM, o Claude Code lo prioritizza e ignora questo.
+        env.append("KITTY_WINDOW_ID=1")
         for (key, value) in extraEnv {
             env.append("\(key)=\(value)")
         }
