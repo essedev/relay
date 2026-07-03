@@ -33,8 +33,13 @@ extension AppController {
         host.safeAreaRegions = []
         rootController.presentFullOverlay(host)
         dashboardHost = host
-        // First responder all'overlay: il campo filtro prende il focus (come la find bar).
-        splitVC.view.window?.makeFirstResponder(host)
+        // First responder all'overlay sul runloop successivo: la dashboard è una vista pesante
+        // (grid + card), sincrono l'hosting view non ha ancora montato il campo filtro e il focus
+        // resterebbe "vuoto" (né frecce né Esc). Deferito, SwiftUI ha montato il TextField e il
+        // `@FocusState` aggancia. La find bar può farlo sincrono perché è minima e monta in tempo.
+        DispatchQueue.main.async { [weak self] in
+            self?.splitVC.view.window?.makeFirstResponder(host)
+        }
     }
 
     func closeDashboard() {
