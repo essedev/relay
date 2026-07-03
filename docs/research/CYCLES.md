@@ -730,3 +730,71 @@ questo l'intercettazione è tutta nel monitor, non in override della view.
 
 `make check` verde (125 test). Prossimo giro a scelta: distribuzione firmata (Developer ID +
 notarizzazione), dashboard overview, oppure split.
+
+## Cycle 11 - Distribuzione (brew tap + firma) e rifiniture terminale
+
+### Obiettivo
+
+Rendere Relay installabile e aggiornabile da altri con un comando, senza pipeline pesanti; e chiudere
+due attriti d'uso emersi: larghezza sidebar troppo stretta e non persistita, e Shift+Invio che non va
+a capo in Claude Code. Metodo di questo ciclo: **misurare, non dedurre** - ogni pezzo validato dal
+vivo prima di consolidarlo.
+
+### Distribuzione via Homebrew tap
+
+Scelta: tap personale (`essedev/homebrew-relay`, pubblico) con cask che scarica il `.dmg` dalle
+Release di `essedev/relay` (repo reso pubblico dopo scan segreti su tutta la history). Niente
+homebrew-cask ufficiale (richiederebbe notarizzazione + review): per pochi utenti il tap basta e
+l'update è `brew upgrade`. Versione = `./VERSION` (semver, source of truth), iniettata nel bundle al
+build via PlistBuddy. `scripts/release.sh` (via `make release`) è la routine ripetibile: check
+working tree pulito + branch main + account gh, blocca se il tag esiste, build dmg -> sha256 ->
+push branch+tag -> `gh release create` con l'asset -> aggiorna `version`+`sha256` nel cask del tap.
+
+### Firma: self-signed stabile, non ad-hoc, non notarizzata
+
+La firma ad-hoc cambia identita a ogni build (il collega rifa "Apri comunque" a ogni upgrade, le
+notifiche decadono). Notarizzazione = Developer ID a pagamento, fuori scope ora. Via di mezzo:
+**certificato self-signed stabile** in un keychain dedicato (`~/.relay/codesign`, non tocca il login
+keychain). Trabocchetto scoperto per prova: `codesign` rifiuta un cert non-trusted ("no identity
+found") e risolve l'identita dalla **search list** dei keychain, non dal flag `--keychain`. Quindi
+`setup-signing.sh` (idempotente) crea cert+keychain, aggiunge il keychain alla search list, e il
+trust richiede **un** `sudo` una tantum (macOS non lo concede senza password: unico passo non
+automatizzabile). Verificato: bundle firmato `Authority=Relay Self-Signed`, `verify --deep --strict`
+ok.
+
+Quarantena: `quarantine false` non esiste piu nel DSL di Homebrew 6. Si ottiene lo stesso effetto con
+un `postflight` che fa `xattr -cr` sull'app (stesso pattern del cask `portsage`): niente prompt
+Gatekeeper "app non verificata" all'apertura. È un bypass consapevole del gate, per software nostro.
+
+### Shift+Invio in Claude Code: kitty keyboard protocol (indagine empirica)
+
+Il caso da manuale del "misurare invece di dedurre". Ipotesi iniziali (encoder scollegato, opzione da
+abilitare) **smentite dal codice**: SwiftTerm implementa il kitty keyboard protocol completo su macOS
+(risponde a `CSI ? u`, gestisce push/pop, encoda l'input via `KittyKeyboardEncoder` nel `keyDown`).
+Test dal vivo (`printf '\e[>1u'; cat -v` + Shift+Invio) -> `^[[13;2u`: il terminale encoda
+perfettamente. Quindi il gap non era in Relay.
+
+Dal binario di Claude Code: ha il supporto kitty e il binding Shift+Invio, ma **attiva il protocollo
+solo per terminali in una allowlist su `TERM_PROGRAM`** (`iTerm.app`/`kitty`/`WezTerm`/`ghostty`) -
+non usa la query dinamica che pure saprebbe parsare. Relay (`xterm-256color`, nessun `TERM_PROGRAM`)
+non è riconosciuto, quindi non attiva. Primo fix: annunciarsi `TERM_PROGRAM=ghostty` (funziona), ma
+è uno spoof di identita globale (ogni app crede di girare in Ghostty; rischio feature ghostty-only,
+es. notifiche desktop via OSC che SwiftTerm non gestisce). Ricerca -> issue
+`anthropics/claude-code#27868`: il modo raccomandato per un terminale custom è dichiarare il
+supporto con `KITTY_WINDOW_ID` **senza** spoofare `TERM_PROGRAM` (che Claude Code prioritizza e che
+altrimenti maschera il segnale). Validato dal vivo (`env -u TERM_PROGRAM KITTY_WINDOW_ID=1 claude`),
+adottato `KITTY_WINDOW_ID=1` nell'env della surface: kitty nativo (Shift+Invio, Ctrl+Invio, ...) senza
+intercettare l'input e senza fingere un'altra identita.
+
+### Sidebar width persistita
+
+La larghezza sidebar non era in `LayoutSnapshot` (a ogni avvio ripartiva dal minimo ~200). Spostata
+in `AppSettings` (preferenza UI globale, UserDefaults), default 250, clamp 200-340;
+`MainSplitViewController` la applica alla prima passata di layout e la salva sul resize.
+
+### Esito
+
+Relay installabile con `brew install --cask essedev/relay/relay`, aggiornabile con `brew upgrade`,
+primo avvio senza prompt Gatekeeper. Release ripetibile con `make release`. Shift+Invio nativo in
+Claude Code. `make check` verde. Non ancora fatto: distribuzione firmata Developer ID + notarizzazione
+(toglierebbe il bypass quarantena e permetterebbe homebrew-cask ufficiale), split.

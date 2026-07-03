@@ -165,9 +165,24 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
   (`DashboardModel`), vista in `Panels`, wiring nel composition root.
 - **`Cmd+J` a due livelli**: prima l'attenzione fresca, esauriti quelli i sospesi.
 
+## Fatto - Distribuzione brew + rifiniture (post-dashboard)
+
+- **Distribuzione via Homebrew tap**: `brew install --cask essedev/relay/relay` (tap pubblico
+  `essedev/homebrew-relay`, cask che scarica il dmg dalle Release di `essedev/relay`). Versione =
+  `./VERSION` (semver), release ripetibile con `make release` (build dmg -> GitHub Release -> aggiorna
+  il cask). Firma self-signed stabile (keychain dedicato, trust una tantum via sudo); un postflight
+  `xattr` nel cask toglie la quarantena, niente prompt Gatekeeper all'apertura. Metodo e decisioni in
+  `research/CYCLES.md` (Cycle 11).
+- **Shift+Invio in Claude Code**: la surface dichiara il kitty keyboard protocol con
+  `KITTY_WINDOW_ID=1` (SwiftTerm lo implementa gia); Shift+Invio/Ctrl+Invio nativi, senza spoofare
+  `TERM_PROGRAM` (issue claude-code#27868).
+- **Sidebar width persistita**: default 250, salvata in `AppSettings` (prima ripartiva dal minimo a
+  ogni avvio).
+
 ## Più avanti
 
-- Distribuzione: firma Developer ID + notarizzazione + dmg firmato; installer hook distribuibile.
+- Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
+  homebrew-cask ufficiale). Il tap brew non firmato c'è gia (vedi Fatto sopra).
 - Dashboard: evoluzioni oltre l'MVP (azioni inline resume/chiudi, contatori in header, toggle
   raggruppa-per-workspace, preview ultime righe - richiede surface vive).
 - Split (pane tree dentro una tab), deprioritizzato dall'utente.
@@ -213,6 +228,7 @@ supportare più agenti; `ARCHITECTURE.md` #Fuori-Scope-Baseline).
 
 ## Prossima azione
 
-Baseline delle milestone chiuso, con app installabile in locale (bundle + icona + dmg) e dashboard
-di triage delle sessioni. Prossimo giro a scelta dell'utente: distribuzione firmata (Developer ID +
-notarizzazione), split, oppure generalizzazione multi-agente (Codex/opencode, vedi Più avanti).
+Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),
+oltre alla dashboard di triage. Prossimo giro a scelta dell'utente: distribuzione **firmata**
+(Developer ID + notarizzazione, per homebrew-cask ufficiale), split, oppure generalizzazione
+multi-agente (Codex/opencode, vedi Più avanti).

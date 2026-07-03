@@ -149,6 +149,11 @@ girano solo dal bundle (`make run-app`).
 - Agent binding: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'env della surface e torna dall'hook
   come `paneId`. Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio è
   gestito da `unlink` prima del `bind`, quindi non blocca il riavvio.
+- Shift+Invio / kitty keyboard: la surface inietta `KITTY_WINDOW_ID=1` nell'env
+  (`SwiftTermEngine.start`), che dichiara il supporto al kitty keyboard protocol (SwiftTerm lo
+  implementa: query + encoding). Claude Code attiva il protocollo solo per terminali noti; **non**
+  settare `TERM_PROGRAM` (lo prioritizza e maschererebbe il segnale, claude-code#27868). Cosi
+  Shift+Invio/Ctrl+Invio arrivano distinti all'app, senza intercettare l'input nel path caldo.
 - **Mai lanciare `relay-cli hooks setup` a mano senza `RELAY_CLAUDE_SETTINGS`**: `NSHomeDirectory()`
   ignora `$HOME` su macOS e scriverebbe il vero `~/.claude`. Per test/manuale usa
   `RELAY_CLAUDE_SETTINGS=/tmp/....json`. I test unit passano già un `settingsPath` esplicito.
@@ -181,6 +186,9 @@ girano solo dal bundle (`make run-app`).
   su macOS 26. L'overlay insegue il bordo della sidebar via `splitViewDidResizeSubviews`.
 - Sidebar: `NSSplitViewItem(viewController:)` normale, non `sidebarWithViewController:` (macOS 26 lo
   stila come pannello glass flottante). Lo `NSScroller` interno di SwiftTerm è nascosto a mano.
+- Sidebar width: `AppSettings.sidebarWidth` (UserDefaults, default 250, clamp 200-340), non nel
+  `LayoutSnapshot`. `MainSplitViewController` la applica alla prima passata di layout (una volta) e
+  la salva sul resize (`splitViewDidResizeSubviews`, solo quando espansa).
 - Lista workspace: `ScrollView` + `LazyVStack` custom, **non** `List`. La `List` disegna un highlight
   full-size di sistema sotto la riga bersaglio del menu contestuale (fuori dal tema flat). Con la
   VStack gestiamo noi selezione/hover/menu; il riordino è drag & drop (`draggable`/`dropDestination`
