@@ -63,23 +63,25 @@ ctx.setLineWidth(3)
 ctx.strokePath()
 ctx.restoreGState()
 
-// Chevron ">" del prompt (accento blu).
+// Chevron ">" del prompt (accento blu), ~80% dell'altezza del cursore (bracci 380..620 vs
+// 300..700):
+// il cursore resta l'elemento dominante, il chevron lo accompagna con un gap ampio.
 ctx.saveGState()
 ctx.setStrokeColor(rgb(0.380, 0.686, 0.937)) // #61AFEF
-ctx.setLineWidth(90)
+ctx.setLineWidth(80)
 ctx.setLineCap(.round)
 ctx.setLineJoin(.round)
-// Bracci allineati ai bordi del cursore (372..628); vertice al centro ottico (500).
-ctx.move(to: CGPoint(x: 322, y: 628))
-ctx.addLine(to: CGPoint(x: 467, y: 500))
-ctx.addLine(to: CGPoint(x: 322, y: 372))
+// Vertice al centro ottico (500); bracci raccolti verso il centro.
+ctx.move(to: CGPoint(x: 348, y: 620))
+ctx.addLine(to: CGPoint(x: 481, y: 500))
+ctx.addLine(to: CGPoint(x: 348, y: 380))
 ctx.strokePath()
 ctx.restoreGState()
 
 // Cursore a blocco (crema, come il foreground), staccato dal chevron con un gap netto.
 ctx.saveGState()
 ctx.setFillColor(rgb(0.851, 0.863, 0.886)) // #D9DCE2
-let cursor = CGRect(x: 560, y: 340, width: 145, height: 320)
+let cursor = CGRect(x: 571, y: 300, width: 145, height: 400)
 ctx.addPath(CGPath(roundedRect: cursor, cornerWidth: 22, cornerHeight: 22, transform: nil))
 ctx.fillPath()
 ctx.restoreGState()

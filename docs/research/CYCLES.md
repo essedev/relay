@@ -696,5 +696,13 @@ Nota tecnica: `keyDown`/`mouseDown` di SwiftTerm sono `public` non `open`, quind
 un altro modulo; l'interazione si cattura con un `NSEvent` local monitor (`[.keyDown, .leftMouseDown]`)
 nel composition root, non con un override nella view.
 
+**Padding del ring**: due leve indipendenti in `WorkspaceAreaController` - `AttentionRingView.strokeInset`
+(gap ring ↔ bordo esterno) e `terminalInset` (contenuto ↔ bordo); l'aria contenuto-ring è la loro
+differenza. Il ring copre l'intera zona, il terminale è inset di più. Tarato a 6 + 6.
+
+**Ritocco icona** (`bundle/make-icon.swift`): chevron `>` a ~80% dell'altezza del cursore (accento,
+più sottile) con gap ampio dal cursore, cursore più alto e slanciato; il cursore resta l'elemento
+dominante. Verifica visiva rigenerando il PNG di preview prima dell'`.icns` (`make icon`).
+
 `make check` verde (118 test). Prossimo giro a scelta: distribuzione firmata (Developer ID +
 notarizzazione), dashboard overview, oppure split.
