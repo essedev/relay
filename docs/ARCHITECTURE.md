@@ -215,6 +215,9 @@ ricrea al focus (la policy resta la stessa, cambia solo il meccanismo).
   scrivi input, leggi dimensioni/titolo/cwd e il processo in foreground del pty, notifica
   output/bell/OSC. Il resto dell'app non sa quale engine c'è sotto. Questo rende la migrazione un
   update localizzato, non un rewrite.
+- Drag & drop di file: `RelayTerminalView` (sottoclasse della view SwiftTerm, dentro il modulo)
+  registra il drop e scrive nel PTY i path escaped (`Core.ShellEscape`, puro e testato), come
+  Terminal.app. SwiftTerm non lo fa da solo; il tipo SwiftTerm resta confinato qui.
 
 ### Chiusura E Conferma
 

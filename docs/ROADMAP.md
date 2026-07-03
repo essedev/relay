@@ -97,8 +97,10 @@ resta mai senza workspace (se ne riapre uno default).
 **Tooling di test** (entrambi sul socket reale): `relay-cli simulate [coding|permission|burst]`
 dentro una tab, e `relay --demo NxM` per popolare l'app con sessioni concorrenti simulate.
 
-Fatto in seguito (vedi Milestone 4): scelta del font family e altri temi. Resta aperto (later):
-import da config Ghostty.
+Fatto in seguito (vedi Milestone 4): scelta del font family e altri temi. Altre rifiniture:
+`Cmd+1..9` segue l'ordine visivo della sidebar (`orderedWorkspaces`), e drag & drop di file nel
+terminale (inserisce i path escaped, come Terminal.app). Resta aperto (later): import da config
+Ghostty.
 
 ## Milestone 2 - Persistence + rename (dogfood-ability) - fatto
 

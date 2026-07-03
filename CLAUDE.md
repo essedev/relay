@@ -27,8 +27,9 @@ hook -> badge -> resume validata a mano con Claude reale; le notifiche girano so
 ## Mappa moduli (dipendenze solo verso il basso)
 
 - `Core` - primitivi condivisi (logging; `RelayTheme`/`RelayColor` = modello tema dato puro;
-  `OSC7` = parsing cwd). Nessuna dipendenza. Il tema vive qui perché sia il terminale
-  (`TerminalEngine`) sia la chrome (`Panels`) lo convertono nei rispettivi tipi.
+  `OSC7` = parsing cwd; `LatencyStats` = statistiche misure; `ShellEscape` = escaping path per il
+  drop di file). Nessuna dipendenza. Il tema vive qui perché sia il terminale (`TerminalEngine`) sia
+  la chrome (`Panels`) lo convertono nei rispettivi tipi.
 - `AgentProtocol` - tipi evento/stato agente, puro. Niente I/O, niente AppKit.
 - `AgentRuntime` - trasporto eventi agente: `AgentEventReceiver` (server Unix socket),
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),

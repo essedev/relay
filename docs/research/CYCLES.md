@@ -620,7 +620,25 @@ del font family. Sempre con documentazione e test aggiornati.
 - Refactor per rispettare i limiti di dimensione file (lint 400/250): componenti e binding di
   `SettingsView` estratti in `SettingsComponents.swift`; seeding demo in `DemoSeeder`.
 
-`make check` verde lungo tutto il ciclo (fino a 107 test). L'app è installabile in locale
-(`make install-app`/`make dmg`) con icona propria. Verifica manuale residua: concedere il permesso
-notifiche al primo avvio dal bundle e vedere i banner (passo GUI). Prossimo giro a scelta:
-distribuzione firmata (Developer ID + notarizzazione), dashboard overview, oppure split.
+### Rifiniture verificate dal vivo (post-M4)
+
+- **Notifiche, consegna reale**: verificando dal vivo sono emersi due punti. (1) `isVisible` era solo
+  "tab selezionata": se Relay è in background non la stai guardando, quindi ora `isVisible = tab
+  selezionata && NSApp.isActive` (il coordinatore passa `appActive` allo store, che resta puro); al
+  ritorno in primo piano la tab in vista viene visitata. (2) macOS **sopprime i banner dell'app in
+  primo piano**: aggiunto `UNUserNotificationCenterDelegate` che forza `willPresent`. Diagnosi: la
+  consegna funzionava (log `deliver`), ma i banner sparivano perché l'utente aveva **OBS** attivo
+  (macOS nasconde le notifiche durante la registrazione schermo), non per un bug. Aggiunto log dello
+  stato di autorizzazione al boot (diagnostica firma ad-hoc).
+- **Anteprima del suono**: scegliendo un suono nel picker Notifications lo si sente subito
+  (`NotificationSoundPreview`, `NSSound`).
+- **Navigazione**: `Cmd+1..9` ora segue l'ordine visivo della sidebar (`orderedWorkspaces`), non
+  quello canonico: `Cmd+1` apre sempre la riga in cima, anche quando un completamento la fa
+  galleggiare su. Handler di menu estratti in `AppControllerNavigation`.
+- **Drag & drop di file**: `RelayTerminalView` (sottoclasse della view SwiftTerm, che non lo fa da
+  sola) inserisce i path escaped nel PTY come Terminal.app; escaping puro e testato in
+  `Core.ShellEscape`.
+
+`make check` verde lungo tutto il ciclo (fino a 114 test). L'app è installabile in locale
+(`make install-app`/`make dmg`) con icona propria, notifiche verificate dal vivo. Prossimo giro a
+scelta: distribuzione firmata (Developer ID + notarizzazione), dashboard overview, oppure split.
