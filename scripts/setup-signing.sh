@@ -57,9 +57,16 @@ fi
 # --- 1b. search list -------------------------------------------------------
 # codesign risolve l'identita dalla search list dei keychain (il flag --keychain non basta):
 # aggiungo quello dedicato preservando gli esistenti (idempotente).
-if ! security list-keychains -d user | grep -q "$KC"; then
-  paths="$(security list-keychains -d user | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')"
-  security list-keychains -d user -s $paths "$KC"
+if ! security list-keychains -d user | grep -qF -- "$KC"; then
+  # `-s` RIMPIAZZA l'intera search list: raccolgo gli esistenti in un array (quotato) per non
+  # spezzare path che contengono spazi.
+  existing=()
+  while IFS= read -r line; do
+    line="${line#"${line%%[![:space:]]*}"}"   # trim leading spaces
+    line="${line%\"}"; line="${line#\"}"       # strip surrounding quotes
+    [ -n "$line" ] && existing+=("$line")
+  done < <(security list-keychains -d user)
+  security list-keychains -d user -s "${existing[@]}" "$KC"
   echo "keychain aggiunto alla search list"
 fi
 

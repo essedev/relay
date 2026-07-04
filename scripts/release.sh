@@ -38,12 +38,49 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 [ "$branch" = "main" ] || fail "non sei su main (sei su '$branch')"
 git diff --quiet && git diff --cached --quiet || fail "working tree sporco: committa o stasha prima di rilasciare"
 
-# Tag gia esistente => versione gia rilasciata.
-if git rev-parse "$TAG" >/dev/null 2>&1; then
-  fail "il tag $TAG esiste gia. Bumpa ./VERSION prima di rilasciare."
-fi
-if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-  fail "la release $TAG esiste gia su $REPO. Bumpa ./VERSION."
+# Aggiorna version+sha256 del cask nel tap. Estratto in funzione: lo usa sia il flusso normale sia
+# il recupero di una release gia pubblicata su GitHub ma con il tap rimasto indietro.
+update_tap() {
+  info "aggiorno il cask nel tap $TAP_REPO"
+  local tmp cask
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
+  git clone --depth 1 "https://github.com/${TAP_REPO}.git" "$tmp/tap"
+  cask="$tmp/tap/$CASK_PATH"
+  [ -f "$cask" ] || fail "cask non trovato nel tap: $CASK_PATH (bootstrap del tap mancante?)"
+
+  # version + sha256 sono le uniche righe che cambiano: l'URL le interpola.
+  sed -i '' -E "s|^  version \".*\"|  version \"${VERSION}\"|" "$cask"
+  sed -i '' -E "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" "$cask"
+  # Verifica che i sed abbiano davvero scritto i valori attesi: un cambio di formato nel tap
+  # (indentazione, stile brew) li renderebbe no-op, con un commit vuoto e il tap non aggiornato.
+  grep -q "version \"${VERSION}\"" "$cask" && grep -q "sha256 \"${SHA}\"" "$cask" \
+    || fail "cask non aggiornato: formato inatteso in $CASK_PATH"
+
+  git -C "$tmp/tap" add "$CASK_PATH"
+  git -C "$tmp/tap" commit -m "relay ${VERSION}" >/dev/null
+  git -C "$tmp/tap" push >/dev/null
+  info "tap aggiornato"
+}
+
+# Stato della pubblicazione GitHub per questa versione.
+tag_exists=false; release_exists=false
+git rev-parse "$TAG" >/dev/null 2>&1 && tag_exists=true
+gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1 && release_exists=true
+
+if $tag_exists && $release_exists; then
+  # Gia pubblicata (es. un tap update fallito per rete la volta scorsa): recupero lo sha256
+  # dall'asset reale e aggiorno solo il tap, senza ri-taggare ne ri-creare la release.
+  info "release $TAG gia su GitHub: recupero lo sha e aggiorno solo il tap"
+  dldir="$(mktemp -d)"; trap 'rm -rf "$dldir"' EXIT
+  gh release download "$TAG" --repo "$REPO" --pattern '*.dmg' --dir "$dldir" --clobber \
+    || fail "download dell'asset dmg della release $TAG fallito"
+  SHA="$(shasum -a 256 "$dldir"/*.dmg | awk '{print $1}')"
+  update_tap
+  printf '\033[32m✓ tap allineato per Relay %s\033[0m\n' "$TAG"
+  exit 0
+elif $tag_exists || $release_exists; then
+  fail "stato incoerente per $TAG (tag=$tag_exists, release=$release_exists): risolvi a mano"
 fi
 
 info "release $TAG (sign=$SIGN_IDENTITY)"
@@ -79,21 +116,7 @@ gh release create "$TAG" "$DMG" \
   --generate-notes
 
 # --- Aggiorna il cask nel tap ---------------------------------------------
-info "aggiorno il cask nel tap $TAP_REPO"
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-git clone --depth 1 "https://github.com/${TAP_REPO}.git" "$tmp/tap"
-cask="$tmp/tap/$CASK_PATH"
-[ -f "$cask" ] || fail "cask non trovato nel tap: $CASK_PATH (bootstrap del tap mancante?)"
-
-# version + sha256 sono le uniche righe che cambiano: l'URL le interpola.
-sed -i '' -E "s|^  version \".*\"|  version \"${VERSION}\"|" "$cask"
-sed -i '' -E "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" "$cask"
-
-git -C "$tmp/tap" add "$CASK_PATH"
-git -C "$tmp/tap" commit -m "relay ${VERSION}" >/dev/null
-git -C "$tmp/tap" push >/dev/null
-info "tap aggiornato"
+update_tap
 
 printf '\033[32m✓ rilasciata Relay %s\033[0m\n' "$TAG"
 echo "  installa:  brew install --cask ${GH_ACCOUNT}/relay/relay"
