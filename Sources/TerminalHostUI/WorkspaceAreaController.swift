@@ -207,9 +207,16 @@ public final class WorkspaceAreaController: NSViewController {
                 tab?.currentDirectory = path
             }
         )
-        setTerminal(surface.view)
+        let changed = setTerminal(surface.view)
         surface.start()
-        view.window?.makeFirstResponder(surface.view)
+        // Prendo il first responder solo quando il terminale mostrato cambia davvero (switch di
+        // tab/workspace), non a ogni render: un render scatta anche su un OSC 7 dello shell
+        // (ridisegno
+        // del prompt), e rubare il focus lì strapperebbe la find bar o la dashboard mentre digiti
+        // (peggio: coi tasti che finiscono nel pty nascosto sotto l'overlay).
+        if changed {
+            view.window?.makeFirstResponder(surface.view)
+        }
 
         // Cap LRU: dopo aver reso viva la tab corrente, sfratta le surface idle meno recenti oltre
         // il cap (mai la visibile né quelle con lavoro vivo). Rinascono lazy al re-focus.
@@ -231,11 +238,14 @@ public final class WorkspaceAreaController: NSViewController {
     /// è l'aria fra contenuto e ring.
     private static let terminalInset: CGFloat = 12
 
-    private func setTerminal(_ terminal: NSView?) {
-        guard currentTerminal !== terminal else { return }
+    /// Scambia la view del terminale mostrato. Ritorna `true` se è cambiata davvero (usato per
+    /// decidere se prendere il first responder): a parità di view è un no-op.
+    @discardableResult
+    private func setTerminal(_ terminal: NSView?) -> Bool {
+        guard currentTerminal !== terminal else { return false }
         currentTerminal?.removeFromSuperview()
         currentTerminal = terminal
-        guard let terminal else { return }
+        guard let terminal else { return true }
         terminal.translatesAutoresizingMaskIntoConstraints = false
         // Sotto il ring di attenzione, che resta l'overlay in cima.
         container.addSubview(terminal, positioned: .below, relativeTo: attentionRing)
@@ -246,5 +256,6 @@ public final class WorkspaceAreaController: NSViewController {
             terminal.topAnchor.constraint(equalTo: container.topAnchor, constant: inset),
             terminal.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -inset),
         ])
+        return true
     }
 }
