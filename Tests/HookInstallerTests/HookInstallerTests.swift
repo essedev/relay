@@ -129,3 +129,25 @@ private func ourEntries(_ settings: [String: Any], _ event: String) -> [[String:
     ) as? [String: Any] ?? [:]
     #expect(entries(afterUninstall, "Stop").count == 1)
 }
+
+@Test func setupPrunesOldBackups() throws {
+    let fileManager = FileManager.default
+    let dir = "\(NSTemporaryDirectory())relay-hooks-\(UInt64.random(in: 0 ..< 1_000_000_000))"
+    try fileManager.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(atPath: dir) }
+    let settingsPath = "\(dir)/settings.json"
+    try Data("{}".utf8).write(to: URL(fileURLWithPath: settingsPath))
+
+    // Backup preesistenti con epoch a 10 cifre (ordine lessicografico = cronologico).
+    for i in 0 ..< 8 {
+        let epoch = "17000000\(String(format: "%02d", i))"
+        try Data("{}".utf8).write(to: URL(fileURLWithPath: "\(settingsPath).relay-backup-\(epoch)"))
+    }
+
+    // Il setup aggiunge un backup e pota i più vecchi: restano al massimo maxBackups.
+    try ClaudeHookInstaller().setup(cliPath: cli, settingsPath: settingsPath)
+
+    let backups = try fileManager.contentsOfDirectory(atPath: dir)
+        .filter { $0.contains("relay-backup") }
+    #expect(backups.count == ClaudeHookInstaller.maxBackups)
+}
