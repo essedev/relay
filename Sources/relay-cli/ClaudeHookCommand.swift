@@ -26,7 +26,10 @@ enum ClaudeHookCommand {
 
         let event = AgentStateEvent(
             agent: "claude",
-            sessionId: sessionId(from: payload, env: env) ?? paneId ?? "unknown",
+            // Sessione genuinamente sconosciuta -> stringa vuota, così lo store salta il resume
+            // binding. Ripiegare sul paneId (l'UUID della tab) fabbricherebbe un binding con cui
+            // `claude --resume <tab-id>` fallirebbe.
+            sessionId: sessionId(from: payload, env: env) ?? "",
             paneId: paneId,
             // Il PreToolUse di un tool che apre un prompt bloccante (AskUserQuestion,
             // ExitPlanMode) è "aspetta input", non "sta lavorando": vedi il mapper.

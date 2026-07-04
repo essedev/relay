@@ -85,6 +85,26 @@ private func makeFixture() -> Fixture {
     #expect(fixture.visibleTab.attention == .pending)
 }
 
+@Test func resumeBindingRejectsUnsafeComponents() {
+    #expect(ResumeBinding.isSafeComponent("2bf36d53-b398-416f-9c05-1ae2c7964525"))
+    #expect(ResumeBinding.isSafeComponent("claude"))
+    #expect(!ResumeBinding.isSafeComponent("")) // sessione sconosciuta
+    #expect(!ResumeBinding.isSafeComponent("id; rm -rf /")) // metacaratteri shell
+    #expect(!ResumeBinding.isSafeComponent("$(whoami)"))
+}
+
+@Test @MainActor func unsafeSessionIdDoesNotCreateResume() {
+    let fixture = makeFixture()
+    fixture.store.applyAgentState(
+        paneId: fixture.hiddenTab.id.uuidString,
+        agent: "claude",
+        sessionId: "bad; rm -rf /",
+        state: .running,
+        at: Date()
+    )
+    #expect(fixture.hiddenTab.resume == nil) // niente binding iniettabile nel pty
+}
+
 @Test @MainActor func applyUnknownTabIsNoOp() {
     let fixture = makeFixture()
     #expect(!fixture.store.applyAgentState(paneId: UUID().uuidString, state: .running, at: Date()))

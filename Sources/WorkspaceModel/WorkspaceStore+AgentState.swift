@@ -64,10 +64,14 @@ public extension WorkspaceStore {
                 ))
             }
             // Resume binding: aggiornato finché la sessione è viva, azzerato alla chiusura
-            // (`unknown` = SessionEnd). `sessionId` vuoto (test/simulazioni base) non crea binding.
+            // (`unknown` = SessionEnd). Si crea solo con componenti sicuri: sessionId/agent vuoti o
+            // con metacaratteri non producono un binding che `autoResumeAgents` inietterebbe nel
+            // pty.
+            let safeToBind = ResumeBinding.isSafeComponent(sessionId)
+                && ResumeBinding.isSafeComponent(agent)
             if state == .unknown {
                 tab.resume = nil
-            } else if !sessionId.isEmpty {
+            } else if safeToBind {
                 tab.resume = ResumeBinding(agent: agent, sessionId: sessionId, label: tab.title)
             }
             return true

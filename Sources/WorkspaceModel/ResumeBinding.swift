@@ -21,4 +21,13 @@ public struct ResumeBinding: Codable, Equatable, Sendable {
     public var resumeCommand: String {
         "\(agent) --resume \(sessionId)"
     }
+
+    /// Un componente (`agent`/`sessionId`) è sicuro da interpolare nel comando iniettato nel pty:
+    /// solo caratteri da identificatore (il sessionId è un UUID, l'agent un nome binario). Blocca i
+    /// metacaratteri shell in un valore che, con `autoResumeAgents`, verrebbe eseguito da solo.
+    public static func isSafeComponent(_ value: String) -> Bool {
+        !value.isEmpty && value.allSatisfy {
+            $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "."
+        }
+    }
 }
