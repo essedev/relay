@@ -72,34 +72,46 @@ Vietato nel payload: prompt utente, token, chiavi, credenziali, contesto sensibi
 
 ## Snapshot Di Persistence (layout)
 
-Formato: JSON su disco (percorso da definire in Fase 5). Al restore tutti i pane nascono
-`unrealized` (nessuna surface finché non c'è focus).
+Formato: JSON atomico su disco, `~/.relay/layout.json` (override `RELAY_LAYOUT`; path iniettato in
+`LayoutStore`). Salvataggio debounced via `LayoutAutosave`, restore al boot con fallback al seed
+default se file mancante/corrotto/versione ignota. Al restore tutti i pane nascono `unrealized`
+(nessuna surface finché non c'è focus).
 
-Entità (model in `Sources/WorkspaceModel/`):
+Entità (`LayoutSnapshot` in `Sources/WorkspaceModel/`, `Codable`, versionato - bump di
+`currentVersion` **solo per cambi breaking**: la load scarta le versioni diverse; un campo nuovo
+opzionale è additivo e non bumpa):
 
 ```text
-Workspace { id, name, rootPath?, pinned, tabs: [Tab], selectedTabID }        // in codice
-Tab       { id, title, hasCustomTitle, currentDirectory?, agentState, ... }  // in codice
-Resume    { sessionId, agent, cwd, sanitizedCommand }                        // da aggiungere
+LayoutSnapshot    { version, selectedWorkspaceID?, workspaces: [WorkspaceSnapshot] }
+WorkspaceSnapshot { id, name, rootPath?, pinned, selectedTabID?, tabs: [TabSnapshot] }
+TabSnapshot       { id, title, hasCustomTitle, currentDirectory?, resume?, pendingSince? }
+ResumeBinding     { agent, sessionId, label }
 ```
 
-L'ordine dei workspace è l'ordine dell'array (riordinabile). `selectedWorkspaceID` sta nello
-store. `Tab.currentDirectory` è la cwd riportata dalla shell via OSC 7 (alimenta titolo, sottotitolo
-e l'ereditarietà cwd di `Cmd+T`). Lo stato agente (`agentState`/`attention`/`lastEventAt`) è runtime,
-non va persistito. Le surface del terminale NON sono nel model: sono legate per `Tab.id` a runtime.
+L'ordine dei workspace è l'ordine dell'array (riordinabile). `Tab.currentDirectory` è la cwd
+riportata dalla shell via OSC 7 (alimenta titolo, sottotitolo e l'ereditarietà cwd di `Cmd+T`). Lo
+stato agente (`agentState`/`lastEventAt`) è runtime e non si persiste, con due eccezioni mirate:
+`resume` (la sessione ripristinabile: alimenta la ResumeBar al primo focus post-restore) e
+`pendingSince` (il completamento "in sospeso" e la sua età; al restore anche `unseen` degrada a
+`pending`, il segnale forte sarebbe stantio). Le surface del terminale NON sono nel model: sono
+legate per `Tab.id` a runtime.
 
-Resume: solo `sessionId`, `agent`, `cwd`, comando sanitizzato (`claude --resume <sessionId>`).
+Resume: solo `agent`, `sessionId`, `label` (titolo della tab alla cattura). Il comando è derivato
+(`\(agent) --resume <sessionId>`), mai persistito. Vietato: prompt, token, credenziali.
 
 ## Preferenze (UserDefaults)
 
-Già implementate, distinte dallo snapshot del layout: `AppSettings` (`Sources/WorkspaceModel/`)
-persiste `themeName`, `fontSize`, `cursorBlink`, `sidebarCollapsed` in `UserDefaults` (chiavi
-`relay.*`). Sono *preferenze* utente, non stato di sessione - per quello UserDefaults è il posto
-giusto. `fontSize` e `cursorBlink` sono sovrapposti al tema base (`RelayTheme.withFontSize` /
-`withCursorBlink`), così il terminale li applica insieme al resto della palette.
+Distinte dallo snapshot del layout: `AppSettings` (`Sources/WorkspaceModel/`) persiste in
+`UserDefaults` (chiavi `relay.*`) tema, font family/size, cursore, sidebar
+(collapsed + width), preferenze notifiche, keybindings rimappati, `autoResumeAgents` e la
+decadenza dei sospesi (`pendingDecayHours`). Sono *preferenze* utente, non stato di sessione - per
+quello UserDefaults è il posto giusto. Font e cursore sono sovrapposti al tema base
+(`RelayTheme.withFontSize` / `withCursorBlink`), così il terminale li applica insieme al resto
+della palette. L'elenco canonico è `AppSettings` stesso: questo paragrafo dice solo dove vivono.
 
 ## Stato
 
 In codice: `AgentState`, `AgentEventType`, `AgentStateEvent`, `WorkspaceStore`, `Workspace`, `Tab`,
-`AppSettings`, agent runtime completo (receiver/client/coordinator/reducer).
-Da aggiungere quando servono: split (pane tree in `Tab`), resume, snapshot del layout su disco.
+`AppSettings`, agent runtime completo (receiver/client/coordinator/reducer), persistence layout
+(`LayoutSnapshot` + `LayoutStore` + `LayoutAutosave`) e resume (`ResumeBinding` + ResumeBar).
+Da aggiungere quando serve: split (pane tree in `Tab`).

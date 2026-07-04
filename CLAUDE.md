@@ -236,7 +236,11 @@ girano solo dal bundle (`make run-app`).
   x dei pannelli), che chiedono conferma via `NSAlert` sheet se nel pty gira un comando in foreground
   (`TerminalSurfaceHandle.foregroundProcessName()` = `tcgetpgrp` vs `shellPid` + safe-list shell; solo
   foreground, i job in background non contano). Chiudere l'ultima tab chiude il workspace (cascade in
-  `WorkspaceStore.closeTab`).
+  `WorkspaceStore.closeTab`). Il messaggio (`closeInfo`) nomina Claude per **ogni** stato di
+  sessione viva (running/needsInput/idle/error: il proc_name del binario claude è la versione,
+  es. "2.1.200", inutilizzabile); solo `.unknown` mostra il nome grezzo del processo. Non usare
+  `tab.resume` come criterio: persiste oltre il riavvio e dopo un restore nel pty può girare
+  tutt'altro.
 - Persistence layout: `~/.relay/layout.json` (override `RELAY_LAYOUT`; path **iniettato** in
   `LayoutStore`, i test usano una dir temporanea, mai `~/.relay`). Salvataggio via `LayoutAutosave`
   (debounced ~500ms + flush on `applicationWillTerminate`), che osserva `store.snapshot()`: dipende
