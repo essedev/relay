@@ -11,7 +11,8 @@ dodici temi curati e scelta font family + **giro terminale (find `Cmd+F`, clear 
 jump-to-attention `Cmd+J`), drag finestra solo dalla title strip, ring di attenzione attorno al
 terminale + mark-read su interazione (modello ispirato a cmux), scorciatoie rimappabili (recorder
 in impostazioni)** + **dashboard di triage (`Cmd+D`) e attenzione a tre livelli (unseen -> pending
--> risolto, con dismiss e decadenza opzionale)**.
+-> risolto, con dismiss e decadenza opzionale)** + **riordino libero di workspace e tab via drag &
+drop (`DragGesture` + `.offset`, linea di inserimento, vedi `Panels/Reorderable`)**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
@@ -58,8 +59,10 @@ girano solo dal bundle (`make run-app`).
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
   `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `Dashboard` (`DashboardModel` puro +
-  `DashboardView`: griglia di triage delle sessioni), `WindowDragArea` (drag finestra dalla title
-  strip), `SettingsView` (+ `SettingsComponents`), `ShortcutsList` (recorder shortcut), `KeyEventBridge`
+  `DashboardView`: griglia di triage delle sessioni), `Reorderable` (riordino drag & drop di
+  workspace e tab: `DragGesture` + `.offset` + linea di inserimento), `WindowDragArea` (drag
+  finestra dalla title strip), `SettingsView` (+ `SettingsComponents`), `ShortcutsList` (recorder
+  shortcut), `KeyEventBridge`
   (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori vengono dal tema
   (`AppSettings.theme`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
@@ -195,11 +198,26 @@ girano solo dal bundle (`make run-app`).
   la salva sul resize (`splitViewDidResizeSubviews`, solo quando espansa).
 - Lista workspace: `ScrollView` + `LazyVStack` custom, **non** `List`. La `List` disegna un highlight
   full-size di sistema sotto la riga bersaglio del menu contestuale (fuori dal tema flat). Con la
-  VStack gestiamo noi selezione/hover/menu; il riordino è drag & drop (`draggable`/`dropDestination`
-  -> `WorkspaceStore.moveWorkspace(_:onto:)`), non `onMove`. La sidebar itera
-  `store.orderedWorkspaces` (derivato: pinned, poi con attenzione, poi resto) - **display-only**, non
-  toccare `store.workspaces` per ordinare: quello è l'ordine canonico (drag + futura persistence).
-  Rename inline del workspace dal menu contestuale (`WorkspaceStore.renameWorkspace`).
+  VStack gestiamo noi selezione/hover/menu; il riordino è drag & drop (vedi gotcha "Riordino drag
+  & drop" sotto), non `onMove`. La sidebar itera `store.orderedWorkspaces` (derivato: pinned, poi
+  con attenzione, poi resto) - **display-only**, non toccare `store.workspaces` per ordinare:
+  quello è l'ordine canonico su cui agiscono drag e persistence. Rename inline del workspace dal
+  menu contestuale (`WorkspaceStore.renameWorkspace`).
+- Riordino drag & drop (sidebar e tab bar): meccanismo in `Panels/Reorderable` (`reorderableRow` +
+  `reorderableContainer` + `ReorderInsertionLine`). **Non** `onDrag`/`onDrop` di sistema (generano
+  una preview con snap-back al rilascio): la riga *vera* si solleva con un `DragGesture` + `.offset`
+  (semitrasparente, zIndex alto) seguendo il puntatore, una linea segnala l'inserimento, e al
+  rilascio lo scambio parte in `withAnimation` mentre l'offset torna a zero (nessun salto). I frame
+  di layout li raccoglie un `PreferenceKey` in un coordinate space nominato (l'`.offset` è un
+  trasform di rendering, non altera il frame di layout, quindi i frame restano stabili durante il
+  gesto). Store puro e posizionale: `WorkspaceStore.moveWorkspace(_:before:)` e
+  `moveTab(_:before:in:)` (inserisce prima del target, `nil` = in fondo). **Sidebar**: la linea è
+  vincolata al segmento di float del workspace trascinato (`segmentIndex(for:)`:
+  pinned/attenzione/resto), perché il float non lascia attraversare i segmenti - così l'indicatore
+  non promette una posizione che il float poi annulla. **Tab bar**: nessun segmento, ordine unico,
+  linea libera. Su macOS lo `ScrollView` non fa drag-scroll, quindi il `DragGesture` non confligge
+  con lo scroll; l'identità del trascinato vive in `@State` (niente pasteboard, niente drop
+  incrociati).
 - Chiusura tab/workspace: passa da `AppController.requestCloseTab/requestCloseWorkspace` (Cmd+W e le
   x dei pannelli), che chiedono conferma via `NSAlert` sheet se nel pty gira un comando in foreground
   (`TerminalSurfaceHandle.foregroundProcessName()` = `tcgetpgrp` vs `shellPid` + safe-list shell; solo

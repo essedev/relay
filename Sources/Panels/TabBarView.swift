@@ -9,6 +9,13 @@ public struct TabBarView: View {
     let settings: AppSettings
     let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
 
+    // Stato del riordino via drag & drop (vedi Reorderable): tab in volo, sua traslazione, frame
+    // delle tab per l'indicatore, posizione di inserimento. Nessun segmento: l'ordine è unico.
+    @State private var draggingTabID: UUID?
+    @State private var dragTranslation: CGFloat = 0
+    @State private var tabFrames: [Int: CGRect] = [:]
+    @State private var dropInsertion: Int?
+
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
@@ -33,9 +40,11 @@ public struct TabBarView: View {
     }
 
     private func content(for workspace: Workspace, colors: ChromeColors) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let space = "tabbar-reorder"
+        let tabs = workspace.tabs
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Theme.Spacing.xs) {
-                ForEach(workspace.tabs) { tab in
+                ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
                     TabItemView(
                         tab: tab,
                         selected: tab.id == workspace.selectedTabID,
@@ -44,6 +53,19 @@ public struct TabBarView: View {
                         onRename: { store.renameTab(tab.id, in: workspace, to: $0) },
                         onClose: { onCloseTab(tab, workspace) }
                     )
+                    .reorderFrame(index, in: space)
+                    .reorderableRow(ReorderRowConfig(
+                        id: tab.id,
+                        axis: .horizontal,
+                        space: space,
+                        count: tabs.count,
+                        frames: tabFrames,
+                        dragging: $draggingTabID,
+                        translation: $dragTranslation,
+                        insertion: $dropInsertion,
+                        clamp: { max(0, min($0, tabs.count)) },
+                        perform: { performMove(to: $0, in: workspace) }
+                    ))
                 }
                 Button { store.addTab(to: workspace) } label: {
                     Image(systemName: "plus")
@@ -53,8 +75,25 @@ public struct TabBarView: View {
                 .help("New tab")
                 Spacer(minLength: 0)
             }
+            .reorderableContainer(ReorderContainerConfig(
+                space: space,
+                axis: .horizontal,
+                count: tabs.count,
+                frames: $tabFrames,
+                insertion: dropInsertion,
+                lineColor: colors.accent
+            ))
             .padding(.horizontal, Theme.Spacing.sm)
         }
+    }
+
+    /// Inserisce la tab trascinata prima della tab `insertion` (o in fondo). Ordine unico: nessun
+    /// vincolo di segmento, l'indicatore riflette sempre l'esito. Il reset del drag lo fa il
+    /// modifier.
+    private func performMove(to insertion: Int, in workspace: Workspace) {
+        guard let dragID = draggingTabID else { return }
+        let targetID = insertion < workspace.tabs.count ? workspace.tabs[insertion].id : nil
+        store.moveTab(dragID, before: targetID, in: workspace)
     }
 }
 

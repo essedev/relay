@@ -798,3 +798,59 @@ Relay installabile con `brew install --cask essedev/relay/relay`, aggiornabile c
 primo avvio senza prompt Gatekeeper. Release ripetibile con `make release`. Shift+Invio nativo in
 Claude Code. `make check` verde. Non ancora fatto: distribuzione firmata Developer ID + notarizzazione
 (toglierebbe il bypass quarantena e permetterebbe homebrew-cask ufficiale), split.
+
+## Cycle 12 - Riordino libero di workspace e tab (drag gesture)
+
+### Obiettivo
+
+Poter spostare i workspace nella sidebar e le tab dentro un workspace **dove si vuole**, con un drag
+& drop fluido e un indicatore di dove cadrà la riga.
+
+### Il punto di partenza (e perché non bastava)
+
+Il drag dei workspace c'era già (`.draggable`/`.dropDestination` -> `moveWorkspace(_:onto:)`), ma
+"non teneva": due cause sommate. **Uno**, la sidebar mostra `orderedWorkspaces` (partizione derivata:
+pinned -> con attenzione -> resto), quindi dopo il drop il float rimescolava comunque - un non-pinned
+non poteva andare sopra un pinned, e un workspace che prendeva attenzione saltava in cima da solo.
+**Due**, il target del drop arrivava dall'ordine *visivo* ma l'insert avveniva sull'indice *canonico*:
+quando i due ordini divergevano, la riga finiva in un punto diverso da dove la lasciavi. Le tab, invece,
+non erano proprio riordinabili (nessun `moveTab`, nessun drag nella tab bar).
+
+### Decisioni
+
+- **Float invariato, drag reso onesto** (scelta dell'utente: tenere il float pin/attenzione). L'ordine
+  manuale ha effetto *dentro* il segmento di float; fra segmenti il float vince. Per non mentire,
+  l'indicatore di inserimento è **vincolato al segmento** del workspace trascinato (`segmentIndex(for:)`
+  in `WorkspaceStore`): la linea si muove solo tra le righe dello stesso gruppo. Quello che vedi è
+  quello che ottieni.
+- **Store puro e posizionale.** Rimpiazzato `moveWorkspace(_:onto:)` con `moveWorkspace(_:before:)`
+  (inserisce prima del target, `nil` = in fondo); aggiunti `moveTab(_:before:in:)` e
+  `Workspace.moveTab`. Le tab hanno un ordine unico, nessun float, quindi lì il riordino è pieno e
+  l'indicatore sempre affidabile. Tutto testato (logica pura).
+
+### La svolta sulla fluidità: via il drag di sistema
+
+Prima iterazione con `.onDrag`/`.onDrop` di SwiftUI: funzionava ma al rilascio la preview
+semitrasparente faceva **snap-back** (volava alla posizione originale prima di sparire), poi partiva
+lo scambio - a scatti. Causa: `onDrag` genera una drag image gestita dal sistema, su cui il controllo
+è minimo. Non è un bug da tunare, è il modello sbagliato per un reorder *in-app*.
+
+Seconda iterazione (adottata): niente drag di sistema. Trasciniamo la **riga vera** con un
+`DragGesture` + `.offset` (sollevata: opacity ridotta, zIndex alto) che segue il puntatore; una linea
+segnala l'inserimento; al rilascio lo scambio parte in `withAnimation` mentre l'offset torna a zero,
+così la riga si posa senza salti. Chiave tecnica: l'`.offset` è un trasform di *rendering*, non tocca
+il frame di *layout* - quindi i frame raccolti via `PreferenceKey` (in un coordinate space nominato)
+restano stabili durante il gesto e il calcolo dell'indice di inserimento non si sballa. Bonus:
+l'identità del trascinato vive in `@State`, niente pasteboard condivisa e niente drop incrociati
+sidebar/tab. Su macOS lo `ScrollView` non fa drag-scroll, quindi il `DragGesture` non confligge con
+lo scroll.
+
+Il meccanismo è generico (asse verticale/orizzontale) in `Panels/Reorderable`: `reorderableRow`,
+`reorderableContainer`, `ReorderInsertionLine`, condivisi da sidebar e tab bar.
+
+### Esito
+
+Riordino libero e fluido di workspace (dentro il segmento di float) e tab (pieno). Persistence gratis:
+lo snapshot serializza già l'ordine di `workspaces`/`tabs`, l'autosave scatta da sé. `Cmd+1..9` e
+`Cmd+J` leggono `orderedWorkspaces`, quindi restano coerenti. `make check` verde (150 test). Verifica
+del gesto a video con `make run`.

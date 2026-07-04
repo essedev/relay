@@ -60,6 +60,19 @@ public final class Workspace: Identifiable {
         }
         return tabID
     }
+
+    /// Sposta `id` immediatamente prima di `targetID` (`nil` = in fondo). No-op se coincidono o
+    /// `id` non esiste. Non tocca la selezione: spostare non cambia quale tab è attiva.
+    func moveTab(_ id: UUID, before targetID: UUID?) {
+        guard id != targetID,
+              let from = tabs.firstIndex(where: { $0.id == id }) else { return }
+        let moved = tabs.remove(at: from)
+        if let targetID, let to = tabs.firstIndex(where: { $0.id == targetID }) {
+            tabs.insert(moved, at: to)
+        } else {
+            tabs.append(moved)
+        }
+    }
 }
 
 extension Array {

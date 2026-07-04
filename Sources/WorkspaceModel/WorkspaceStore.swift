@@ -154,17 +154,29 @@ public final class WorkspaceStore {
         workspaces.moveElements(fromOffsets: fromOffsets, toOffset: toOffset)
     }
 
-    /// Sposta il workspace `id` nella posizione corrente di `targetID` (drag & drop nella sidebar):
-    /// il target e i successivi scorrono. No-op se un id non esiste o coincidono.
-    public func moveWorkspace(_ id: UUID, onto targetID: UUID) {
+    /// Inserisce il workspace `id` immediatamente **prima** di `targetID` nell'ordine canonico
+    /// (drag & drop nella sidebar). `targetID == nil` (o non trovato) lo porta in fondo. No-op se
+    /// gli id coincidono o `id` non esiste. La sidebar mostra `orderedWorkspaces` (partizione
+    /// stabile): finché drag e target restano nello stesso segmento di float, l'ordine visivo
+    /// riflette esattamente l'inserimento (il vincolo di segmento lo garantisce la UI).
+    public func moveWorkspace(_ id: UUID, before targetID: UUID?) {
         guard id != targetID,
               let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
         let moved = workspaces.remove(at: from)
-        guard let to = workspaces.firstIndex(where: { $0.id == targetID }) else {
+        if let targetID, let to = workspaces.firstIndex(where: { $0.id == targetID }) {
+            workspaces.insert(moved, at: to)
+        } else {
             workspaces.append(moved)
-            return
         }
-        workspaces.insert(moved, at: to)
+    }
+
+    /// Segmento di float nella sidebar: 0 = pinned, 1 = con attenzione fresca, 2 = resto. Stesso
+    /// criterio di `orderedWorkspaces`; la UI lo usa per vincolare l'indicatore di inserimento al
+    /// segmento del workspace trascinato (il float non permette di attraversare i segmenti).
+    public func segmentIndex(for workspace: Workspace) -> Int {
+        if workspace.pinned { return 0 }
+        if workspace.needsAttention { return 1 }
+        return 2
     }
 
     // MARK: - Tab
@@ -258,6 +270,14 @@ public final class WorkspaceStore {
               let tab = workspace.tabs.first(where: { $0.id == tabID }) else { return }
         tab.title = trimmed
         tab.hasCustomTitle = true
+    }
+
+    /// Inserisce la tab `tabID` immediatamente **prima** di `targetID` nell'ordine del workspace
+    /// (drag & drop nella tab bar). `targetID == nil` (o non trovato) la porta in fondo. La tab bar
+    /// non ha float: l'ordine è unico, quindi l'indicatore riflette sempre l'esito. La selezione
+    /// corrente non cambia (spostare non è selezionare).
+    public func moveTab(_ tabID: UUID, before targetID: UUID?, in workspace: Workspace) {
+        workspace.moveTab(tabID, before: targetID)
     }
 
     // MARK: - Stato agente

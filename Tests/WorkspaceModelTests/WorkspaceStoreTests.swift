@@ -63,19 +63,55 @@ import Testing
     #expect(store.selectedWorkspaceID == first.id)
 }
 
-@Test func moveWorkspaceOntoTargetTakesItsPosition() {
+@Test func moveWorkspaceBeforeTargetInserts() {
     let store = WorkspaceStore()
     let a = store.createWorkspace(name: "a")
     let b = store.createWorkspace(name: "b")
     let c = store.createWorkspace(name: "c")
 
-    // c sopra a: c prende la posizione 0, a e b scorrono.
-    store.moveWorkspace(c.id, onto: a.id)
+    // c prima di a: c va in testa, a e b scorrono.
+    store.moveWorkspace(c.id, before: a.id)
     #expect(store.workspaces.map(\.id) == [c.id, a.id, b.id])
 
-    // id inesistente o uguale: no-op.
-    store.moveWorkspace(a.id, onto: a.id)
-    #expect(store.workspaces.map(\.id) == [c.id, a.id, b.id])
+    // target nil: in fondo.
+    store.moveWorkspace(c.id, before: nil)
+    #expect(store.workspaces.map(\.id) == [a.id, b.id, c.id])
+
+    // id uguale al target: no-op (non si sposta prima di sé stesso).
+    store.moveWorkspace(a.id, before: a.id)
+    #expect(store.workspaces.map(\.id) == [a.id, b.id, c.id])
+}
+
+@Test func segmentIndexPartitionsLikeOrdered() {
+    let store = WorkspaceStore()
+    let calm = store.createWorkspace(name: "calm")
+    let attn = store.createWorkspace(name: "attn")
+    let pin = store.createWorkspace(name: "pin")
+
+    store.togglePin(pin.id)
+    attn.tabs[0].agentState = .needsInput
+
+    #expect(store.segmentIndex(for: pin) == 0) // pinned
+    #expect(store.segmentIndex(for: attn) == 1) // attenzione fresca
+    #expect(store.segmentIndex(for: calm) == 2) // resto
+}
+
+@Test func moveTabBeforeTargetInserts() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "ws")
+    let t1 = ws.tabs[0]
+    let t2 = store.addTab(to: ws)
+    let t3 = store.addTab(to: ws)
+    store.selectTab(t2.id, in: ws)
+
+    // t3 prima di t1: ordine [t3, t1, t2], selezione invariata (t2).
+    store.moveTab(t3.id, before: t1.id, in: ws)
+    #expect(ws.tabs.map(\.id) == [t3.id, t1.id, t2.id])
+    #expect(ws.selectedTabID == t2.id)
+
+    // target nil: in fondo.
+    store.moveTab(t3.id, before: nil, in: ws)
+    #expect(ws.tabs.map(\.id) == [t1.id, t2.id, t3.id])
 }
 
 @Test func closeWorkspaceReturnsTabIDsAndSelectsNeighbor() {
