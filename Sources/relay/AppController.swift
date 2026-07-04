@@ -344,15 +344,22 @@ extension AppController {
         if store.workspaces.isEmpty { createUntitledWorkspace() }
     }
 
-    /// Messaggio della conferma: privilegia lo stato Claude quando l'agente è attivo, altrimenti
-    /// nomina il processo generico in esecuzione.
+    /// Messaggio della conferma: privilegia Claude per ogni stato di sessione viva - anche ferma
+    /// al prompt (`idle`) il processo è in foreground e la chiusura la interrompe; il proc_name
+    /// grezzo sarebbe la versione ("2.1.200"), incomprensibile. `.unknown` = nessuna sessione nota
+    /// in questa run (mai partita, chiusa da SessionEnd, o tab appena ripristinata: `resume` non
+    /// basta a dire "Claude", dopo un restore nel pty può girare tutt'altro): lì il nome del
+    /// processo è l'informazione più onesta. Niente promessa di ripresa: chiudere la tab butta
+    /// anche il suo `ResumeBinding`.
     private func closeInfo(process: String, agentState: AgentState) -> String {
         switch agentState {
         case .running:
             "Claude sta lavorando in questa tab. Chiudendo, la sessione verrà interrotta."
         case .needsInput:
             "Claude sta aspettando una tua risposta. Chiudendo, la sessione verrà interrotta."
-        default:
+        case .idle, .error:
+            "In questa tab c'è una sessione Claude aperta. Chiudendo, verrà interrotta."
+        case .unknown:
             "«\(process)» è in esecuzione. Chiudendo la tab il processo verrà terminato."
         }
     }
