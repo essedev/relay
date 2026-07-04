@@ -389,9 +389,18 @@ payload diversi; allora si introduce l'envelope.
   "state": "needs_input",
   "source": "hook",
   "confidence": 1,
-  "timestamp": "2026-07-02T08:45:48Z"
+  "timestamp": "2026-07-02T08:45:48.123Z"
 }
 ```
+
+Ordine di consegna: ogni hook è un processo effimero con la sua connessione e il receiver drena
+le connessioni in parallelo (un client bloccato non deve fermare gli altri), quindi il trasporto
+non garantisce l'ordine tra eventi. Lo ristabiliscono a valle tre pezzi: i timestamp con frazioni
+di secondo sul filo (millisecondi; il decode resta tollerante col formato storico senza frazioni),
+il pump FIFO del coordinatore (un `AsyncStream` con un solo consumer sul MainActor - mai un `Task`
+per evento, che non preserva l'ordine di enqueue) e la guardia di monotonicità negli store, che
+scarta gli eventi più vecchi dell'ultimo applicato per tab (`WorkspaceStore.applyAgentState`) e
+per sessione (`AgentSessionStore.apply`).
 
 ### Hook Installer
 

@@ -141,6 +141,73 @@ private func makeFixture() -> Fixture {
     #expect(emitted.isEmpty)
 }
 
+// MARK: - Guardia di monotonicità (eventi consegnati fuori ordine)
+
+/// Gli hook sono processi concorrenti: un evento può arrivare dopo uno più recente. Lo stantio va
+/// scartato, non applicato: un running residuo non deve coprire il completamento già arrivato.
+@Test @MainActor func staleEventIsDropped() {
+    let fixture = makeFixture()
+    let tabID = fixture.hiddenTab.id.uuidString
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 5)
+    )
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 6))
+
+    let applied = fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 5.5)
+    )
+    #expect(applied) // la tab esiste: l'evento è stato gestito (scartandolo)
+    #expect(fixture.hiddenTab.agentState == .idle)
+    #expect(fixture.hiddenTab.attention == .unseen)
+    #expect(fixture.hiddenTab.lastEventAt == Date(timeIntervalSince1970: 6))
+}
+
+@Test @MainActor func staleEventDoesNotNotifyNorClearResume() {
+    let fixture = makeFixture()
+    var emitted: [AgentNotification] = []
+    fixture.store.onNotifiableTransition = { emitted.append($0) }
+    let tabID = fixture.hiddenTab.id.uuidString
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        agent: "claude",
+        sessionId: "s1",
+        state: .running,
+        at: Date(timeIntervalSince1970: 10)
+    )
+    #expect(fixture.hiddenTab.resume != nil)
+
+    // SessionEnd in ritardo: non azzera il resume della sessione viva.
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .unknown,
+        at: Date(timeIntervalSince1970: 9)
+    )
+    // needs_input in ritardo: niente notifica per uno stato ormai superato.
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .needsInput,
+        at: Date(timeIntervalSince1970: 8)
+    )
+    #expect(fixture.hiddenTab.agentState == .running)
+    #expect(fixture.hiddenTab.resume != nil)
+    #expect(emitted.isEmpty)
+}
+
+@Test @MainActor func equalTimestampStillApplies() {
+    // Due hook nello stesso millisecondo (granularità del wire): vince l'ultimo arrivato. La
+    // guardia scarta solo lo strettamente più vecchio.
+    let fixture = makeFixture()
+    let tabID = fixture.hiddenTab.id.uuidString
+    let timestamp = Date(timeIntervalSince1970: 7)
+    fixture.store.applyAgentState(paneId: tabID, state: .running, at: timestamp)
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: timestamp)
+    #expect(fixture.hiddenTab.agentState == .idle)
+}
+
 @Test @MainActor func emitsCompletedNotificationOnlyWhenHidden() {
     let fixture = makeFixture()
     var emitted: [AgentNotification] = []

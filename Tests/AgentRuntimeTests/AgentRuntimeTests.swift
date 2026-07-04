@@ -34,7 +34,13 @@ private func waitUntil(
     return await condition()
 }
 
-private func sampleEvent(sessionId: String, state: AgentState) -> AgentStateEvent {
+private func sampleEvent(
+    sessionId: String,
+    state: AgentState,
+    // Frazioni binarie esatte (.0, .25, .75): il wire ha precisione al millisecondo e il
+    // round-trip resta confrontabile con ==.
+    timestamp: Date = Date(timeIntervalSince1970: 1000)
+) -> AgentStateEvent {
     AgentStateEvent(
         agent: "claude",
         sessionId: sessionId,
@@ -42,9 +48,7 @@ private func sampleEvent(sessionId: String, state: AgentState) -> AgentStateEven
         state: state,
         source: .hook,
         confidence: 1,
-        // Secondi interi: la strategia ISO 8601 ha precisione al secondo, così il round-trip è
-        // esatto.
-        timestamp: Date(timeIntervalSince1970: 1000)
+        timestamp: timestamp
     )
 }
 
@@ -89,4 +93,38 @@ private func sampleEvent(sessionId: String, state: AgentState) -> AgentStateEven
     #expect(throws: UnixSocketError.self) {
         try AgentEventClient.send(sampleEvent(sessionId: "x", state: .idle), to: path)
     }
+}
+
+// MARK: - Wire coding (ordine sub-secondo + retrocompatibilità)
+
+@Test func wirePreservesSubSecondTimestampOrdering() throws {
+    // Due eventi nello stesso secondo: senza frazioni sul filo i timestamp collasserebbero e la
+    // guardia di monotonicità negli store non distinguerebbe più lo stantio dal fresco.
+    let earlier = sampleEvent(
+        sessionId: "s",
+        state: .running,
+        timestamp: Date(timeIntervalSince1970: 1000.25)
+    )
+    let later = sampleEvent(
+        sessionId: "s",
+        state: .idle,
+        timestamp: Date(timeIntervalSince1970: 1000.75)
+    )
+    let encoder = AgentWireCoding.makeEncoder()
+    let decoder = AgentWireCoding.makeDecoder()
+    let decodedEarlier = try decoder.decode(AgentStateEvent.self, from: encoder.encode(earlier))
+    let decodedLater = try decoder.decode(AgentStateEvent.self, from: encoder.encode(later))
+    #expect(decodedEarlier.timestamp == earlier.timestamp)
+    #expect(decodedEarlier.timestamp < decodedLater.timestamp)
+}
+
+@Test func decoderAcceptsLegacyWholeSecondTimestamps() throws {
+    // Un CLI più vecchio manda ISO 8601 senza frazioni: deve restare decodificabile.
+    let line = """
+    {"agent":"claude","sessionId":"s","paneId":null,"state":"idle","source":"hook",\
+    "confidence":1,"timestamp":"1970-01-01T00:16:40Z"}
+    """
+    let event = try AgentWireCoding.makeDecoder()
+        .decode(AgentStateEvent.self, from: Data(line.utf8))
+    #expect(event.timestamp == Date(timeIntervalSince1970: 1000))
 }

@@ -287,6 +287,9 @@ public final class WorkspaceStore {
     /// non la stai guardando davvero, anche se è la tab selezionata, quindi il completamento resta
     /// segnalato e la notifica parte. `appActive` lo passa il composition root (`NSApp.isActive`);
     /// default `true` per i test/chiamate diretti.
+    /// Un evento più vecchio dell'ultimo applicato alla tab è stantio e viene scartato (guardia di
+    /// monotonicità sul `timestamp`): gli hook sono processi concorrenti e il trasporto non
+    /// garantisce l'ordine di consegna.
     /// Ritorna `false` se `paneId` non è un UUID valido o non corrisponde a nessuna tab (no-op).
     @discardableResult
     public func applyAgentState(
@@ -301,6 +304,11 @@ public final class WorkspaceStore {
         guard let tabID = UUID(uuidString: paneId) else { return false }
         for workspace in workspaces {
             guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
+            // Guardia di monotonicità: un evento consegnato in ritardo non deve far regredire la
+            // tab (un running residuo che copre lo Stop già applicato, un SessionEnd stantio che
+            // azzererebbe il resume vivo). Si scarta solo lo strettamente più vecchio: a parità
+            // di timestamp (stesso millisecondo sul filo) vince l'ultimo arrivato, come prima.
+            if let last = tab.lastEventAt, timestamp < last { return true }
             let isSelected = selectedWorkspaceID == workspace.id
                 && workspace.selectedTabID == tab.id
             let isVisible = isSelected && appActive

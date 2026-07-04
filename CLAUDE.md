@@ -156,6 +156,14 @@ girano solo dal bundle (`make run-app`).
 - Agent binding: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'env della surface e torna dall'hook
   come `paneId`. Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio è
   gestito da `unlink` prima del `bind`, quindi non blocca il riavvio.
+- Ordine degli eventi agente: ogni hook è un processo effimero con la sua connessione e il
+  receiver drena in parallelo (un client bloccato non ferma gli altri), quindi il trasporto NON
+  garantisce l'ordine. Lo ristabiliscono il pump FIFO in `AgentCoordinator` (AsyncStream, un solo
+  consumer - mai `Task {}` per evento, non preservano l'ordine di enqueue) e la guardia di
+  monotonicità sui timestamp negli store (`applyAgentState` e `AgentSessionStore` scartano gli
+  eventi più vecchi dell'ultimo applicato). Il wire codifica le date ISO 8601 **con millisecondi**
+  (decode tollerante col vecchio formato a secondi interi); un'app vecchia però non decodifica gli
+  eventi di un CLI nuovo: dopo un cambio al wire ricompila/reinstalla entrambi.
 - Shift+Invio / kitty keyboard: la surface inietta `KITTY_WINDOW_ID=1` nell'env
   (`SwiftTermEngine.start`), che dichiara il supporto al kitty keyboard protocol (SwiftTerm lo
   implementa: query + encoding). Claude Code attiva il protocollo solo per terminali noti; **non**

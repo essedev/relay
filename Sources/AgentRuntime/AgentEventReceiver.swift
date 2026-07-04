@@ -13,6 +13,10 @@ public final class AgentEventReceiver: @unchecked Sendable {
     private let path: String
     private let onEvent: @Sendable (AgentStateEvent) -> Void
     private let queue = DispatchQueue(label: "dev.relay.agent-receiver")
+    /// Drain delle connessioni in parallelo, deliberatamente: un client che si connette e non
+    /// chiude (wedged) non deve fermare gli altri. Il prezzo è che l'ordine di consegna tra
+    /// connessioni NON è garantito; lo ristabiliscono a valle il pump FIFO del coordinatore e la
+    /// guardia di monotonicità sui timestamp negli store.
     private let readQueue = DispatchQueue(
         label: "dev.relay.agent-receiver.read",
         attributes: .concurrent
