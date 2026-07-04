@@ -164,6 +164,12 @@ girano solo dal bundle (`make run-app`).
   eventi più vecchi dell'ultimo applicato). Il wire codifica le date ISO 8601 **con millisecondi**
   (decode tollerante col vecchio formato a secondi interi); un'app vecchia però non decodifica gli
   eventi di un CLI nuovo: dopo un cambio al wire ricompila/reinstalla entrambi.
+- Mapping hook -> stato in due metà, entrambe in `HookInstaller`: statico per evento
+  (`ClaudeHookInstaller.specs`, finisce nei comandi di settings.json) e dipendente dal payload
+  (`ClaudeHookStateMapper`, applicato dal CLI): il `PreToolUse` di un tool che apre un prompt
+  bloccante (`AskUserQuestion`, `ExitPlanMode`) diventa `needs_input` - quei tool non passano da
+  `PermissionRequest` né producono `Stop` finché non rispondi; senza correzione la tab resterebbe
+  `running` per sempre con la domanda aperta.
 - Shift+Invio / kitty keyboard: la surface inietta `KITTY_WINDOW_ID=1` nell'env
   (`SwiftTermEngine.start`), che dichiara il supporto al kitty keyboard protocol (SwiftTerm lo
   implementa: query + encoding). Claude Code attiva il protocollo solo per terminali noti; **non**

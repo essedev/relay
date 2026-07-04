@@ -354,7 +354,7 @@ Mapping Claude v1:
 | --- | --- |
 | `SessionStart` | `idle` |
 | `UserPromptSubmit` | `running` |
-| `PreToolUse` | `running` |
+| `PreToolUse` | `running` (`needs_input` se il tool apre un prompt, vedi sotto) |
 | `PostToolUse` | `running` |
 | `PermissionRequest` | `needs_input` |
 | `Stop` | `idle` |
@@ -363,6 +363,15 @@ Mapping Claude v1:
 `SubagentStop` non è mappato: lo stop di un subagent non è il completamento del pane. Nomi hook
 confermati sulla doc Claude Code corrente (luglio 2026). Nota: nello spike gli stati usano i nomi
 Otty (`processing`, `awaiting`, `idle`); nell'app si usano i nomi prodotto qui sopra.
+
+I tool che aprono un prompt bloccante (`AskUserQuestion`, `ExitPlanMode`) non passano da
+`PermissionRequest` (non sono permessi) e non producono `Stop` finché l'utente non risponde: il
+loro `PreToolUse` viene corretto in `needs_input` dal CLI (`ClaudeHookStateMapper`, che legge
+`hook_event_name` e `tool_name` dallo stdin dell'hook); il `PostToolUse`, che arriva solo dopo la
+risposta, riporta `running`. Senza questa correzione una tab con una domanda a scelta multipla
+aperta resterebbe `running` per sempre. Il mapping è quindi in due metà, entrambe in
+`HookInstaller`: statico per evento (`ClaudeHookInstaller.specs`, finisce nei comandi di
+settings.json) e dipendente dal payload (`ClaudeHookStateMapper`, applicato dal CLI).
 
 Il `SessionStart` porta un `source`: su `clear` (`/clear`, `/new`) e `resume` il CLI marca l'evento
 `resetsAttention` (lo `state` resta `idle`), che nel reducer risolve il completamento in sospeso -

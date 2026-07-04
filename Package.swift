@@ -57,7 +57,7 @@ let package = Package(
         .testTarget(name: "AgentProtocolTests", dependencies: ["AgentProtocol"]),
         .testTarget(name: "WorkspaceModelTests", dependencies: ["WorkspaceModel", "AgentProtocol"]),
         .testTarget(name: "AgentRuntimeTests", dependencies: ["AgentRuntime", "AgentProtocol"]),
-        .testTarget(name: "HookInstallerTests", dependencies: ["HookInstaller"]),
+        .testTarget(name: "HookInstallerTests", dependencies: ["HookInstaller", "AgentProtocol"]),
         .testTarget(name: "TerminalHostUITests", dependencies: ["TerminalHostUI"]),
         .testTarget(
             name: "LayoutStoreTests",

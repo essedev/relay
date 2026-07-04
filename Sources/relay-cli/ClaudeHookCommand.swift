@@ -1,6 +1,7 @@
 import AgentProtocol
 import AgentRuntime
 import Foundation
+import HookInstaller
 
 /// Comando invocato dagli hook Claude: `relay-cli claude-hook <state>`. Legge lo stdin JSON di
 /// Claude (per `session_id` e il `source` del SessionStart) e `RELAY_TAB_ID` dall'env (binding
@@ -8,7 +9,7 @@ import Foundation
 /// exit 0 silenzioso, così un problema di Relay non rompe mai Claude.
 enum ClaudeHookCommand {
     static func run(stateArg: String?) -> Int32 {
-        guard let stateArg, let state = AgentState(rawValue: stateArg) else { return 0 }
+        guard let stateArg, let requested = AgentState(rawValue: stateArg) else { return 0 }
 
         let env = ProcessInfo.processInfo.environment
         let paneId = env["RELAY_TAB_ID"]
@@ -19,7 +20,13 @@ enum ClaudeHookCommand {
             agent: "claude",
             sessionId: sessionId(from: payload, env: env) ?? paneId ?? "unknown",
             paneId: paneId,
-            state: state,
+            // Il PreToolUse di un tool che apre un prompt bloccante (AskUserQuestion,
+            // ExitPlanMode) è "aspetta input", non "sta lavorando": vedi il mapper.
+            state: ClaudeHookStateMapper.effectiveState(
+                requested: requested,
+                hookEventName: payload?["hook_event_name"] as? String,
+                toolName: payload?["tool_name"] as? String
+            ),
             source: .hook,
             confidence: 1,
             timestamp: Date(),
