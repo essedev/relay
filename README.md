@@ -4,9 +4,10 @@ Terminale macOS nativo per lavorare con molti coding agent in parallelo: stati a
 affidabili (via hook Claude Code), organizzazione a workspace (sidebar con pin e riordino,
 dashboard overview), veloce e leggero.
 
-Stato: V0 (Workspace -> Tab -> terminale) + agent runtime. Engine v1 SwiftTerm dietro l'astrazione
-`TerminalEngine` (libghostty backend futuro). Decisioni, benchmark e log della ricerca:
-`docs/research/` (`CYCLES.md`).
+Stato: baseline chiuso e distribuito via Homebrew tap. Workspace -> Tab -> terminale, agent runtime
+con badge/notifiche, persistence del layout, resume assistito, dashboard di triage, dodici temi.
+Engine v1 SwiftTerm dietro l'astrazione `TerminalEngine` (libghostty backend futuro). Decisioni,
+benchmark e log della ricerca: `docs/research/` (`CYCLES.md`).
 
 ## Installazione
 
@@ -51,8 +52,9 @@ Developer ID + notarizzazione non è ancora in piedi.
 - `Cmd+O` apri una cartella come workspace.
 - `Cmd+T` nuova tab, `Cmd+W` chiudi tab, `Cmd+Shift+W` chiudi workspace.
 - `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi, fissi).
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` scorri le tab, `Cmd+Option +/-` scorri i workspace.
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` scorri le tab, `Cmd+Option+Giù` / `Cmd+Option+Su` scorri i workspace.
 - `Cmd+J` / `Cmd+Shift+J` salta alla prossima/precedente tab che richiede attenzione.
+- `Cmd+D` apre la dashboard di triage delle sessioni agente.
 - `Cmd+F` cerca nel terminale, `Cmd+G` / `Cmd+Shift+G` risultato successivo/precedente,
   `Cmd+K` pulisce il terminale.
 - `Cmd +/-` zoom del terminale, `Cmd+0` dimensione originale.
@@ -109,7 +111,7 @@ simulate concorrenti (sempre via socket reale).
 ## Documentazione
 
 - `docs/ARCHITECTURE.md` - tesi di prodotto, moduli, budget, engine, anti-pattern.
-- `docs/ROADMAP.md` - cosa manca e in che ordine (prossimo: agent runtime + badge).
+- `docs/ROADMAP.md` - cosa è fatto e cosa manca (baseline chiuso; prossimo a scelta).
 - `docs/CONVENTIONS.md` - regole di codice, test, processo.
 - `docs/STATE_SCHEMA.md` - schema di persistence e protocollo eventi agente.
 - `CLAUDE.md` - guida operativa per l'agent.

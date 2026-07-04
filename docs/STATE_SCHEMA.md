@@ -66,9 +66,15 @@ Esempio `agent.state` (`AgentStateEvent`, esattamente ciò che passa sul socket)
   "state": "needs_input",
   "source": "hook",
   "confidence": 1,
-  "timestamp": "2026-07-02T08:45:48.123Z"
+  "timestamp": "2026-07-02T08:45:48.123Z",
+  "resetsAttention": false
 }
 ```
+
+`resetsAttention` (default `false`, di solito omesso dai CLI vecchi) è `true` solo sui `SessionStart`
+di `clear`/`resume`: ri-prese attive che spengono il marker in sospeso. `sessionId` è vuoto quando
+la sessione è sconosciuta (lo store salta il resume binding); un `SessionStart` con `source=compact`
+non viene inviato affatto (rumore, fingerebbe un completamento).
 
 Vietato nel payload: prompt utente, token, chiavi, credenziali, contesto sensibile.
 
@@ -106,11 +112,14 @@ ResumeBinding     { agent, sessionId, label }
 
 L'ordine dei workspace è l'ordine dell'array (riordinabile). `Tab.currentDirectory` è la cwd
 riportata dalla shell via OSC 7 (alimenta titolo, sottotitolo e l'ereditarietà cwd di `Cmd+T`). Lo
-stato agente (`agentState`/`lastEventAt`) è runtime e non si persiste, con due eccezioni mirate:
-`resume` (la sessione ripristinabile: alimenta la ResumeBar al primo focus post-restore) e
-`pendingSince` (il completamento "in sospeso" e la sua età; al restore anche `unseen` degrada a
-`pending`, il segnale forte sarebbe stantio). Le surface del terminale NON sono nel model: sono
-legate per `Tab.id` a runtime.
+stato agente (`agentState`/`lastEventAt`/`attentionSince`) è runtime e non si persiste, con due
+eccezioni mirate: `resume` (la sessione ripristinabile: alimenta la ResumeBar al primo focus
+post-restore) e `pendingSince` (il completamento "in sospeso"). Al restore anche `unseen` degrada a
+`pending` (il segnale forte sarebbe stantio) e il clock della decadenza (`attentionSince`) riparte
+dal boot, così un completamento mai visto non viene spazzato subito. Nota: `attentionSince` è il
+clock del marker (distinto da `lastEventAt`, che avanza a ogni evento per la guardia di
+monotonicità); guida la decadenza e l'età del sospeso, così un no-op non li falsifica. Le surface
+del terminale NON sono nel model: sono legate per `Tab.id` a runtime.
 
 Resume: solo `agent`, `sessionId`, `label` (titolo della tab alla cattura). Il comando è derivato
 (`\(agent) --resume <sessionId>`), mai persistito. Vietato: prompt, token, credenziali.

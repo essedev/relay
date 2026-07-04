@@ -17,8 +17,7 @@ in `ARCHITECTURE.md`.
 ## Milestone 1 - Agent runtime + badge (fatto)
 
 Relay è agent-aware: un evento sul socket aggiorna il badge della tab legata via `RELAY_TAB_ID`,
-senza parsing dell'output. Restano da chiudere a mano solo la verifica GUI live (badge che cambia
-con una sessione Claude reale) e le notifiche macOS vere (richiedono il bundle `.app`, Milestone 4).
+senza parsing dell'output. Notifiche macOS e verifica live con Claude reale poi chiuse (M4 + a mano).
 
 Obiettivo: rendere Relay agent-aware. È il differenziatore. Pipeline hook -> stato già validata
 in `docs/research/spikes/ourterm-spike` (Cycle 1); qui la si porta nell'app.
@@ -136,7 +135,7 @@ Shortcuts). Resta aperto (later): import da config Ghostty.
   `dev.relay.app`) + icona + firma ad-hoc; `make run-app` lo avvia. Sblocca l'uso fuori da `swift run`.
 - Icona dell'app generata proceduralmente (`bundle/make-icon.swift` -> `bundle/AppIcon.icns` via
   `make icon`): prompt terminale (chevron + cursore a blocco) su squircle scuro.
-- Installer locale non firmato: `make dmg` (`.build/Relay.dmg`, drag su /Applications) e
+- Installer locale non firmato: `make dmg` (`.build/Relay-<version>.dmg`, drag su /Applications) e
   `make install-app`.
 - Notifiche macOS su `needs_input`/completato (`NotificationCoordinator` + `UNUserNotificationCenter`,
   solo dal bundle), classificazione pura nel reducer, con impostazioni (categoria Notifications:
@@ -156,7 +155,7 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
   persistente: punto dimesso in sidebar, niente float) -> risolve solo la ripresa vera (prompt ->
   running), il dismiss esplicito o la chiusura tab. Il sospeso sopravvive alla fine sessione e al
   riavvio (`pendingSince` nel `TabSnapshot`, campo additivo senza bump).
-- **Decadenza opzionale** dei sospesi (`AppSettings.pendingDecayHours`, default 0 = mai; 4/12/24h
+- **Decadenza** dei sospesi (`AppSettings.pendingDecayHours`, default **12h**; `0` = mai; 4/12/24h
   in Impostazioni > Agents), applicata a boot/foreground/apertura dashboard, senza timer.
 - **Dashboard overlay** (`Cmd+D`, rimappabile): griglia flat delle sessioni agente ordinata per
   urgenza (needs_input > error > unseen > pending > running > idle/resume, poi recency), card con

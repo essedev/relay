@@ -1,7 +1,7 @@
 # Conventions
 
-Bozza per il repo app (diventerà `docs/CONVENTIONS.md`). Struttura moduli e regole di
-dipendenza sono in `ARCHITECTURE.md`: questo file copre stile, qualità, test e processo.
+Regole di stile, qualità, test e processo. Struttura moduli e regole di dipendenza sono in
+`ARCHITECTURE.md`.
 
 ## Lingua
 
@@ -20,8 +20,9 @@ dipendenza sono in `ARCHITECTURE.md`: questo file copre stile, qualità, test e 
 - Vietato il pattern `AppDelegate+Feature.swift` come contenitore di logica: le extension
   servono per conformance e helper locali, non per spalmare un god object su 30 file.
 - No force unwrap / force try nel codice di produzione (ok nei test).
-- No `print`: logging solo via `os.Logger`, subsystem unico dell'app, category = modulo.
-  Mai segreti o payload utente nei log.
+- No `print`: logging solo via `os.Logger` (`Core.RelayLog`), subsystem unico dell'app, category =
+  modulo. Mai segreti o payload utente nei log. Unica eccezione: `relay-cli`, dove `print` è
+  l'output utente della CLI.
 
 ## Naming
 
@@ -33,9 +34,14 @@ dipendenza sono in `ARCHITECTURE.md`: questo file copre stile, qualità, test e 
 ## Concurrency
 
 - Swift 6 strict concurrency abilitata (`complete`) dal primo giorno.
-- Store osservati dalla UI: `@MainActor` + Observation framework.
-- Runtime (socket receiver, timeline): actor o tipi `Sendable` espliciti.
-- Niente `DispatchQueue` ad hoc: structured concurrency (`Task`, `TaskGroup`, `AsyncStream`).
+- Store osservati dalla UI: Observation framework, confinati al MainActor. `AppSettings` è
+  `@MainActor`; `WorkspaceStore`/`Workspace`/`Tab` restano non-`@MainActor` ma non-`Sendable`, e
+  ogni chiamante (composition root, coordinator, autosave) è già sul MainActor.
+- Runtime (socket receiver): `@unchecked Sendable` con stato confinato a una `DispatchQueue`
+  dedicata; il resto usa tipi `Sendable` espliciti.
+- Structured concurrency (`Task`, `AsyncStream`) come default; le `DispatchQueue` dedicate sono
+  ammesse dove servono davvero (il receiver socket con `DispatchSource` per accept/read e il vnode
+  watcher del self-heal).
 
 ## Error Handling
 
@@ -50,19 +56,19 @@ Regola base: logica nuova = test nello stesso commit. Bug fix = regression test 
 fallisce.
 
 - **Unit** (Swift Testing, `swift test` per package): tutta la logica pura. In particolare:
-  - mapping eventi -> stati: table-driven, la tabella in `ARCHITECTURE.md` è la fixture;
-  - aggregazione severità pane -> tab -> workspace;
-  - policy lifecycle surface (lazy/LRU) come tipo puro;
-  - parsing/serializzazione protocollo con fixture JSON committate.
-- **Installer**: fixture di `settings.json` reali (vuoto, con Otty, con hook utente, JSON
-  rotto) -> assert su idempotenza, backup, preservazione, uninstall pulito.
-- **Integration**: receiver socket end-to-end (avvia receiver, invia JSON lines, assert sullo
-  store). Niente mock del trasporto.
-- **UI**: minimale. Smoke di avvio app; nessuna suite UI fragile. La correttezza sta nei
-  moduli sotto.
-- **Performance**: harness dedicato che misura contro i budget di `ARCHITECTURE.md` (latenza
-  input, tempo di realize surface, memoria per surface). Eseguito manualmente con `make perf`,
-  in CI solo come smoke non bloccante.
+  - mapping eventi -> stati (`ClaudeHookStateMapper`, `ClaudeHookEvent`);
+  - transizioni del marker di attenzione e aggregazione badge;
+  - policy lifecycle surface (lazy/LRU) come tipo puro (`SurfaceEvictionPolicy`);
+  - serializzazione protocollo (`AgentStateEvent` round-trip) e persistence layout.
+- **Installer**: fixture di `settings.json` (vuoto, con Otty, con hook utente) -> assert su
+  idempotenza, backup + pruning, preservazione, uninstall pulito, round-trip su disco.
+- **Integration**: receiver socket end-to-end (avvia receiver, invia JSON lines, assert sul
+  callback), incluso il self-heal (rebind quando il socket sparisce). Niente mock del trasporto.
+- **UI**: minimale. La correttezza sta nei moduli sotto; non c'è una suite UI fragile né uno smoke
+  di avvio dell'app (l'eseguibile non ha un test target).
+- **Performance**: strumentazione integrata accesa da `RELAY_PERF=1` (`PerfSampler`: latenza input,
+  RSS, surface vive), misurata a mano contro i budget di `ARCHITECTURE.md`. Numeri e metodo in
+  `docs/research/PERF.md`. Non c'è un target `make perf`.
 
 ## Definition Of Done
 
@@ -87,22 +93,24 @@ Una feature è finita quando:
 Target standard (convenzione Yellow):
 
 ```text
-make install    # bootstrap: toolchain check, GhosttyKit fetch/build
-make build      # build app + CLI
-make run        # build e lancia l'app
+make install    # swift package resolve
+make build      # build (debug)
+make run        # build e lancia l'app (senza notifiche)
 make test       # unit + integration di tutti i package
-make lint       # SwiftLint + SwiftFormat --lint
+make lint       # SwiftFormat --lint + SwiftLint --strict
 make format     # SwiftFormat write
-make check      # format-check + lint + build + test
-make perf       # harness performance contro i budget
-make clean
+make check      # lint + build + test (definition of done)
+make bundle / run-app / install-app / dmg / release   # .app, installer, pubblicazione
+make icon / clean
 ```
+
+Vedi `make help` per l'elenco completo.
 
 ## CI
 
-- GitHub Actions, runner macOS: `make check` su ogni push/PR.
-- Cache di GhosttyKit e delle build SwiftPM: target < 10 minuti.
-- CI attiva dal primo commit del repo, non "quando avremo tempo".
+- GitHub Actions, runner macOS: `make check` + `swift build -c release` su ogni push/PR
+  (`.github/workflows/ci.yml`).
+- CI attiva dal primo commit del repo.
 
 ## Documentazione Del Repo App
 

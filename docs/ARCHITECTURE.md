@@ -61,13 +61,15 @@ verificata contro questa lista.
 | Latenza input aggiunta dall'app shell | < 1 frame (16ms) p99 |
 | Switch workspace con surface viva | < 50ms |
 | Switch workspace con surface da realizzare | < 300ms percepiti |
-| Renderer vivi simultanei | pane visibili + 3 recenti (LRU) |
-| Scrollback per surface | 10k righe default, configurabile |
+| Renderer vivi simultanei | cap LRU (default 12) sulle surface vive |
+| Memoria per surface | ~0.3-0.5 MB idle (misura M3) |
 | Costo di un workspace mai aperto | ~0 (solo metadata) |
 
 I numeri erano target iniziali; le misure di Milestone 3 (`docs/research/PERF.md`) confermano il
 budget di latenza input (max 2.4µs, ~4 ordini di grandezza di margine) e tarano il cap LRU sulla
-memoria per surface.
+memoria per surface. **Cap dello scrollback per surface**: previsto ma non ancora implementato -
+oggi la leva di memoria è solo il cap LRU (surface idle sfrattate), non un limite di righe per
+surface; lo scrollback usa il default di SwiftTerm.
 
 ## Modello Di Prodotto
 
@@ -98,24 +100,21 @@ Window
 macOS App
   App Shell (AppKit)
     Window Controller
-    Split Pane Tree + Focus Routing
-    Terminal Host View
-    Keyboard Shortcuts
+    Terminal Host View + Focus Routing
+    Keyboard Shortcuts (event monitor)
 
   Terminal Runtime
-    GhosttyKit / libghostty
-    Surface Lifecycle Manager (lazy + LRU renderer)
+    SwiftTerm (dietro TerminalEngine; libghostty futuro)
+    Surface Registry (lazy + LRU)
     PTY Session
 
   Agent Runtime
-    Local Socket Receiver
-    Agent Session Store
-    Agent Event Timeline
+    Local Socket Receiver (+ self-heal)
     Hook Installer
 
   Workspace Model
-    Workspace / Tab / Pane Store
-    Ordinamento, pin, aggregazione stati
+    Workspace / Tab Store
+    Ordinamento, pin, aggregazione stati, attention
     Persistence + Restore
 
   UI Panels (SwiftUI isolato)
@@ -123,31 +122,35 @@ macOS App
     Dashboard
     Settings
 
-  CLI
-    ourterm hooks setup/uninstall/status
-    ourterm state:claude ...
+  CLI (relay-cli)
+    hooks setup/uninstall/status
+    claude-hook <state>, simulate
 ```
+
+Nota: non c'è (ancora) una timeline degli eventi né un session store persistente: `AgentRuntime`
+fa solo trasporto, il binding evento -> tab e l'aggregazione vivono in `WorkspaceModel`.
 
 ## Struttura Repo E Moduli
 
-Monolite modulare: una sola app, molti package SwiftPM locali. Il confine tra moduli è imposto
-dal compilatore (dipendenze dichiarate in `Package.swift`), non dalla buona volontà. È la
+Monolite modulare: **un solo package SwiftPM** con molti target (moduli). Il confine tra moduli è
+imposto dal compilatore (dipendenze dichiarate in `Package.swift`), non dalla buona volontà. È la
 contromisura strutturale ai file da 12-16k righe e agli `AppDelegate+X` di cmux.
 
 ```text
 repo/
-  App/                  target app minimale: composition root, wiring, entitlements
-  Packages/
-    Core/               primitivi condivisi: ID, logging, errori; nessuna dipendenza
-    AgentProtocol/      tipi evento, stati, codec JSON; puro, niente I/O
-    AgentRuntime/       socket receiver, session store, timeline
-    WorkspaceModel/     store workspace/tab/pane, aggregazione stati, persistence
-    TerminalEngine/     wrapper GhosttyKit, surface lifecycle (lazy + LRU)
-    TerminalHostUI/     AppKit: host view, split tree, focus, tastiera
-    Panels/             SwiftUI: sidebar, dashboard, settings
-    HookInstaller/      manipolazione ~/.claude/settings.json
+  Sources/
+    Core/               primitivi condivisi: logging, tema, OSC7, escaping; nessuna dipendenza
+    AgentProtocol/      tipi evento e stati (AgentStateEvent); puro, niente I/O
+    AgentRuntime/       socket receiver + client, runtime paths; puro, niente AppKit
+    WorkspaceModel/     store workspace/tab, reducer stati, attention, persistence, settings
+    TerminalEngine/     backend SwiftTerm dietro un'astrazione, surface lifecycle
+    TerminalHostUI/     AppKit: host view, surface registry (lazy + LRU), attention ring
+    Panels/             SwiftUI: sidebar, tab bar, dashboard, settings, badge
+    HookInstaller/      manipolazione ~/.claude/settings.json + mapping hook -> stato
     LayoutStore/        persistence layout: snapshot JSON su disco (I/O), path iniettato
-    CLI/                eseguibile `ourterm`
+    relay/              eseguibile `relay` (RelayApp): composition root e wiring
+    relay-cli/          eseguibile `relay-cli` (CLI): hooks setup, claude-hook, simulate
+  Tests/
   docs/
   Makefile
 ```
@@ -155,13 +158,14 @@ repo/
 Regole di dipendenza:
 
 - solo verso il basso: UI -> runtime/model -> protocol -> Core; mai il contrario;
-- `AgentProtocol`, `HookInstaller` e la logica di `WorkspaceModel` non importano
-  AppKit/SwiftUI: unit test veloci con `swift test`, senza simulatore;
+- `AgentProtocol`, `AgentRuntime`, `HookInstaller` e `WorkspaceModel` non importano AppKit/SwiftUI:
+  unit test veloci con `swift test`, senza simulatore;
 - l'engine concreto (SwiftTerm oggi, libghostty domani) è importato solo da `TerminalEngine`;
   il resto dell'app parla con `TerminalEngine`, non con l'engine. La policy del lifecycle
   (decisioni lazy/LRU) è un tipo puro testabile senza AppKit;
-- `CLI` dipende solo da `AgentProtocol`, `HookInstaller` e `Core`: niente dipendenze app;
-- `App` è solo composition root: se cresce, manca un modulo.
+- `relay-cli` dipende da `Core`, `AgentProtocol`, `AgentRuntime` (client socket) e `HookInstaller`:
+  niente dipendenze dal target app;
+- `relay` è solo composition root: se cresce oltre il wiring, manca un modulo.
 
 Disciplina di codice, test e processo: `CONVENTIONS.md` (bozza qui, poi `docs/CONVENTIONS.md`
 nel repo app).
@@ -196,8 +200,9 @@ Regole:
   agente che lavora in background. Ciò che si toglie ai pane nascosti è la view di rendering,
   non il processo.
 - La creazione è sempre lazy: al restore nessuna view nasce; nasce al primo focus.
-- Lo scrollback è cappato per surface: i transcript lunghi di Claude non devono gonfiare la
-  memoria di ogni pane vivo.
+- Un cap di scrollback per surface è previsto (i transcript lunghi di Claude non devono gonfiare la
+  memoria di ogni pane vivo), ma **non ancora implementato**: oggi la memoria è tenuta bassa solo
+  dallo sfratto LRU delle surface idle.
 - La chiusura dell'app termina i PTY: il restore riparte da `unrealized` + resume command.
 
 Con SwiftTerm l'unità viva è `LocalProcessTerminalView` (NSView + PTY). Il lifecycle lazy/LRU
@@ -331,11 +336,12 @@ reale** (`AgentEventClient` -> receiver -> coordinator): nel model non esiste un
 
 ### Responsabilità
 
-- ricevere eventi dagli hook;
-- normalizzare stati;
-- legare sessione agente a pane;
-- mantenere snapshot corrente e timeline eventi;
-- notificare gli store UI.
+- ricevere eventi dagli hook (trasporto Unix socket);
+- decodificarli in `AgentStateEvent`;
+- consegnarli al composition root, che li lega alla tab (`paneId`) e li applica al model.
+
+Il binding sessione -> tab, l'aggregazione e la timeline (non ancora implementata) vivono a valle,
+in `WorkspaceModel`, non qui: `AgentRuntime` resta puro trasporto.
 
 ### Fonti Stato
 
@@ -407,9 +413,8 @@ le connessioni in parallelo (un client bloccato non deve fermare gli altri), qui
 non garantisce l'ordine tra eventi. Lo ristabiliscono a valle tre pezzi: i timestamp con frazioni
 di secondo sul filo (millisecondi; il decode resta tollerante col formato storico senza frazioni),
 il pump FIFO del coordinatore (un `AsyncStream` con un solo consumer sul MainActor - mai un `Task`
-per evento, che non preserva l'ordine di enqueue) e la guardia di monotonicità negli store, che
-scarta gli eventi più vecchi dell'ultimo applicato per tab (`WorkspaceStore.applyAgentState`) e
-per sessione (`AgentSessionStore.apply`).
+per evento, che non preserva l'ordine di enqueue) e la guardia di monotonicità nello store, che
+scarta gli eventi più vecchi dell'ultimo applicato per tab (`WorkspaceStore.applyAgentState`).
 
 Robustezza del socket: il path è unico e condiviso da ogni processo Relay, quindi va difeso dal
 calpestamento tra istanze. Il receiver (a) prima di `unlink`+`bind` fa una `connect` di prova
@@ -478,8 +483,9 @@ Regole:
     (persistito come `pendingSince` nel `TabSnapshot`);
   - risoluzione: la **ripresa vera** della conversazione (prompt -> `running`, o `needs_input`/
     `error`: la sessione si è mossa) spegne il marker a qualunque livello; in alternativa il
-    **dismiss esplicito** (card della dashboard) o la chiusura della tab. Opzionale la
-    **decadenza** (`AppSettings.pendingDecayHours`, default 0 = mai): spegne i sospesi più vecchi
+    **dismiss esplicito** (card della dashboard) o la chiusura della tab. La **decadenza**
+    (`AppSettings.pendingDecayHours`, default **12h**; `0` = opt-out esplicito, mai) spegne i sospesi
+    diventati tali (misura da `attentionSince`, non dall'evento) più vecchi
     della soglia, applicata dal composition root nei momenti naturali (boot post-restore, ritorno
     in foreground, apertura dashboard) - niente timer;
 - `idle` non genera rumore se la sessione era già idle;
@@ -818,15 +824,24 @@ Costruito (Milestone 4, bundle + notifiche):
 - icona dell'app generata proceduralmente (`bundle/make-icon.swift`, Core Graphics headless ->
   `bundle/AppIcon.icns` via `make icon`): prompt terminale (chevron accento + cursore a blocco) su
   squircle scuro della palette Relay Dark;
-- installer locale non firmato: `make dmg` (`.build/Relay.dmg`, drag su /Applications) e
-  `make install-app`. Firma Developer ID + notarizzazione: solo per la distribuzione a terzi;
+- installer: `make dmg` (`.build/Relay-<version>.dmg`, drag su /Applications) e `make install-app`.
+  Distribuito via Homebrew tap (`brew install --cask essedev/relay/relay`), firma self-signed
+  stabile; Developer ID + notarizzazione ancora da fare;
 - notifiche macOS su `needs_input`/completato (`NotificationCoordinator` +
   `UNUserNotificationCenter`), classificazione pura nel reducer, preferenze in `AppSettings`
   (master, per-tipo, suono + scelta suono). Vedi #Notifiche macOS;
 - dodici temi curati (Solarized, Gruvbox, Tokyo Night, Catppuccin e GitHub oltre a Relay
   Dark/Light) e scelta font family.
 
+Costruito dopo (dashboard + distribuzione + hardening):
+
+- dashboard di triage (`Cmd+D`) e attenzione a tre livelli (unseen/pending/risolto);
+- distribuzione via Homebrew tap; relay-cli impacchettato nel `.app` + azione in-app per installare
+  gli hook (Impostazioni > Agents);
+- giro di hardening (self-heal socket, fail-safe SIGPIPE, robustezza persistence, validazione
+  input resume, pruning backup, recovery della release).
+
 Da fare dopo:
 
-- distribuzione: firma Developer ID + notarizzazione + dmg firmato; installer hook distribuibile;
-- split (pane tree dentro una tab), deprioritizzato; dashboard overview.
+- distribuzione firmata Developer ID + notarizzazione (toglie l'"Apri comunque");
+- split (pane tree dentro una tab), deprioritizzato; generalizzazione multi-agente (Codex/opencode).

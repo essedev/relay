@@ -42,8 +42,8 @@ girano solo dal bundle (`make run-app`).
 - `AgentProtocol` - tipi evento/stato agente, puro. Niente I/O, niente AppKit.
 - `AgentRuntime` - trasporto eventi agente: `AgentEventReceiver` (server Unix socket),
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),
-  `AgentSessionStore` (actor, snapshot per sessionId). Puro, niente AppKit né WorkspaceModel.
-- `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) + `AgentSeverity` +
+  `AgentWireCoding` (codifica JSON date ISO 8601 con ms). Puro, niente AppKit né WorkspaceModel.
+- `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) +
   `AttentionLevel` (marker post-completamento a tre livelli: unseen/pending, vedi gotcha) +
   `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
   sidebar/notifiche/**keybindings**/decadenza sospesi, UserDefaults) + `WindowTitle` +
@@ -94,9 +94,12 @@ girano solo dal bundle (`make run-app`).
 
 - libghostty non è ancora embeddabile stabile: engine v1 = SwiftTerm. Non reintrodurre zig o
   binari di fork senza una decisione esplicita (vedi ARCHITECTURE, sezione engine).
-- `make bundle` assembla `.build/Relay.app` (release + `bundle/Info.plist` + `AppIcon.icns` + firma
+- `make bundle` assembla `.build/Relay.app` (release + `relay` **e `relay-cli`** in `Contents/MacOS`,
+  entrambi firmati - il nested prima dell'outer - + `bundle/Info.plist` + `AppIcon.icns` + firma
   `SIGN_IDENTITY`, default `-` ad-hoc, bundle id `dev.relay.app`; versione iniettata da `./VERSION`
-  via PlistBuddy); `make run-app` lo avvia, `make install-app` lo copia in `/Applications`,
+  via PlistBuddy). `relay-cli` nel bundle serve agli utenti brew: Impostazioni > Agents ha un'azione
+  che installa gli hook usando il cli accanto all'eseguibile (`makeHookControls`), così non serve
+  trovarlo nel PATH. `make run-app` lo avvia, `make install-app` lo copia in `/Applications`,
   `make dmg` fa `.build/Relay-<version>.dmg` (installer **non firmato Developer ID**: primo avvio con
   "Apri comunque"). Serve per le notifiche: `UNUserNotificationCenter` richiede un bundle id, da bare
   executable (`swift run`) crasha; in sviluppo `make run` va bene (niente notifiche).
@@ -125,7 +128,11 @@ girano solo dal bundle (`make run-app`).
   -> `resetsAttention`, letto dal CLI, spegne il sospeso mantenendo `state` idle) - più il dismiss
   (card della dashboard), la chiusura tab e la decadenza (`pendingDecayHours`, default **12h**: il
   sospeso è il segnale quieto e già visto, tenerlo per sempre è banner blindness; `unseen` invece
-  non scade mai da solo). Un completamento sulla tab in vista nasce direttamente `pending`. Al
+  non scade mai da solo). Il clock del marker è `Tab.attentionSince` (timbrato alla nascita e al
+  declassamento), **distinto** da `lastEventAt` (che avanza a ogni evento per la monotonicità): il
+  decay e l'età del sospeso misurano da `attentionSince`, così un no-op (SessionEnd, idle->idle) non
+  li falsifica, e al restore il clock riparte dal boot (un completamento vecchio mai visto non viene
+  spazzato al primo avvio). Un completamento sulla tab in vista nasce direttamente `pending`. Al
   ritorno in foreground un flash del ring richiama l'occhio, senza spegnere. Modello ispirato a cmux
   (vedi CYCLES),
   esteso col livello quieto. Il coordinatore è
@@ -167,8 +174,8 @@ girano solo dal bundle (`make run-app`).
   receiver drena in parallelo (un client bloccato non ferma gli altri), quindi il trasporto NON
   garantisce l'ordine. Lo ristabiliscono il pump FIFO in `AgentCoordinator` (AsyncStream, un solo
   consumer - mai `Task {}` per evento, non preservano l'ordine di enqueue) e la guardia di
-  monotonicità sui timestamp negli store (`applyAgentState` e `AgentSessionStore` scartano gli
-  eventi più vecchi dell'ultimo applicato). Il wire codifica le date ISO 8601 **con millisecondi**
+  monotonicità sui timestamp nello store (`applyAgentState` scarta gli eventi più vecchi
+  dell'ultimo applicato per tab). Il wire codifica le date ISO 8601 **con millisecondi**
   (decode tollerante col vecchio formato a secondi interi); un'app vecchia però non decodifica gli
   eventi di un CLI nuovo: dopo un cambio al wire ricompila/reinstalla entrambi.
 - Mapping hook -> stato in due metà, entrambe in `HookInstaller`: statico per evento
@@ -208,9 +215,10 @@ girano solo dal bundle (`make run-app`).
   affidabile sotto hosting SwiftUI.
 - Find/Clear/Jump: `Cmd+F` (find bar flottante sul terminale, motore search di SwiftTerm),
   `Cmd+K` (clear = `ESC[3J` + Ctrl+L al pty), `Cmd+J` (`WorkspaceStore.focusNextAttention`, ciclico
-  sull'ordine visivo). Sono keyEquivalent veri del menu (non l'event monitor): funzionano col
-  terminale in focus. Search/clear passano dal protocollo `TerminalSurfaceHandle` (niente tipi
-  SwiftTerm fuori dall'engine).
+  sull'ordine visivo). Sono **azioni rimappabili** (`ShortcutAction.find/findNext/findPrevious/
+  clear/nextAttention`), quindi passano dallo **stesso local monitor** delle altre, non da
+  keyEquivalent di menu; il monitor consuma l'evento anche col terminale in focus. Search/clear
+  passano dal protocollo `TerminalSurfaceHandle` (niente tipi SwiftTerm fuori dall'engine).
 - Ring di attenzione (`AttentionRingView`): bordo colorato attorno al terminale della tab in vista
   che ne segnala lo stato (verde = completato non visto, statico + flash; giallo/rosso pulsante =
   aspetta input/errore). Il ring risponde solo a `unseen`: un sospeso (`pending`) non accende il
