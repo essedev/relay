@@ -9,10 +9,16 @@ struct ShortcutRow: View {
     let action: ShortcutAction
     let settings: AppSettings
     let colors: ChromeColors
+    /// Chi sta registrando, condiviso tra le righe: parte una sola registrazione alla volta e le
+    /// altre si spengono da sole (niente monitor concorrenti che si calpestano il flag globale).
+    @Binding var recordingAction: ShortcutAction?
 
-    @State private var recording = false
     @State private var monitor: Any?
     @State private var warning: String?
+
+    private var recording: Bool {
+        recordingAction == action
+    }
 
     var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
@@ -28,6 +34,14 @@ struct ShortcutRow: View {
             comboButton
             resetButton
         }
+        // Un'altra riga ha preso la registrazione: smonta il monitor locale (senza toccare il flag
+        // globale, che appartiene al nuovo recorder).
+        .onChange(of: recordingAction) { _, current in
+            if current != action { teardownMonitor() }
+        }
+        // La finestra si chiude (o la lista si ricostruisce) mentre registro: senza questo il
+        // monitor resterebbe vivo a ingoiare ogni tasto dell'app e il flag resterebbe alzato.
+        .onDisappear { if recording { stopRecording() } }
     }
 
     private var comboButton: some View {
@@ -65,7 +79,7 @@ struct ShortcutRow: View {
 
     private func startRecording() {
         warning = nil
-        recording = true
+        recordingAction = action // spegne ogni altra riga in registrazione (onChange)
         settings.isCapturingShortcut = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             handleCapture(event)
@@ -75,10 +89,10 @@ struct ShortcutRow: View {
 
     private func handleCapture(_ event: NSEvent) {
         if event.keyCode == 53 { stopRecording(); return } // Esc annulla
-        guard let combo = KeyEventBridge.combo(from: event),
-              !combo.modifiers.isEmpty else { return }
-        if Self.reserved.contains(combo) {
-            warning = "Reserved"
+        // Serve un modificatore forte (⌘/⌃/⌥): un tasto nudo o solo-shift è digitazione, aspetta.
+        guard let combo = KeyEventBridge.combo(from: event), combo.hasStrongModifier else { return }
+        if let rejection = combo.recordingRejection {
+            warning = Self.warningText(for: rejection)
             stopRecording()
             return
         }
@@ -92,20 +106,25 @@ struct ShortcutRow: View {
     }
 
     private func stopRecording() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil
+        teardownMonitor()
+        if recordingAction == action { recordingAction = nil }
         settings.isCapturingShortcut = false
-        recording = false
     }
 
-    /// Combinazioni di sistema non registrabili (romperebbero quit/settings/copia/incolla).
-    private static let reserved: Set<KeyCombo> = [
-        KeyCombo(key: "q", modifiers: [.command]),
-        KeyCombo(key: ",", modifiers: [.command]),
-        KeyCombo(key: "c", modifiers: [.command]),
-        KeyCombo(key: "v", modifiers: [.command]),
-        KeyCombo(key: "a", modifiers: [.command]),
-    ]
+    /// Smonta solo il monitor locale, senza toccare lo stato condiviso: usato quando un'altra riga
+    /// subentra nella registrazione.
+    private func teardownMonitor() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
+
+    private static func warningText(for rejection: ShortcutRejection) -> String {
+        switch rejection {
+        case .system: "Reserved by macOS"
+        case .terminal: "Used by the terminal"
+        case .fixedSelect: "Reserved (⌘/⌥ 1–9)"
+        }
+    }
 }
 
 /// Lista delle scorciatoie nel pannello impostazioni: azioni rimappabili per gruppo (con recorder),
@@ -114,13 +133,20 @@ struct ShortcutsList: View {
     let settings: AppSettings
     let colors: ChromeColors
 
+    @State private var recordingAction: ShortcutAction?
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             header
             ForEach(ShortcutGroup.allCases) { group in
                 section(group.title.uppercased()) {
                     ForEach(ShortcutAction.allCases.filter { $0.group == group }) { action in
-                        ShortcutRow(action: action, settings: settings, colors: colors)
+                        ShortcutRow(
+                            action: action,
+                            settings: settings,
+                            colors: colors,
+                            recordingAction: $recordingAction
+                        )
                     }
                 }
             }

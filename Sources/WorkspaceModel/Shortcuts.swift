@@ -27,6 +27,41 @@ public struct KeyCombo: Codable, Equatable, Hashable, Sendable {
         self.modifiers = modifiers
     }
 
+    /// Ha almeno un modificatore "forte" (⌘/⌃/⌥). Lo shift da solo non basta: `⇧A` è digitare una
+    /// maiuscola, non una scorciatoia. Il recorder ignora (aspetta) una combo senza modificatore
+    /// forte invece di legarla.
+    public var hasStrongModifier: Bool {
+        !modifiers.isDisjoint(with: [.command, .control, .option])
+    }
+
+    /// Motivo per cui il recorder rifiuta di legare questa combo (`nil` = registrabile). Distinto
+    /// dai conflitti tra azioni (`AppSettings.conflict`): qui sono combo che non funzionerebbero o
+    /// romperebbero un'altra funzione a prescindere dai binding correnti.
+    public var recordingRejection: ShortcutRejection? {
+        // Control-char vitali del terminale: il monitor le ruberebbe al pty (SIGINT/EOF/suspend).
+        if modifiers == [.control], ["c", "d", "z"].contains(key) { return .terminal }
+        // Comandi di sistema con keyEquivalent veri del menu (quit/settings/copy/paste/select-all).
+        if Self.systemReserved.contains(self) { return .system }
+        // Select-by-number fissi (⌘/⌥ 1..9): li intercetta il monitor di navigazione a monte,
+        // quindi un'azione legata qui non scatterebbe mai.
+        if isFixedSelect { return .fixedSelect }
+        return nil
+    }
+
+    /// `⌘1..9` o `⌥1..9`: i due assi di select fissi, gestiti fuori dai binding rimappabili.
+    private var isFixedSelect: Bool {
+        guard modifiers == [.command] || modifiers == [.option] else { return false }
+        return Int(key).map { (1 ... 9).contains($0) } ?? false
+    }
+
+    private static let systemReserved: Set<KeyCombo> = [
+        KeyCombo(key: "q", modifiers: [.command]),
+        KeyCombo(key: ",", modifiers: [.command]),
+        KeyCombo(key: "c", modifiers: [.command]),
+        KeyCombo(key: "v", modifiers: [.command]),
+        KeyCombo(key: "a", modifiers: [.command]),
+    ]
+
     /// Rappresentazione simbolica per la UI (es. `⌘⇧T`, `⌃⇥`). Ordine dei modificatori come Apple.
     public var display: String {
         var out = ""
@@ -47,6 +82,16 @@ public struct KeyCombo: Codable, Equatable, Hashable, Sendable {
         "tab": "⇥", "up": "↑", "down": "↓", "left": "←", "right": "→",
         "space": "␣", "return": "↩", "escape": "⎋", "delete": "⌫", "=": "+",
     ]
+}
+
+/// Perché il recorder rifiuta una combo (per un messaggio d'errore mirato nella UI).
+public enum ShortcutRejection: Equatable, Sendable {
+    /// Comando di sistema (quit/settings/copy/paste/select-all): romperebbe una funzione base.
+    case system
+    /// Control-char del terminale (⌃C/⌃D/⌃Z): il monitor la sottrarrebbe al pty.
+    case terminal
+    /// Select-by-number fisso (⌘/⌥ 1..9): intercettato a monte, non scatterebbe mai.
+    case fixedSelect
 }
 
 /// Gruppo di azioni, per raggruppare la lista shortcut nel pannello impostazioni.

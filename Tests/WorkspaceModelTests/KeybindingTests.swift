@@ -60,6 +60,37 @@ import Testing
     #expect(back == combo)
 }
 
+// MARK: - Validazione del recorder
+
+@Test func strongModifierIsRequired() {
+    // Un tasto nudo o con solo shift è digitazione, non una scorciatoia.
+    #expect(!KeyCombo(key: "a", modifiers: []).hasStrongModifier)
+    #expect(!KeyCombo(key: "a", modifiers: [.shift]).hasStrongModifier)
+    #expect(KeyCombo(key: "a", modifiers: [.command]).hasStrongModifier)
+    #expect(KeyCombo(key: "c", modifiers: [.control]).hasStrongModifier)
+    #expect(KeyCombo(key: "a", modifiers: [.option]).hasStrongModifier)
+}
+
+@Test func recorderRejectsUnbindableCombos() {
+    // Control-char del terminale.
+    #expect(KeyCombo(key: "c", modifiers: [.control]).recordingRejection == .terminal)
+    #expect(KeyCombo(key: "d", modifiers: [.control]).recordingRejection == .terminal)
+    // Comandi di sistema.
+    #expect(KeyCombo(key: "q", modifiers: [.command]).recordingRejection == .system)
+    #expect(KeyCombo(key: "v", modifiers: [.command]).recordingRejection == .system)
+    // Select-by-number fissi (⌘/⌥ 1..9): l'azione legata qui non scatterebbe mai.
+    #expect(KeyCombo(key: "1", modifiers: [.command]).recordingRejection == .fixedSelect)
+    #expect(KeyCombo(key: "9", modifiers: [.option]).recordingRejection == .fixedSelect)
+}
+
+@Test func recorderAcceptsValidCombos() {
+    // Combo legittime (anche se con control o su cifre non-1..9 con modificatori diversi).
+    #expect(KeyCombo(key: "t", modifiers: [.command]).recordingRejection == nil)
+    #expect(KeyCombo(key: "c", modifiers: [.command, .shift]).recordingRejection == nil)
+    #expect(KeyCombo(key: "1", modifiers: [.command, .shift]).recordingRejection == nil)
+    #expect(KeyCombo(key: "0", modifiers: [.command]).recordingRejection == nil) // ⌘0 non è 1..9
+}
+
 // MARK: - Persistenza e conflitti (AppSettings è @MainActor)
 
 @MainActor @Test func keybindingDefaultOverridePersist() throws {
