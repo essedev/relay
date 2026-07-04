@@ -13,3 +13,7 @@ jobs:
         run: brew install swiftlint swiftformat
       - name: Quality gate
         run: make check
+      # La release builda in configurazione release (dentro make dmg): esercitala anche in CI, così
+      # un guasto solo-release (ottimizzatore, codice sotto -Onone) non emerge alla pubblicazione.
+      - name: Release build
+        run: swift build -c release
