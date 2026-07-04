@@ -11,7 +11,13 @@ let package = Package(
         .executable(name: "relay-cli", targets: ["CLI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", branch: "main"),
+        // Pin a una revisione precisa: l'engine del terminale è sul path caldo e usa API non
+        // ancora rilasciate (search summary). Bumpare deliberatamente quando serve un cambio
+        // upstream, non a ogni `swift package update`.
+        .package(
+            url: "https://github.com/migueldeicaza/SwiftTerm",
+            revision: "d5ee56e1c74777120f3af688600d336de4201bd2"
+        ),
     ],
     targets: [
         // Livello 0: primitivi condivisi, nessuna dipendenza.
