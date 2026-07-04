@@ -290,7 +290,7 @@ extension AppController {
             return
         }
         confirmClose(
-            title: "Chiudere la tab «\(tab.title)»?",
+            title: "Close tab \u{201C}\(tab.title)\u{201D}?",
             info: closeInfo(process: process, agentState: tab.agentState)
         ) { [weak self] in
             self?.performCloseTab(tab, in: workspace)
@@ -306,10 +306,10 @@ extension AppController {
             return
         }
         let info = busy.count == 1
-            ? "1 tab ha un processo in esecuzione, che verrà terminato."
-            : "\(busy.count) tab hanno processi in esecuzione, che verranno terminati."
+            ? "1 tab has a running process that will be terminated."
+            : "\(busy.count) tabs have running processes that will be terminated."
         confirmClose(
-            title: "Chiudere il workspace «\(workspace.name)»?",
+            title: "Close workspace \u{201C}\(workspace.name)\u{201D}?",
             info: info
         ) { [weak self] in
             self?.performCloseWorkspace(workspace)
@@ -343,13 +343,13 @@ extension AppController {
     private func closeInfo(process: String, agentState: AgentState) -> String {
         switch agentState {
         case .running:
-            "Claude sta lavorando in questa tab. Chiudendo, la sessione verrà interrotta."
+            "Claude is working in this tab. Closing it will interrupt the session."
         case .needsInput:
-            "Claude sta aspettando una tua risposta. Chiudendo, la sessione verrà interrotta."
+            "Claude is waiting for your reply. Closing it will interrupt the session."
         case .idle, .error:
-            "In questa tab c'è una sessione Claude aperta. Chiudendo, verrà interrotta."
+            "This tab has an open Claude session. Closing it will interrupt it."
         case .unknown:
-            "«\(process)» è in esecuzione. Chiudendo la tab il processo verrà terminato."
+            "\u{201C}\(process)\u{201D} is running. Closing the tab will terminate it."
         }
     }
 
@@ -360,8 +360,8 @@ extension AppController {
         alert.alertStyle = .warning
         alert.messageText = title
         alert.informativeText = info
-        let closeButton = alert.addButton(withTitle: "Chiudi")
-        let cancelButton = alert.addButton(withTitle: "Annulla")
+        let closeButton = alert.addButton(withTitle: "Close")
+        let cancelButton = alert.addButton(withTitle: "Cancel")
         closeButton.keyEquivalent = "" // Invio non deve chiudere per errore
         cancelButton.keyEquivalent = "\r"
         alert.beginSheetModal(for: window) { response in

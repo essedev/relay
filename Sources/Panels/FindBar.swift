@@ -71,7 +71,7 @@ public struct FindBar: View {
     }
 
     private var field: some View {
-        TextField("Cerca", text: $model.query)
+        TextField("Search", text: $model.query)
             .textFieldStyle(.plain)
             .font(Theme.Typography.caption)
             .foregroundStyle(colors.foreground)
@@ -110,6 +110,6 @@ public struct FindBar: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(colors.secondary)
-        .help("Chiudi (Esc)")
+        .help("Close (Esc)")
     }
 }

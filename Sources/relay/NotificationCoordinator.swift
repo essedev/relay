@@ -97,8 +97,8 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
 
     private static func title(for kind: AgentNotificationKind) -> String {
         switch kind {
-        case .needsInput: "Claude aspetta una risposta"
-        case .completed: "Claude ha finito"
+        case .needsInput: "Claude needs a reply"
+        case .completed: "Claude finished"
         }
     }
 

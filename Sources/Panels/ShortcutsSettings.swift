@@ -167,7 +167,7 @@ struct ShortcutsList: View {
                 .buttonStyle(.plain)
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.accent)
-                .help("Ripristina tutte le scorciatoie ai valori di default")
+                .help("Reset all shortcuts to defaults")
         }
     }
 

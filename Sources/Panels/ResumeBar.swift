@@ -30,7 +30,7 @@ public struct ResumeBar: View {
             Image(systemName: "arrow.clockwise")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(colors.accent)
-            Text("Riprendi la sessione Claude")
+            Text("Resume the Claude session")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.foreground)
             if !label.isEmpty {
@@ -65,7 +65,7 @@ public struct ResumeBar: View {
                 )
         }
         .buttonStyle(.plain)
-        .help("Riprende la sessione Claude in questa tab")
+        .help("Resume the Claude session in this tab")
     }
 
     private var dismissButton: some View {
@@ -75,6 +75,6 @@ public struct ResumeBar: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(colors.secondary)
-        .help("Ignora")
+        .help("Dismiss")
     }
 }
