@@ -32,5 +32,8 @@ public enum Theme {
         public static let tabBarHeight: CGFloat = 34
         /// Altezza della strip del titolo (allineata verticalmente ai semafori della finestra).
         public static let titleBarHeight: CGFloat = 30
+        /// Larghezza massima di una tab: un titolo OSC lungo (Claude manda il nome della chat) non
+        /// deve allargare la tab oltre la finestra; il testo si tronca.
+        public static let maxTabWidth: CGFloat = 180
     }
 }

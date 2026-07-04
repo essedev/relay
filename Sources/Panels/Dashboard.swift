@@ -126,6 +126,7 @@ public struct DashboardView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onClose)
             panel(items, colors)
+                .padding(.horizontal, Theme.Spacing.lg)
         }
         .onChange(of: query) { _, _ in selection = 0 }
         .onChange(of: items.count) { _, count in
@@ -145,7 +146,7 @@ public struct DashboardView: View {
             Divider()
             hints(colors)
         }
-        .frame(width: 720)
+        .frame(maxWidth: 720)
         .frame(maxHeight: 520)
         .fixedSize(horizontal: false, vertical: true)
         .background(
@@ -188,26 +189,34 @@ public struct DashboardView: View {
     private func grid(_ items: [DashboardModel.Item], _ colors: ChromeColors) -> some View {
         // Ogni 30s le età si aggiornano ("2m" -> "3m") anche a overlay fermo.
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            ScrollView {
-                LazyVGrid(
-                    columns: Array(
-                        repeating: GridItem(.flexible(), spacing: Theme.Spacing.sm),
-                        count: Self.columns
-                    ),
-                    spacing: Theme.Spacing.sm
-                ) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                        SessionCard(
-                            item: item,
-                            selected: index == selection,
-                            now: context.date,
-                            colors: colors,
-                            onJump: { onJump(item.workspace, item.tab) },
-                            onDismiss: { store.dismissAttention(item.tab.id) }
-                        )
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVGrid(
+                        columns: Array(
+                            repeating: GridItem(.flexible(), spacing: Theme.Spacing.sm),
+                            count: Self.columns
+                        ),
+                        spacing: Theme.Spacing.sm
+                    ) {
+                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                            SessionCard(
+                                item: item,
+                                selected: index == selection,
+                                now: context.date,
+                                colors: colors,
+                                onJump: { onJump(item.workspace, item.tab) },
+                                onDismiss: { store.dismissAttention(item.tab.id) }
+                            )
+                            .id(item.id)
+                        }
                     }
+                    .padding(Theme.Spacing.md)
                 }
-                .padding(Theme.Spacing.md)
+                // Le frecce spostano la selezione: tienila in vista se esce dall'area scrollabile.
+                .onChange(of: selection) { _, sel in
+                    guard items.indices.contains(sel) else { return }
+                    withAnimation { proxy.scrollTo(items[sel].id, anchor: .center) }
+                }
             }
         }
     }

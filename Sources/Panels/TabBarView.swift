@@ -134,6 +134,8 @@ private struct TabItemView: View {
                     .font(Theme.Typography.tab)
                     .foregroundStyle(colors.foreground)
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: Theme.Metrics.maxTabWidth, alignment: .leading)
             }
             Button(action: onClose) {
                 Image(systemName: "xmark")
