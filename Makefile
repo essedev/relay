@@ -50,10 +50,13 @@ bundle: ## Assembla Relay.app (release, firma $(SIGN_IDENTITY), versione da ./VE
 	rm -rf $(APP)
 	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	cp .build/release/relay $(APP)/Contents/MacOS/relay
+	cp .build/release/relay-cli $(APP)/Contents/MacOS/relay-cli
 	cp bundle/Info.plist $(APP)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" $(APP)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP)/Contents/Info.plist
 	cp bundle/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
+	# Il binario annidato va firmato prima del bundle esterno.
+	codesign --force --sign "$(SIGN_IDENTITY)" $(APP)/Contents/MacOS/relay-cli
 	codesign --force --sign "$(SIGN_IDENTITY)" $(APP)
 	@echo "built $(APP) (v$(VERSION), sign=$(SIGN_IDENTITY))"
 
