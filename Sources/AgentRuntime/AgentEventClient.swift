@@ -23,6 +23,13 @@ public enum AgentEventClient {
         guard fd >= 0 else { throw UnixSocketError.socketFailed(errno) }
         defer { close(fd) }
 
+        // Senza questo, se il receiver sparisce tra la connect e la write (Relay chiude/crasha
+        // mentre un hook Stop/SessionEnd sta scrivendo), la write su pipe rotta alza SIGPIPE, che
+        // per default termina il processo hook: il contratto fail-safe (un problema di Relay non
+        // rompe Claude) salterebbe. Con SO_NOSIGPIPE l'errore torna come EPIPE dalla write.
+        var noSigPipe: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
+
         var addr = try UnixSocket.address(path: path)
         let connectResult = UnixSocket.withSockAddr(&addr) { connect(fd, $0, $1) }
         guard connectResult == 0 else { throw UnixSocketError.connectFailed(errno) }

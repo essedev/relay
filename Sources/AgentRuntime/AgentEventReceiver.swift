@@ -24,6 +24,9 @@ public final class AgentEventReceiver: @unchecked Sendable {
     private let log = RelayLog.logger("agent-receiver")
 
     private var listenFD: Int32 = -1
+    /// Vogliamo essere in ascolto (tra `start` e `stop`): guida il self-heal a ritentare anche dopo
+    /// un rebind fallito, quando `listenFD` è tornato -1. Slegato da `listenFD` di proposito.
+    private var shouldListen = false
     private var acceptSource: DispatchSourceRead?
     /// Watch della runtime dir per il self-heal: se il socket file sparisce sotto di noi (una
     /// seconda istanza che fa `unlink`, una pulizia esterna), ri-binda. Event-driven, nessun
@@ -41,6 +44,7 @@ public final class AgentEventReceiver: @unchecked Sendable {
     /// Avvia l'ascolto. Rimuove un socket file stantio con lo stesso path e arma il self-heal.
     public func start() throws {
         try queue.sync {
+            shouldListen = true
             try openListeningSocket()
             startDirectoryWatch()
         }
@@ -49,6 +53,7 @@ public final class AgentEventReceiver: @unchecked Sendable {
     /// Ferma l'ascolto e rimuove il socket file. Idempotente.
     public func stop() {
         queue.sync {
+            shouldListen = false
             // Prima il watch, così il nostro stesso `unlink` non scatena un re-bind.
             dirSource?.cancel() // il cancel handler chiude l'fd della dir
             dirSource = nil
@@ -64,6 +69,14 @@ public final class AgentEventReceiver: @unchecked Sendable {
         // socket. Il guard single-instance (App.main) dovrebbe evitarci di arrivare qui; questa è
         // la rete di sicurezza a livello di trasporto (lancio dev sullo stesso ~/.relay, test).
         guard !UnixSocket.isListening(path: path) else { throw UnixSocketError.addressInUse }
+
+        // Ricrea la runtime dir se sparita (es. `rm -rf ~/.relay`): senza, il `bind` fallirebbe con
+        // ENOENT e il receiver resterebbe orfano.
+        let dir = (path as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(
+            atPath: dir,
+            withIntermediateDirectories: true
+        )
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw UnixSocketError.socketFailed(errno) }
@@ -124,7 +137,10 @@ public final class AgentEventReceiver: @unchecked Sendable {
     /// davvero assente: se esiste (un'altra istanza ne ha uno vivo) non lo tocchiamo, per non
     /// innescare un ping-pong; lo stomp lo previene già il guard + no-stomp.
     private func rebindIfMissing() {
-        guard listenFD >= 0, access(path, F_OK) != 0 else { return }
+        // Guardato da `shouldListen`, non da `listenFD >= 0`: un rebind fallito lascia `listenFD`
+        // a -1, ma vogliamo comunque ritentare al prossimo cambio della dir finché non ci
+        // riusciamo.
+        guard shouldListen, access(path, F_OK) != 0 else { return }
         log.error("agent socket file vanished; rebinding")
         teardownListen()
         do {
@@ -138,7 +154,12 @@ public final class AgentEventReceiver: @unchecked Sendable {
 
     private func acceptConnection() {
         let clientFD = accept(listenFD, nil, nil)
-        guard clientFD >= 0 else { return }
+        guard clientFD >= 0 else {
+            // fd esauriti o listen fd invalido: senza un segnale il badge si fermerebbe in
+            // silenzio.
+            log.error("agent receiver accept failed: \(String(cString: strerror(errno)))")
+            return
+        }
         // Connessioni effimere (una linea e chiudi): leggo fino a EOF fuori dalla accept queue.
         readQueue.async { [weak self] in self?.drain(clientFD) }
     }
