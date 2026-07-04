@@ -166,6 +166,30 @@ private func workspaceWithNoTabs() -> LayoutSnapshot {
     #expect(store.load()?.workspaces.first?.name == "v1")
 }
 
+/// Regressione: se il primario è corrotto (corruzione esterna, downgrade), il save successivo NON
+/// deve ruotare quella corruzione sopra il `.bak` buono - altrimenti si perde l'ultimo layout
+/// valido.
+@Test func corruptPrimaryIsNotRotatedIntoBackup() throws {
+    let path = tempPath()
+    let backup = path + ".bak"
+    defer {
+        try? FileManager.default.removeItem(atPath: path)
+        try? FileManager.default.removeItem(atPath: backup)
+    }
+    let store = LayoutStore(path: path)
+    try store.save(sampleSnapshot(name: "v1"))
+    try store.save(sampleSnapshot(name: "v2")) // backup = v1
+
+    // Il primario si corrompe fuori dal nostro controllo, poi arriva un nuovo save: la corruzione
+    // non deve essere ruotata sopra il backup (che tiene l'ultima generazione buona, v1).
+    try "{ corrotto".write(toFile: path, atomically: true, encoding: .utf8)
+    try store.save(sampleSnapshot(name: "v3"))
+
+    // Cancellato il primario, la load recupera dal backup un layout valido, non la corruzione.
+    try FileManager.default.removeItem(atPath: path)
+    #expect(store.load()?.workspaces.first?.name == "v1")
+}
+
 @Test func isValidForPersistenceRejectsDegenerateShapes() {
     #expect(LayoutStore.isValidForPersistence(sampleSnapshot()))
     #expect(!LayoutStore.isValidForPersistence(workspaceWithNoTabs()))

@@ -14,6 +14,8 @@ final class LayoutAutosave {
     private let layoutStore: LayoutStore
     private let log = RelayLog.logger("layout")
     private var saveTask: Task<Void, Never>?
+    /// Ultimo snapshot scritto: salta le scritture no-op (vedi `save`).
+    private var lastSaved: LayoutSnapshot?
 
     init(store: WorkspaceStore, layoutStore: LayoutStore) {
         self.store = store
@@ -31,9 +33,10 @@ final class LayoutAutosave {
         save()
     }
 
-    /// Legge `snapshot()` dentro il tracking: dipende solo dai campi salvati (nome, cwd, pin,
-    /// ordine, selezione, tab), non dallo stato agente, quindi gli eventi degli hook non scatenano
-    /// scritture. Si ri-arma a ogni cambio.
+    /// Legge `snapshot()` dentro il tracking, così l'osservazione si risveglia quando cambia un
+    /// campo salvato. Nota: uno snapshot legge anche `tab.attention`/`attentionSince`, che gli
+    /// eventi agente riscrivono (a volte con lo stesso valore): il de-dup in `save` scarta le
+    /// scritture no-op che ne derivano. Si ri-arma a ogni cambio.
     private func observe() {
         withObservationTracking {
             _ = store.snapshot()
@@ -56,8 +59,16 @@ final class LayoutAutosave {
     }
 
     private func save() {
+        let snapshot = store.snapshot()
+        // Scrittura no-op: un evento agente riscrive attention/lastEventAt sulla tab (a volte con
+        // lo
+        // stesso valore) risvegliando l'osservazione, ma lo snapshot persistito è identico. Salta,
+        // così gli eventi degli hook non toccano il disco; i cambi reali (pendingSince, resume,
+        // rename, ordine) restano invariati.
+        guard snapshot != lastSaved else { return }
         do {
-            try layoutStore.save(store.snapshot())
+            try layoutStore.save(snapshot)
+            lastSaved = snapshot
         } catch {
             log.error("layout save failed: \(error)")
         }

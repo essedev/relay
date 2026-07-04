@@ -100,13 +100,19 @@ public final class WorkspaceStore {
                     resume: tab.resume
                 )
             }
+            // La selezione salvata potrebbe puntare a una tab inesistente (file editato a mano,
+            // corruzione parziale che decodifica ancora): validala, altrimenti `Workspace.init`
+            // ricade sulla prima tab invece di lasciare il right pane senza tab.
+            let selectedTabID = tabs.contains { $0.id == workspace.selectedTabID }
+                ? workspace.selectedTabID
+                : nil
             return Workspace(
                 id: workspace.id,
                 name: workspace.name,
                 rootPath: workspace.rootPath,
                 pinned: workspace.pinned,
                 tabs: tabs,
-                selectedTabID: workspace.selectedTabID
+                selectedTabID: selectedTabID
             )
         }
         let restoredID = snapshot.selectedWorkspaceID

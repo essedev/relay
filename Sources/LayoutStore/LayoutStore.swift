@@ -81,8 +81,7 @@ public struct LayoutStore {
             withIntermediateDirectories: true
         )
         // Backup del primario buono prima di sovrascrivere: una scrittura futura interrotta o una
-        // race non lasciano l'utente senza rete. Il primario su disco è sempre valido (save valida
-        // sempre), quindi il backup lo è.
+        // race non lasciano l'utente senza rete.
         backupExistingPrimary()
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -93,6 +92,13 @@ public struct LayoutStore {
     private func backupExistingPrimary() {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: path) else { return }
+        // Ruota il backup solo se il primario è a sua volta valido. Se è corrotto o di versione
+        // ignota (corruzione esterna, downgrade dopo un upgrade), `load()` ha già ripristinato dal
+        // `.bak` buono: sovrascriverlo col primario rotto perderebbe l'ultimo layout valido.
+        guard loadFile(at: path) != nil else {
+            Self.log.notice("backup non ruotato: primario non valido, conservo il .bak esistente")
+            return
+        }
         try? fileManager.removeItem(atPath: backupPath)
         try? fileManager.copyItem(atPath: path, toPath: backupPath)
     }

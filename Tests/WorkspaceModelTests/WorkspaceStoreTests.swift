@@ -118,6 +118,23 @@ import Testing
     #expect(store.orderedWorkspaces.map(\.id) == [c.id, b.id, a.id])
 }
 
+@Test func restoreSanitizesDanglingSelectedTabID() {
+    // Snapshot con selectedTabID che non è tra le tab del workspace (file editato a mano,
+    // corruzione parziale): il restore deve ripiegare sulla prima tab, non lasciare la selezione
+    // appesa a un id inesistente.
+    let realTab = TabSnapshot(id: UUID(), title: "t", hasCustomTitle: false, currentDirectory: nil)
+    let ws = WorkspaceSnapshot(
+        id: UUID(), name: "w", rootPath: nil, pinned: false,
+        selectedTabID: UUID(), tabs: [realTab]
+    )
+    let store = WorkspaceStore()
+    store.restore(from: LayoutSnapshot(selectedWorkspaceID: nil, workspaces: [ws]))
+
+    let restored = store.workspaces[0]
+    #expect(restored.selectedTabID == realTab.id)
+    #expect(restored.selectedTab != nil)
+}
+
 @Test func segmentIndexPartitionsLikeOrdered() {
     let store = WorkspaceStore()
     let calm = store.createWorkspace(name: "calm")
