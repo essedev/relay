@@ -74,8 +74,13 @@ final class AppController: NSObject, NSApplicationDelegate {
             root?.sidebarWidthDidChange(width)
         }
         window.contentViewController = root
+        // Ripristina posizione+dimensione dell'ultima sessione; centra solo al primo avvio (nessun
+        // frame salvato). `center()` incondizionato riportava la finestra al centro dello schermo
+        // principale a ogni lancio, scartando un eventuale spostamento su un secondo monitor.
         window.setFrameAutosaveName("RelayMainWindow")
-        window.center()
+        if !window.setFrameUsingName("RelayMainWindow") {
+            window.center()
+        }
         observeWindowTheme()
         observeWindowTitle()
         window.makeKeyAndOrderFront(nil)
