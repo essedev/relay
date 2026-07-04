@@ -250,6 +250,17 @@ girano solo dal bundle (`make run-app`).
   breaking**: la load scarta le versioni diverse (= butta il layout dell'utente); un campo nuovo
   opzionale (es. `pendingSince`) è additivo e non bumpa. Il sospeso persiste come `pendingSince`
   nel `TabSnapshot` (anche `unseen` degrada a pending al riavvio: il segnale forte sarebbe stantio).
+- Robustezza layout (dato utente non ricreabile): `LayoutStore.save` **rifiuta** uno snapshot
+  degradato (`degenerateSnapshot`: 0 workspace o un workspace senza tab - a runtime impossibile,
+  quindi sintomo di una race) invece di scrivere sopra il buono, tiene un backup `layout.json.bak`
+  del primario prima di sovrascrivere, e `load` ricade sul `.bak` se il primario è
+  mancante/corrotto/degradato. Non allentare la guardia: è ciò che ha fixato le tab sparite dopo un
+  upgrade. La validità è pura (`isValidForPersistence`, testata).
+- Single-instance: **due Relay condividono `~/.relay`** (layout + socket) e i loro autosave si
+  pesterebbero -> layout corrotto. `LSMultipleInstancesProhibited=true` (bundle/Info.plist) lo
+  previene lato LaunchServices; `Relay.main` ha anche un guard runtime (se un'altra istanza dello
+  stesso bundle id gira, la attiva ed esce). Vale solo dal bundle; `swift run` (id assente) non lo
+  applica, quindi in dev puoi avere due processi: usa `RELAY_LAYOUT`/`RELAY_SOCKET` diversi.
 - Cap LRU surface: `SurfaceRegistry.enforceLRU(cap:keep:)` sfratta le meno recenti **solo se idle**
   (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente), mai la
   visibile. Eviction = teardown SwiftTerm (scrollback perso, shell ricreata alla cwd al re-focus).

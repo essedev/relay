@@ -77,6 +77,20 @@ Formato: JSON atomico su disco, `~/.relay/layout.json` (override `RELAY_LAYOUT`;
 default se file mancante/corrotto/versione ignota. Al restore tutti i pane nascono `unrealized`
 (nessuna surface finché non c'è focus).
 
+Robustezza (il layout è dato utente non ricreabile a mano). Tre difese in `LayoutStore`:
+
+- **Guardia anti-degrado**: `save` valida l'invariante (almeno un workspace, ogni workspace con
+  almeno una tab - sempre vero a runtime per il cascade e `ensureAtLeastOneWorkspace`) e **rifiuta**
+  (`degenerateSnapshot`) uno snapshot degradato invece di scriverlo. Un save "0 tab" è il sintomo di
+  una race, non uno stato da persistere.
+- **Backup rotazionale**: prima di sovrascrivere, `save` conserva il primario valido in
+  `layout.json.bak`.
+- **Recovery**: `load` ricade sul `.bak` se il primario è mancante/corrotto/degradato/di versione
+  ignota.
+
+Questo chiude il caso in cui il layout perdeva le tab: una singola scrittura degradata (o una race
+di due istanze - vedi single-instance sotto) non cancella più l'ultimo layout buono.
+
 Entità (`LayoutSnapshot` in `Sources/WorkspaceModel/`, `Codable`, versionato - bump di
 `currentVersion` **solo per cambi breaking**: la load scarta le versioni diverse; un campo nuovo
 opzionale è additivo e non bumpa):
