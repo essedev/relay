@@ -63,3 +63,26 @@ import Testing
         #expect(state == requested)
     }
 }
+
+// MARK: - Soppressione eventi rumore
+
+@Test func compactSessionStartIsSuppressed() {
+    // Auto-compact a metà turno: mapparlo a idle fingerebbe un completamento. Va soppresso.
+    #expect(ClaudeHookStateMapper.shouldSuppress(hookEventName: "SessionStart", source: "compact"))
+}
+
+@Test func otherSessionStartSourcesAreNotSuppressed() {
+    // startup = idle neutro; clear/resume = ri-presa attiva (resetsAttention): tutti validi.
+    for source in ["startup", "clear", "resume"] {
+        #expect(!ClaudeHookStateMapper.shouldSuppress(
+            hookEventName: "SessionStart",
+            source: source
+        ))
+    }
+}
+
+@Test func nonSessionStartEventsAreNeverSuppressed() {
+    // Il source "compact" discrimina solo dentro SessionStart; un altro evento non è mai soppresso.
+    #expect(!ClaudeHookStateMapper.shouldSuppress(hookEventName: "Stop", source: "compact"))
+    #expect(!ClaudeHookStateMapper.shouldSuppress(hookEventName: nil, source: nil))
+}

@@ -15,6 +15,14 @@ enum ClaudeHookCommand {
         let paneId = env["RELAY_TAB_ID"]
         let stdin = FileHandle.standardInput.readDataToEndOfFile()
         let payload = try? JSONSerialization.jsonObject(with: stdin) as? [String: Any]
+        let hookEventName = payload?["hook_event_name"] as? String
+        let source = payload?["source"] as? String
+
+        // Rumore da non inoltrare (es. SessionStart/compact a metà turno): fingerebbe un
+        // completamento. Vedi ClaudeHookStateMapper.shouldSuppress.
+        if ClaudeHookStateMapper.shouldSuppress(hookEventName: hookEventName, source: source) {
+            return 0
+        }
 
         let event = AgentStateEvent(
             agent: "claude",
@@ -24,13 +32,13 @@ enum ClaudeHookCommand {
             // ExitPlanMode) è "aspetta input", non "sta lavorando": vedi il mapper.
             state: ClaudeHookStateMapper.effectiveState(
                 requested: requested,
-                hookEventName: payload?["hook_event_name"] as? String,
+                hookEventName: hookEventName,
                 toolName: payload?["tool_name"] as? String
             ),
             source: .hook,
             confidence: 1,
             timestamp: Date(),
-            resetsAttention: isReEngagement(payload: payload)
+            resetsAttention: isReEngagement(source: source)
         )
         try? AgentEventClient.send(event)
         return 0
@@ -46,8 +54,7 @@ enum ClaudeHookCommand {
     /// `source` dedicato: sono ri-prese attive che risolvono il completamento in sospeso. `startup`
     /// (avvio normale) e `compact` (il contesto resta) NON lo sono. Il campo `source` esiste solo
     /// sul SessionStart, quindi discrimina da solo (uno `Stop` idle non ce l'ha).
-    private static func isReEngagement(payload: [String: Any]?) -> Bool {
-        guard let source = payload?["source"] as? String else { return false }
-        return source == "clear" || source == "resume"
+    private static func isReEngagement(source: String?) -> Bool {
+        source == "clear" || source == "resume"
     }
 }

@@ -27,4 +27,16 @@ public enum ClaudeHookStateMapper {
               let toolName, promptingTools.contains(toolName) else { return requested }
         return .needsInput
     }
+
+    /// L'evento va soppresso (non inviato) perché non riflette un cambiamento di stato reale della
+    /// sessione. Caso unico oggi: `SessionStart` con `source == "compact"`, che l'auto-compact
+    /// emette **a metà turno**. Lo spec statico lo mappa a `idle`: se arriva mentre la tab è
+    /// `running`, il reducer lo legge come completamento (running -> idle) e conia un marker + una
+    /// notifica "completato" mentre Claude sta ancora lavorando. Il contesto è compattato ma la
+    /// sessione prosegue, quindi l'evento è rumore. `startup` (nuovo avvio) e `clear`/`resume`
+    /// (ri-presa attiva) restano validi: il primo è un idle neutro, gli altri due risolvono il
+    /// marker via `resetsAttention`.
+    public static func shouldSuppress(hookEventName: String?, source: String?) -> Bool {
+        hookEventName == "SessionStart" && source == "compact"
+    }
 }
