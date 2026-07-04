@@ -40,7 +40,7 @@ let package = Package(
         .target(name: "TerminalHostUI", dependencies: ["Core", "TerminalEngine", "WorkspaceModel"]),
         .target(
             name: "Panels",
-            dependencies: ["Core", "AgentProtocol", "WorkspaceModel", "AgentRuntime"]
+            dependencies: ["Core", "AgentProtocol", "WorkspaceModel"]
         ),
 
         // Eseguibili.
