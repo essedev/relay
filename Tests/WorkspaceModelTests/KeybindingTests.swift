@@ -106,6 +106,19 @@ import Testing
     #expect(AppSettings(defaults: defaults).binding(for: .newTab) == combo)
 }
 
+@MainActor @Test func persistsOnlyRemappedBindings() throws {
+    let defaults = try #require(UserDefaults(suiteName: "relay-test-\(UUID().uuidString)"))
+    let settings = AppSettings(defaults: defaults)
+
+    settings.setBinding(KeyCombo(key: "y", modifiers: [.command]), for: .newTab)
+
+    // Solo l'azione rimappata finisce su disco: le altre restano al default (che una versione
+    // futura può cambiare, ereditato via loadKeybindings).
+    let data = try #require(defaults.data(forKey: "relay.shortcuts.bindings"))
+    let saved = try JSONDecoder().decode([String: KeyCombo].self, from: data)
+    #expect(saved == ["newTab": KeyCombo(key: "y", modifiers: [.command])])
+}
+
 @MainActor @Test func keybindingConflictAndReset() throws {
     let defaults = try #require(UserDefaults(suiteName: "relay-test-\(UUID().uuidString)"))
     let settings = AppSettings(defaults: defaults)

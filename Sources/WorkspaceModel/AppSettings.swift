@@ -245,7 +245,14 @@ public final class AppSettings {
     }
 
     private func persistKeybindings() {
-        let raw = Dictionary(uniqueKeysWithValues: keybindings.map { ($0.key.rawValue, $0.value) })
+        // Persisti solo i binding diversi dal default: `loadKeybindings` parte dai default e
+        // sovrappone i salvati, quindi le azioni non rimappate continuano a seguire il default
+        // shippato (che una versione futura può cambiare, es. per un conflitto con una nuova
+        // azione).
+        // Salvare l'intero dizionario congelerebbe i vecchi default per chi tocca anche una sola
+        // scorciatoia.
+        let overrides = keybindings.filter { $0.value != $0.key.defaultCombo }
+        let raw = Dictionary(uniqueKeysWithValues: overrides.map { ($0.key.rawValue, $0.value) })
         if let data = try? JSONEncoder().encode(raw) {
             defaults.set(data, forKey: Keys.keybindings)
         }
