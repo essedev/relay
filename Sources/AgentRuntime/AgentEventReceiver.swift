@@ -25,6 +25,10 @@ public final class AgentEventReceiver: @unchecked Sendable {
 
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
+    /// Watch della runtime dir per il self-heal: se il socket file sparisce sotto di noi (una
+    /// seconda istanza che fa `unlink`, una pulizia esterna), ri-binda. Event-driven, nessun
+    /// timer: reagisce solo al cambio della dir, costo zero sul path caldo degli eventi.
+    private var dirSource: DispatchSourceFileSystemObject?
 
     public init(
         path: String = RelayRuntimePaths.socketPath,
@@ -34,20 +38,21 @@ public final class AgentEventReceiver: @unchecked Sendable {
         self.onEvent = onEvent
     }
 
-    /// Avvia l'ascolto. Rimuove un socket file stantio con lo stesso path.
+    /// Avvia l'ascolto. Rimuove un socket file stantio con lo stesso path e arma il self-heal.
     public func start() throws {
-        try queue.sync { try openListeningSocket() }
+        try queue.sync {
+            try openListeningSocket()
+            startDirectoryWatch()
+        }
     }
 
     /// Ferma l'ascolto e rimuove il socket file. Idempotente.
     public func stop() {
         queue.sync {
-            acceptSource?.cancel()
-            acceptSource = nil
-            if listenFD >= 0 {
-                close(listenFD)
-                listenFD = -1
-            }
+            // Prima il watch, così il nostro stesso `unlink` non scatena un re-bind.
+            dirSource?.cancel() // il cancel handler chiude l'fd della dir
+            dirSource = nil
+            teardownListen()
             unlink(path)
         }
     }
@@ -55,11 +60,16 @@ public final class AgentEventReceiver: @unchecked Sendable {
     // MARK: - Private (invocati su `queue`)
 
     private func openListeningSocket() throws {
+        // No-stomp: se un'altra istanza viva ascolta già qui, `unlink`+`bind` le ruberebbe il
+        // socket. Il guard single-instance (App.main) dovrebbe evitarci di arrivare qui; questa è
+        // la rete di sicurezza a livello di trasporto (lancio dev sullo stesso ~/.relay, test).
+        guard !UnixSocket.isListening(path: path) else { throw UnixSocketError.addressInUse }
+
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw UnixSocketError.socketFailed(errno) }
 
         var addr = try UnixSocket.address(path: path)
-        unlink(path) // rimuovi un socket stantio prima di bind
+        unlink(path) // ora sicuro: il socket è stantio (owner morto) o assente
         let bindResult = UnixSocket.withSockAddr(&addr) { bind(fd, $0, $1) }
         guard bindResult == 0 else {
             close(fd)
@@ -76,6 +86,54 @@ public final class AgentEventReceiver: @unchecked Sendable {
         acceptSource = source
         source.resume()
         log.info("agent receiver listening")
+    }
+
+    /// Chiude la socket di ascolto corrente (senza toccare il watch della dir). Riusato da `stop`
+    /// e dal re-bind del self-heal.
+    private func teardownListen() {
+        acceptSource?.cancel()
+        acceptSource = nil
+        if listenFD >= 0 {
+            close(listenFD)
+            listenFD = -1
+        }
+    }
+
+    /// Osserva la runtime dir del socket: al cambio (creazione/rimozione di un file) verifica se il
+    /// nostro socket è sparito e in tal caso ri-binda. Best-effort: se la dir non è osservabile il
+    /// binding resta valido, solo senza recupero automatico.
+    private func startDirectoryWatch() {
+        let dir = (path as NSString).deletingLastPathComponent
+        let fd = open(dir, O_EVTONLY)
+        guard fd >= 0 else {
+            log.error("agent receiver cannot watch runtime dir; self-heal disabled")
+            return
+        }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .delete, .rename],
+            queue: queue
+        )
+        source.setEventHandler { [weak self] in self?.rebindIfMissing() }
+        source.setCancelHandler { close(fd) }
+        dirSource = source
+        source.resume()
+    }
+
+    /// Se stiamo ascoltando ma il socket file non c'è più, ri-binda. Solo quando il file è
+    /// davvero assente: se esiste (un'altra istanza ne ha uno vivo) non lo tocchiamo, per non
+    /// innescare un ping-pong; lo stomp lo previene già il guard + no-stomp.
+    private func rebindIfMissing() {
+        guard listenFD >= 0, access(path, F_OK) != 0 else { return }
+        log.error("agent socket file vanished; rebinding")
+        teardownListen()
+        do {
+            try openListeningSocket()
+            log.info("agent receiver rebound")
+        } catch {
+            // listenFD resta -1; il watch è ancora armato e ritenta al prossimo cambio della dir.
+            log.error("agent receiver rebind failed: \(error.localizedDescription)")
+        }
     }
 
     private func acceptConnection() {

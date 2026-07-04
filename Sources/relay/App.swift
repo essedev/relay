@@ -1,4 +1,6 @@
+import AgentRuntime
 import AppKit
+import Core
 
 /// Composition root. Se questo file cresce oltre il wiring, manca un modulo.
 @main
@@ -10,8 +12,20 @@ struct Relay {
         // LaunchServices; questo guard copre l'avvio diretto e la finestra di un upgrade (vecchio
         // processo ancora vivo mentre parte il nuovo): se un'altra istanza gira, la portiamo in
         // primo piano ed esco senza toccare nulla. Solo dal bundle (con bundle id); in dev
-        // (`swift run`, id assente) non si applica.
+        // (`swift run`, id assente) non si applica: lo copre il guard sul path qui sotto.
         if activateRunningInstanceIfPresent() { return }
+
+        // Guard basato sul path: il guard bundle non copre un lancio senza bundle id (`swift run`)
+        // sullo stesso `~/.relay`, che unlinkerebbe il socket dell'istanza viva orfanandone il
+        // receiver (badge congelati). Se un receiver vivo possiede già il nostro socket, un'altra
+        // istanza sta usando questa runtime dir: esco. Le istanze dev legittime usano
+        // `RELAY_SOCKET`/`RELAY_LAYOUT` diversi (path diverso -> nessun match, partono normali).
+        if AgentEventClient.isReceiverReachable() {
+            RelayLog.logger("app").notice(
+                "another Relay instance owns the runtime socket; exiting"
+            )
+            return
+        }
 
         let app = NSApplication.shared
         let controller = AppController()

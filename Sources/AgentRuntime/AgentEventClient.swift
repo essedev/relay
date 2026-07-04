@@ -5,6 +5,13 @@ import Foundation
 /// se il receiver non c'è (app non in esecuzione) `send` lancia, e il chiamante (CLI/hook) ignora
 /// l'errore così non rompe Claude.
 public enum AgentEventClient {
+    /// `true` se un receiver vivo ascolta sul socket (una `connect` effimera riesce). Il guard
+    /// single-instance lo usa per rilevare un'altra istanza Relay che possiede questa runtime dir,
+    /// anche senza bundle id (lancio dev). Un socket stantio (owner morto) o assente -> `false`.
+    public static func isReceiverReachable(at path: String = RelayRuntimePaths.socketPath) -> Bool {
+        UnixSocket.isListening(path: path)
+    }
+
     public static func send(
         _ event: AgentStateEvent,
         to path: String = RelayRuntimePaths.socketPath

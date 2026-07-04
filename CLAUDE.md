@@ -154,8 +154,15 @@ girano solo dal bundle (`make run-app`).
   1..9. Il recorder in impostazioni alza `settings.isCapturingShortcut`: il monitor si fa da parte
   così l'evento arriva al recorder invece di eseguire l'azione. Default e conflitti in `AppSettings`.
 - Agent binding: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'env della surface e torna dall'hook
-  come `paneId`. Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio è
-  gestito da `unlink` prima del `bind`, quindi non blocca il riavvio.
+  come `paneId`. Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio
+  (owner morto) è rimosso da `unlink` prima del `bind`, quindi non blocca il riavvio. **No-stomp**:
+  prima di `unlink`+`bind` il receiver fa una `connect` di prova (`UnixSocket.isListening`); se un
+  owner **vivo** risponde non lo tocca (`addressInUse`), così una seconda istanza non ruba il
+  socket alla prima. **Self-heal**: il receiver osserva la runtime dir (vnode `DispatchSource`, non
+  un timer) e **ri-binda** se il socket file sparisce sotto di lui; senza, un socket cancellato da
+  fuori orfanava il receiver e **congelava tutti i badge** sull'ultimo stato ricevuto (la causa dei
+  badge idle/loading bloccati). Ri-binda solo se il file è davvero assente (se esiste, un'altra
+  istanza ne ha uno vivo: no ping-pong).
 - Ordine degli eventi agente: ogni hook è un processo effimero con la sua connessione e il
   receiver drena in parallelo (un client bloccato non ferma gli altri), quindi il trasporto NON
   garantisce l'ordine. Lo ristabiliscono il pump FIFO in `AgentCoordinator` (AsyncStream, un solo
@@ -270,8 +277,13 @@ girano solo dal bundle (`make run-app`).
 - Single-instance: **due Relay condividono `~/.relay`** (layout + socket) e i loro autosave si
   pesterebbero -> layout corrotto. `LSMultipleInstancesProhibited=true` (bundle/Info.plist) lo
   previene lato LaunchServices; `Relay.main` ha anche un guard runtime (se un'altra istanza dello
-  stesso bundle id gira, la attiva ed esce). Vale solo dal bundle; `swift run` (id assente) non lo
-  applica, quindi in dev puoi avere due processi: usa `RELAY_LAYOUT`/`RELAY_SOCKET` diversi.
+  stesso bundle id gira, la attiva ed esce). Quel guard vale solo dal bundle; un lancio senza
+  bundle id (`swift run`) lo salta, e sullo stesso `~/.relay` unlinkerebbe il socket dell'app viva
+  (badge congelati). Perciò `Relay.main` ha un **secondo guard basato sul path**: se un receiver
+  vivo possiede già il nostro socket (`AgentEventClient.isReceiverReachable`) esco. Istanze dev
+  legittime usano `RELAY_SOCKET`/`RELAY_LAYOUT` diversi: path diverso, nessun match, partono
+  normali. Non elimina la race di due lanci simultanei (per quella servirebbe un lockfile): copre
+  il caso reale del lancio dev mentre un'istanza è già viva.
 - Cap LRU surface: `SurfaceRegistry.enforceLRU(cap:keep:)` sfratta le meno recenti **solo se idle**
   (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente), mai la
   visibile. Eviction = teardown SwiftTerm (scrollback perso, shell ricreata alla cwd al re-focus).
