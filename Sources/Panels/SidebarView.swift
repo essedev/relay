@@ -139,7 +139,17 @@ public struct SidebarView: View {
     /// l'ordine canonico su cui opera lo store. Il reset di `draggingWorkspaceID` lo fa il
     /// modifier.
     private func performMove(to insertion: Int, ordered: [Workspace]) {
-        guard let dragID = draggingWorkspaceID else { return }
+        guard let dragID = draggingWorkspaceID,
+              let dragIndex = ordered.firstIndex(where: { $0.id == dragID }) else { return }
+        // Rilascio in fondo al proprio segmento di float (non l'ultimo): `ordered[insertion]` è il
+        // primo del segmento visivo successivo, che in ordine canonico non è contiguo, quindi
+        // `before` sarebbe un no-op. Inserisco invece dopo l'ultimo del segmento.
+        let segment = store.segmentIndex(for: ordered[dragIndex])
+        let segmentEnd = ordered.lastIndex { store.segmentIndex(for: $0) == segment }
+        if let segmentEnd, insertion == segmentEnd + 1, insertion < ordered.count {
+            store.moveWorkspace(dragID, after: ordered[segmentEnd].id)
+            return
+        }
         let targetID = insertion < ordered.count ? ordered[insertion].id : nil
         store.moveWorkspace(dragID, before: targetID)
     }

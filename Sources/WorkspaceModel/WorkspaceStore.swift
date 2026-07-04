@@ -177,6 +177,23 @@ public final class WorkspaceStore {
         }
     }
 
+    /// Inserisce il workspace `id` immediatamente **dopo** `targetID` nell'ordine canonico. Serve
+    /// al
+    /// drag & drop quando si rilascia in fondo a un segmento di float (pinned/attenzione) diverso
+    /// dall'ultimo: lì `before` prenderebbe il primo del segmento successivo, che in ordine
+    /// canonico
+    /// non è contiguo, producendo un no-op. No-op se gli id coincidono o `id` non esiste.
+    public func moveWorkspace(_ id: UUID, after targetID: UUID) {
+        guard id != targetID,
+              let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
+        let moved = workspaces.remove(at: from)
+        if let to = workspaces.firstIndex(where: { $0.id == targetID }) {
+            workspaces.insert(moved, at: to + 1)
+        } else {
+            workspaces.append(moved)
+        }
+    }
+
     /// Segmento di float nella sidebar: 0 = pinned, 1 = con attenzione fresca, 2 = resto. Stesso
     /// criterio di `orderedWorkspaces`; la UI lo usa per vincolare l'indicatore di inserimento al
     /// segmento del workspace trascinato (il float non permette di attraversare i segmenti).

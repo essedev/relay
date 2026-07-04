@@ -82,6 +82,42 @@ import Testing
     #expect(store.workspaces.map(\.id) == [a.id, b.id, c.id])
 }
 
+@Test func moveWorkspaceAfterTargetInserts() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+
+    // a dopo c: in fondo.
+    store.moveWorkspace(a.id, after: c.id)
+    #expect(store.workspaces.map(\.id) == [b.id, c.id, a.id])
+
+    // b dopo a (ora ultimo): subito dopo a.
+    store.moveWorkspace(b.id, after: a.id)
+    #expect(store.workspaces.map(\.id) == [c.id, a.id, b.id])
+
+    // dopo sé stesso: no-op.
+    store.moveWorkspace(c.id, after: c.id)
+    #expect(store.workspaces.map(\.id) == [c.id, a.id, b.id])
+}
+
+/// Rilascio in fondo al segmento pinned (non l'ultimo segmento): `after` sposta davvero, dove
+/// `before` col primo del segmento successivo sarebbe stato un no-op. Scenario del bug: canonico
+/// [a, b, c] con b, c pinned (visivo [b, c, a]); trascinando b dopo c l'ordine visivo dei pinned
+/// diventa [c, b].
+@Test func dropAtEndOfPinnedSegmentReorders() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+    store.togglePin(b.id)
+    store.togglePin(c.id)
+    #expect(store.orderedWorkspaces.map(\.id) == [b.id, c.id, a.id])
+
+    store.moveWorkspace(b.id, after: c.id)
+    #expect(store.orderedWorkspaces.map(\.id) == [c.id, b.id, a.id])
+}
+
 @Test func segmentIndexPartitionsLikeOrdered() {
     let store = WorkspaceStore()
     let calm = store.createWorkspace(name: "calm")
