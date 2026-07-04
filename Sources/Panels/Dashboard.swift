@@ -61,6 +61,14 @@ public enum DashboardModel {
         }.map(\.element)
     }
 
+    /// Timestamp che rappresenta l'età di una card: per un marker (unseen/pending) è da quando il
+    /// marker è in vigore (`attentionSince`), altrimenti l'ultimo evento. Così un no-op
+    /// (SessionEnd,
+    /// idle->idle) che avanza `lastEventAt` per la monotonicità non ringiovanisce un sospeso.
+    static func ageDate(for tab: WorkspaceModel.Tab) -> Date? {
+        tab.attention == .none ? tab.lastEventAt : (tab.attentionSince ?? tab.lastEventAt)
+    }
+
     /// Età compatta di un timestamp ("adesso", "45s", "3m", "2h", "5d"). `nil` senza timestamp.
     public static func age(of date: Date?, now: Date = Date()) -> String? {
         guard let date else { return nil }
@@ -299,7 +307,10 @@ private struct SessionCard: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(colors.secondary)
                 .help("Dismiss")
-            } else if let age = DashboardModel.age(of: item.tab.lastEventAt, now: now) {
+            } else if let age = DashboardModel.age(
+                of: DashboardModel.ageDate(for: item.tab),
+                now: now
+            ) {
                 Text(age)
                     .font(Theme.Typography.caption.monospacedDigit())
                     .foregroundStyle(colors.secondary)

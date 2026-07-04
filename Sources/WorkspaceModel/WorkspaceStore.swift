@@ -68,8 +68,11 @@ public final class WorkspaceStore {
                             resume: tab.resume,
                             // Un completamento mai ripreso sopravvive al riavvio come "in
                             // sospeso": anche `unseen` degrada a pending (al restore il segnale
-                            // forte sarebbe stantio; il posto giusto è la dashboard).
-                            pendingSince: tab.attention == .none ? nil : tab.lastEventAt
+                            // forte sarebbe stantio; il posto giusto è la dashboard). Persisto il
+                            // clock del marker (`attentionSince`), non `lastEventAt`.
+                            pendingSince: tab.attention == .none
+                                ? nil
+                                : (tab.attentionSince ?? tab.lastEventAt)
                         )
                     }
                 )
@@ -80,7 +83,10 @@ public final class WorkspaceStore {
     /// Ricostruisce workspace e tab da uno snapshot (al restore). Le tab nascono senza stato agente
     /// e `unrealized`: la surface parte al primo focus (vedi lifecycle in ARCHITECTURE). La
     /// selezione viene validata contro i workspace effettivamente ricostruiti.
-    public func restore(from snapshot: LayoutSnapshot) {
+    /// `now` = istante del restore: un marker sopravvissuto degrada a `pending` e il suo clock di
+    /// decadenza (`attentionSince`) riparte da qui, così un completamento mai visto non viene
+    /// spazzato subito al primo boot (il decay misurerebbe dall'età dell'evento, non da ora).
+    public func restore(from snapshot: LayoutSnapshot, now: Date = Date()) {
         workspaces = snapshot.workspaces.map { workspace in
             let tabs = workspace.tabs.map { tab in
                 Tab(
@@ -89,7 +95,8 @@ public final class WorkspaceStore {
                     hasCustomTitle: tab.hasCustomTitle,
                     currentDirectory: tab.currentDirectory,
                     attention: tab.pendingSince == nil ? .none : .pending,
-                    lastEventAt: tab.pendingSince, // ancora l'età del sospeso (dashboard, decay)
+                    lastEventAt: tab.pendingSince, // età reale dell'evento (ordinamento dashboard)
+                    attentionSince: tab.pendingSince == nil ? nil : now, // clock decay dal boot
                     resume: tab.resume
                 )
             }
@@ -320,9 +327,7 @@ public final class WorkspaceStore {
                 currentAttention: tab.attention,
                 resetsAttention: resetsAttention
             )
-            tab.agentState = result.state
-            tab.attention = result.attention
-            tab.lastEventAt = timestamp
+            tab.apply(result, at: timestamp)
             // Notifica (needs_input / completato non visto): classificazione pura, effetto nel
             // composition root. Emessa dopo aver aggiornato la tab (titolo aggiornato dagli hook).
             if let kind = AgentStateReducer.notification(
@@ -362,21 +367,25 @@ public extension WorkspaceStore {
             guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
             guard tab.attention != .none else { return false }
             tab.attention = .none
+            tab.attentionSince = nil
             return true
         }
         return false
     }
 
-    /// Decadenza opzionale dei sospesi: spegne i `pending` il cui ultimo evento è più vecchio di
-    /// `cutoff`. Chiamata dal composition root quando la preferenza è attiva (boot, ritorno in
-    /// foreground, apertura dashboard). Ritorna quanti ne ha spenti.
+    /// Decadenza opzionale dei sospesi: spegne i `pending` diventati tali prima di `cutoff`.
+    /// Chiamata dal composition root quando la preferenza è attiva (boot, ritorno in foreground,
+    /// apertura dashboard). Misura da `attentionSince` (da quando è in sospeso), non da
+    /// `lastEventAt` (l'evento): un completamento mai visto degrada a pending al restore con clock
+    /// dal boot, quindi non viene spazzato subito. Ritorna quanti ne ha spenti.
     @discardableResult
     func decayPending(olderThan cutoff: Date) -> Int {
         var decayed = 0
         for tab in workspaces.flatMap(\.tabs) {
             guard tab.attention == .pending,
-                  (tab.lastEventAt ?? .distantPast) < cutoff else { continue }
+                  (tab.attentionSince ?? tab.lastEventAt ?? .distantPast) < cutoff else { continue }
             tab.attention = .none
+            tab.attentionSince = nil
             decayed += 1
         }
         return decayed

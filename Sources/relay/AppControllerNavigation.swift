@@ -74,9 +74,7 @@ extension AppController {
             // percezione declassa il completamento da forte a quieto (unseen -> pending), non lo
             // spegne. Risolvono solo la ripresa vera (prompt -> running, via reducer), il dismiss
             // o la chiusura: "l'ho visto" non è "me ne sono occupato".
-            if let tab = store.selectedWorkspace?.selectedTab, tab.attention == .unseen {
-                tab.attention = .pending
-            }
+            store.selectedWorkspace?.selectedTab?.markSeen()
             return event
         }
     }

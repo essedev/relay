@@ -46,6 +46,29 @@ private func makeFixture() -> Fixture {
     fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
     #expect(fixture.hiddenTab.agentState == .idle)
     #expect(fixture.hiddenTab.attention == .unseen) // completato mentre non guardavi
+    // Il marker timbra il proprio clock con l'evento che l'ha generato.
+    #expect(fixture.hiddenTab.attentionSince == Date(timeIntervalSince1970: 2))
+}
+
+/// Un no-op (SessionEnd che preserva l'unseen) avanza `lastEventAt` per la monotonicità ma NON
+/// ringiovanisce `attentionSince`: l'età del marker e la finestra di decadenza restano fedeli.
+@Test @MainActor func noOpEventDoesNotRejuvenateMarkerClock() {
+    let fixture = makeFixture()
+    let tabID = fixture.hiddenTab.id.uuidString
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 1)
+    )
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .unknown,
+        at: Date(timeIntervalSince1970: 99)
+    )
+    #expect(fixture.hiddenTab.attention == .unseen) // SessionEnd preserva il completamento
+    #expect(fixture.hiddenTab.attentionSince == Date(timeIntervalSince1970: 2)) // clock invariato
+    #expect(fixture.hiddenTab.lastEventAt == Date(timeIntervalSince1970: 99)) // monotonicità avanza
 }
 
 @Test @MainActor func completedOnVisibleTabBecomesPending() {
