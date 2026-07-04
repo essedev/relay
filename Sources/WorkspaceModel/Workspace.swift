@@ -79,15 +79,4 @@ extension Array {
     subscript(safe index: Int) -> Element? {
         indices.contains(index) ? self[index] : nil
     }
-
-    /// Sposta elementi replicando la semantica di `move(fromOffsets:toOffset:)` di SwiftUI,
-    /// senza dipendere da SwiftUI (WorkspaceModel resta puro).
-    mutating func moveElements(fromOffsets source: IndexSet, toOffset destination: Int) {
-        let moving = source.map { self[$0] }
-        for index in source.sorted(by: >) {
-            remove(at: index)
-        }
-        let adjusted = destination - source.count(where: { $0 < destination })
-        insert(contentsOf: moving, at: Swift.min(Swift.max(adjusted, 0), count))
-    }
 }

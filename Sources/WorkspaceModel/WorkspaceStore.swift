@@ -163,10 +163,6 @@ public final class WorkspaceStore {
         return removedTabIDs
     }
 
-    public func moveWorkspaces(fromOffsets: IndexSet, toOffset: Int) {
-        workspaces.moveElements(fromOffsets: fromOffsets, toOffset: toOffset)
-    }
-
     /// Inserisce il workspace `id` immediatamente **prima** di `targetID` nell'ordine canonico
     /// (drag & drop nella sidebar). `targetID == nil` (o non trovato) lo porta in fondo. No-op se
     /// gli id coincidono o `id` non esiste. La sidebar mostra `orderedWorkspaces` (partizione

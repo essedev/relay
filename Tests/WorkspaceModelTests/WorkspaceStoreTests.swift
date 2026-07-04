@@ -192,16 +192,6 @@ import Testing
     #expect(store.otherWorkspaces.count == 1)
 }
 
-@Test func moveWorkspacesReorders() {
-    let store = WorkspaceStore()
-    let a = store.createWorkspace(name: "a")
-    let b = store.createWorkspace(name: "b")
-
-    store.moveWorkspaces(fromOffsets: IndexSet(integer: 1), toOffset: 0)
-
-    #expect(store.workspaces.map(\.id) == [b.id, a.id])
-}
-
 @Test func renameWorkspaceIgnoresEmpty() {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "api")
