@@ -20,7 +20,9 @@ quando serviranno payload diversi (session lifecycle, resume): allora si introdu
 
 Percorso socket: `~/.relay/relay.sock` (override `RELAY_SOCKET`). Il receiver (app) fa da server; il
 CLI (`relay-cli claude-hook`) fa da client. Vedi `RelayRuntimePaths`, `AgentEventReceiver`,
-`AgentEventClient`.
+`AgentEventClient`. Il receiver non calpesta un socket vivo (una `connect` di prova prima del bind)
+e si auto-rigenera (ri-binda se il file sparisce sotto di lui): senza, un socket cancellato da
+un'altra istanza congelava tutti i badge. Dettaglio in `ARCHITECTURE.md`, Local Control API.
 
 Stati normalizzati (`AgentState`): `running`, `idle`, `needs_input`, `error`, `unknown`.
 
@@ -112,6 +114,17 @@ legate per `Tab.id` a runtime.
 
 Resume: solo `agent`, `sessionId`, `label` (titolo della tab alla cattura). Il comando è derivato
 (`\(agent) --resume <sessionId>`), mai persistito. Vietato: prompt, token, credenziali.
+
+### Single-instance
+
+Due Relay sullo stesso `~/.relay` si pesterebbero: gli autosave corromperebbero il layout e i
+receiver il socket. Tre difese: `LSMultipleInstancesProhibited` (Info.plist) blocca il doppio
+lancio lato LaunchServices; un guard in `Relay.main` per bundle id attiva l'istanza esistente ed
+esce (copre la finestra di un upgrade); un secondo guard sul path esce se un receiver vivo possiede
+già il nostro socket (`AgentEventClient.isReceiverReachable`), a copertura dei lanci senza bundle id
+(`swift run`) che il primo non intercetta. Istanze dev legittime usano `RELAY_SOCKET`/`RELAY_LAYOUT`
+diversi. A livello di trasporto il no-stomp e il self-heal del receiver (vedi sopra) sono la rete
+finale se un'istanza sfugge ai guard.
 
 ## Preferenze (UserDefaults)
 

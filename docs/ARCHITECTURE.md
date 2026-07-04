@@ -411,6 +411,17 @@ per evento, che non preserva l'ordine di enqueue) e la guardia di monotonicità 
 scarta gli eventi più vecchi dell'ultimo applicato per tab (`WorkspaceStore.applyAgentState`) e
 per sessione (`AgentSessionStore.apply`).
 
+Robustezza del socket: il path è unico e condiviso da ogni processo Relay, quindi va difeso dal
+calpestamento tra istanze. Il receiver (a) prima di `unlink`+`bind` fa una `connect` di prova
+(`UnixSocket.isListening`): se un owner vivo risponde rifiuta (`addressInUse`), così una seconda
+istanza non ruba il socket alla prima (**no-stomp**); (b) osserva la runtime dir con un vnode
+`DispatchSource` (non un timer) e **ri-binda** se il socket file sparisce sotto di lui, ma solo
+quando è davvero assente (se esiste, un'altra istanza ne ha uno vivo: niente ping-pong). Senza il
+self-heal un socket cancellato da fuori orfanava il receiver e la consegna moriva in silenzio,
+congelando ogni badge sull'ultimo stato ricevuto. Il complemento a monte è il guard
+single-instance basato sul path in `Relay.main` (vedi `STATE_SCHEMA.md`, single-instance), che
+copre anche i lanci senza bundle id (`swift run`) che il guard di LaunchServices non intercetta.
+
 ### Hook Installer
 
 Comandi (`relay-cli`, implementati in `HookInstaller`):
