@@ -175,6 +175,17 @@ girano solo dal bundle (`make run-app`).
   implementa: query + encoding). Claude Code attiva il protocollo solo per terminali noti; **non**
   settare `TERM_PROGRAM` (lo prioritizza e maschererebbe il segnale, claude-code#27868). Cosi
   Shift+Invio/Ctrl+Invio arrivano distinti all'app, senza intercettare l'input nel path caldo.
+- Scroll fluido: SwiftTerm quantizza lo scroll (`event.deltaY` -> salti di 1/3/10/20+ righe,
+  delta precisi del trackpad ignorati). `RelayTerminalView.handleSmoothScroll` converte
+  `scrollingDeltaY` in righe (1:1 col gesto, momentum incluso) accumulando il residuo sub-riga
+  (`PreciseScrollAccumulator`, puro e testato). Le righe diventano scroll dello scrollback oppure,
+  con mouse reporting attivo (es. Claude Code), eventi rotella SGR verso l'app (`sendWheelReports`,
+  un evento per riga di gesto). **Non si può fare override di `scrollWheel`**: in SwiftTerm è
+  `public override`, non `open` - l'evento arriva via `SmoothScrollInterceptor` (local monitor
+  `.scrollWheel` + hitTest, stesso pattern del monitor tastiera). Unico passthrough a SwiftTerm:
+  alternate buffer senza reporting (less/vim senza mouse, frecce sintetiche - logica interna, non
+  replicarla). Granularità resta la riga intera (il renderer disegna a offset di riga, `yDisp`
+  Int): smoothness sub-riga richiederebbe un fork dell'engine.
 - **Mai lanciare `relay-cli hooks setup` a mano senza `RELAY_CLAUDE_SETTINGS`**: `NSHomeDirectory()`
   ignora `$HOME` su macOS e scriverebbe il vero `~/.claude`. Per test/manuale usa
   `RELAY_CLAUDE_SETTINGS=/tmp/....json`. I test unit passano già un `settingsPath` esplicito.
