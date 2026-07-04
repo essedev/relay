@@ -9,7 +9,11 @@ aggiornato nello stesso commit di ogni cambiamento a questi formati.
 Trasporto: Unix domain socket, JSON lines. Fonte autorevole: hook Claude Code.
 Tipi in `Sources/AgentProtocol/`; trasporto in `Sources/AgentRuntime/`.
 
-**Formato sul filo (v1)**: una riga = un `AgentStateEvent` codificato JSON (date ISO 8601). Non c'è
+**Formato sul filo (v1)**: una riga = un `AgentStateEvent` codificato JSON (date ISO 8601 **con
+millisecondi**; il decode accetta anche il formato storico a secondi interi, ma un'app vecchia non
+decodifica gli eventi di un CLI nuovo). Le frazioni servono alla guardia di monotonicità negli
+store: gli hook sono processi concorrenti, il trasporto non garantisce l'ordine, e gli eventi più
+vecchi dell'ultimo applicato per tab/sessione vengono scartati. Non c'è
 ancora un envelope con `type`: in v1 ogni hook mappa a un `agent.state`, quindi il tipo è implicito.
 `AgentEventType` (`agent.session.start/state/notification/resume.set/session.end`) resta definito per
 quando serviranno payload diversi (session lifecycle, resume): allora si introduce l'envelope.
@@ -26,7 +30,7 @@ Mapping Claude -> stato (installato in `settings.json` da `ClaudeHookInstaller`)
 | --- | --- | --- |
 | `SessionStart` | `idle` | - |
 | `UserPromptSubmit` | `running` | - |
-| `PreToolUse` | `running` | `*` |
+| `PreToolUse` | `running` (`needs_input` se il tool apre un prompt, vedi sotto) | `*` |
 | `PostToolUse` | `running` | `*` |
 | `PermissionRequest` | `needs_input` | - |
 | `Stop` | `idle` | - |
@@ -34,6 +38,12 @@ Mapping Claude -> stato (installato in `settings.json` da `ClaudeHookInstaller`)
 
 Il `matcher` esiste solo per gli eventi tool. `SubagentStop` non è mappato di proposito: lo stop di
 un subagent non è il completamento del pane principale (anti-rumore).
+
+**Tool a prompt bloccante**: il `PreToolUse` di `AskUserQuestion` e `ExitPlanMode` viene corretto
+in `needs_input` dal CLI (`ClaudeHookStateMapper`, che legge `hook_event_name` e `tool_name` dallo
+stdin dell'hook): quei tool non passano da `PermissionRequest` (non sono permessi) e non producono
+`Stop` finché l'utente non risponde; il `PostToolUse`, che arriva solo dopo la risposta, riporta
+`running`.
 
 **Ri-presa attiva (`resetsAttention`)**: `SessionStart` porta un `source` (`startup`/`resume`/
 `clear`/`compact`). Su `clear` (= `/clear`, `/new`) e `resume` il CLI lo legge dallo stdin e marca
@@ -54,7 +64,7 @@ Esempio `agent.state` (`AgentStateEvent`, esattamente ciò che passa sul socket)
   "state": "needs_input",
   "source": "hook",
   "confidence": 1,
-  "timestamp": "2026-07-02T08:45:48Z"
+  "timestamp": "2026-07-02T08:45:48.123Z"
 }
 ```
 
