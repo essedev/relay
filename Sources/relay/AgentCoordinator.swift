@@ -13,13 +13,12 @@ import WorkspaceModel
 ///
 /// Ordine di applicazione: il receiver consegna da thread di background e un `Task {}` per evento
 /// non preserva l'ordine di enqueue verso il MainActor; qui gli eventi passano da un
-/// `AsyncStream` con un solo consumer (pump FIFO), che applica session store e model in sequenza.
+/// `AsyncStream` con un solo consumer (pump FIFO), che applica gli eventi al model in sequenza.
 /// Il riordino residuo del trasporto (drain concorrenti nel receiver) lo assorbe la guardia di
-/// monotonicità sui timestamp negli store.
+/// monotonicità sui timestamp nello store.
 @MainActor
 final class AgentCoordinator {
     private let store: WorkspaceStore
-    private let sessionStore = AgentSessionStore()
     private var receiver: AgentEventReceiver?
     private var events: AsyncStream<AgentStateEvent>.Continuation?
     private var pump: Task<Void, Never>?
@@ -39,10 +38,10 @@ final class AgentCoordinator {
             events = continuation
             self.receiver = receiver
             // Pump FIFO: unico consumer, eredita il MainActor. Ogni evento è applicato per intero
-            // (session store + model) prima del successivo.
+            // prima del successivo.
             pump = Task { [weak self] in
                 for await event in stream {
-                    await self?.handle(event)
+                    self?.handle(event)
                 }
             }
             log.info("agent runtime listening on \(socketPath, privacy: .public)")
@@ -62,11 +61,7 @@ final class AgentCoordinator {
 
     // MARK: - Private
 
-    private func handle(_ event: AgentStateEvent) async {
-        // Snapshot per sessionId: utile a resume/timeline (Milestone 2). Non guida il badge.
-        // Nello stesso pump del model, così i due store vedono gli eventi nello stesso ordine.
-        await sessionStore.apply(event)
-
+    private func handle(_ event: AgentStateEvent) {
         // Binding via paneId (= RELAY_TAB_ID = Tab.id). La logica di transizione vive nello store.
         // Passo agent + sessionId: lo store cattura il binding di resume sulla tab.
         guard let paneId = event.paneId else { return }
