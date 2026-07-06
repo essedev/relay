@@ -178,6 +178,20 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 - **Sidebar width persistita**: default 250, salvata in `AppSettings` (prima ripartiva dal minimo a
   ogni avvio).
 
+## Fatto - Riordino e attenzione manuale (post-brew)
+
+- **Drag & drop sidebar libero**: il riordino non è più vincolato al segmento di float (un
+  workspace solo nel suo gruppo restava inchiodato al punto di partenza, drop = no-op). Il drag
+  edita l'ordine canonico che il float proietta, con resolver puro `SidebarDrop` (attraversare il
+  blocco pinned pinna/spinna) e ordine congelato durante il gesto; lo stato del gesto vive in
+  `@GestureState` (reset garantito anche se il gesto viene annullato).
+- **Mark-read filtrato**: il declassamento del completamento scatta solo su interazione reale col
+  terminale (tasto col terminale in focus o click dentro la sua view, `terminalOwns`), non su un
+  click di navigazione nella chrome (cambiare tab/workspace non consuma più il marker).
+- **Override unread manuale**: dal menu contestuale (workspace nella sidebar, tab nella tab bar)
+  "Mark as Unread"/"Mark as Read" riaccende o spegne il marker a mano (`toggleUnread`, riusa
+  `unseen`; niente notifica).
+
 ## Più avanti
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a

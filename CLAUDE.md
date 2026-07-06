@@ -12,7 +12,9 @@ jump-to-attention `Cmd+J`), drag finestra solo dalla title strip, ring di attenz
 terminale + mark-read su interazione (modello ispirato a cmux), scorciatoie rimappabili (recorder
 in impostazioni)** + **dashboard di triage (`Cmd+D`) e attenzione a tre livelli (unseen -> pending
 -> risolto, con dismiss e decadenza opzionale)** + **riordino libero di workspace e tab via drag &
-drop (`DragGesture` + `.offset`, linea di inserimento, vedi `Panels/Reorderable`)**.
+drop (`DragGesture` + `.offset`, linea di inserimento, resolver puro `SidebarDrop`, vedi
+`Panels/Reorderable`)** + **mark-read filtrato alla sola interazione col terminale (`terminalOwns`)
++ override unread manuale dal menu contestuale (`toggleUnread`)**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
