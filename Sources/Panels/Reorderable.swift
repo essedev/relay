@@ -8,9 +8,11 @@ import SwiftUI
 ///
 /// Meccanica: ogni elemento misura il proprio frame di layout in un coordinate space nominato
 /// (`reorderFrame`) - l'`.offset` è un trasform di rendering, non tocca il frame di layout, quindi
-/// i frame restano stabili durante il trascinamento. Dalla posizione del puntatore ricaviamo
-/// l'indice di inserimento (`reorderInsertionIndex`); la semantica del drop la decide il caller
-/// (`perform`). Lo stato del gesto vive in un `@GestureState` del caller: un solo elemento per
+/// i frame restano stabili durante il trascinamento. Dal centro proiettato della riga in volo
+/// (frame originale + traslazione, non il puntatore grezzo) ricaviamo l'indice di inserimento
+/// (`reorderInsertionIndex`), così la linea segue il corpo della riga a prescindere dal punto di
+/// presa; la semantica del drop la decide il caller (`perform`). Lo stato del gesto vive in un
+/// `@GestureState` del caller: un solo elemento per
 /// lista si muove, niente pasteboard condivisa, e SwiftUI lo azzera da solo anche a gesto
 /// annullato (menu contestuale, perdita focus), così nessuna riga resta sollevata e nessun drag
 /// successivo parte rotto.
@@ -39,8 +41,8 @@ struct ReorderFramesKey: PreferenceKey {
     }
 }
 
-/// Indice di inserimento (0...count) dato il puntatore: quante righe hanno il centro prima di esso
-/// lungo l'asse. `count` = posizione finale (dopo l'ultimo elemento).
+/// Indice di inserimento (0...count) data una posizione lungo l'asse: quante righe hanno il centro
+/// prima di essa. `count` = posizione finale (dopo l'ultimo elemento).
 func reorderInsertionIndex(
     location: CGPoint,
     frames: [Int: CGRect],
@@ -59,6 +61,25 @@ func reorderInsertionIndex(
         if pos > mid { index = i + 1 } else { break }
     }
     return index
+}
+
+/// Indice di inserimento guidato dal **centro proiettato** della riga trascinata (frame originale +
+/// traslazione), non dal puntatore grezzo. Così la linea segue il *corpo* della riga sollevata ed è
+/// **indipendente dal punto di presa** lungo la riga: afferrarla in cima o in fondo dà lo stesso
+/// risultato (col puntatore grezzo la decisione sfasava di quanto eri lontano dal centro). Se manca
+/// il frame della riga, ricade sulla sola traslazione (caso improbabile, frame non ancora
+/// misurato).
+func reorderInsertionIndex(
+    draggedIndex: Int,
+    translation: CGFloat,
+    frames: [Int: CGRect],
+    axis: ReorderAxis,
+    count: Int
+) -> Int {
+    let base = frames[draggedIndex].map { axis == .vertical ? $0.midY : $0.midX } ?? 0
+    let center = base + translation
+    let point = axis == .vertical ? CGPoint(x: 0, y: center) : CGPoint(x: center, y: 0)
+    return reorderInsertionIndex(location: point, frames: frames, axis: axis, count: count)
 }
 
 /// La linea di inserimento, posizionata al bordo dell'elemento `insertion` (o in coda dopo
@@ -105,6 +126,9 @@ struct ReorderInsertionLine: View {
 /// Parametri di una riga riordinabile. Struct (init sintetizzato) per tenere snella la firma.
 struct ReorderRowConfig {
     let id: UUID
+    /// Indice visivo della riga (stesso passato a `reorderFrame`): serve a proiettarne il centro
+    /// durante il drag, così l'inserimento segue il corpo della riga e non il punto di presa.
+    let index: Int
     let axis: ReorderAxis
     let space: String
     let count: Int
@@ -115,9 +139,15 @@ struct ReorderRowConfig {
     let state: ReorderDragState
     let perform: (Int) -> Void
 
-    /// Indice di inserimento per il puntatore.
-    func insertionIndex(at location: CGPoint) -> Int {
-        reorderInsertionIndex(location: location, frames: frames, axis: axis, count: count)
+    /// Indice di inserimento per la traslazione corrente, dal centro proiettato della riga.
+    func insertionIndex(for translation: CGSize) -> Int {
+        reorderInsertionIndex(
+            draggedIndex: index,
+            translation: shift(of: translation),
+            frames: frames,
+            axis: axis,
+            count: count
+        )
     }
 
     /// Componente della traslazione lungo l'asse della lista.
@@ -136,12 +166,12 @@ private func reorderDragGesture(_ config: ReorderRowConfig) -> some Gesture {
             if state.id == nil { state.id = config.id }
             guard state.id == config.id else { return }
             state.translation = config.shift(of: value.translation)
-            state.insertion = config.insertionIndex(at: value.location)
+            state.insertion = config.insertionIndex(for: value.translation)
         }
         .onEnded { value in
             // Il gesto vive sulla riga dove il drag è partito: niente guard sull'id. Lo scambio
             // parte qui; il reset (animato) dello stato lo fa la resetTransaction del caller.
-            let index = config.insertionIndex(at: value.location)
+            let index = config.insertionIndex(for: value.translation)
             withAnimation(.easeInOut(duration: 0.2)) {
                 config.perform(index)
             }

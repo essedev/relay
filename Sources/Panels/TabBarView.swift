@@ -57,6 +57,7 @@ public struct TabBarView: View {
                     .reorderFrame(index, in: space)
                     .reorderableRow(ReorderRowConfig(
                         id: tab.id,
+                        index: index,
                         axis: .horizontal,
                         space: space,
                         count: tabs.count,

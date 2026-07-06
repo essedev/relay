@@ -99,6 +99,7 @@ public struct SidebarView: View {
                         .reorderFrame(index, in: space)
                         .reorderableRow(ReorderRowConfig(
                             id: workspace.id,
+                            index: index,
                             axis: .vertical,
                             space: space,
                             count: ordered.count,

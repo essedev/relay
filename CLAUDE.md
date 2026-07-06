@@ -290,7 +290,11 @@ girano solo dal bundle (`make run-app`).
   `reorderableContainer` + `ReorderInsertionLine`). **Non** `onDrag`/`onDrop` di sistema (generano
   una preview con snap-back al rilascio): la riga *vera* si solleva con un `DragGesture` + `.offset`
   (semitrasparente, zIndex alto) seguendo il puntatore, una linea segnala l'inserimento, e al
-  rilascio lo scambio parte in `withAnimation` mentre l'offset torna a zero (nessun salto). I frame
+  rilascio lo scambio parte in `withAnimation` mentre l'offset torna a zero (nessun salto).
+  L'indice di inserimento viene dal **centro proiettato della riga in volo** (frame originale +
+  traslazione), **non** dal puntatore grezzo: così la linea segue il corpo della riga ed è
+  **indipendente dal punto di presa** (afferrarla in cima o in fondo dà lo stesso risultato; col
+  puntatore la decisione sfasava di quanto eri lontano dal suo centro). I frame
   di layout li raccoglie un `PreferenceKey` in un coordinate space nominato (l'`.offset` è un
   trasform di rendering, non altera il frame di layout, quindi i frame restano stabili durante il
   gesto). Lo stato del gesto (`ReorderDragState`) vive in un **`@GestureState`** con
