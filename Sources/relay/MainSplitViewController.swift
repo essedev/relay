@@ -95,6 +95,11 @@ final class MainSplitViewController: NSSplitViewController {
         right.focusTerminal()
     }
 
+    /// L'evento appartiene al terminale in vista (mark-read filtrato). Inoltra al right pane.
+    func terminalOwns(_ event: NSEvent) -> Bool {
+        right.terminalOwns(event)
+    }
+
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("MainSplitViewController is programmatic-only")

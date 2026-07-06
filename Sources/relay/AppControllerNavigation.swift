@@ -41,10 +41,11 @@ extension AppController {
 
     /// Un solo monitor locale per: (1) navigazione Cmd/Option + 1..9 - gli shortcut menu con solo
     /// Option non fanno match (AppKit confronta il carattere trasformato, es. Option+1 = "¡"); (2)
-    /// mark-read - tasto o click mentre l'app è attiva "usano" la tab in vista e spengono il marker
-    /// di completamento (la visita reale, non il semplice ritorno in foreground). Non filtro il
-    /// click all'area del terminale: risalire al frame non vale la complessità, e interagire con
-    /// l'app col completamento in vista vale comunque come "visto".
+    /// mark-read - interazione *col terminale* in vista (tasto col terminale in focus, o click
+    /// dentro la sua view: `splitVC.terminalOwns`) che declassa il marker di completamento. Il
+    /// filtro all'area del terminale è voluto: un click di navigazione nella chrome (cambio tab
+    /// nella tab bar, cambio workspace nella sidebar) o un tasto in un campo di rename non è
+    /// "occuparsi della conversazione", quindi non consuma il segnale.
     func installNavigationKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(
             matching: [.keyDown, .leftMouseDown]
@@ -70,11 +71,15 @@ extension AppController {
                     return nil // hotkey rimappabile consumato
                 }
             }
-            // Input grezzo (tasto senza binding, o click) sulla tab in vista = interazione: la
-            // percezione declassa il completamento da forte a quieto (unseen -> pending), non lo
-            // spegne. Risolvono solo la ripresa vera (prompt -> running, via reducer), il dismiss
-            // o la chiusura: "l'ho visto" non è "me ne sono occupato".
-            store.selectedWorkspace?.selectedTab?.markSeen()
+            // Interazione col terminale in vista (tasto col terminale in focus, o click dentro la
+            // sua view) = la percezione declassa il completamento da forte a quieto (unseen ->
+            // pending), non lo spegne. Un click nella chrome (tab bar/sidebar) o un tasto altrove
+            // è filtrato via da `terminalOwns`: cambiare tab non consuma più il marker. Risolvono
+            // solo la ripresa vera (prompt -> running, via reducer), il dismiss o la chiusura:
+            // "l'ho visto" non è "me ne sono occupato".
+            if splitVC?.terminalOwns(event) == true {
+                store.selectedWorkspace?.selectedTab?.markSeen()
+            }
             return event
         }
     }

@@ -94,6 +94,25 @@ public final class WorkspaceAreaController: NSViewController {
         view.window?.makeFirstResponder(terminal)
     }
 
+    /// L'evento è uso *reale* del terminale in vista: un tasto mentre il terminale (o una sua
+    /// discendente) è first responder, o un click dentro la sua view. Guida il mark-read: solo
+    /// così l'utente "vede" il completamento della tab in vista. Un click di navigazione nella
+    /// chrome (tab bar, sidebar) o un tasto in un campo di rename non contano - restano fuori da
+    /// `currentTerminal`.
+    public func terminalOwns(_ event: NSEvent) -> Bool {
+        guard let terminal = currentTerminal, let window = view.window,
+              event.window === window else { return false }
+        switch event.type {
+        case .keyDown:
+            guard let responder = window.firstResponder as? NSView else { return false }
+            return responder === terminal || responder.isDescendant(of: terminal)
+        case .leftMouseDown:
+            return terminal.bounds.contains(terminal.convert(event.locationInWindow, from: nil))
+        default:
+            return false
+        }
+    }
+
     /// Surface attualmente vive (per la strumentazione di performance, misure M3).
     public var liveSurfaceCount: Int {
         registry.liveSurfaceCount

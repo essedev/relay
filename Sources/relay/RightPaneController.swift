@@ -69,6 +69,11 @@ final class RightPaneController: NSViewController {
         area.focusTerminal()
     }
 
+    /// L'evento appartiene al terminale in vista (mark-read filtrato). Inoltra all'area.
+    func terminalOwns(_ event: NSEvent) -> Bool {
+        area.terminalOwns(event)
+    }
+
     // MARK: - Ricerca (Cmd+F)
 
     /// Mostra o chiude la find bar (overlay flottante sul terminale).
