@@ -790,8 +790,11 @@ Costruito (UI/UX e tooling, fuori milestone):
   `SidebarDrop`: il drag edita l'ordine canonico che il float proietta, attraversare il blocco
   pinned pinna/spinna), x di chiusura su
   hover per tab e workspace, rename inline del workspace dal menu contestuale; float in cima (sotto ai pinned)
-  dei workspace con attenzione (`needs_input`/completato) via `orderedWorkspaces` derivato, ordine
-  canonico invariato; conferma di chiusura se nel pty gira un comando in foreground; ultima tab
+  dei workspace con attenzione (`needs_input`/completato, fresco o già visto) via `orderedWorkspaces`
+  derivato, ordine canonico invariato - una volta salito in cima ci resta finché non lo risolvi
+  (guardarlo spegne il segnale forte, non la posizione); archivio dei workspace (`Workspace.archived`)
+  in una sezione collassabile in fondo alla sidebar (menu `Archive`/`Unarchive`); conferma di
+  chiusura se nel pty gira un comando in foreground; ultima tab
   chiude il workspace, ultimo workspace ne riapre uno default;
 - tooling di test: `relay-cli simulate` e `relay --demo NxM`, entrambi sul socket reale.
 
