@@ -206,18 +206,20 @@ import Testing
     a.tabs[0].attention = .unseen
     #expect(store.orderedWorkspaces.map(\.id) == [c.id, a.id, b.id])
 
-    // Il sospeso (pending) NON galleggia: segnale quieto, l'ordine resta quello canonico.
+    // Il sospeso (pending) continua a galleggiare: la posizione guadagnata resta anche dopo averlo
+    // visto (scende solo con ripresa/dismiss/decadenza).
     a.tabs[0].attention = .pending
     #expect(store.orderedWorkspaces.map(\.id) == [c.id, a.id, b.id])
 }
 
-@Test func pendingDoesNotFloatWorkspaces() {
+@Test func pendingKeepsWorkspaceFloating() {
     let store = WorkspaceStore()
     store.createWorkspace(name: "a")
     let b = store.createWorkspace(name: "b")
     b.tabs[0].attention = .pending
-    // b in sospeso ma niente float: solo l'attenzione fresca riordina la sidebar.
-    #expect(store.orderedWorkspaces.map(\.name) == ["a", "b"])
+    // b è salito per il completamento e, declassato a sospeso, resta in cima: non scende appena
+    // lo guardi.
+    #expect(store.orderedWorkspaces.map(\.name) == ["b", "a"])
 }
 
 @Test func renameTabSetsCustomTitle() {

@@ -205,6 +205,10 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
   non archivia l'ultimo visibile e sposta la selezione. Archivia/ripristina dal menu contestuale.
   **Ancora da fare**: drag dentro/fuori l'archivio (richiede coordinate space unificato in
   `Reorderable`, giro dedicato).
+- **Float sticky**: un workspace salito in cima per un completamento ci **resta** anche dopo averlo
+  guardato. `needsAttention` (float) ora include `pending`, non solo `unseen`: guardare spegne il
+  segnale forte (ring/badge) ma non la posizione, che scende solo con ripresa/dismiss/decadenza.
+  Prima il declassamento `unseen -> pending` lo faceva ricadere subito.
 
 ## Più avanti
 

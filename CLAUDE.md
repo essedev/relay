@@ -124,7 +124,12 @@ girano solo dal bundle (`make run-app`).
   `AttentionLevel`) **non** si spegne al semplice ritorno in foreground né alla selezione della tab
   (altrimenti sparirebbe prima che tu lo veda; aprire una tab completata mostra il ring verde +
   flash): l'interazione col terminale in vista **declassa** `unseen` -> `pending` ("in sospeso":
-  visto ma mai ripreso), non spegne. "Interazione col terminale" è filtrata (`terminalOwns`,
+  visto ma mai ripreso), non spegne. **La posizione flottata sopravvive al declassamento**:
+  `Workspace.needsAttention` (che guida il float in cima alla sidebar via `orderedWorkspaces`)
+  include **sia `unseen` sia `pending`**, quindi un workspace salito in cima ci **resta** anche dopo
+  averlo guardato - scende solo con la risoluzione vera (ripresa/dismiss/decadenza). Il declassamento
+  spegne il segnale **forte** (ring/badge, legati al solo `unseen`) ma non la posizione: guardare non
+  è occuparsene. "Interazione col terminale" è filtrata (`terminalOwns`,
   `WorkspaceAreaController`, via il monitor in `AppControllerNavigation`): un tasto col terminale
   in focus o un click **dentro la sua view**, non un click di navigazione nella chrome (cambio tab
   nella tab bar, cambio workspace nella sidebar) né un tasto in un campo di rename - quelli non
