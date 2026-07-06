@@ -160,8 +160,14 @@ public struct SidebarView: View {
                     attention: hasArchivedAttention(archived)
                 )
                 if settings.archiveExpanded {
+                    // VStack, non LazyVStack: dentro uno ScrollView che parte alto 0 (finché la
+                    // misura non arriva) il lazy non realizzerebbe le righe, il GeometryReader
+                    // misurerebbe 0 e la lista resterebbe invisibile per sempre. Gli archiviati
+                    // sono
+                    // pochi: realizzarli tutti va bene e fa funzionare la misura. Il contenuto si
+                    // misura fuori dallo ScrollView, che poi lo cappa a metà sidebar.
                     ScrollView {
-                        LazyVStack(spacing: 1) {
+                        VStack(spacing: 1) {
                             ForEach(archived) { workspace in
                                 makeRow(workspace, colors: colors)
                             }
@@ -175,7 +181,7 @@ public struct SidebarView: View {
                             )
                         })
                     }
-                    .frame(height: min(archivedHeight, maxListHeight))
+                    .frame(height: min(max(archivedHeight, 1), maxListHeight))
                     .scrollContentBackground(.hidden)
                     .onPreferenceChange(ArchiveHeightKey.self) { archivedHeight = $0 }
                 }
