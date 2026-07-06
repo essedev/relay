@@ -475,7 +475,7 @@ Regole:
 - `attention` (`Tab.attention`, enum `AttentionLevel`) è il marker post-completamento a **tre
   livelli**, che distingue percezione ("l'ho visto") da risoluzione ("me ne sono occupato"):
   - `unseen` - completato (`running` -> `idle`) mentre il pane non era in vista: segnale forte
-    (float in sidebar, ring, notifica);
+    (bump in cima alla sidebar, ring, notifica);
   - `pending` - "in sospeso", visto ma mai ripreso: segnale quieto e persistente (punto dimesso in
     sidebar, strato dedicato in dashboard). L'interazione col terminale **declassa** unseen ->
     pending, non spegne. Un completamento sulla tab in vista nasce direttamente `pending` (la
@@ -514,8 +514,10 @@ risponde solo a `unseen`: un sospeso non accende il bordo (useresti la shell con
 permanente addosso). Colori dai colori ANSI del tema, coerenti coi badge. Il suo observer
 (`observeRing`) è separato dal `render()` del terminale e non scrive `attention`, così un
 completamento sulla tab in vista accende il ring senza spegnersi da solo (nessun loop col reset
-della visita). Le tab non in vista restano coi badge (tab bar) e il float in cima alla sidebar
-(solo `unseen`: i sospesi non galleggiano, mostrano un punto quieto - anello vuoto - nel badge).
+della visita). Le tab non in vista restano coi badge (tab bar); un'attività non vista (completamento
+o `needs_input`) **bumpa** il workspace in cima alla sidebar - riordino reale e persistente, non un
+float derivato (vedi "Ordine della sidebar" sotto). Il sospeso (`pending`) mostra un punto quieto -
+anello vuoto - nel badge, senza ri-bumpare né far scendere la riga.
 
 Lo store emette una `AgentNotification` (dato puro) via callback `onNotifiableTransition` -
 `WorkspaceModel` resta senza AppKit (riceve solo il `Bool appActive`). Il composition root
@@ -787,12 +789,13 @@ Costruito (UI/UX e tooling, fuori milestone):
   (`Panels/Reorderable`: `DragGesture` + `.offset` + linea di inserimento, non `onDrag`/`onDrop` di
   sistema che al rilascio farebbero snap-back; store posizionale `moveWorkspace(before:/after:)` /
   `moveTab(before:in:)`; nella sidebar la linea è libera e il drop è risolto dal resolver puro
-  `SidebarDrop`: il drag edita l'ordine canonico che il float proietta, attraversare il blocco
-  pinned pinna/spinna), x di chiusura su
-  hover per tab e workspace, rename inline del workspace dal menu contestuale; float in cima (sotto ai pinned)
-  dei workspace con attenzione (`needs_input`/completato, fresco o già visto) via `orderedWorkspaces`
-  derivato, ordine canonico invariato - una volta salito in cima ci resta finché non lo risolvi
-  (guardarlo spegne il segnale forte, non la posizione); archivio dei workspace (`Workspace.archived`)
+  `SidebarDrop`: il drag edita direttamente l'ordine canonico - due segmenti, pinned/resto -
+  attraversare il blocco pinned pinna/spinna), x di chiusura su
+  hover per tab e workspace, rename inline del workspace dal menu contestuale; **Ordine della
+  sidebar** "lista chat": un'attività **non vista** (`needs_input`/completato) **bumpa** il workspace
+  in cima ai non-pinned (`WorkspaceStore.bumpWorkspaceToTop` da `applyAgentState`) - riordino reale e
+  persistente, non un float derivato; la posizione resta finché non la scavalca un altro bump o non
+  la sposti a mano (la ripresa non la muove); archivio dei workspace (`Workspace.archived`)
   in una sezione collassabile in fondo alla sidebar (menu `Archive`/`Unarchive`); conferma di
   chiusura se nel pty gira un comando in foreground; ultima tab
   chiude il workspace, ultimo workspace ne riapre uno default;

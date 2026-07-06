@@ -4,26 +4,21 @@ import Foundation
 /// un'azione sullo store: eventuale cambio di pin e ancora di inserimento canonica. Pura e
 /// posizionale, testata senza UI.
 ///
-/// Modello: l'ordine visivo è una proiezione (pinned, poi attenzione, poi resto) dell'ordine
-/// canonico; il drag edita sempre il canonico, senza zone morte. Attraversare il blocco pinned
-/// cambia lo stato di pin (dentro = pin, sotto = unpin); il bordo esatto del blocco lo lascia
-/// invariato, così niente pin/unpin accidentali. L'ancora preferisce il vicino dello stesso
-/// segmento (la riga si posa esattamente dove indica la linea); senza compagni di segmento
-/// ripiega sul vicino grezzo dello slot: la posizione canonica resta quella promessa e il float
-/// la proietta (es. un workspace che brilla ancora, parcheggiato in basso, torna a flottare ma
-/// si poserà lì quando l'attenzione si risolve).
+/// Modello a due segmenti: l'ordine visivo è pinned in testa, poi il resto, entrambi nell'ordine
+/// canonico (nessun float derivato: la posizione è reale). Il drag edita sempre il canonico, senza
+/// zone morte. Attraversare il blocco pinned cambia lo stato di pin (dentro = pin, sotto = unpin);
+/// il bordo esatto del blocco lo lascia invariato, così niente pin/unpin accidentali. L'ancora
+/// preferisce il vicino dello stesso segmento (la riga si posa esattamente dove indica la linea);
+/// senza compagni di segmento ripiega sul vicino grezzo dello slot.
 enum SidebarDrop {
-    /// Riga nell'ordine visivo congelato al momento del drop. `attention` = il workspace flotta
-    /// nel segmento 1 (stesso criterio di `Workspace.needsAttention`).
+    /// Riga nell'ordine visivo congelato al momento del drop.
     struct Row: Equatable {
         let id: UUID
         let pinned: Bool
-        let attention: Bool
 
-        init(id: UUID, pinned: Bool, attention: Bool) {
+        init(id: UUID, pinned: Bool) {
             self.id = id
             self.pinned = pinned
-            self.attention = attention
         }
     }
 
@@ -57,26 +52,24 @@ enum SidebarDrop {
             dragged.pinned
         }
 
-        let segment = segmentIndex(pinned: pinned, attention: dragged.attention)
+        let segment = segmentIndex(pinned: pinned)
         let move = anchor(rows: rows, dragID: dragID, insertion: insertion, segment: segment)
         let pinChange = pinned == dragged.pinned ? nil : pinned
         guard pinChange != nil || move != nil else { return nil }
         return Resolution(pinned: pinChange, move: move)
     }
 
-    /// Stesso criterio di `WorkspaceStore.segmentIndex`/`orderedWorkspaces`.
-    private static func segmentIndex(pinned: Bool, attention: Bool) -> Int {
-        if pinned { return 0 }
-        if attention { return 1 }
-        return 2
+    /// Segmento visivo: 0 = pinned, 1 = resto (stesso criterio di `orderedWorkspaces`).
+    private static func segmentIndex(pinned: Bool) -> Int {
+        pinned ? 0 : 1
     }
 
     /// Ancora canonica per lo slot scelto: prima il vicino del segmento di arrivo (in avanti,
     /// poi all'indietro), così la posa visiva coincide con la linea; altrimenti il vicino grezzo
-    /// dello slot (fissa la posizione canonica anche dove il float divergerà).
+    /// dello slot.
     private static func anchor(rows: [Row], dragID: UUID, insertion: Int, segment: Int) -> Move? {
         func seg(_ row: Row) -> Int {
-            segmentIndex(pinned: row.pinned, attention: row.attention)
+            segmentIndex(pinned: row.pinned)
         }
         if let target = rows[insertion...].first(where: { $0.id != dragID && seg($0) == segment }) {
             return .before(target.id)

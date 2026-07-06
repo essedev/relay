@@ -189,37 +189,22 @@ import Testing
     #expect(ws.name == "backend") // vuoto ignorato
 }
 
-@Test func orderedWorkspacesFloatsAttentionUnderPinned() {
+@Test func orderedWorkspacesPinnedFirstThenCanonical() {
     let store = WorkspaceStore()
     let a = store.createWorkspace(name: "a")
     let b = store.createWorkspace(name: "b")
     let c = store.createWorkspace(name: "c")
 
-    // c pinnato; b chiede input -> ordine atteso: [c (pinned), b (attenzione), a (calmo)].
+    // Nessun float derivato: l'ordine è quello canonico, i soli pinned salgono in testa.
+    #expect(store.orderedWorkspaces.map(\.id) == [a.id, b.id, c.id])
+
     store.togglePin(c.id)
-    b.tabs[0].agentState = .needsInput
-
-    #expect(store.orderedWorkspaces.map(\.id) == [c.id, b.id, a.id])
-
-    // "completato non visto" (unseen) galleggia come needs_input.
-    b.tabs[0].agentState = .idle
-    a.tabs[0].attention = .unseen
     #expect(store.orderedWorkspaces.map(\.id) == [c.id, a.id, b.id])
 
-    // Il sospeso (pending) continua a galleggiare: la posizione guadagnata resta anche dopo averlo
-    // visto (scende solo con ripresa/dismiss/decadenza).
-    a.tabs[0].attention = .pending
+    // Un marker di attenzione da solo NON muove più la posizione: è un segnale (badge/ring), non
+    // il criterio d'ordine. A spostare la riga è il bump reale in `applyAgentState` (o il drag).
+    b.tabs[0].attention = .unseen
     #expect(store.orderedWorkspaces.map(\.id) == [c.id, a.id, b.id])
-}
-
-@Test func pendingKeepsWorkspaceFloating() {
-    let store = WorkspaceStore()
-    store.createWorkspace(name: "a")
-    let b = store.createWorkspace(name: "b")
-    b.tabs[0].attention = .pending
-    // b è salito per il completamento e, declassato a sospeso, resta in cima: non scende appena
-    // lo guardi.
-    #expect(store.orderedWorkspaces.map(\.name) == ["b", "a"])
 }
 
 @Test func renameTabSetsCustomTitle() {

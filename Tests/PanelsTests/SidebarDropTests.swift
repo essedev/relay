@@ -2,13 +2,11 @@ import Foundation
 @testable import Panels
 import Testing
 
-// La logica pura di drop della sidebar: regioni di pin, ancore per segmento, no-op. Copre i buchi
-// che il vecchio clamp di segmento lasciava (segmenti da 1 elemento = drag morto).
+// La logica pura di drop della sidebar: regioni di pin, ancore di segmento (pinned/resto), no-op.
+// Copre i buchi che il vecchio clamp di segmento lasciava (blocco da 1 elemento = drag morto).
 
-private func row(
-    _ id: UUID, pinned: Bool = false, attention: Bool = false
-) -> SidebarDrop.Row {
-    SidebarDrop.Row(id: id, pinned: pinned, attention: attention)
+private func row(_ id: UUID, pinned: Bool = false) -> SidebarDrop.Row {
+    SidebarDrop.Row(id: id, pinned: pinned)
 }
 
 private let a = UUID()
@@ -78,30 +76,6 @@ private let d = UUID()
     // del segmento successivo non è contiguo in canonico).
     #expect(SidebarDrop.resolve(rows: rows, dragID: a, insertion: 2)
         == SidebarDrop.Resolution(pinned: nil, move: .after(b)))
-}
-
-@Test func soloFloatingWorkspaceCanMoveDown() {
-    // Il caso del bug: b flotta da solo (segmento 1). Col vecchio clamp ogni drop era un no-op;
-    // ora si ancora ai vicini grezzi e fissa la sua casa canonica.
-    let rows = [row(b, attention: true), row(a), row(c)]
-    #expect(SidebarDrop.resolve(rows: rows, dragID: b, insertion: 3)
-        == SidebarDrop.Resolution(pinned: nil, move: .after(c)))
-    #expect(SidebarDrop.resolve(rows: rows, dragID: b, insertion: 2)
-        == SidebarDrop.Resolution(pinned: nil, move: .before(c)))
-}
-
-@Test func restDroppedAboveFloatingLandsTopOfRest() {
-    // c (resto) rilasciato sopra b che flotta: non può stare sopra visivamente, ma si posa in
-    // testa al proprio segmento (l'ancora preferisce il compagno di segmento).
-    let rows = [row(b, attention: true), row(a), row(c)]
-    #expect(SidebarDrop.resolve(rows: rows, dragID: c, insertion: 0)
-        == SidebarDrop.Resolution(pinned: nil, move: .before(a)))
-}
-
-@Test func floatingDroppedBetweenFloatingStaysExact() {
-    let rows = [row(a, attention: true), row(b, attention: true), row(c)]
-    #expect(SidebarDrop.resolve(rows: rows, dragID: b, insertion: 0)
-        == SidebarDrop.Resolution(pinned: nil, move: .before(a)))
 }
 
 @Test func pinnedAloneCanUnpinByDraggingOut() {

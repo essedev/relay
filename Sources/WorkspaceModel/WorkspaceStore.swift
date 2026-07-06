@@ -43,15 +43,14 @@ public final class WorkspaceStore {
     }
 
     /// Ordine di visualizzazione della lista principale: esclude gli archiviati (vivono nella loro
-    /// sezione), poi pinned (ordine manuale), poi i workspace con attenzione (`needs_input`/
-    /// completato), poi il resto. Partizione stabile: dentro ogni gruppo resta l'ordine canonico di
-    /// `workspaces`; il float è solo derivato dallo stato live (drag e persistence agiscono
-    /// sull'ordine canonico).
+    /// sezione), poi pinned (ordine manuale), poi il resto - entrambi **nell'ordine canonico** di
+    /// `workspaces`. Nessun float derivato dall'attenzione: la posizione è reale e persistente. Un
+    /// completamento/richiesta di input non visti la muovono davvero (`bumpWorkspaceToTop` in
+    /// `applyAgentState`), come una lista di chat; poi resta finché non la scavalca un altro bump o
+    /// la sposti a mano (drag). L'attenzione è un segnale (badge/ring), non l'ordine.
     public var orderedWorkspaces: [Workspace] {
         let visible = workspaces.filter { !$0.archived }
-        let pinned = visible.filter(\.pinned)
-        let rest = visible.filter { !$0.pinned }
-        return pinned + rest.filter(\.needsAttention) + rest.filter { !$0.needsAttention }
+        return visible.filter(\.pinned) + visible.filter { !$0.pinned }
     }
 
     /// Workspace archiviati (sezione Archive in fondo alla sidebar), in ordine canonico. Non
@@ -210,9 +209,10 @@ public final class WorkspaceStore {
     }
 
     /// Inserisce il workspace `id` immediatamente **prima** di `targetID` nell'ordine canonico
-    /// (drag & drop nella sidebar). `targetID == nil` (o non trovato) lo porta in fondo. No-op se
-    /// gli id coincidono o `id` non esiste. La sidebar mostra `orderedWorkspaces` (partizione
-    /// stabile del canonico): l'ancora giusta per lo slot visivo la sceglie `SidebarDrop`.
+    /// (drag & drop nella sidebar, o bump da attività). `targetID == nil` (o non trovato) lo porta
+    /// in fondo. No-op se gli id coincidono o `id` non esiste. La sidebar mostra
+    /// `orderedWorkspaces` (canonico, pinned in testa): l'ancora giusta per lo slot visivo la
+    /// sceglie `SidebarDrop`.
     public func moveWorkspace(_ id: UUID, before targetID: UUID?) {
         guard id != targetID,
               let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
@@ -225,9 +225,9 @@ public final class WorkspaceStore {
     }
 
     /// Inserisce il workspace `id` immediatamente **dopo** `targetID` nell'ordine canonico. Serve
-    /// al drag & drop quando si rilascia in fondo a un segmento di float: lì `before` prenderebbe
-    /// il primo del segmento successivo, che in ordine canonico non è contiguo, producendo un
-    /// no-op. No-op se gli id coincidono o `id` non esiste.
+    /// al drag & drop quando si rilascia in fondo al blocco pinned: lì `before` prenderebbe il
+    /// primo del segmento successivo, che in ordine canonico non è contiguo, producendo un no-op.
+    /// No-op se gli id coincidono o `id` non esiste.
     public func moveWorkspace(_ id: UUID, after targetID: UUID) {
         guard id != targetID,
               let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
@@ -237,6 +237,18 @@ public final class WorkspaceStore {
         } else {
             workspaces.append(moved)
         }
+    }
+
+    /// Porta il workspace in cima ai non-pinned nell'ordine canonico ("bump" da attività non vista:
+    /// un completamento o una richiesta di input arrivati mentre non lo guardavi). È un vero
+    /// riordino persistente, non un float derivato: la posizione guadagnata resta finché non la
+    /// scavalca un altro bump o non la sposti a mano. No-op se è già in testa ai non-pinned, o se è
+    /// pinned/archiviato (i pinned sono già fissi in cima, gli archiviati fuori dalla lista).
+    func bumpWorkspaceToTop(_ id: UUID) {
+        guard let ws = workspaces.first(where: { $0.id == id }), !ws.pinned, !ws.archived,
+              let firstFree = workspaces.first(where: { !$0.pinned && !$0.archived }),
+              firstFree.id != id else { return }
+        moveWorkspace(id, before: firstFree.id)
     }
 
     // MARK: - Tab

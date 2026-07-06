@@ -87,9 +87,9 @@ public struct SidebarView: View {
     /// la pill di selezione dai bordi (`sm`); il contenuto della riga aggiunge `xs` così allinea
     /// con l'header (`sm + xs = md`).
     private func list(_ colors: ChromeColors) -> some View {
-        // Ordine di visualizzazione (pinned, poi con attenzione, poi resto); l'ordine canonico
-        // dello store resta invariato. Durante un drag vale lo snapshot congelato, così un evento
-        // agente non ri-partiziona le righe sotto il puntatore.
+        // Ordine di visualizzazione (pinned in testa, poi il resto in ordine canonico). Durante un
+        // drag vale lo snapshot congelato, così un evento agente (che può bumpare un workspace in
+        // cima) non riordina le righe sotto il puntatore.
         let ordered = frozenOrder ?? store.orderedWorkspaces
         let space = "sidebar-reorder"
         return ScrollView {
@@ -239,7 +239,7 @@ public struct SidebarView: View {
     /// dello stato di drag lo fa la resetTransaction del @GestureState.
     private func performMove(of dragID: UUID, to insertion: Int, ordered: [Workspace]) {
         let rows = ordered.map {
-            SidebarDrop.Row(id: $0.id, pinned: $0.pinned, attention: $0.needsAttention)
+            SidebarDrop.Row(id: $0.id, pinned: $0.pinned)
         }
         guard let drop = SidebarDrop.resolve(rows: rows, dragID: dragID, insertion: insertion)
         else { return }

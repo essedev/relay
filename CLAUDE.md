@@ -15,8 +15,9 @@ in impostazioni)** + **dashboard di triage (`Cmd+D`) e attenzione a tre livelli 
 drop (`DragGesture` + `.offset`, linea di inserimento, resolver puro `SidebarDrop`, vedi
 `Panels/Reorderable`)** + **mark-read filtrato alla sola interazione col terminale (`terminalOwns`)
 + override unread manuale dal menu contestuale (`toggleUnread`)** + **resume affidabile al riavvio
-(soglia anti-stantio `eventFloor`)** + **float sticky (un completamento salito in cima ci resta
-finché non lo risolvi: `needsAttention` include `pending`)** + **archivio dei workspace (sezione
+(soglia anti-stantio `eventFloor`)** + **ordine sidebar "lista chat" (un'attività non vista bumpa
+il workspace in cima con un riordino reale e persistente; la ripresa non muove nulla)** + **archivio
+dei workspace (sezione
 collassabile in fondo alla sidebar, menu `Archive`/`Unarchive`; drag dentro/fuori ancora da fare)**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
@@ -127,12 +128,16 @@ girano solo dal bundle (`make run-app`).
   `AttentionLevel`) **non** si spegne al semplice ritorno in foreground né alla selezione della tab
   (altrimenti sparirebbe prima che tu lo veda; aprire una tab completata mostra il ring verde +
   flash): l'interazione col terminale in vista **declassa** `unseen` -> `pending` ("in sospeso":
-  visto ma mai ripreso), non spegne. **La posizione flottata sopravvive al declassamento**:
-  `Workspace.needsAttention` (che guida il float in cima alla sidebar via `orderedWorkspaces`)
-  include **sia `unseen` sia `pending`**, quindi un workspace salito in cima ci **resta** anche dopo
-  averlo guardato - scende solo con la risoluzione vera (ripresa/dismiss/decadenza). Il declassamento
-  spegne il segnale **forte** (ring/badge, legati al solo `unseen`) ma non la posizione: guardare non
-  è occuparsene. "Interazione col terminale" è filtrata (`terminalOwns`,
+  visto ma mai ripreso), non spegne. **Posizione e segnale sono scollegati** (modello "lista chat"):
+  la posizione in sidebar è un ordine **reale e persistente**, non un float derivato. A muoverla è
+  solo un **bump** (`WorkspaceStore.bumpWorkspaceToTop`, da `applyAgentState`), che porta il
+  workspace in cima ai non-pinned quando un'attività arriva **non vista** - completamento o entrata
+  in `needs_input` con `!isVisible` (simmetrico al segnale forte e alla notifica: un completamento
+  sulla tab **in vista** nasce `pending` e **non** bumpa, così la riga non salta sotto le mani). La
+  ripresa (`running`) non muove niente: la riga su cui lavori resta ferma, la scavalca solo un altro
+  bump o il tuo drag. Il segnale (`attention`: ring/badge) vive a parte: declassamento (mark-read),
+  dismiss e decadenza lo spengono ma **non** fanno scendere la riga (scende solo col drag).
+  "Interazione col terminale" è filtrata (`terminalOwns`,
   `WorkspaceAreaController`, via il monitor in `AppControllerNavigation`): un tasto col terminale
   in focus o un click **dentro la sua view**, non un click di navigazione nella chrome (cambio tab
   nella tab bar, cambio workspace nella sidebar) né un tasto in un campo di rename - quelli non
@@ -260,10 +265,11 @@ girano solo dal bundle (`make run-app`).
 - Lista workspace: `ScrollView` + `LazyVStack` custom, **non** `List`. La `List` disegna un highlight
   full-size di sistema sotto la riga bersaglio del menu contestuale (fuori dal tema flat). Con la
   VStack gestiamo noi selezione/hover/menu; il riordino è drag & drop (vedi gotcha "Riordino drag
-  & drop" sotto), non `onMove`. La sidebar itera `store.orderedWorkspaces` (derivato: pinned, poi
-  con attenzione, poi resto) - **display-only**, non toccare `store.workspaces` per ordinare:
-  quello è l'ordine canonico su cui agiscono drag e persistence. Rename inline del workspace dal
-  menu contestuale (`WorkspaceStore.renameWorkspace`).
+  & drop" sotto), non `onMove`. La sidebar itera `store.orderedWorkspaces` (solo i pinned salgono in
+  testa, il resto è l'ordine **canonico** di `store.workspaces`: niente float derivato). L'ordine
+  canonico è quello vero e persistente, mutato dal drag **e** dal bump di attività
+  (`bumpWorkspaceToTop`); `orderedWorkspaces` è display-only (proietta i pinned). Rename inline del
+  workspace dal menu contestuale (`WorkspaceStore.renameWorkspace`).
 - Archive: i workspace archiviati (`Workspace.archived`, persistito, additivo) escono da
   `orderedWorkspaces` e vivono in una sezione collassabile ancorata **in fondo** alla sidebar
   (`archiveSection`, header sempre visibile = drop zone; lista archiviati con tetto ~metà sidebar
@@ -289,13 +295,12 @@ girano solo dal bundle (`make run-app`).
   focus) - con `@State` manuale un drag interrotto lasciava la riga sollevata e rompeva i drag
   successivi. Store puro e posizionale: `WorkspaceStore.moveWorkspace(_:before:/after:)` e
   `moveTab(_:before:in:)` (inserisce prima/dopo il target, `nil` = in fondo). **Sidebar**: la linea
-  è libera (niente clamp: col vecchio vincolo al segmento di float un segmento da 1 elemento
-  inchiodava l'inserimento = drag morto); il drag edita sempre l'ordine canonico che il float
-  proietta, e il drop lo risolve il resolver puro `SidebarDrop` (testato): attraversare il blocco
-  pinned pinna/spinna (il bordo esatto non cambia lo stato), l'ancora preferisce il vicino dello
-  stesso segmento e ripiega sul vicino grezzo - un workspace che brilla ancora, parcheggiato in
-  basso, torna a flottare ma si posa lì quando l'attenzione si risolve. Durante il gesto l'ordine
-  visivo è **congelato** (`frozenOrder`): senza, un evento agente ri-partiziona le righe sotto il
+  è libera (niente clamp: col vecchio vincolo di segmento un blocco da 1 elemento inchiodava
+  l'inserimento = drag morto); il drag edita direttamente l'ordine canonico e il drop lo risolve il
+  resolver puro `SidebarDrop` (testato, due segmenti pinned/resto): attraversare il blocco pinned
+  pinna/spinna (il bordo esatto non cambia lo stato), l'ancora preferisce il vicino dello stesso
+  segmento e ripiega sul vicino grezzo. Durante il gesto l'ordine visivo è **congelato**
+  (`frozenOrder`): senza, un evento agente che bumpa un workspace riordinerebbe le righe sotto il
   puntatore. **Tab bar**: nessun segmento, ordine unico. Su macOS lo `ScrollView` non fa
   drag-scroll, quindi il `DragGesture` non confligge con lo scroll; niente pasteboard, niente drop
   incrociati.
@@ -311,7 +316,9 @@ girano solo dal bundle (`make run-app`).
 - Persistence layout: `~/.relay/layout.json` (override `RELAY_LAYOUT`; path **iniettato** in
   `LayoutStore`, i test usano una dir temporanea, mai `~/.relay`). Salvataggio via `LayoutAutosave`
   (debounced ~500ms + flush on `applicationWillTerminate`), che osserva `store.snapshot()`: dipende
-  solo dai campi persistiti, quindi gli eventi agente non scatenano scritture. **Demo mode non
+  solo dai campi persistiti. La gran parte degli eventi agente non scatena scritture; un **bump**
+  però riordina `workspaces` (campo persistito), quindi un'attività non vista **sì** (l'ordine è
+  dato utente da salvare) - assorbito dal debounce, non a raffica. **Demo mode non
   persiste** (non istanzia l'autosave). Restore al boot ricade sul seed default se file
   mancante/corrotto/versione ignota. Bump `LayoutSnapshot.currentVersion` **solo per cambi
   breaking**: la load scarta le versioni diverse (= butta il layout dell'utente); un campo nuovo

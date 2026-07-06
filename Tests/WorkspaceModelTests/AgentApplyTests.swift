@@ -184,6 +184,82 @@ private func makeFixture() -> Fixture {
     #expect(emitted.isEmpty)
 }
 
+// MARK: - Bump posizionale (modello lista chat: l'attività non vista sale in cima)
+
+/// Un completamento arrivato mentre non guardavi porta il workspace in cima ai non-pinned:
+/// riordino reale dell'ordine canonico, non un float derivato.
+@Test @MainActor func completionOnHiddenTabBumpsToTop() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    _ = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+    store.selectWorkspace(a.id) // a in vista; b, c nascoste
+    let cTab = c.tabs[0].id.uuidString
+    store.applyAgentState(paneId: cTab, state: .running, at: Date(timeIntervalSince1970: 1))
+    store.applyAgentState(paneId: cTab, state: .idle, at: Date(timeIntervalSince1970: 2))
+    #expect(store.orderedWorkspaces.map(\.name) == ["c", "a", "b"])
+}
+
+/// Se completa mentre la stai guardando, la riga NON salta sotto le mani: la percezione è già
+/// avvenuta (il marker nasce quieto, `pending`).
+@Test @MainActor func completionOnVisibleTabDoesNotBump() {
+    let store = WorkspaceStore()
+    _ = store.createWorkspace(name: "a")
+    _ = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+    store.selectWorkspace(c.id) // c in vista, in fondo
+    let cTab = c.tabs[0].id.uuidString
+    store.applyAgentState(paneId: cTab, state: .running, at: Date(timeIntervalSince1970: 1))
+    store.applyAgentState(paneId: cTab, state: .idle, at: Date(timeIntervalSince1970: 2))
+    #expect(store.orderedWorkspaces.map(\.name) == ["a", "b", "c"]) // resta dov'è
+    #expect(c.tabs[0].attention == .pending)
+}
+
+/// L'entrata in `needs_input` mentre non guardavi bumpa come il completamento.
+@Test @MainActor func needsInputOnHiddenTabBumpsToTop() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    _ = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+    store.selectWorkspace(a.id)
+    store.applyAgentState(
+        paneId: c.tabs[0].id.uuidString, state: .needsInput, at: Date(timeIntervalSince1970: 1)
+    )
+    #expect(store.orderedWorkspaces.map(\.name) == ["c", "a", "b"])
+}
+
+/// Il caso da cui siamo partiti: prendi una riga salita in cima e ci scrivi (`running`). Il marker
+/// si spegne (ripresa), ma la posizione NON cambia: niente scivolamento sotto le mani.
+@Test @MainActor func resumeDoesNotDropFromTop() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    store.selectWorkspace(a.id)
+    let bTab = b.tabs[0].id.uuidString
+    store.applyAgentState(paneId: bTab, state: .running, at: Date(timeIntervalSince1970: 1))
+    store.applyAgentState(paneId: bTab, state: .idle, at: Date(timeIntervalSince1970: 2))
+    #expect(store.orderedWorkspaces.map(\.name) == ["b", "a"]) // b è salita
+
+    store.selectWorkspace(b.id) // ora la guardi e ci scrivi
+    store.applyAgentState(paneId: bTab, state: .running, at: Date(timeIntervalSince1970: 3))
+    #expect(store.orderedWorkspaces.map(\.name) == ["b", "a"]) // resta su
+    #expect(b.tabs[0].attention == .none) // marker spento, posizione invariata
+}
+
+/// Il bump rispetta il blocco pinned: sale in cima ai NON-pinned, sotto i pinned.
+@Test @MainActor func bumpLandsBelowPinned() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+    store.togglePin(a.id) // a pinnato in testa
+    store.selectWorkspace(b.id) // b in vista; c nascosta
+    let cTab = c.tabs[0].id.uuidString
+    store.applyAgentState(paneId: cTab, state: .running, at: Date(timeIntervalSince1970: 1))
+    store.applyAgentState(paneId: cTab, state: .idle, at: Date(timeIntervalSince1970: 2))
+    #expect(store.orderedWorkspaces.map(\.name) == ["a", "c", "b"])
+}
+
 // MARK: - Guardia di monotonicità (eventi consegnati fuori ordine)
 
 /// Gli hook sono processi concorrenti: un evento può arrivare dopo uno più recente. Lo stantio va

@@ -39,11 +39,11 @@ public final class Workspace: Identifiable {
         tabs.first { $0.id == selectedTabID }
     }
 
-    /// Il workspace flotta in cima alla sidebar: una sua tab aspetta input (`needs_input`) o ha un
-    /// marker di completamento **ancora aperto** - `unseen` (fresco) o `pending` (visto ma non
-    /// ripreso). La posizione guadagnata **resta** finché non lo risolvi davvero (ripresa vera,
-    /// dismiss, decadenza): guardare un completato ne spegne il segnale forte (ring e badge seguono
-    /// il solo `unseen`) ma non lo fa scendere. Solo `.none` non flotta.
+    /// Il workspace ha almeno una tab che richiede attenzione: aspetta input (`needs_input`) o ha
+    /// un marker di completamento aperto - `unseen` (fresco) o `pending` (visto ma non ripreso). È
+    /// un **segnale**, non un criterio d'ordine: alimenta il pallino dell'header Archive (un
+    /// archiviato che brilla). La posizione in lista la governa il bump reale
+    /// (`WorkspaceStore.bumpWorkspaceToTop`), non questo flag.
     public var needsAttention: Bool {
         tabs.contains { $0.agentState == .needsInput || $0.attention != .none }
     }

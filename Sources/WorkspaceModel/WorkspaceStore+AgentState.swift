@@ -47,6 +47,7 @@ public extension WorkspaceStore {
                 && workspace.selectedTabID == tab.id
             let isVisible = isSelected && appActive
             let previousState = tab.agentState
+            let previousAttention = tab.attention
             let result = AgentStateReducer.reduce(
                 current: previousState,
                 incoming: state,
@@ -55,6 +56,16 @@ public extension WorkspaceStore {
                 resetsAttention: resetsAttention
             )
             tab.apply(result, at: timestamp)
+            // Bump posizionale (modello lista chat): un'attività **non vista** - un completamento
+            // (il marker nasce) o l'entrata in `needs_input` - porta il workspace in cima. Reale e
+            // persistente, non float derivato. Simmetrico al segnale forte e alla notifica: solo
+            // `!isVisible`. La ripresa (`running`) non muove niente: la riga su cui lavori resta
+            // ferma; a scavalcarla è solo un altro bump o il tuo drag.
+            let attentionBorn = previousAttention == .none && tab.attention != .none
+            let enteredNeedsInput = previousState != .needsInput && tab.agentState == .needsInput
+            if !isVisible, attentionBorn || enteredNeedsInput {
+                bumpWorkspaceToTop(workspace.id)
+            }
             // Notifica (needs_input / completato non visto): classificazione pura, effetto nel
             // composition root. Emessa dopo aver aggiornato la tab (titolo aggiornato dagli hook).
             if let kind = AgentStateReducer.notification(

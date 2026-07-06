@@ -86,9 +86,10 @@ severo; `Cmd+T` eredita la cwd corrente della tab attiva.
 **Interazione sidebar/tab e chiusura**: lista workspace custom (`LazyVStack`, non `List`) per
 togliere l'highlight full-size del menu contestuale, padding riga allineato all'header, riordino via
 drag & drop, x di chiusura su hover per tab e workspace, rename inline del workspace dal menu
-contestuale (`TextField` in riga: commit su Invio/blur, Esc annulla, path sotto sempre visibile). I
-workspace con attenzione (`needs_input` o completato-non-visto) galleggiano in cima, sotto ai pinned
-(`orderedWorkspaces` derivato dallo stato, ordine canonico dello store invariato). Chiudere una
+contestuale (`TextField` in riga: commit su Invio/blur, Esc annulla, path sotto sempre visibile).
+Un'attività non vista (`needs_input` o completato-non-visto) bumpa il workspace in cima ai non-pinned
+(riordino reale e persistente dell'ordine canonico, non un float derivato; la ripresa non lo muove).
+Chiudere una
 tab/workspace chiede conferma se nel pty gira un comando in foreground (`tcgetpgrp` + safe-list shell,
 stato Claude solo per il messaggio); chiudere l'ultima tab chiude il workspace, e la finestra non
 resta mai senza workspace (se ne riapre uno default).
@@ -151,8 +152,8 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 #Dashboard-Delle-Sessioni.
 
 - **Attention a tre livelli** (`AttentionLevel`): `unseen` (completato non visto, segnale forte:
-  float, ring, notifica) -> l'interazione **declassa** a `pending` ("in sospeso", quieto e
-  persistente: punto dimesso in sidebar, niente float) -> risolve solo la ripresa vera (prompt ->
+  bump in cima, ring, notifica) -> l'interazione **declassa** a `pending` ("in sospeso", quieto e
+  persistente: punto dimesso in sidebar) -> risolve solo la ripresa vera (prompt ->
   running), il dismiss esplicito o la chiusura tab. Il sospeso sopravvive alla fine sessione e al
   riavvio (`pendingSince` nel `TabSnapshot`, campo additivo senza bump).
 - **Decadenza** dei sospesi (`AppSettings.pendingDecayHours`, default **12h**; `0` = mai; 4/12/24h
@@ -180,9 +181,9 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 
 ## Fatto - Riordino e attenzione manuale (post-brew)
 
-- **Drag & drop sidebar libero**: il riordino non è più vincolato al segmento di float (un
-  workspace solo nel suo gruppo restava inchiodato al punto di partenza, drop = no-op). Il drag
-  edita l'ordine canonico che il float proietta, con resolver puro `SidebarDrop` (attraversare il
+- **Drag & drop sidebar libero**: il riordino non è più vincolato al segmento (un workspace solo
+  nel suo gruppo restava inchiodato al punto di partenza, drop = no-op). Il drag edita direttamente
+  l'ordine canonico, con resolver puro `SidebarDrop` (due segmenti pinned/resto; attraversare il
   blocco pinned pinna/spinna) e ordine congelato durante il gesto; lo stato del gesto vive in
   `@GestureState` (reset garantito anche se il gesto viene annullato).
 - **Mark-read filtrato**: il declassamento del completamento scatta solo su interazione reale col
@@ -201,14 +202,16 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
   davvero (evento post-avvio).
 - **Archive dei workspace**: `Workspace.archived` (persistito, additivo) sposta un workspace in una
   sezione collassabile ancorata in fondo alla sidebar (tetto ~metà + scroll interno, stato espanso
-  in `AppSettings`). Fuori da `orderedWorkspaces`, mutuamente esclusivo con pin e float; `setArchived`
-  non archivia l'ultimo visibile e sposta la selezione. Archivia/ripristina dal menu contestuale.
+  in `AppSettings`). Fuori da `orderedWorkspaces`, mutuamente esclusivo con pin (e non bumpabile);
+  `setArchived` non archivia l'ultimo visibile e sposta la selezione. Archivia/ripristina dal menu contestuale.
   **Ancora da fare**: drag dentro/fuori l'archivio (richiede coordinate space unificato in
   `Reorderable`, giro dedicato).
-- **Float sticky**: un workspace salito in cima per un completamento ci **resta** anche dopo averlo
-  guardato. `needsAttention` (float) ora include `pending`, non solo `unseen`: guardare spegne il
-  segnale forte (ring/badge) ma non la posizione, che scende solo con ripresa/dismiss/decadenza.
-  Prima il declassamento `unseen -> pending` lo faceva ricadere subito.
+- **Ordine sidebar "lista chat"**: la posizione non è più un float derivato dall'attenzione ma un
+  ordine **reale e persistente**. Un'attività **non vista** (completamento o `needs_input`) bumpa il
+  workspace in cima ai non-pinned (`bumpWorkspaceToTop`); ci resta finché non la scavalca un altro
+  bump o non la sposti a mano. La **ripresa** (`running`) e ogni evento sulla tab in vista non
+  muovono la riga - niente scivolamento sotto le mani. `attention` resta solo un segnale
+  (badge/ring), scollegato dall'ordine. Supera il precedente "float sticky" (che cadeva alla ripresa).
 
 ## Più avanti
 

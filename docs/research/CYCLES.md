@@ -854,3 +854,55 @@ Riordino libero e fluido di workspace (dentro il segmento di float) e tab (pieno
 lo snapshot serializza già l'ordine di `workspaces`/`tabs`, l'autosave scatta da sé. `Cmd+1..9` e
 `Cmd+J` leggono `orderedWorkspaces`, quindi restano coerenti. `make check` verde (150 test). Verifica
 del gesto a video con `make run`.
+
+## Cycle 13 - Ordine sidebar "lista chat" (bump reale, via il float)
+
+### Il problema
+
+Prendere un workspace salito in cima per un completamento e scriverci lo faceva **scivolare giù**
+sotto le mani: appena parte `running` il marker di attenzione si spegne (l'hai ripreso) e, siccome
+la posizione era un **float derivato** dall'attenzione (`orderedWorkspaces` partizionava per
+`needsAttention`), la riga usciva dal gruppo alto e cadeva. Fastidioso: la riga su cui lavori non
+deve muoversi.
+
+### La diagnosi
+
+Nella sidebar convivono due movimenti distinti, e il float li accoppiava sbagliando:
+
+- **In background** (una chat completa mentre guardi altrove -> sale): lo vuoi, è il senso del float.
+- **Sotto le mani** (interagisci con una chat -> si sposta): non lo vuoi.
+
+Il modello mentale giusto dell'utente non era "float" ma **lista chat** (Slack/WhatsApp): l'attività
+porta la riga in cima e *quello diventa il suo posto*; ci resta finché non la scavalca altra attività
+o non la sposti a mano; il pin è per fissarla. La ripresa non è un evento che deve riordinare.
+
+### La decisione (ribalta la scelta del Cycle 12)
+
+Il Cycle 12 aveva tenuto il "float invariato". Qui lo si smonta: **la posizione diventa un ordine
+reale e persistente**, non una proiezione dello stato.
+
+- `orderedWorkspaces` torna a `pinned + resto` in ordine **canonico**, niente partizione per
+  attenzione.
+- Un'attività **non vista** (completamento o entrata in `needs_input`) fa un **bump** reale:
+  `WorkspaceStore.bumpWorkspaceToTop` porta il workspace in cima ai non-pinned, mutando l'ordine
+  canonico (persistito). Gate su `!isVisible`, **simmetrico** al segnale forte (`unseen`) e alla
+  notifica: un solo criterio governa segnale, notifica e posizione.
+- La **ripresa** (`running`) e ogni evento sulla tab in vista **non** muovono nulla. `attention`
+  resta solo un segnale (badge/ring), scollegato dall'ordine; declassamento, dismiss e decadenza
+  spengono il segnale ma non fanno scendere la riga (scende solo col drag).
+- `SidebarDrop` scende da tre segmenti (pinned/attenzione/resto) a **due** (pinned/resto): il
+  segmento float non esiste più.
+
+### Il caso "mentre la guardi"
+
+Deciso oggettivamente che un completamento **sulla tab in vista non bumpa**: il bump è un richiamo
+verso qualcosa che non hai visto, e se lo stai già guardando è rumore (oltre a essere di nuovo un
+movimento sotto le mani). Stessa logica del segnale (`unseen` non visto / `pending` visto): un solo
+`isVisible` decide tutto. Il risultato netto: **la sidebar si muove solo per ciò che accade fuori
+dalla tua vista**.
+
+### Esito
+
+La riga su cui lavori sta ferma; il resto sale in background e ci resta. `make check` verde (226
+test), incluso `resumeDoesNotDropFromTop` (il caso esatto del bug: riprendi una riga in cima, ci
+scrivi, resta su).
