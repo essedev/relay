@@ -319,3 +319,71 @@ import Testing
 
     #expect(store.selectedWorkspaceID == store.workspaces.first?.id) // fallback al primo
 }
+
+// MARK: - Archive
+
+@Test func archiveExcludesFromListDePinsAndMovesSelection() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    store.togglePin(b.id)
+    store.selectWorkspace(b.id)
+
+    store.setArchived(b.id, true)
+
+    #expect(b.archived)
+    #expect(!b.pinned) // archiviare de-pinna (mutuamente esclusivi)
+    #expect(store.orderedWorkspaces.map(\.id) == [a.id]) // fuori dalla lista principale
+    #expect(store.archivedWorkspaces.map(\.id) == [b.id])
+    #expect(store.selectedWorkspaceID == a.id) // la selezione lascia l'archiviato
+}
+
+@Test func unarchiveRestoresToListWithoutChangingSelection() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    store.setArchived(b.id, true)
+    store.selectWorkspace(a.id)
+
+    store.toggleArchive(b.id) // ripristina
+
+    #expect(!b.archived)
+    #expect(store.orderedWorkspaces.contains { $0.id == b.id })
+    #expect(store.archivedWorkspaces.isEmpty)
+    #expect(store.selectedWorkspaceID == a.id) // il ripristino non ruba la selezione
+}
+
+@Test func cannotArchiveLastVisibleWorkspace() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    store.setArchived(b.id, true)
+
+    store.setArchived(a.id, true) // a è l'unico rimasto visibile: no-op
+
+    #expect(!a.archived)
+    #expect(store.orderedWorkspaces.map(\.id) == [a.id])
+}
+
+@Test func archivedSurvivesSnapshotRoundTrip() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let b = store.createWorkspace(name: "b")
+    store.setArchived(b.id, true)
+
+    let restored = WorkspaceStore()
+    restored.restore(from: store.snapshot())
+
+    #expect(restored.archivedWorkspaces.map(\.name) == ["b"])
+    #expect(restored.orderedWorkspaces.map(\.name) == ["a"])
+    #expect(restored.selectedWorkspaceID == a.id) // non seleziona un archiviato al restore
+}
+
+@Test func workspaceSnapshotDecodesWithoutArchivedField() throws {
+    // Layout salvato prima della feature: nessun campo `archived`. Deve decodificare a `false`,
+    // non far fallire l'intero decode (= layout dell'utente buttato via).
+    let json = "{\"id\":\"\(UUID().uuidString)\",\"name\":\"old\",\"pinned\":false,\"tabs\":[]}"
+    let snap = try JSONDecoder().decode(WorkspaceSnapshot.self, from: Data(json.utf8))
+    #expect(!snap.archived)
+    #expect(snap.name == "old")
+}

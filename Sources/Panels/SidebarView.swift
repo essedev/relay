@@ -23,6 +23,9 @@ public struct SidebarView: View {
     private var drag = ReorderDragState()
     @State private var rowFrames: [Int: CGRect] = [:]
     @State private var frozenOrder: [Workspace]?
+    /// Altezza del contenuto archiviato: la sezione Archive si dimensiona su questa, cappata a metà
+    /// sidebar (poi scroll interno).
+    @State private var archivedHeight: CGFloat = 0
 
     public init(
         store: WorkspaceStore,
@@ -38,10 +41,17 @@ public struct SidebarView: View {
 
     public var body: some View {
         let colors = ChromeColors(settings.theme)
-        return VStack(spacing: 0) {
-            trafficLightsStrip
-            workspacesHeader(colors)
-            list(colors)
+        // GeometryReader per il tetto della sezione Archive (~metà sidebar): la lista principale
+        // prende il resto. Split verticale, non overlay: le due aree coesistono a vista, così il
+        // drag tra loro è possibile e nulla resta nascosto dietro.
+        return GeometryReader { proxy in
+            VStack(spacing: 0) {
+                trafficLightsStrip
+                workspacesHeader(colors)
+                list(colors)
+                archiveSection(colors, maxListHeight: proxy.size.height * 0.5)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(minWidth: 200)
         .background(colors.background)
@@ -85,27 +95,18 @@ public struct SidebarView: View {
         return ScrollView {
             LazyVStack(spacing: 1) {
                 ForEach(Array(ordered.enumerated()), id: \.element.id) { index, workspace in
-                    WorkspaceRow(
-                        workspace: workspace,
-                        selected: workspace.id == store.selectedWorkspaceID,
-                        colors: colors,
-                        onSelect: { store.selectWorkspace(workspace.id) },
-                        onTogglePin: { store.togglePin(workspace.id) },
-                        onRename: { store.renameWorkspace(workspace.id, to: $0) },
-                        onToggleUnread: { toggleUnread(workspace) },
-                        onClose: { onCloseWorkspace(workspace) }
-                    )
-                    .reorderFrame(index, in: space)
-                    .reorderableRow(ReorderRowConfig(
-                        id: workspace.id,
-                        axis: .vertical,
-                        space: space,
-                        count: ordered.count,
-                        frames: rowFrames,
-                        drag: $drag,
-                        state: drag,
-                        perform: { performMove(of: workspace.id, to: $0, ordered: ordered) }
-                    ))
+                    makeRow(workspace, colors: colors)
+                        .reorderFrame(index, in: space)
+                        .reorderableRow(ReorderRowConfig(
+                            id: workspace.id,
+                            axis: .vertical,
+                            space: space,
+                            count: ordered.count,
+                            frames: rowFrames,
+                            drag: $drag,
+                            state: drag,
+                            perform: { performMove(of: workspace.id, to: $0, ordered: ordered) }
+                        ))
                 }
             }
             .reorderableContainer(ReorderContainerConfig(
@@ -124,6 +125,99 @@ public struct SidebarView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .layoutPriority(1) // la lista principale tiene il flex; l'archivio prende il resto
+    }
+
+    /// Riga workspace completa (callback allo store), condivisa da lista principale e sezione
+    /// Archive. I chiamanti aggiungono i modifier di riordino solo dove serve.
+    private func makeRow(_ workspace: Workspace, colors: ChromeColors) -> WorkspaceRow {
+        WorkspaceRow(
+            workspace: workspace,
+            selected: workspace.id == store.selectedWorkspaceID,
+            colors: colors,
+            onSelect: { store.selectWorkspace(workspace.id) },
+            onTogglePin: { store.togglePin(workspace.id) },
+            onRename: { store.renameWorkspace(workspace.id, to: $0) },
+            onToggleUnread: { toggleUnread(workspace) },
+            onToggleArchive: { store.toggleArchive(workspace.id) },
+            onClose: { onCloseWorkspace(workspace) }
+        )
+    }
+
+    /// Sezione Archive: header ancorato in fondo alla sidebar (sempre visibile come drop zone del
+    /// drag), collassabile; quando espansa mostra i workspace archiviati in uno ScrollView che si
+    /// adatta al contenuto fino a `maxListHeight` (~metà sidebar), poi scrolla dentro. Assente se
+    /// non ci sono archiviati.
+    @ViewBuilder
+    private func archiveSection(_ colors: ChromeColors, maxListHeight: CGFloat) -> some View {
+        let archived = store.archivedWorkspaces
+        if !archived.isEmpty {
+            VStack(spacing: 0) {
+                Divider()
+                archiveHeader(
+                    colors,
+                    count: archived.count,
+                    attention: hasArchivedAttention(archived)
+                )
+                if settings.archiveExpanded {
+                    ScrollView {
+                        LazyVStack(spacing: 1) {
+                            ForEach(archived) { workspace in
+                                makeRow(workspace, colors: colors)
+                            }
+                        }
+                        .padding(.horizontal, Theme.Spacing.sm)
+                        .padding(.vertical, Theme.Spacing.xxs)
+                        .background(GeometryReader { geo in
+                            Color.clear.preference(
+                                key: ArchiveHeightKey.self,
+                                value: geo.size.height
+                            )
+                        })
+                    }
+                    .frame(height: min(archivedHeight, maxListHeight))
+                    .scrollContentBackground(.hidden)
+                    .onPreferenceChange(ArchiveHeightKey.self) { archivedHeight = $0 }
+                }
+            }
+        }
+    }
+
+    /// Header cliccabile della sezione Archive: chevron, conteggio, e un pallino discreto se un
+    /// archiviato ha attenzione fresca (così l'archivio non è un buco nero, senza galleggiare).
+    private func archiveHeader(_ colors: ChromeColors, count: Int, attention: Bool) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { settings.toggleArchiveExpanded() }
+        } label: {
+            HStack(spacing: Theme.Spacing.xs) {
+                Image(systemName: settings.archiveExpanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(colors.secondary)
+                    .frame(width: 10)
+                Image(systemName: "archivebox")
+                    .font(.system(size: 12))
+                    .foregroundStyle(colors.secondary)
+                Text("Archive")
+                    .font(Theme.Typography.item)
+                    .foregroundStyle(colors.foreground)
+                Text("\(count)")
+                    .font(Theme.Typography.subtitle)
+                    .foregroundStyle(colors.secondary)
+                Spacer()
+                if attention {
+                    Circle().fill(colors.accent).frame(width: 6, height: 6)
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(settings.archiveExpanded ? "Collapse archive" : "Expand archive")
+    }
+
+    private func hasArchivedAttention(_ archived: [Workspace]) -> Bool {
+        archived.contains { $0.needsAttention }
     }
 
     /// Toggle manuale del marker di attenzione dal menu contestuale: agisce sulla tab selezionata
@@ -152,6 +246,18 @@ public struct SidebarView: View {
     }
 }
 
+/// Altezza del contenuto archiviato, per dimensionare la sezione Archive al contenuto (fino al
+/// tetto di metà sidebar).
+private struct ArchiveHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat {
+        0
+    }
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 /// Riga workspace con selezione/hover dal tema. View separata per lo stato locale (hover +
 /// editing): su hover il badge di severità lascia il posto alla x di chiusura; il rename dal
 /// menu contestuale scambia il nome con un `TextField` inline.
@@ -163,6 +269,7 @@ private struct WorkspaceRow: View {
     let onTogglePin: () -> Void
     let onRename: (String) -> Void
     let onToggleUnread: () -> Void
+    let onToggleArchive: () -> Void
     let onClose: () -> Void
 
     @State private var hovered = false
@@ -220,10 +327,14 @@ private struct WorkspaceRow: View {
         .onHover { hovered = $0 }
         .contextMenu {
             Button("Rename", action: beginRename)
-            Button(workspace.pinned ? "Unpin" : "Pin", action: onTogglePin)
+            // Pin e Archive sono opposti: un archiviato non si pinna (lo mostro solo se in lista).
+            if !workspace.archived {
+                Button(workspace.pinned ? "Unpin" : "Pin", action: onTogglePin)
+            }
             // Toggle del marker sulla tab selezionata: riaccende o spegne il segnale di attenzione
             // a mano (metafora unread). Il label riflette lo stato corrente della tab selezionata.
             Button(hasAttention ? "Mark as Read" : "Mark as Unread", action: onToggleUnread)
+            Button(workspace.archived ? "Unarchive" : "Archive", action: onToggleArchive)
             Button("Close", role: .destructive, action: onClose)
         }
     }

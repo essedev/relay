@@ -42,14 +42,22 @@ public final class WorkspaceStore {
         workspaces.filter { !$0.pinned }
     }
 
-    /// Ordine di visualizzazione: pinned (ordine manuale), poi i workspace con attenzione
-    /// (`needs_input`/completato), poi il resto. Partizione stabile: dentro ogni gruppo resta
-    /// l'ordine canonico di `workspaces`; il float è solo derivato dallo stato live (drag e
-    /// persistence agiscono sull'ordine canonico).
+    /// Ordine di visualizzazione della lista principale: esclude gli archiviati (vivono nella loro
+    /// sezione), poi pinned (ordine manuale), poi i workspace con attenzione (`needs_input`/
+    /// completato), poi il resto. Partizione stabile: dentro ogni gruppo resta l'ordine canonico di
+    /// `workspaces`; il float è solo derivato dallo stato live (drag e persistence agiscono
+    /// sull'ordine canonico).
     public var orderedWorkspaces: [Workspace] {
-        let pinned = workspaces.filter(\.pinned)
-        let rest = workspaces.filter { !$0.pinned }
+        let visible = workspaces.filter { !$0.archived }
+        let pinned = visible.filter(\.pinned)
+        let rest = visible.filter { !$0.pinned }
         return pinned + rest.filter(\.needsAttention) + rest.filter { !$0.needsAttention }
+    }
+
+    /// Workspace archiviati (sezione Archive in fondo alla sidebar), in ordine canonico. Non
+    /// galleggiano e non entrano in `orderedWorkspaces`.
+    public var archivedWorkspaces: [Workspace] {
+        workspaces.filter(\.archived)
     }
 
     // MARK: - Persistence
@@ -65,6 +73,7 @@ public final class WorkspaceStore {
                     name: workspace.name,
                     rootPath: workspace.rootPath,
                     pinned: workspace.pinned,
+                    archived: workspace.archived,
                     selectedTabID: workspace.selectedTabID,
                     tabs: workspace.tabs.map { tab in
                         TabSnapshot(
@@ -118,14 +127,18 @@ public final class WorkspaceStore {
                 name: workspace.name,
                 rootPath: workspace.rootPath,
                 pinned: workspace.pinned,
+                archived: workspace.archived,
                 tabs: tabs,
                 selectedTabID: selectedTabID
             )
         }
+        // La selezione deve puntare a un workspace VISIBILE (non archiviato): setArchived la sposta
+        // via dagli archiviati, ma un file editato a mano potrebbe averla lasciata su uno. Ricade
+        // sul primo visibile, e solo se tutti sono archiviati (degenere) sul primo assoluto.
         let restoredID = snapshot.selectedWorkspaceID
-        selectedWorkspaceID = workspaces.contains { $0.id == restoredID }
+        selectedWorkspaceID = orderedWorkspaces.contains { $0.id == restoredID }
             ? restoredID
-            : workspaces.first?.id
+            : orderedWorkspaces.first?.id ?? workspaces.first?.id
     }
 
     // MARK: - Workspace
@@ -147,6 +160,32 @@ public final class WorkspaceStore {
     public func togglePin(_ id: UUID) {
         guard let workspace = workspaces.first(where: { $0.id == id }) else { return }
         workspace.pinned.toggle()
+    }
+
+    /// Archivia o ripristina un workspace (menu contestuale, drag sulla sezione Archive).
+    /// Archiviare lo mette via: lo de-pinna (mutuamente esclusivi) e, se era il selezionato, sposta
+    /// la selezione al primo visibile. Non archivia l'ultimo workspace visibile (la lista
+    /// principale
+    /// resterebbe vuota): in quel caso è un no-op. Ripristinare lo rende di nuovo visibile senza
+    /// cambiare la selezione.
+    public func setArchived(_ id: UUID, _ archived: Bool) {
+        guard let workspace = workspaces.first(where: { $0.id == id }),
+              workspace.archived != archived else { return }
+        if archived {
+            guard workspaces.contains(where: { !$0.archived && $0.id != id }) else { return }
+            workspace.archived = true
+            workspace.pinned = false
+            if selectedWorkspaceID == id {
+                selectedWorkspaceID = orderedWorkspaces.first?.id
+            }
+        } else {
+            workspace.archived = false
+        }
+    }
+
+    public func toggleArchive(_ id: UUID) {
+        guard let workspace = workspaces.first(where: { $0.id == id }) else { return }
+        setArchived(id, !workspace.archived)
     }
 
     /// Rinomina un workspace. Nome vuoto (solo spazi) ignorato: si tiene quello vecchio.

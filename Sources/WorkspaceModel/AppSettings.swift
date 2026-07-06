@@ -23,6 +23,9 @@ public final class AppSettings {
     public private(set) var fontName: String?
     public private(set) var cursorBlink: Bool
     public private(set) var sidebarCollapsed: Bool
+    /// Sezione Archive in fondo alla sidebar espansa (mostra i workspace archiviati) o collassata.
+    /// Default collassata: l'archivio è "messo via". Preferenza UI, non layout.
+    public private(set) var archiveExpanded: Bool
     /// Larghezza della sidebar in punti (clampata a `min/maxSidebarWidth`), persistita: l'utente la
     /// ridimensiona e resta tra i riavvii. Preferenza UI globale, non layout per-workspace.
     public private(set) var sidebarWidth: Double
@@ -71,6 +74,7 @@ public final class AppSettings {
         // Assente = false = caret fisso: il default di prodotto è niente blink.
         cursorBlink = defaults.bool(forKey: Keys.cursorBlink)
         sidebarCollapsed = defaults.bool(forKey: Keys.sidebarCollapsed)
+        archiveExpanded = defaults.bool(forKey: Keys.archiveExpanded)
         // Assente = 0 = usa il default (double(forKey:) torna 0 per chiave mancante).
         let savedSidebarWidth = defaults.double(forKey: Keys.sidebarWidth)
         sidebarWidth = savedSidebarWidth == 0 ? Self.defaultSidebarWidth : savedSidebarWidth
@@ -163,6 +167,11 @@ public final class AppSettings {
     public func toggleSidebar() {
         sidebarCollapsed.toggle()
         defaults.set(sidebarCollapsed, forKey: Keys.sidebarCollapsed)
+    }
+
+    public func toggleArchiveExpanded() {
+        archiveExpanded.toggle()
+        defaults.set(archiveExpanded, forKey: Keys.archiveExpanded)
     }
 
     public func setSidebarWidth(_ width: Double) {
@@ -269,6 +278,7 @@ public final class AppSettings {
         static let fontName = "relay.theme.fontName"
         static let cursorBlink = "relay.cursor.blink"
         static let sidebarCollapsed = "relay.sidebar.collapsed"
+        static let archiveExpanded = "relay.sidebar.archiveExpanded"
         static let sidebarWidth = "relay.sidebar.width"
         static let autoResumeAgents = "relay.agents.autoResume"
         static let pendingDecayHours = "relay.agents.pendingDecayHours"

@@ -10,6 +10,10 @@ public final class Workspace: Identifiable {
     public var name: String
     public var rootPath: String?
     public var pinned: Bool
+    /// Messo via: fuori dalla lista principale, raccolto nella sezione Archive in fondo alla
+    /// sidebar. Mutuamente esclusivo con `pinned` (tenere in cima vs mettere via) e con il float
+    /// per attenzione (gli archiviati non galleggiano).
+    public var archived: Bool
     public private(set) var tabs: [Tab]
     public var selectedTabID: UUID?
 
@@ -18,6 +22,7 @@ public final class Workspace: Identifiable {
         name: String,
         rootPath: String? = nil,
         pinned: Bool = false,
+        archived: Bool = false,
         tabs: [Tab] = [],
         selectedTabID: UUID? = nil
     ) {
@@ -25,6 +30,7 @@ public final class Workspace: Identifiable {
         self.name = name
         self.rootPath = rootPath
         self.pinned = pinned
+        self.archived = archived
         self.tabs = tabs
         self.selectedTabID = selectedTabID ?? tabs.first?.id
     }

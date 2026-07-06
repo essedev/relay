@@ -29,6 +29,9 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     public var name: String
     public var rootPath: String?
     public var pinned: Bool
+    /// Nella sezione Archive. Campo additivo (assente nei layout vecchi -> `false`), quindi non
+    /// richiede un bump di versione.
+    public var archived: Bool
     public var selectedTabID: UUID?
     public var tabs: [TabSnapshot]
 
@@ -37,6 +40,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         name: String,
         rootPath: String?,
         pinned: Bool,
+        archived: Bool = false,
         selectedTabID: UUID?,
         tabs: [TabSnapshot]
     ) {
@@ -44,8 +48,24 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         self.name = name
         self.rootPath = rootPath
         self.pinned = pinned
+        self.archived = archived
         self.selectedTabID = selectedTabID
         self.tabs = tabs
+    }
+
+    /// Decode tollerante: `archived` è un `Bool` additivo, assente nei layout salvati prima della
+    /// feature. La sintesi lo esigerebbe come chiave e farebbe fallire l'intero decode (= layout
+    /// dell'utente buttato via), quindi lo leggo con `decodeIfPresent ?? false`. Gli altri campi
+    /// seguono la sintesi (gli opzionali già tollerano l'assenza). Encode resta sintetizzato.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        rootPath = try c.decodeIfPresent(String.self, forKey: .rootPath)
+        pinned = try c.decode(Bool.self, forKey: .pinned)
+        archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false
+        selectedTabID = try c.decodeIfPresent(UUID.self, forKey: .selectedTabID)
+        tabs = try c.decode([TabSnapshot].self, forKey: .tabs)
     }
 }
 

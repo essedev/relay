@@ -256,6 +256,16 @@ girano solo dal bundle (`make run-app`).
   con attenzione, poi resto) - **display-only**, non toccare `store.workspaces` per ordinare:
   quello è l'ordine canonico su cui agiscono drag e persistence. Rename inline del workspace dal
   menu contestuale (`WorkspaceStore.renameWorkspace`).
+- Archive: i workspace archiviati (`Workspace.archived`, persistito, additivo) escono da
+  `orderedWorkspaces` e vivono in una sezione collassabile ancorata **in fondo** alla sidebar
+  (`archiveSection`, header sempre visibile = drop zone; lista archiviati con tetto ~metà sidebar
+  via GeometryReader + `ArchiveHeightKey`, poi scroll interno; espansa/collassata in
+  `AppSettings.archiveExpanded`). L'header è ancorato, non nel flusso scrollabile, perché su macOS
+  lo `ScrollView` non fa drag-scroll: sotto la piega non ci potresti trascinare sopra. `archived`
+  è mutuamente esclusivo con `pinned` (archiviare de-pinna) e col float (gli archiviati non
+  galleggiano). `setArchived`/`toggleArchive`: non archivia l'ultimo visibile e sposta la selezione
+  fuori dall'archiviato; un archiviato con attenzione fresca accende un pallino discreto
+  sull'header (non un buco nero). Archivia/ripristina dal menu contestuale (`Archive`/`Unarchive`).
 - Riordino drag & drop (sidebar e tab bar): meccanismo in `Panels/Reorderable` (`reorderableRow` +
   `reorderableContainer` + `ReorderInsertionLine`). **Non** `onDrag`/`onDrop` di sistema (generano
   una preview con snap-back al rilascio): la riga *vera* si solleva con un `DragGesture` + `.offset`
