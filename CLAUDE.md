@@ -18,7 +18,9 @@ drop (`DragGesture` + `.offset`, linea di inserimento, resolver puro `SidebarDro
 (soglia anti-stantio `eventFloor`)** + **ordine sidebar "lista chat" (un'attività non vista bumpa
 il workspace in cima con un riordino reale e persistente; la ripresa non muove nulla)** + **archivio
 dei workspace (sezione
-collassabile in fondo alla sidebar, menu `Archive`/`Unarchive`; drag dentro/fuori ancora da fare)**.
+collassabile in fondo alla sidebar, menu `Archive`/`Unarchive`; drag dentro/fuori ancora da fare)**
++ **pannello "About Relay" (menu Relay > About Relay, stile "About This Mac": icona + nome +
+versione dal bundle) - vedi gotcha**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
@@ -67,7 +69,8 @@ girano solo dal bundle (`make run-app`).
   `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `Dashboard` (`DashboardModel` puro +
   `DashboardView`: griglia di triage delle sessioni), `Reorderable` (riordino drag & drop di
   workspace e tab: `DragGesture` + `.offset` + linea di inserimento), `WindowDragArea` (drag
-  finestra dalla title strip), `SettingsView` (+ `SettingsComponents`), `ShortcutsList` (recorder
+  finestra dalla title strip), `SettingsView` (+ `SettingsComponents`), `AboutView` (pannello
+  "About Relay" a tema), `ShortcutsList` (recorder
   shortcut), `KeyEventBridge`
   (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori vengono dal tema
   (`AppSettings.theme`), non hardcoded.

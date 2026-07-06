@@ -23,6 +23,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     /// Host dell'overlay dashboard quando è aperta (`nil` = chiusa). Vedi AppControllerDashboard.
     var dashboardHost: NSView?
     var settingsWindow: NSWindow? // internal: aperto/chiuso dall'extension delle impostazioni
+    var aboutWindow: NSWindow? // internal: pannello "About Relay" (extension impostazioni)
     private var untitledCount = 0
     var keyMonitor: Any? // internal: installato dall'extension di navigazione
     private var demoDriver: DemoDriver?
@@ -161,7 +162,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     func applyWindowChrome(_ theme: RelayTheme) {
         let appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         let background = NSColor(relay: theme.background)
-        for target in [window, settingsWindow].compactMap(\.self) {
+        for target in [window, settingsWindow, aboutWindow].compactMap(\.self) {
             target.appearance = appearance
             target.titlebarAppearsTransparent = true
             target.backgroundColor = background

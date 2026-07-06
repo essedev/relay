@@ -49,6 +49,12 @@ enum MainMenuBuilder {
     // MARK: - Menu
 
     private static func appMenu(_ target: AnyObject) -> NSMenuItem {
+        let about = NSMenuItem(
+            title: "About Relay",
+            action: #selector(AppController.showAbout(_:)),
+            keyEquivalent: ""
+        )
+        about.target = target
         let settingsItem = NSMenuItem(
             title: "Settings…",
             action: #selector(AppController.openSettings(_:)),
@@ -60,7 +66,7 @@ enum MainMenuBuilder {
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )
-        return submenu("Relay", [settingsItem, .separator(), quit])
+        return submenu("Relay", [about, .separator(), settingsItem, .separator(), quit])
     }
 
     private static func fileMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
