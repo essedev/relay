@@ -14,7 +14,10 @@ in impostazioni)** + **dashboard di triage (`Cmd+D`) e attenzione a tre livelli 
 -> risolto, con dismiss e decadenza opzionale)** + **riordino libero di workspace e tab via drag &
 drop (`DragGesture` + `.offset`, linea di inserimento, resolver puro `SidebarDrop`, vedi
 `Panels/Reorderable`)** + **mark-read filtrato alla sola interazione col terminale (`terminalOwns`)
-+ override unread manuale dal menu contestuale (`toggleUnread`)**.
++ override unread manuale dal menu contestuale (`toggleUnread`)** + **resume affidabile al riavvio
+(soglia anti-stantio `eventFloor`)** + **float sticky (un completamento salito in cima ci resta
+finché non lo risolvi: `needsAttention` include `pending`)** + **archivio dei workspace (sezione
+collassabile in fondo alla sidebar, menu `Archive`/`Unarchive`; drag dentro/fuori ancora da fare)**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
@@ -265,7 +268,10 @@ girano solo dal bundle (`make run-app`).
   `orderedWorkspaces` e vivono in una sezione collassabile ancorata **in fondo** alla sidebar
   (`archiveSection`, header sempre visibile = drop zone; lista archiviati con tetto ~metà sidebar
   via GeometryReader + `ArchiveHeightKey`, poi scroll interno; espansa/collassata in
-  `AppSettings.archiveExpanded`). L'header è ancorato, non nel flusso scrollabile, perché su macOS
+  `AppSettings.archiveExpanded`). La lista è un **`VStack`, non `LazyVStack`**: dentro lo
+  `ScrollView` alto `min(archivedHeight, ...)` che parte da 0, il lazy non realizzerebbe le righe,
+  il `GeometryReader` misurerebbe 0 e la sezione resterebbe invisibile (freccia sì, contenuto no).
+  L'header è ancorato, non nel flusso scrollabile, perché su macOS
   lo `ScrollView` non fa drag-scroll: sotto la piega non ci potresti trascinare sopra. `archived`
   è mutuamente esclusivo con `pinned` (archiviare de-pinna) e col float (gli archiviati non
   galleggiano). `setArchived`/`toggleArchive`: non archivia l'ultimo visibile e sposta la selezione
