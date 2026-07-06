@@ -25,6 +25,39 @@ import Testing
     #expect(!store.dismissAttention(UUID()))
 }
 
+@Test func toggleUnreadFlipsMarkerBothWays() {
+    let store = WorkspaceStore()
+    let workspace = store.createWorkspace(name: "w")
+    let tab = workspace.tabs[0]
+
+    // Nessuna attenzione -> riaccende il segnale forte ("Mark as Unread").
+    #expect(tab.attention == .none)
+    store.toggleUnread(tab.id)
+    #expect(tab.attention == .unseen)
+    #expect(tab.attentionSince != nil)
+
+    // Con attenzione (a qualunque livello) -> spegne ("Mark as Read").
+    store.toggleUnread(tab.id)
+    #expect(tab.attention == .none)
+    #expect(tab.attentionSince == nil)
+
+    tab.attention = .pending
+    store.toggleUnread(tab.id)
+    #expect(tab.attention == .none)
+}
+
+@Test func markUnreadStampsAttentionSinceAndIgnoresRepeat() {
+    let tab = Tab(title: "t")
+    let t0 = Date(timeIntervalSince1970: 500)
+    tab.markUnread(at: t0)
+    #expect(tab.attention == .unseen)
+    #expect(tab.attentionSince == t0)
+
+    // Già unseen: no-op, non ri-timbra il clock (l'età del segnale resta quella originale).
+    tab.markUnread(at: Date(timeIntervalSince1970: 900))
+    #expect(tab.attentionSince == t0)
+}
+
 @Test func decayClearsOnlyOldPending() {
     let store = WorkspaceStore()
     let workspace = store.createWorkspace(name: "w")

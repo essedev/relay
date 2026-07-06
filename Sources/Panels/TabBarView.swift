@@ -51,6 +51,7 @@ public struct TabBarView: View {
                         colors: colors,
                         onSelect: { store.selectTab(tab.id, in: workspace) },
                         onRename: { store.renameTab(tab.id, in: workspace, to: $0) },
+                        onToggleUnread: { store.toggleUnread(tab.id) },
                         onClose: { onCloseTab(tab, workspace) }
                     )
                     .reorderFrame(index, in: space)
@@ -103,6 +104,7 @@ private struct TabItemView: View {
     let colors: ChromeColors
     let onSelect: () -> Void
     let onRename: (String) -> Void
+    let onToggleUnread: () -> Void
     let onClose: () -> Void
 
     @State private var hovered = false
@@ -152,6 +154,9 @@ private struct TabItemView: View {
         .onHover { hovered = $0 }
         .contextMenu {
             Button("Rename", action: beginRename)
+            // Toggle manuale del marker di attenzione (metafora unread), per-tab.
+            let unreadLabel = tab.attention == .none ? "Mark as Unread" : "Mark as Read"
+            Button(unreadLabel, action: onToggleUnread)
             Button("Close", role: .destructive, action: onClose)
         }
     }

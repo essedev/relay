@@ -95,6 +95,19 @@ public extension WorkspaceStore {
         return false
     }
 
+    /// Toggle manuale del marker dal menu contestuale (sidebar/tab bar): se la tab ha attenzione
+    /// (unseen o pending) la spegne ("Mark as Read"), altrimenti riaccende il segnale forte
+    /// ("Mark as Unread"). Cerca la tab per id fra tutti i workspace, come `dismissAttention`.
+    func toggleUnread(_ tabID: UUID) {
+        guard let tab = workspaces.flatMap(\.tabs).first(where: { $0.id == tabID }) else { return }
+        if tab.attention == .none {
+            tab.markUnread()
+        } else {
+            tab.attention = .none
+            tab.attentionSince = nil
+        }
+    }
+
     /// Decadenza opzionale dei sospesi: spegne i `pending` diventati tali prima di `cutoff`.
     /// Chiamata dal composition root quando la preferenza è attiva (boot, ritorno in foreground,
     /// apertura dashboard). Misura da `attentionSince` (da quando è in sospeso), non da

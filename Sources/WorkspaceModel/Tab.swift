@@ -90,6 +90,17 @@ public final class Tab: Identifiable {
         attentionSince = now
     }
 
+    /// Override manuale "segna da vedere" (menu contestuale): riaccende il segnale forte come un
+    /// completamento appena arrivato (float in sidebar, ring alla riapertura, badge pieno). Timbra
+    /// `attentionSince` col momento del flag - clock di decadenza ed età, coerente con `apply` e
+    /// `markSeen`. Non emette notifiche (quelle nascono solo da eventi reali). No-op se già
+    /// `unseen`.
+    public func markUnread(at now: Date = Date()) {
+        guard attention != .unseen else { return }
+        attention = .unseen
+        attentionSince = now
+    }
+
     /// C'è una sessione da riprendere e nessuna viva: dopo il restore (`agentState` riparte
     /// `unknown`) con un binding salvato. Guida la barra di resume; si spegne appena la sessione
     /// riparte (stato != unknown).

@@ -131,7 +131,10 @@ girano solo dal bundle (`make run-app`).
   -> `resetsAttention`, letto dal CLI, spegne il sospeso mantenendo `state` idle) - più il dismiss
   (card della dashboard), la chiusura tab e la decadenza (`pendingDecayHours`, default **12h**: il
   sospeso è il segnale quieto e già visto, tenerlo per sempre è banner blindness; `unseen` invece
-  non scade mai da solo). Il clock del marker è `Tab.attentionSince` (timbrato alla nascita e al
+  non scade mai da solo). Override manuale dal **menu contestuale** (sidebar sulla tab selezionata
+  del workspace, tab bar per-tab): `store.toggleUnread` -> `Tab.markUnread` riaccende `unseen`
+  (riusa il segnale forte esistente: float, ring, badge; niente notifica, che nasce solo da eventi
+  reali), o spegne se già acceso ("Mark as Read"). Al riavvio degrada a pending come ogni `unseen`. Il clock del marker è `Tab.attentionSince` (timbrato alla nascita e al
   declassamento), **distinto** da `lastEventAt` (che avanza a ogni evento per la monotonicità): il
   decay e l'età del sospeso misurano da `attentionSince`, così un no-op (SessionEnd, idle->idle) non
   li falsifica, e al restore il clock riparte dal boot (un completamento vecchio mai visto non viene

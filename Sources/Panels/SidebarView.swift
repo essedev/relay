@@ -92,6 +92,7 @@ public struct SidebarView: View {
                         onSelect: { store.selectWorkspace(workspace.id) },
                         onTogglePin: { store.togglePin(workspace.id) },
                         onRename: { store.renameWorkspace(workspace.id, to: $0) },
+                        onToggleUnread: { toggleUnread(workspace) },
                         onClose: { onCloseWorkspace(workspace) }
                     )
                     .reorderFrame(index, in: space)
@@ -125,6 +126,14 @@ public struct SidebarView: View {
         .scrollContentBackground(.hidden)
     }
 
+    /// Toggle manuale del marker di attenzione dal menu contestuale: agisce sulla tab selezionata
+    /// del workspace (il marker vive per-tab). Estratto dal `ForEach` per non appesantire
+    /// l'inferenza di tipo della riga.
+    private func toggleUnread(_ workspace: Workspace) {
+        guard let tabID = workspace.selectedTab?.id else { return }
+        store.toggleUnread(tabID)
+    }
+
     /// Esegue lo spostamento deciso dal resolver puro (`SidebarDrop`): eventuale pin/unpin per
     /// attraversamento del blocco pinned + inserimento canonico ancorato a un vicino. Il reset
     /// dello stato di drag lo fa la resetTransaction del @GestureState.
@@ -153,6 +162,7 @@ private struct WorkspaceRow: View {
     let onSelect: () -> Void
     let onTogglePin: () -> Void
     let onRename: (String) -> Void
+    let onToggleUnread: () -> Void
     let onClose: () -> Void
 
     @State private var hovered = false
@@ -211,8 +221,17 @@ private struct WorkspaceRow: View {
         .contextMenu {
             Button("Rename", action: beginRename)
             Button(workspace.pinned ? "Unpin" : "Pin", action: onTogglePin)
+            // Toggle del marker sulla tab selezionata: riaccende o spegne il segnale di attenzione
+            // a mano (metafora unread). Il label riflette lo stato corrente della tab selezionata.
+            Button(hasAttention ? "Mark as Read" : "Mark as Unread", action: onToggleUnread)
             Button("Close", role: .destructive, action: onClose)
         }
+    }
+
+    /// La tab selezionata del workspace ha un marker acceso (unseen o pending): guida il label del
+    /// toggle unread nel menu contestuale.
+    private var hasAttention: Bool {
+        (workspace.selectedTab?.attention ?? .none) != .none
     }
 
     /// Campo di rinomina inline: commit su Invio o perdita focus, Esc annulla.
