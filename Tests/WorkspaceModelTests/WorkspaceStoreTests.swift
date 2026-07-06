@@ -135,20 +135,6 @@ import Testing
     #expect(restored.selectedTab != nil)
 }
 
-@Test func segmentIndexPartitionsLikeOrdered() {
-    let store = WorkspaceStore()
-    let calm = store.createWorkspace(name: "calm")
-    let attn = store.createWorkspace(name: "attn")
-    let pin = store.createWorkspace(name: "pin")
-
-    store.togglePin(pin.id)
-    attn.tabs[0].agentState = .needsInput
-
-    #expect(store.segmentIndex(for: pin) == 0) // pinned
-    #expect(store.segmentIndex(for: attn) == 1) // attenzione fresca
-    #expect(store.segmentIndex(for: calm) == 2) // resto
-}
-
 @Test func moveTabBeforeTargetInserts() {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "ws")

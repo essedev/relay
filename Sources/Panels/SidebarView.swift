@@ -15,12 +15,14 @@ public struct SidebarView: View {
     let onNewWorkspace: () -> Void
     let onCloseWorkspace: (Workspace) -> Void
 
-    // Stato del riordino via drag & drop (vedi Reorderable): quale workspace è in volo, la sua
-    // traslazione corrente, i frame delle righe (per l'indicatore) e la posizione di inserimento.
-    @State private var draggingWorkspaceID: UUID?
-    @State private var dragTranslation: CGFloat = 0
+    // Stato del riordino via drag & drop (vedi Reorderable). Il gesto vive in un @GestureState:
+    // si azzera da solo (animato) anche se il drag viene annullato. L'ordine visivo è congelato
+    // per la durata del gesto (`frozenOrder`): il float è derivato dallo stato agente e senza
+    // snapshot un cambio di stato rimescolerebbe righe e frame sotto il puntatore.
+    @GestureState(resetTransaction: Transaction(animation: .easeInOut(duration: 0.2)))
+    private var drag = ReorderDragState()
     @State private var rowFrames: [Int: CGRect] = [:]
-    @State private var dropInsertion: Int?
+    @State private var frozenOrder: [Workspace]?
 
     public init(
         store: WorkspaceStore,
@@ -76,8 +78,9 @@ public struct SidebarView: View {
     /// con l'header (`sm + xs = md`).
     private func list(_ colors: ChromeColors) -> some View {
         // Ordine di visualizzazione (pinned, poi con attenzione, poi resto); l'ordine canonico
-        // dello store resta invariato. `ordered` guida sia le righe sia l'animazione di riordino.
-        let ordered = store.orderedWorkspaces
+        // dello store resta invariato. Durante un drag vale lo snapshot congelato, così un evento
+        // agente non ri-partiziona le righe sotto il puntatore.
+        let ordered = frozenOrder ?? store.orderedWorkspaces
         let space = "sidebar-reorder"
         return ScrollView {
             LazyVStack(spacing: 1) {
@@ -98,11 +101,9 @@ public struct SidebarView: View {
                         space: space,
                         count: ordered.count,
                         frames: rowFrames,
-                        dragging: $draggingWorkspaceID,
-                        translation: $dragTranslation,
-                        insertion: $dropInsertion,
-                        clamp: { clampToSegment($0, ordered: ordered) },
-                        perform: { performMove(to: $0, ordered: ordered) }
+                        drag: $drag,
+                        state: drag,
+                        perform: { performMove(of: workspace.id, to: $0, ordered: ordered) }
                     ))
                 }
             }
@@ -111,47 +112,34 @@ public struct SidebarView: View {
                 axis: .vertical,
                 count: ordered.count,
                 frames: $rowFrames,
-                insertion: dropInsertion,
+                insertion: drag.insertion,
                 lineColor: colors.accent
             ))
             .padding(.horizontal, Theme.Spacing.sm)
             .padding(.vertical, Theme.Spacing.xxs)
             .animation(.easeInOut(duration: 0.2), value: ordered.map(\.id))
+            .onChange(of: drag.id) { _, id in
+                frozenOrder = id == nil ? nil : store.orderedWorkspaces
+            }
         }
         .scrollContentBackground(.hidden)
     }
 
-    /// Vincola l'inserimento al segmento di float del workspace trascinato: la linea si muove solo
-    /// tra le righe dello stesso gruppo (pinned/attenzione/resto), perché il float non lascia
-    /// attraversare i segmenti. Così l'indicatore non promette una posizione che il float annulla.
-    private func clampToSegment(_ raw: Int, ordered: [Workspace]) -> Int {
-        guard let dragID = draggingWorkspaceID,
-              let dragIndex = ordered.firstIndex(where: { $0.id == dragID }) else { return raw }
-        let segment = store.segmentIndex(for: ordered[dragIndex])
-        guard let lo = ordered.firstIndex(where: { store.segmentIndex(for: $0) == segment }),
-              let hi = ordered.lastIndex(where: { store.segmentIndex(for: $0) == segment })
-        else { return raw }
-        return min(max(raw, lo), hi + 1)
-    }
-
-    /// Esegue lo spostamento: inserisce il workspace trascinato prima della riga `insertion`
-    /// (o in fondo). Il target è preso dall'ordine visivo; entro lo stesso segmento coincide con
-    /// l'ordine canonico su cui opera lo store. Il reset di `draggingWorkspaceID` lo fa il
-    /// modifier.
-    private func performMove(to insertion: Int, ordered: [Workspace]) {
-        guard let dragID = draggingWorkspaceID,
-              let dragIndex = ordered.firstIndex(where: { $0.id == dragID }) else { return }
-        // Rilascio in fondo al proprio segmento di float (non l'ultimo): `ordered[insertion]` è il
-        // primo del segmento visivo successivo, che in ordine canonico non è contiguo, quindi
-        // `before` sarebbe un no-op. Inserisco invece dopo l'ultimo del segmento.
-        let segment = store.segmentIndex(for: ordered[dragIndex])
-        let segmentEnd = ordered.lastIndex { store.segmentIndex(for: $0) == segment }
-        if let segmentEnd, insertion == segmentEnd + 1, insertion < ordered.count {
-            store.moveWorkspace(dragID, after: ordered[segmentEnd].id)
-            return
+    /// Esegue lo spostamento deciso dal resolver puro (`SidebarDrop`): eventuale pin/unpin per
+    /// attraversamento del blocco pinned + inserimento canonico ancorato a un vicino. Il reset
+    /// dello stato di drag lo fa la resetTransaction del @GestureState.
+    private func performMove(of dragID: UUID, to insertion: Int, ordered: [Workspace]) {
+        let rows = ordered.map {
+            SidebarDrop.Row(id: $0.id, pinned: $0.pinned, attention: $0.needsAttention)
         }
-        let targetID = insertion < ordered.count ? ordered[insertion].id : nil
-        store.moveWorkspace(dragID, before: targetID)
+        guard let drop = SidebarDrop.resolve(rows: rows, dragID: dragID, insertion: insertion)
+        else { return }
+        if drop.pinned != nil { store.togglePin(dragID) }
+        switch drop.move {
+        case let .before(target): store.moveWorkspace(dragID, before: target)
+        case let .after(target): store.moveWorkspace(dragID, after: target)
+        case nil: break
+        }
     }
 }
 

@@ -9,12 +9,23 @@ import SwiftUI
 /// Meccanica: ogni elemento misura il proprio frame di layout in un coordinate space nominato
 /// (`reorderFrame`) - l'`.offset` è un trasform di rendering, non tocca il frame di layout, quindi
 /// i frame restano stabili durante il trascinamento. Dalla posizione del puntatore ricaviamo
-/// l'indice di inserimento (`reorderInsertionIndex`), vincolato dal caller via `clamp` (es. al
-/// segmento di float dei workspace). L'identità del trascinato vive in `@State` del caller: un solo
-/// elemento per lista si muove, niente pasteboard condivisa, niente drop incrociati.
+/// l'indice di inserimento (`reorderInsertionIndex`); la semantica del drop la decide il caller
+/// (`perform`). Lo stato del gesto vive in un `@GestureState` del caller: un solo elemento per
+/// lista si muove, niente pasteboard condivisa, e SwiftUI lo azzera da solo anche a gesto
+/// annullato (menu contestuale, perdita focus), così nessuna riga resta sollevata e nessun drag
+/// successivo parte rotto.
 enum ReorderAxis {
     case vertical
     case horizontal
+}
+
+/// Stato effimero del gesto di riordino: elemento in volo, traslazione lungo l'asse e slot di
+/// inserimento corrente. In un `@GestureState` con `resetTransaction` animata: il reset (fine o
+/// annullamento del gesto) riposa la riga con la stessa curva dello scambio.
+struct ReorderDragState: Equatable {
+    var id: UUID?
+    var translation: CGFloat = 0
+    var insertion: Int?
 }
 
 /// Raccoglie i frame degli elementi riordinabili: indice visivo -> rettangolo nel coordinate space.
@@ -98,15 +109,15 @@ struct ReorderRowConfig {
     let space: String
     let count: Int
     let frames: [Int: CGRect]
-    let dragging: Binding<UUID?>
-    let translation: Binding<CGFloat>
-    let insertion: Binding<Int?>
-    let clamp: (Int) -> Int
+    /// Il wrapper `@GestureState` del caller (per `.updating`) e il suo valore corrente (per il
+    /// rendering): SwiftUI azzera il wrapper da solo a fine/annullamento gesto.
+    let drag: GestureState<ReorderDragState>
+    let state: ReorderDragState
     let perform: (Int) -> Void
 
-    /// Indice di inserimento per il puntatore, già vincolato dal `clamp` del caller.
+    /// Indice di inserimento per il puntatore.
     func insertionIndex(at location: CGPoint) -> Int {
-        clamp(reorderInsertionIndex(location: location, frames: frames, axis: axis, count: count))
+        reorderInsertionIndex(location: location, frames: frames, axis: axis, count: count)
     }
 
     /// Componente della traslazione lungo l'asse della lista.
@@ -121,22 +132,18 @@ struct ReorderRowConfig {
 @MainActor
 private func reorderDragGesture(_ config: ReorderRowConfig) -> some Gesture {
     DragGesture(minimumDistance: 6, coordinateSpace: .named(config.space))
-        .onChanged { value in
-            if config.dragging.wrappedValue == nil {
-                config.dragging.wrappedValue = config.id
-            }
-            guard config.dragging.wrappedValue == config.id else { return }
-            config.translation.wrappedValue = config.shift(of: value.translation)
-            config.insertion.wrappedValue = config.insertionIndex(at: value.location)
+        .updating(config.drag) { value, state, _ in
+            if state.id == nil { state.id = config.id }
+            guard state.id == config.id else { return }
+            state.translation = config.shift(of: value.translation)
+            state.insertion = config.insertionIndex(at: value.location)
         }
         .onEnded { value in
-            guard config.dragging.wrappedValue == config.id else { return }
+            // Il gesto vive sulla riga dove il drag è partito: niente guard sull'id. Lo scambio
+            // parte qui; il reset (animato) dello stato lo fa la resetTransaction del caller.
             let index = config.insertionIndex(at: value.location)
-            withAnimation(.easeInOut(duration: 0.22)) {
-                config.perform(index) // legge `dragging` prima del reset qui sotto
-                config.dragging.wrappedValue = nil
-                config.translation.wrappedValue = 0
-                config.insertion.wrappedValue = nil
+            withAnimation(.easeInOut(duration: 0.2)) {
+                config.perform(index)
             }
         }
 }
@@ -168,8 +175,8 @@ extension View {
     /// Rende la riga trascinabile: la solleva (offset + semitrasparenza + zIndex) seguendo il dito,
     /// aggiorna la linea di inserimento durante il gesto ed esegue lo scambio animato al rilascio.
     func reorderableRow(_ config: ReorderRowConfig) -> some View {
-        let isDragging = config.dragging.wrappedValue == config.id
-        let shift = isDragging ? config.translation.wrappedValue : 0
+        let isDragging = config.state.id == config.id
+        let shift = isDragging ? config.state.translation : 0
         return offset(
             x: config.axis == .horizontal ? shift : 0,
             y: config.axis == .vertical ? shift : 0

@@ -9,12 +9,12 @@ public struct TabBarView: View {
     let settings: AppSettings
     let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
 
-    // Stato del riordino via drag & drop (vedi Reorderable): tab in volo, sua traslazione, frame
-    // delle tab per l'indicatore, posizione di inserimento. Nessun segmento: l'ordine è unico.
-    @State private var draggingTabID: UUID?
-    @State private var dragTranslation: CGFloat = 0
+    // Stato del riordino via drag & drop (vedi Reorderable), in un @GestureState che si azzera
+    // da solo anche a gesto annullato. Nessun segmento: l'ordine è unico e niente freeze (le tab
+    // non si ri-partizionano da sole durante un drag).
+    @GestureState(resetTransaction: Transaction(animation: .easeInOut(duration: 0.2)))
+    private var drag = ReorderDragState()
     @State private var tabFrames: [Int: CGRect] = [:]
-    @State private var dropInsertion: Int?
 
     public init(
         store: WorkspaceStore,
@@ -60,11 +60,9 @@ public struct TabBarView: View {
                         space: space,
                         count: tabs.count,
                         frames: tabFrames,
-                        dragging: $draggingTabID,
-                        translation: $dragTranslation,
-                        insertion: $dropInsertion,
-                        clamp: { max(0, min($0, tabs.count)) },
-                        perform: { performMove(to: $0, in: workspace) }
+                        drag: $drag,
+                        state: drag,
+                        perform: { performMove(of: tab.id, to: $0, in: workspace) }
                     ))
                 }
                 Button { store.addTab(to: workspace) } label: {
@@ -80,7 +78,7 @@ public struct TabBarView: View {
                 axis: .horizontal,
                 count: tabs.count,
                 frames: $tabFrames,
-                insertion: dropInsertion,
+                insertion: drag.insertion,
                 lineColor: colors.accent
             ))
             .padding(.horizontal, Theme.Spacing.sm)
@@ -88,10 +86,9 @@ public struct TabBarView: View {
     }
 
     /// Inserisce la tab trascinata prima della tab `insertion` (o in fondo). Ordine unico: nessun
-    /// vincolo di segmento, l'indicatore riflette sempre l'esito. Il reset del drag lo fa il
-    /// modifier.
-    private func performMove(to insertion: Int, in workspace: Workspace) {
-        guard let dragID = draggingTabID else { return }
+    /// vincolo di segmento, l'indicatore riflette sempre l'esito. Il reset del drag lo fa la
+    /// resetTransaction del @GestureState.
+    private func performMove(of dragID: UUID, to insertion: Int, in workspace: Workspace) {
         let targetID = insertion < workspace.tabs.count ? workspace.tabs[insertion].id : nil
         store.moveTab(dragID, before: targetID, in: workspace)
     }

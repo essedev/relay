@@ -250,14 +250,21 @@ girano solo dal bundle (`make run-app`).
   rilascio lo scambio parte in `withAnimation` mentre l'offset torna a zero (nessun salto). I frame
   di layout li raccoglie un `PreferenceKey` in un coordinate space nominato (l'`.offset` è un
   trasform di rendering, non altera il frame di layout, quindi i frame restano stabili durante il
-  gesto). Store puro e posizionale: `WorkspaceStore.moveWorkspace(_:before:)` e
-  `moveTab(_:before:in:)` (inserisce prima del target, `nil` = in fondo). **Sidebar**: la linea è
-  vincolata al segmento di float del workspace trascinato (`segmentIndex(for:)`:
-  pinned/attenzione/resto), perché il float non lascia attraversare i segmenti - così l'indicatore
-  non promette una posizione che il float poi annulla. **Tab bar**: nessun segmento, ordine unico,
-  linea libera. Su macOS lo `ScrollView` non fa drag-scroll, quindi il `DragGesture` non confligge
-  con lo scroll; l'identità del trascinato vive in `@State` (niente pasteboard, niente drop
-  incrociati).
+  gesto). Lo stato del gesto (`ReorderDragState`) vive in un **`@GestureState`** con
+  `resetTransaction` animata: si azzera da solo anche a gesto annullato (menu contestuale, perdita
+  focus) - con `@State` manuale un drag interrotto lasciava la riga sollevata e rompeva i drag
+  successivi. Store puro e posizionale: `WorkspaceStore.moveWorkspace(_:before:/after:)` e
+  `moveTab(_:before:in:)` (inserisce prima/dopo il target, `nil` = in fondo). **Sidebar**: la linea
+  è libera (niente clamp: col vecchio vincolo al segmento di float un segmento da 1 elemento
+  inchiodava l'inserimento = drag morto); il drag edita sempre l'ordine canonico che il float
+  proietta, e il drop lo risolve il resolver puro `SidebarDrop` (testato): attraversare il blocco
+  pinned pinna/spinna (il bordo esatto non cambia lo stato), l'ancora preferisce il vicino dello
+  stesso segmento e ripiega sul vicino grezzo - un workspace che brilla ancora, parcheggiato in
+  basso, torna a flottare ma si posa lì quando l'attenzione si risolve. Durante il gesto l'ordine
+  visivo è **congelato** (`frozenOrder`): senza, un evento agente ri-partiziona le righe sotto il
+  puntatore. **Tab bar**: nessun segmento, ordine unico. Su macOS lo `ScrollView` non fa
+  drag-scroll, quindi il `DragGesture` non confligge con lo scroll; niente pasteboard, niente drop
+  incrociati.
 - Chiusura tab/workspace: passa da `AppController.requestCloseTab/requestCloseWorkspace` (Cmd+W e le
   x dei pannelli), che chiedono conferma via `NSAlert` sheet se nel pty gira un comando in foreground
   (`TerminalSurfaceHandle.foregroundProcessName()` = `tcgetpgrp` vs `shellPid` + safe-list shell; solo

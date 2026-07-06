@@ -166,8 +166,7 @@ public final class WorkspaceStore {
     /// Inserisce il workspace `id` immediatamente **prima** di `targetID` nell'ordine canonico
     /// (drag & drop nella sidebar). `targetID == nil` (o non trovato) lo porta in fondo. No-op se
     /// gli id coincidono o `id` non esiste. La sidebar mostra `orderedWorkspaces` (partizione
-    /// stabile): finché drag e target restano nello stesso segmento di float, l'ordine visivo
-    /// riflette esattamente l'inserimento (il vincolo di segmento lo garantisce la UI).
+    /// stabile del canonico): l'ancora giusta per lo slot visivo la sceglie `SidebarDrop`.
     public func moveWorkspace(_ id: UUID, before targetID: UUID?) {
         guard id != targetID,
               let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
@@ -180,11 +179,9 @@ public final class WorkspaceStore {
     }
 
     /// Inserisce il workspace `id` immediatamente **dopo** `targetID` nell'ordine canonico. Serve
-    /// al
-    /// drag & drop quando si rilascia in fondo a un segmento di float (pinned/attenzione) diverso
-    /// dall'ultimo: lì `before` prenderebbe il primo del segmento successivo, che in ordine
-    /// canonico
-    /// non è contiguo, producendo un no-op. No-op se gli id coincidono o `id` non esiste.
+    /// al drag & drop quando si rilascia in fondo a un segmento di float: lì `before` prenderebbe
+    /// il primo del segmento successivo, che in ordine canonico non è contiguo, producendo un
+    /// no-op. No-op se gli id coincidono o `id` non esiste.
     public func moveWorkspace(_ id: UUID, after targetID: UUID) {
         guard id != targetID,
               let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
@@ -194,15 +191,6 @@ public final class WorkspaceStore {
         } else {
             workspaces.append(moved)
         }
-    }
-
-    /// Segmento di float nella sidebar: 0 = pinned, 1 = con attenzione fresca, 2 = resto. Stesso
-    /// criterio di `orderedWorkspaces`; la UI lo usa per vincolare l'indicatore di inserimento al
-    /// segmento del workspace trascinato (il float non permette di attraversare i segmenti).
-    public func segmentIndex(for workspace: Workspace) -> Int {
-        if workspace.pinned { return 0 }
-        if workspace.needsAttention { return 1 }
-        return 2
     }
 
     // MARK: - Tab

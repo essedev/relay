@@ -785,8 +785,10 @@ Costruito (UI/UX e tooling, fuori milestone):
 - interazione e chiusura: lista workspace custom (`LazyVStack`, no highlight di sistema sul menu
   contestuale), padding riga allineato all'header, riordino di workspace e tab via drag & drop
   (`Panels/Reorderable`: `DragGesture` + `.offset` + linea di inserimento, non `onDrag`/`onDrop` di
-  sistema che al rilascio farebbero snap-back; store posizionale `moveWorkspace(before:)` /
-  `moveTab(before:in:)`; nella sidebar la linea è vincolata al segmento di float), x di chiusura su
+  sistema che al rilascio farebbero snap-back; store posizionale `moveWorkspace(before:/after:)` /
+  `moveTab(before:in:)`; nella sidebar la linea è libera e il drop è risolto dal resolver puro
+  `SidebarDrop`: il drag edita l'ordine canonico che il float proietta, attraversare il blocco
+  pinned pinna/spinna), x di chiusura su
   hover per tab e workspace, rename inline del workspace dal menu contestuale; float in cima (sotto ai pinned)
   dei workspace con attenzione (`needs_input`/completato) via `orderedWorkspaces` derivato, ordine
   canonico invariato; conferma di chiusura se nel pty gira un comando in foreground; ultima tab
