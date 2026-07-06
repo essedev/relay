@@ -37,6 +37,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         log.info("relay launched")
         observeKeybindings()
         installNavigationKeyMonitor()
+        // Soglia anti-stantio timbrata prima di ricevere: gli eventi generati prima di questo
+        // avvio sono di sessioni morte (le surface di questa run non esistono ancora) e non devono
+        // azzerare i resume binding ripristinati (il RELAY_TAB_ID è stabile tra i riavvii).
+        store.eventFloor = Date()
         agentCoordinator.start()
         seedIfNeeded()
 

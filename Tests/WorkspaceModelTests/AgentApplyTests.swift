@@ -251,6 +251,49 @@ private func makeFixture() -> Fixture {
     #expect(fixture.hiddenTab.agentState == .idle)
 }
 
+// MARK: - Soglia anti-stantio (eventi generati prima dell'avvio)
+
+/// Il `RELAY_TAB_ID` è stabile tra i riavvii: un `SessionEnd`/hook orfano di una sessione morta,
+/// generato prima dell'avvio, arriverebbe con l'id di una tab ripristinata e ne azzererebbe il
+/// resume binding. La soglia lo scarta, così la proposta di resume sopravvive; una ripresa vera
+/// (post-avvio) passa e spegne il segnale.
+@Test @MainActor func eventFloorProtectsRestoredResumeBinding() {
+    let fixture = makeFixture()
+    let tab = fixture.hiddenTab
+    let tabID = tab.id.uuidString
+    // Tab ripristinata: binding presente, stato `unknown` -> pronta a proporre il resume.
+    tab.resume = ResumeBinding(agent: "claude", sessionId: "s1", label: "t")
+    #expect(tab.pendingResume)
+
+    fixture.store.eventFloor = Date(timeIntervalSince1970: 100)
+
+    // Evento fantasma pre-avvio: gestito (scartato), binding e stato intatti.
+    let handled = fixture.store.applyAgentState(
+        paneId: tabID, state: .unknown, at: Date(timeIntervalSince1970: 50)
+    )
+    #expect(handled)
+    #expect(tab.resume != nil)
+    #expect(tab.pendingResume)
+
+    // Ripresa vera (oltre la soglia): passa e spegne la proposta.
+    fixture.store.applyAgentState(
+        paneId: tabID, state: .running, at: Date(timeIntervalSince1970: 150)
+    )
+    #expect(tab.agentState == .running)
+    #expect(!tab.pendingResume)
+}
+
+@Test @MainActor func eventFloorAllowsEventsAtOrAfterTheThreshold() {
+    let fixture = makeFixture()
+    let tabID = fixture.hiddenTab.id.uuidString
+    fixture.store.eventFloor = Date(timeIntervalSince1970: 100)
+    // Esattamente sulla soglia: passa (scartiamo solo lo strettamente più vecchio).
+    fixture.store.applyAgentState(
+        paneId: tabID, state: .running, at: Date(timeIntervalSince1970: 100)
+    )
+    #expect(fixture.hiddenTab.agentState == .running)
+}
+
 @Test @MainActor func emitsCompletedNotificationOnlyWhenHidden() {
     let fixture = makeFixture()
     var emitted: [AgentNotification] = []

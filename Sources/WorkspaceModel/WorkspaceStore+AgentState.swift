@@ -29,6 +29,13 @@ public extension WorkspaceStore {
         resetsAttention: Bool = false
     ) -> Bool {
         guard let tabID = UUID(uuidString: paneId) else { return false }
+        // Soglia anti-stantio: un evento generato prima dell'avvio dell'app non può appartenere a
+        // una surface di questa run (nascono dopo l'avvio), quindi è di una sessione già morta.
+        // Scartarlo protegge il resume binding appena ripristinato, che il `RELAY_TAB_ID` stabile
+        // esporrebbe a un `SessionEnd`/hook orfano in ritardo (che lo azzererebbe, sopprimendo la
+        // proposta di resume). Un resume vero parte solo dopo l'avvio, quindi ha timestamp oltre la
+        // soglia e passa.
+        if let floor = eventFloor, timestamp < floor { return true }
         for workspace in workspaces {
             guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
             // Guardia di monotonicità: un evento consegnato in ritardo non deve far regredire la

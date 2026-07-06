@@ -16,6 +16,13 @@ public final class WorkspaceStore {
     /// `@ObservationIgnored`: è un hook imperativo, non stato osservato.
     @ObservationIgnored public var onNotifiableTransition: ((AgentNotification) -> Void)?
 
+    /// Soglia anti-stantio per gli eventi agente: un evento con `timestamp` anteriore viene
+    /// scartato (vedi `applyAgentState`). Il composition root la timbra all'avvio. Serve perché il
+    /// `RELAY_TAB_ID` è stabile tra i riavvii: un evento generato prima del restart (`SessionEnd`
+    /// in ritardo, hook orfano) arriverebbe con l'id di una tab appena ripristinata e ne
+    /// azzererebbe il resume binding. `@ObservationIgnored`: config, non stato UI.
+    @ObservationIgnored public var eventFloor: Date?
+
     public init(workspaces: [Workspace] = []) {
         self.workspaces = workspaces
         selectedWorkspaceID = workspaces.first?.id

@@ -183,7 +183,12 @@ girano solo dal bundle (`make run-app`).
   garantisce l'ordine. Lo ristabiliscono il pump FIFO in `AgentCoordinator` (AsyncStream, un solo
   consumer - mai `Task {}` per evento, non preservano l'ordine di enqueue) e la guardia di
   monotonicità sui timestamp nello store (`applyAgentState` scarta gli eventi più vecchi
-  dell'ultimo applicato per tab). Il wire codifica le date ISO 8601 **con millisecondi**
+  dell'ultimo applicato per tab). In più una **soglia anti-stantio** (`WorkspaceStore.eventFloor`,
+  timbrata all'avvio dal composition root): scarta ogni evento con timestamp anteriore all'avvio,
+  perché non può appartenere a una surface di questa run - è un `SessionEnd`/hook orfano di una
+  sessione morta che, col `RELAY_TAB_ID` stabile tra i riavvii, azzererebbe un resume binding
+  appena ripristinato (sopprimendo la proposta di resume: era la causa della `ResumeBar` che non
+  compariva sempre al riavvio). Il wire codifica le date ISO 8601 **con millisecondi**
   (decode tollerante col vecchio formato a secondi interi); un'app vecchia però non decodifica gli
   eventi di un CLI nuovo: dopo un cambio al wire ricompila/reinstalla entrambi.
 - Mapping hook -> stato in due metà, entrambe in `HookInstaller`: statico per evento
