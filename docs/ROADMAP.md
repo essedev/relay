@@ -192,6 +192,20 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
   "Mark as Unread"/"Mark as Read" riaccende o spegne il marker a mano (`toggleUnread`, riusa
   `unseen`; niente notifica).
 
+## Fatto - Resume affidabile + archive (post-brew)
+
+- **Proposta di resume affidabile al riavvio**: una soglia anti-stantio (`WorkspaceStore.eventFloor`,
+  timbrata all'avvio) scarta gli eventi agente generati prima del restart. Col `RELAY_TAB_ID` stabile
+  tra i riavvii, un `SessionEnd`/hook orfano di una sessione morta azzerava il resume binding appena
+  ripristinato: la `ResumeBar` non compariva sempre. Ora il binding sopravvive finché non riprendi
+  davvero (evento post-avvio).
+- **Archive dei workspace**: `Workspace.archived` (persistito, additivo) sposta un workspace in una
+  sezione collassabile ancorata in fondo alla sidebar (tetto ~metà + scroll interno, stato espanso
+  in `AppSettings`). Fuori da `orderedWorkspaces`, mutuamente esclusivo con pin e float; `setArchived`
+  non archivia l'ultimo visibile e sposta la selezione. Archivia/ripristina dal menu contestuale.
+  **Ancora da fare**: drag dentro/fuori l'archivio (richiede coordinate space unificato in
+  `Reorderable`, giro dedicato).
+
 ## Più avanti
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
