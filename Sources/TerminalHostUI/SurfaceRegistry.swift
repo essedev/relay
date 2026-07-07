@@ -38,11 +38,15 @@ public final class SurfaceRegistry {
         if let existing = surfaces[tabID] { return existing }
         // RELAY_TAB_ID lega la sessione al pane: lo ereditano shell -> agent -> hook, che lo
         // rimanda nell'evento, così il coordinatore sa quale tab aggiornare (nessun parsing
-        // output).
+        // output). RELAY_RUN_ID lega la sessione a *questa* run dell'app: lo store scarta gli
+        // eventi di run diverse (sessioni orfane sopravvissute a un riavvio).
         let surface = engine.makeSurface(
             cwd: cwd,
             shell: nil,
-            env: ["RELAY_TAB_ID": tabID.uuidString]
+            env: [
+                "RELAY_TAB_ID": tabID.uuidString,
+                "RELAY_RUN_ID": RelayRunID.current,
+            ]
         )
         surface.onTitleChanged = onTitle
         surface.onDirectoryChanged = onDirectory

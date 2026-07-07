@@ -185,7 +185,9 @@ girano solo dal bundle (`make run-app`).
   1..9. Il recorder in impostazioni alza `settings.isCapturingShortcut`: il monitor si fa da parte
   così l'evento arriva al recorder invece di eseguire l'azione. Default e conflitti in `AppSettings`.
 - Agent binding: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'env della surface e torna dall'hook
-  come `paneId`. Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio
+  come `paneId`; accanto viaggia `RELAY_RUN_ID` (`Core.RelayRunID`, nonce per processo), che torna
+  come `runId` e identifica la **run** dell'app che ha creato la surface (vedi fence di run sotto).
+  Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio
   (owner morto) è rimosso da `unlink` prima del `bind`, quindi non blocca il riavvio. **No-stomp**:
   prima di `unlink`+`bind` il receiver fa una `connect` di prova (`UnixSocket.isListening`); se un
   owner **vivo** risponde non lo tocca (`addressInUse`), così una seconda istanza non ruba il
@@ -204,9 +206,18 @@ girano solo dal bundle (`make run-app`).
   perché non può appartenere a una surface di questa run - è un `SessionEnd`/hook orfano di una
   sessione morta che, col `RELAY_TAB_ID` stabile tra i riavvii, azzererebbe un resume binding
   appena ripristinato (sopprimendo la proposta di resume: era la causa della `ResumeBar` che non
-  compariva sempre al riavvio). Il wire codifica le date ISO 8601 **con millisecondi**
-  (decode tollerante col vecchio formato a secondi interi); un'app vecchia però non decodifica gli
-  eventi di un CLI nuovo: dopo un cambio al wire ricompila/reinstalla entrambi.
+  compariva sempre al riavvio). Il floor però ferma solo gli hook **eseguiti** prima del boot: un
+  claude orfano sopravvissuto al riavvio (SIGHUP ignorato, o un `SessionEnd` morente che scavalca
+  un relaunch rapido) manda hook con timestamp fresco che passerebbero. Li ferma il **fence di
+  run** (`WorkspaceStore.runID` = `RELAY_RUN_ID`): `applyAgentState` scarta gli eventi il cui
+  `runId` non è quello della run corrente (compresi i nil), perché uno `Stop` porterebbe la tab
+  fuori da `unknown` (barra soppressa a binding intatto) e un `SessionEnd` azzererebbe il binding.
+  Alla chiusura, `applicationWillTerminate` ferma il receiver **prima** del flush del layout: i
+  `SessionEnd` delle sessioni morenti sono della run corrente e passerebbero il fence proprio
+  nello snapshot finale. Il wire codifica le date ISO 8601 **con millisecondi**
+  (decode tollerante col vecchio formato a secondi interi e con eventi senza `runId`); un'app
+  vecchia però non decodifica gli eventi di un CLI nuovo, e un CLI vecchio (niente `runId`) viene
+  scartato dal fence di un'app nuova: dopo un cambio al wire ricompila/reinstalla entrambi.
 - Mapping hook -> stato in due metà, entrambe in `HookInstaller`: statico per evento
   (`ClaudeHookInstaller.specs`, finisce nei comandi di settings.json) e dipendente dal payload
   (`ClaudeHookStateMapper`, applicato dal CLI): il `PreToolUse` di un tool che apre un prompt

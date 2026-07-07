@@ -23,6 +23,14 @@ public final class WorkspaceStore {
     /// azzererebbe il resume binding. `@ObservationIgnored`: config, non stato UI.
     @ObservationIgnored public var eventFloor: Date?
 
+    /// Fence di run per gli eventi agente: se impostato, `applyAgentState` scarta gli eventi il
+    /// cui `runId` non coincide (compresi quelli senza runId). Il composition root lo timbra
+    /// all'avvio (`RELAY_RUN_ID`, iniettato nell'env delle surface). Complementare a `eventFloor`:
+    /// il floor ferma gli hook *eseguiti* prima del boot, il fence quelli eseguiti dopo ma nati da
+    /// sessioni di run precedenti (claude orfani sopravvissuti al riavvio), che il timestamp
+    /// fresco farebbe passare. `nil` = fence spento (test, chiamate dirette).
+    @ObservationIgnored public var runID: String?
+
     public init(workspaces: [Workspace] = []) {
         self.workspaces = workspaces
         selectedWorkspaceID = workspaces.first?.id

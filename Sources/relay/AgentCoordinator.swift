@@ -71,6 +71,7 @@ final class AgentCoordinator {
             paneId: paneId,
             agent: event.agent,
             sessionId: event.sessionId,
+            runId: event.runId,
             state: event.state,
             at: event.timestamp,
             appActive: NSApp.isActive,

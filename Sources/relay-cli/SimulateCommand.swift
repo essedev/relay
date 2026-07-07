@@ -94,6 +94,9 @@ enum SimulateCommand {
             agent: "claude",
             sessionId: sessionId,
             paneId: paneId,
+            // Come gli hook veri: dentro una tab di Relay l'env ha il RELAY_RUN_ID della run
+            // corrente; senza, il fence dell'app scarterebbe la simulazione.
+            runId: ProcessInfo.processInfo.environment["RELAY_RUN_ID"],
             state: step.state,
             source: .hook,
             confidence: 1,

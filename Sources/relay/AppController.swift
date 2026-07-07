@@ -42,6 +42,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         // avvio sono di sessioni morte (le surface di questa run non esistono ancora) e non devono
         // azzerare i resume binding ripristinati (il RELAY_TAB_ID è stabile tra i riavvii).
         store.eventFloor = Date()
+        // Fence di run: scarta anche gli eventi eseguiti *dopo* il boot ma nati da sessioni di run
+        // precedenti (claude orfani sopravvissuti al riavvio), che il floor non può distinguere.
+        store.runID = RelayRunID.current
         agentCoordinator.start()
         seedIfNeeded()
 
@@ -183,10 +186,13 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_: Notification) {
+        // Stop del receiver PRIMA del flush: i SessionEnd delle sessioni morenti (chiusura con la
+        // X: le surface muoiono prima del terminate) sono di questa run e passerebbero il fence,
+        // azzerando i resume binding proprio nello snapshot finale.
+        agentCoordinator.stop()
         autosave?.flush() // flush sincrono finale (il debounce potrebbe non essere scaduto)
         perf?.stop()
         demoDriver?.stop()
-        agentCoordinator.stop()
     }
 
     /// All'avvio: la demo ha il suo seed e non tocca il layout persistito; altrimenti si ripristina

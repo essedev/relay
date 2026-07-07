@@ -18,6 +18,20 @@ private let epoch = Date(timeIntervalSince1970: 1000)
     #expect(event == nil)
 }
 
+@Test func runIdComesFromEnv() {
+    let withRun = ClaudeHookEvent.make(
+        requested: .running,
+        payload: nil,
+        env: ["RELAY_RUN_ID": "run-1"],
+        now: epoch
+    )
+    #expect(withRun?.runId == "run-1")
+    // Env senza RELAY_RUN_ID (processo fuori da una surface di Relay): nil, il fence dell'app
+    // deciderà.
+    let without = ClaudeHookEvent.make(requested: .running, payload: nil, env: [:], now: epoch)
+    #expect(without?.runId == nil)
+}
+
 @Test func sessionIdComesFromPayloadThenEnv() {
     let fromPayload = ClaudeHookEvent.make(
         requested: .running,

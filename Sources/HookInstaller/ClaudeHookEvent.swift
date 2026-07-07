@@ -25,6 +25,9 @@ public enum ClaudeHookEvent {
             // paneId, con cui `claude --resume <tab-id>` fallirebbe.
             sessionId: sessionId(payload: payload, env: env) ?? "",
             paneId: env["RELAY_TAB_ID"],
+            // Identità della run che ha creato la surface: l'app scarta gli eventi di run diverse
+            // (hook di sessioni orfane sopravvissute a un riavvio).
+            runId: env["RELAY_RUN_ID"],
             // Un prompting tool bloccante (AskUserQuestion/ExitPlanMode) è "aspetta input": vedi
             // il mapper.
             state: ClaudeHookStateMapper.effectiveState(

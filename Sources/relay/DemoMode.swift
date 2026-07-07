@@ -1,5 +1,6 @@
 import AgentProtocol
 import AgentRuntime
+import Core
 import Foundation
 import WorkspaceModel
 
@@ -104,6 +105,7 @@ final class DemoDriver {
             agent: "claude",
             sessionId: sessionId,
             paneId: tabID.uuidString,
+            runId: RelayRunID.current, // il driver gira in-process: stessa run del fence
             state: state,
             source: .hook,
             confidence: 1,

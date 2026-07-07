@@ -23,18 +23,26 @@ public extension WorkspaceStore {
         paneId: String,
         agent: String = "",
         sessionId: String = "",
+        runId: String? = nil,
         state: AgentState,
         at timestamp: Date,
         appActive: Bool = true,
         resetsAttention: Bool = false
     ) -> Bool {
         guard let tabID = UUID(uuidString: paneId) else { return false }
+        // Fence di run: un evento di una run diversa (o senza runId) non appartiene a una surface
+        // di questa run, qualunque sia il suo timestamp. È l'hook di una sessione orfana
+        // sopravvissuta a un riavvio (claude che ha ignorato il SIGHUP, SessionEnd morente che
+        // scavalca un relaunch rapido): eseguito *adesso*, passerebbe la soglia temporale, e uno
+        // `Stop`/`SessionEnd` sopprimerebbe la proposta di resume appena ripristinata (stato non
+        // più `unknown` o binding azzerato).
+        if let expected = runID, runId != expected { return true }
         // Soglia anti-stantio: un evento generato prima dell'avvio dell'app non può appartenere a
         // una surface di questa run (nascono dopo l'avvio), quindi è di una sessione già morta.
         // Scartarlo protegge il resume binding appena ripristinato, che il `RELAY_TAB_ID` stabile
         // esporrebbe a un `SessionEnd`/hook orfano in ritardo (che lo azzererebbe, sopprimendo la
-        // proposta di resume). Un resume vero parte solo dopo l'avvio, quindi ha timestamp oltre la
-        // soglia e passa.
+        // proposta di resume). Complementare al fence di run: copre anche i CLI vecchi che non
+        // mandano il runId, quando il fence è spento.
         if let floor = eventFloor, timestamp < floor { return true }
         for workspace in workspaces {
             guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }

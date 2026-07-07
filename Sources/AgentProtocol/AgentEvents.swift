@@ -22,6 +22,12 @@ public struct AgentStateEvent: Sendable, Codable, Equatable {
     public let agent: String
     public let sessionId: String
     public let paneId: String?
+    /// Identità della run dell'app che ha generato la surface (`RELAY_RUN_ID`, ereditato via env
+    /// come `RELAY_TAB_ID`). Il timestamp non basta a distinguere gli eventi di questa run da
+    /// quelli di sessioni orfane di run precedenti (i loro hook girano *adesso*, quindi passano
+    /// ogni soglia temporale): il fence dello store scarta gli eventi la cui run non è la sua.
+    /// `nil` = CLI vecchio o processo fuori da una surface di questa run.
+    public let runId: String?
     public let state: AgentState
     public let source: AgentStateSource
     public let confidence: Double
@@ -37,6 +43,7 @@ public struct AgentStateEvent: Sendable, Codable, Equatable {
         agent: String,
         sessionId: String,
         paneId: String?,
+        runId: String? = nil,
         state: AgentState,
         source: AgentStateSource,
         confidence: Double,
@@ -46,6 +53,7 @@ public struct AgentStateEvent: Sendable, Codable, Equatable {
         self.agent = agent
         self.sessionId = sessionId
         self.paneId = paneId
+        self.runId = runId
         self.state = state
         self.source = source
         self.confidence = confidence
@@ -53,12 +61,14 @@ public struct AgentStateEvent: Sendable, Codable, Equatable {
         self.resetsAttention = resetsAttention
     }
 
-    /// Decode tollerante: un evento da un CLI più vecchio (senza `resetsAttention`) resta valido.
+    /// Decode tollerante: un evento da un CLI più vecchio (senza `resetsAttention`/`runId`) resta
+    /// valido.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         agent = try container.decode(String.self, forKey: .agent)
         sessionId = try container.decode(String.self, forKey: .sessionId)
         paneId = try container.decodeIfPresent(String.self, forKey: .paneId)
+        runId = try container.decodeIfPresent(String.self, forKey: .runId)
         state = try container.decode(AgentState.self, forKey: .state)
         source = try container.decode(AgentStateSource.self, forKey: .source)
         confidence = try container.decode(Double.self, forKey: .confidence)
