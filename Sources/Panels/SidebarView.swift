@@ -96,7 +96,6 @@ public struct SidebarView: View {
             LazyVStack(spacing: 1) {
                 ForEach(Array(ordered.enumerated()), id: \.element.id) { index, workspace in
                     makeRow(workspace, colors: colors)
-                        .reorderFrame(index, in: space)
                         .reorderableRow(ReorderRowConfig(
                             id: workspace.id,
                             index: index,

@@ -309,9 +309,12 @@ girano solo dal bundle (`make run-app`).
   traslazione), **non** dal puntatore grezzo: così la linea segue il corpo della riga ed è
   **indipendente dal punto di presa** (afferrarla in cima o in fondo dà lo stesso risultato; col
   puntatore la decisione sfasava di quanto eri lontano dal suo centro). I frame
-  di layout li raccoglie un `PreferenceKey` in un coordinate space nominato (l'`.offset` è un
-  trasform di rendering, non altera il frame di layout, quindi i frame restano stabili durante il
-  gesto). Lo stato del gesto (`ReorderDragState`) vive in un **`@GestureState`** con
+  di layout li raccoglie un `PreferenceKey` in un coordinate space nominato, misurato **dopo**
+  l'`.offset` del drag (dentro `reorderableRow`, mai con un GeometryReader sotto l'offset):
+  l'offset è un GeometryEffect e si propaga alla geometria dei discendenti anche nello space
+  nominato - con la misura dentro, il frame della riga in volo seguiva il gesto, il centro
+  proiettato raddoppiava la traslazione e la linea di inserimento derivava proporzionalmente alla
+  distanza (il bug del drop impreciso). Lo stato del gesto (`ReorderDragState`) vive in un **`@GestureState`** con
   `resetTransaction` animata: si azzera da solo anche a gesto annullato (menu contestuale, perdita
   focus) - con `@State` manuale un drag interrotto lasciava la riga sollevata e rompeva i drag
   successivi. Store puro e posizionale: `WorkspaceStore.moveWorkspace(_:before:/after:)` e

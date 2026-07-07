@@ -54,7 +54,6 @@ public struct TabBarView: View {
                         onToggleUnread: { store.toggleUnread(tab.id) },
                         onClose: { onCloseTab(tab, workspace) }
                     )
-                    .reorderFrame(index, in: space)
                     .reorderableRow(ReorderRowConfig(
                         id: tab.id,
                         index: index,

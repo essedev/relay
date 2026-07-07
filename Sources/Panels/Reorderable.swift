@@ -6,12 +6,16 @@ import SwiftUI
 /// semitrasparente) e mostriamo una linea di inserimento live. Al rilascio lo scambio parte in
 /// `withAnimation` mentre l'offset torna a zero, così la riga si posa senza salti.
 ///
-/// Meccanica: ogni elemento misura il proprio frame di layout in un coordinate space nominato
-/// (`reorderFrame`) - l'`.offset` è un trasform di rendering, non tocca il frame di layout, quindi
-/// i frame restano stabili durante il trascinamento. Dal centro proiettato della riga in volo
-/// (frame originale + traslazione, non il puntatore grezzo) ricaviamo l'indice di inserimento
-/// (`reorderInsertionIndex`), così la linea segue il corpo della riga a prescindere dal punto di
-/// presa; la semantica del drop la decide il caller (`perform`). Lo stato del gesto vive in un
+/// Meccanica: ogni elemento misura il proprio frame di layout in un coordinate space nominato.
+/// La misura vive dentro `reorderableRow`, **fuori** (dopo) l'`.offset` del drag: un GeometryReader
+/// dentro l'offset ne assorbe la traslazione (l'offset è un GeometryEffect, si propaga alla
+/// geometria dei discendenti anche nello space nominato), il frame della riga in volo si muoveva
+/// col gesto e il centro proiettato diventava frame + 2x la traslazione - la linea di inserimento
+/// derivava proporzionalmente alla distanza. Misurato fuori, il frame resta il layout stabile.
+/// Dal centro proiettato della riga in volo (frame originale + traslazione, non il puntatore
+/// grezzo) ricaviamo l'indice di inserimento (`reorderInsertionIndex`), così la linea segue il
+/// corpo della riga a prescindere dal punto di presa; la semantica del drop la decide il caller
+/// (`perform`). Lo stato del gesto vive in un
 /// `@GestureState` del caller: un solo elemento per
 /// lista si muove, niente pasteboard condivisa, e SwiftUI lo azzera da solo anche a gesto
 /// annullato (menu contestuale, perdita focus), così nessuna riga resta sollevata e nessun drag
@@ -189,21 +193,13 @@ struct ReorderContainerConfig {
 }
 
 extension View {
-    /// Misura il frame di questo elemento (indice visivo) nel coordinate space `space`. L'`.offset`
-    /// del drag non lo altera (è un trasform di rendering), quindi resta stabile durante il gesto.
-    func reorderFrame(_ index: Int, in space: String) -> some View {
-        background(
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: ReorderFramesKey.self,
-                    value: [index: proxy.frame(in: .named(space))]
-                )
-            }
-        )
-    }
-
     /// Rende la riga trascinabile: la solleva (offset + semitrasparenza + zIndex) seguendo il dito,
-    /// aggiorna la linea di inserimento durante il gesto ed esegue lo scambio animato al rilascio.
+    /// misura il suo frame di layout, aggiorna la linea di inserimento durante il gesto ed esegue
+    /// lo scambio animato al rilascio. La misura sta **dopo** l'offset, mai prima: un
+    /// GeometryReader dentro l'offset ne assorbirebbe la traslazione (frame in volo = layout +
+    /// gesto, centro
+    /// proiettato raddoppiato, linea che deriva con la distanza); fuori, misura il frame di layout,
+    /// stabile per tutto il gesto.
     func reorderableRow(_ config: ReorderRowConfig) -> some View {
         let isDragging = config.state.id == config.id
         let shift = isDragging ? config.state.translation : 0
@@ -213,6 +209,14 @@ extension View {
         )
         .opacity(isDragging ? 0.6 : 1)
         .zIndex(isDragging ? 1 : 0)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: ReorderFramesKey.self,
+                    value: [config.index: proxy.frame(in: .named(config.space))]
+                )
+            }
+        )
         .gesture(reorderDragGesture(config))
     }
 
