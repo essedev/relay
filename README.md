@@ -1,117 +1,120 @@
 # Relay
 
-Terminale macOS nativo per lavorare con molti coding agent in parallelo: stati agente
-affidabili (via hook Claude Code), organizzazione a workspace (sidebar con pin e riordino,
-dashboard overview), veloce e leggero.
+**English** · [Italiano](README.it.md)
 
-Stato: baseline chiuso e distribuito via Homebrew tap. Workspace -> Tab -> terminale, agent runtime
-con badge/notifiche, persistence del layout, resume assistito, dashboard di triage, dodici temi.
-Engine v1 SwiftTerm dietro l'astrazione `TerminalEngine` (libghostty backend futuro). Decisioni,
-benchmark e log della ricerca: `docs/research/` (`CYCLES.md`).
+Native macOS terminal for working with many coding agents in parallel: reliable agent state
+(via Claude Code hooks), workspace organization (sidebar with pinning and reordering, overview
+dashboard), fast and lightweight.
 
-## Installazione
+Status: baseline complete and distributed via a Homebrew tap. Workspace -> Tab -> terminal, agent
+runtime with badges/notifications, layout persistence, assisted resume, triage dashboard, twelve
+themes. Engine v1 is SwiftTerm behind the `TerminalEngine` abstraction (libghostty a future
+backend). Decisions, benchmarks and research logs live in `docs/research/` (`CYCLES.md`).
+
+## Installation
 
 ```sh
 brew install --cask essedev/relay/relay
 ```
 
-Aggiornamenti: `brew update && brew upgrade --cask relay`. In alternativa scarica il `.dmg`
-dall'ultima [release](https://github.com/essedev/relay/releases/latest) e trascina Relay in
+Updates: `brew update && brew upgrade --cask relay`. Alternatively, download the `.dmg` from the
+latest [release](https://github.com/essedev/relay/releases/latest) and drag Relay into
 Applications.
 
-L'app non è firmata con Developer ID Apple: al primo avvio macOS la blocca. Apri **Impostazioni di
-Sistema > Privacy e Sicurezza** e premi **Apri comunque** (una volta sola per versione).
+The app is not signed with an Apple Developer ID, so macOS blocks it on first launch. Open **System
+Settings > Privacy & Security** and click **Open Anyway** (once per version).
 
-## Sviluppo
+## Development
 
-Requisiti: Xcode/Swift 6, macOS 14+. Per lint: `brew install swiftlint swiftformat`.
+Requirements: Xcode/Swift 6, macOS 14+. For linting: `brew install swiftlint swiftformat`.
 
 ```bash
 make build     # build
-make run       # avvia l'app (finestra Relay, senza notifiche)
+make run       # launch the app (Relay window, no notifications)
 make test      # test
-make check     # giro qualità completo (lint + build + test)
-make run-app   # avvia dal bundle .app (notifiche attive)
-make install-app  # installa Relay.app in /Applications
-make dmg       # crea .build/Relay-<version>.dmg (installer, non firmato Developer ID)
-make release   # pubblica la release corrente (VERSION): dmg -> GitHub Release -> tap brew
-make help      # tutti i target
+make check     # full quality gate (lint + build + test)
+make run-app   # launch from the .app bundle (notifications enabled)
+make install-app  # install Relay.app into /Applications
+make dmg       # build .build/Relay-<version>.dmg (installer, not Developer ID signed)
+make release   # publish the current release (VERSION): dmg -> GitHub Release -> brew tap
+make help      # all targets
 ```
 
-Le notifiche macOS richiedono un bundle id, quindi girano solo dall'app impacchettata
-(`make run-app`/`install-app`), non da `make run`.
+macOS notifications require a bundle id, so they only run from the packaged app
+(`make run-app`/`install-app`), not from `make run`.
 
-**Distribuzione**: la versione sta in `./VERSION` (semver). Per rilasciare: bumpa `VERSION`,
-`make check`, commit, poi `make release` (routine in `CLAUDE.md`). L'installer non è firmato con
-Developer ID né notarizzato, quindi il primo avvio richiede "Apri comunque"; la meccanica di firma
-Developer ID + notarizzazione non è ancora in piedi.
+**Distribution**: the version lives in `./VERSION` (semver). To release: bump `VERSION`,
+`make check`, commit, then `make release` (routine documented in `CLAUDE.md`). The installer is not
+Developer ID signed or notarized, so first launch requires "Open Anyway"; Developer ID signing +
+notarization is not set up yet.
 
-## Scorciatoie
+## Shortcuts
 
-- `Cmd+N` nuovo workspace (senza cartella, parte da home).
-- `Cmd+O` apri una cartella come workspace.
-- `Cmd+T` nuova tab, `Cmd+W` chiudi tab, `Cmd+Shift+W` chiudi workspace.
-- `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab (i due assi, fissi).
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` scorri le tab, `Cmd+Option+Giù` / `Cmd+Option+Su` scorri i workspace.
-- `Cmd+J` / `Cmd+Shift+J` salta alla prossima/precedente tab che richiede attenzione.
-- `Cmd+D` apre la dashboard di triage delle sessioni agente.
-- `Cmd+F` cerca nel terminale, `Cmd+G` / `Cmd+Shift+G` risultato successivo/precedente,
-  `Cmd+K` pulisce il terminale.
-- `Cmd +/-` zoom del terminale, `Cmd+0` dimensione originale.
-- `Cmd+B` mostra/nasconde la sidebar, `Cmd+,` impostazioni.
+- `Cmd+N` new workspace (no folder, starts from home).
+- `Cmd+O` open a folder as a workspace.
+- `Cmd+T` new tab, `Cmd+W` close tab, `Cmd+Shift+W` close workspace.
+- `Cmd+1..9` select workspace, `Option+1..9` select tab (the two axes, fixed).
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` cycle tabs, `Cmd+Option+Down` / `Cmd+Option+Up` cycle workspaces.
+- `Cmd+J` / `Cmd+Shift+J` jump to the next/previous tab that needs attention.
+- `Cmd+D` open the triage dashboard of agent sessions.
+- `Cmd+F` search in the terminal, `Cmd+G` / `Cmd+Shift+G` next/previous match,
+  `Cmd+K` clear the terminal.
+- `Cmd +/-` terminal zoom, `Cmd+0` reset size.
+- `Cmd+B` show/hide the sidebar, `Cmd+,` settings.
 
-Le scorciatoie (tranne i select-by-number e i comandi di sistema) sono **rimappabili** da
-Impostazioni > Shortcuts: clicca una combinazione, premi la nuova (conflitti segnalati, reset
-disponibile). La finestra si sposta trascinando dalla fascia del titolo in alto (non dal
-corpo/terminale); doppio click sulla fascia = zoom, come una title bar nativa.
+Shortcuts (except select-by-number and system commands) are **remappable** from
+Settings > Shortcuts: click a combination, press the new one (conflicts are flagged, reset
+available). The window moves by dragging the title strip at the top (not the body/terminal);
+double-clicking the strip zooms, like a native title bar.
 
-## Aspetto
+## Appearance
 
-Tema del terminale curato (palette ANSI, quindi Claude Code/`git`/`ls` in palette), con chrome
-coerente. Dodici temi in sei coppie dark/light (Relay, Solarized, Gruvbox, Tokyo Night,
-Catppuccin, GitHub),
-scelta del font family (monospace installati), dimensione font e blink del cursore, tutto regolabile
-dal pannello impostazioni (`Cmd+,`, master-detail con ricerca) e persistito. Il modello di tema vive
-in `Core` (`RelayTheme`), unica fonte per terminale e chrome.
+Curated terminal theme (ANSI palette, so Claude Code/`git`/`ls` render in palette) with matching
+chrome. Twelve themes in six dark/light pairs (Relay, Solarized, Gruvbox, Tokyo Night, Catppuccin,
+GitHub), font family choice (installed monospace fonts), font size and cursor blink, all adjustable
+from the settings panel (`Cmd+,`, master-detail with search) and persisted. The theme model lives
+in `Core` (`RelayTheme`), the single source for terminal and chrome.
 
-La title bar mostra il contesto della tab attiva: il titolo impostato dal programma (Claude Code
-manda il nome della chat, zsh `user@host:path`), altrimenti la cwd corrente (OSC 7) abbreviata con
-`~`, altrimenti la cartella del workspace.
+The title bar shows the active tab's context: the title set by the program (Claude Code sends the
+chat name, zsh `user@host:path`), otherwise the current cwd (OSC 7) abbreviated with `~`, otherwise
+the workspace folder.
 
-## Stato agente (hook Claude Code)
+## Agent state (Claude Code hooks)
 
-Relay mostra lo stato di ogni agente come badge sulla tab e, aggregato, sul workspace nella sidebar
-(`running`, `needs_input`, completato). Lo stato arriva dagli hook Claude Code, non dal parsing
-dell'output.
+Relay shows each agent's state as a badge on the tab and, aggregated, on the workspace in the
+sidebar (`running`, `needs_input`, done). State comes from Claude Code hooks, not from parsing
+output.
 
 ```bash
-relay-cli hooks setup       # installa gli hook in ~/.claude/settings.json (convivono con Otty)
-relay-cli hooks status      # verifica
-relay-cli hooks uninstall   # rimuove solo gli hook di Relay
+relay-cli hooks setup       # install the hooks into ~/.claude/settings.json (coexist with Otty)
+relay-cli hooks status      # check
+relay-cli hooks uninstall   # remove only Relay's hooks
 ```
 
-Poi apri Relay, avvia `claude` in una tab e i badge si aggiornano. `needs_input` resta finché non
-rispondi. Dettagli protocollo/binding in `docs/STATE_SCHEMA.md`.
+Then open Relay, start `claude` in a tab and the badges update. `needs_input` stays until you
+respond. Protocol/binding details in `docs/STATE_SCHEMA.md`.
 
-Con l'app avviata dal bundle (`make run-app`) arrivano anche le notifiche macOS quando un agente
-chiede input o finisce mentre non stai guardando la tab (impostazioni e suono in `Cmd+,`; il primo
-avvio chiede il permesso). Da `make run` (senza bundle) le notifiche sono disattivate.
+With the app launched from the bundle (`make run-app`) you also get macOS notifications when an
+agent asks for input or finishes while you are not looking at the tab (settings and sound in
+`Cmd+,`; first launch asks for permission). From `make run` (no bundle) notifications are disabled.
 
-Per provare i badge senza una sessione Claude vera, dentro una tab di Relay:
+To try the badges without a real Claude session, inside a Relay tab:
 
 ```bash
-relay-cli simulate            # chat finta (scenario "coding"), eventi reali sul socket
-relay-cli simulate permission # needs_input che resta in attesa
+relay-cli simulate            # fake chat ("coding" scenario), real events on the socket
+relay-cli simulate permission # needs_input that stays pending
 relay-cli simulate burst --loops 3 --fast
 ```
 
-Per vedere l'app piena di attività: `relay --demo 5x4` apre 5 workspace da 4 tab con sessioni
-simulate concorrenti (sempre via socket reale).
+To see the app full of activity: `relay --demo 5x4` opens 5 workspaces of 4 tabs with concurrent
+simulated sessions (always over the real socket).
 
-## Documentazione
+## Documentation
 
-- `docs/ARCHITECTURE.md` - tesi di prodotto, moduli, budget, engine, anti-pattern.
-- `docs/ROADMAP.md` - cosa è fatto e cosa manca (baseline chiuso; prossimo a scelta).
-- `docs/CONVENTIONS.md` - regole di codice, test, processo.
-- `docs/STATE_SCHEMA.md` - schema di persistence e protocollo eventi agente.
-- `CLAUDE.md` - guida operativa per l'agent.
+The internal docs are in Italian (English-facing surface is this README).
+
+- `docs/ARCHITECTURE.md` - product thesis, modules, budget, engine, anti-patterns.
+- `docs/ROADMAP.md` - what is done and what is missing (baseline complete; next step TBD).
+- `docs/CONVENTIONS.md` - code, test and process rules.
+- `docs/STATE_SCHEMA.md` - persistence schema and agent event protocol.
+- `CLAUDE.md` - operational guide for the agent.
