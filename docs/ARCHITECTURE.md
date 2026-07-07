@@ -615,6 +615,12 @@ Ripristinare la sessione Claude di una tab dopo un riavvio (il PTY muore, la ses
   `WorkspaceStore.applyAgentState` (agent + sessionId dagli hook) mentre la sessione è viva, azzerato
   su `SessionEnd` (`unknown`). `label` = titolo della tab alla cattura: la shell fresca ridipinge il
   titolo via OSC, il binding lo conserva per la barra.
+- Il binding ripristinato è protetto dagli hook di sessioni morte, che il `RELAY_TAB_ID` stabile tra
+  i riavvii farebbe atterrare sulla tab ricostruita: la **soglia anti-stantio** (`eventFloor`) scarta
+  gli hook eseguiti prima del boot, il **fence di run** (`runID` = `RELAY_RUN_ID`, nonce per
+  processo) scarta quelli eseguiti dopo ma nati da una run precedente (claude orfani sopravvissuti al
+  riavvio). Senza, uno `Stop` orfano toglieva la tab da `unknown` o un `SessionEnd` azzerava il
+  binding, e la barra non compariva.
 - Al restore la tab è `pendingResume` (binding presente + `agentState == unknown`). Al **primo
   focus** (lazy, un agente alla volta, non un big-bang al boot) `RightPaneController` mostra la barra
   `ResumeBar` (Panels) overlaid sul terminale: `Resume` inietta `claude --resume <id>` nel PTY

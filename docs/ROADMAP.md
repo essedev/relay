@@ -195,11 +195,17 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 
 ## Fatto - Resume affidabile + archive (post-brew)
 
-- **Proposta di resume affidabile al riavvio**: una soglia anti-stantio (`WorkspaceStore.eventFloor`,
-  timbrata all'avvio) scarta gli eventi agente generati prima del restart. Col `RELAY_TAB_ID` stabile
-  tra i riavvii, un `SessionEnd`/hook orfano di una sessione morta azzerava il resume binding appena
-  ripristinato: la `ResumeBar` non compariva sempre. Ora il binding sopravvive finché non riprendi
-  davvero (evento post-avvio).
+- **Proposta di resume affidabile al riavvio**: due guardie complementari proteggono il resume
+  binding ripristinato, che il `RELAY_TAB_ID` stabile tra i riavvii esporrebbe agli hook di sessioni
+  morte. La soglia anti-stantio (`WorkspaceStore.eventFloor`, timbrata all'avvio) scarta gli eventi
+  **eseguiti** prima del restart. Ma un claude orfano sopravvissuto al riavvio (SIGHUP ignorato, o un
+  `SessionEnd` morente che scavalca un relaunch rapido) manda hook con timestamp fresco che
+  passerebbero il floor: uno `Stop` portava la tab fuori da `unknown` (barra soppressa a binding
+  intatto) e un `SessionEnd` azzerava il binding, quindi la `ResumeBar` non compariva sempre. Li
+  ferma il **fence di run** (`WorkspaceStore.runID` = `RELAY_RUN_ID`, nonce per processo iniettato
+  nell'env delle surface accanto a `RELAY_TAB_ID`): gli eventi di una run diversa (o senza runId)
+  vengono scartati. In più il receiver si ferma prima del flush finale del layout, così i
+  `SessionEnd` morenti della run corrente non azzerano i binding nello snapshot alla chiusura.
 - **Archive dei workspace**: `Workspace.archived` (persistito, additivo) sposta un workspace in una
   sezione collassabile ancorata in fondo alla sidebar (tetto ~metà + scroll interno, stato espanso
   in `AppSettings`). Fuori da `orderedWorkspaces`, mutuamente esclusivo con pin (e non bumpabile);
