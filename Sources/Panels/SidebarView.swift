@@ -160,32 +160,40 @@ public struct SidebarView: View {
                     count: archived.count,
                     attention: hasArchivedAttention(archived)
                 )
-                if settings.archiveExpanded {
-                    // VStack, non LazyVStack: dentro uno ScrollView che parte alto 0 (finché la
-                    // misura non arriva) il lazy non realizzerebbe le righe, il GeometryReader
-                    // misurerebbe 0 e la lista resterebbe invisibile per sempre. Gli archiviati
-                    // sono
-                    // pochi: realizzarli tutti va bene e fa funzionare la misura. Il contenuto si
-                    // misura fuori dallo ScrollView, che poi lo cappa a metà sidebar.
-                    ScrollView {
-                        VStack(spacing: 1) {
-                            ForEach(archived) { workspace in
-                                makeRow(workspace, colors: colors)
-                            }
+                // Sempre nel tree, mai `if expanded` (inserire/rimuovere la view faceva un pop:
+                // apriva a 1px, saltava all'altezza misurata senza animazione, e chiudeva con un
+                // fade). Ad animare è solo il frame: expanded <-> 0 è una slide continua.
+                // VStack, non LazyVStack: dentro uno ScrollView basso (0/1px) il lazy non
+                // realizzerebbe le righe e la misura resterebbe 0 per sempre. Gli archiviati sono
+                // pochi: realizzarli tutti va bene.
+                // La misura passa da `onGeometryChange` sul contenuto, NON da una preference:
+                // su macOS le preference non attraversano il confine dello ScrollView (bridge
+                // NSScrollView), a `onPreferenceChange` fuori arrivava solo lo 0 iniziale e la
+                // lista restava a 1px (la causa dell'archivio che non si apriva). La write della
+                // misura è animata: copre la primissima apertura (altezza ancora ignota, 1px ->
+                // misura) e i cambi di contenuto a lista aperta.
+                ScrollView {
+                    VStack(spacing: 1) {
+                        ForEach(archived) { workspace in
+                            makeRow(workspace, colors: colors)
                         }
-                        .padding(.horizontal, Theme.Spacing.sm)
-                        .padding(.vertical, Theme.Spacing.xxs)
-                        .background(GeometryReader { geo in
-                            Color.clear.preference(
-                                key: ArchiveHeightKey.self,
-                                value: geo.size.height
-                            )
-                        })
                     }
-                    .frame(height: min(max(archivedHeight, 1), maxListHeight))
-                    .scrollContentBackground(.hidden)
-                    .onPreferenceChange(ArchiveHeightKey.self) { archivedHeight = $0 }
+                    .padding(.horizontal, Theme.Spacing.sm)
+                    .padding(.vertical, Theme.Spacing.xxs)
+                    .onGeometryChange(
+                        for: CGFloat.self,
+                        of: { $0.size.height },
+                        action: { height in
+                            withAnimation(.easeInOut(duration: 0.2)) { archivedHeight = height }
+                        }
+                    )
                 }
+                .frame(
+                    height: settings.archiveExpanded
+                        ? min(max(archivedHeight, 1), maxListHeight)
+                        : 0
+                )
+                .scrollContentBackground(.hidden)
             }
         }
     }
@@ -197,9 +205,13 @@ public struct SidebarView: View {
             withAnimation(.easeInOut(duration: 0.2)) { settings.toggleArchiveExpanded() }
         } label: {
             HStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: settings.archiveExpanded ? "chevron.down" : "chevron.right")
+                // Un solo glifo ruotato, non uno swap chevron.right/down: il cambio di simbolo
+                // non interpola (crossfade sfasato rispetto alla slide), la rotazione anima in
+                // sync con l'altezza della lista nella stessa transaction.
+                Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(colors.secondary)
+                    .rotationEffect(.degrees(settings.archiveExpanded ? 90 : 0))
                     .frame(width: 10)
                 Image(systemName: "archivebox")
                     .font(.system(size: 12))
@@ -250,18 +262,6 @@ public struct SidebarView: View {
         case let .after(target): store.moveWorkspace(dragID, after: target)
         case nil: break
         }
-    }
-}
-
-/// Altezza del contenuto archiviato, per dimensionare la sezione Archive al contenuto (fino al
-/// tetto di metà sidebar).
-private struct ArchiveHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat {
-        0
-    }
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 

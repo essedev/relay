@@ -275,11 +275,14 @@ girano solo dal bundle (`make run-app`).
   workspace dal menu contestuale (`WorkspaceStore.renameWorkspace`).
 - Archive: i workspace archiviati (`Workspace.archived`, persistito, additivo) escono da
   `orderedWorkspaces` e vivono in una sezione collassabile ancorata **in fondo** alla sidebar
-  (`archiveSection`, header sempre visibile = drop zone; lista archiviati con tetto ~metà sidebar
-  via GeometryReader + `ArchiveHeightKey`, poi scroll interno; espansa/collassata in
-  `AppSettings.archiveExpanded`). La lista è un **`VStack`, non `LazyVStack`**: dentro lo
-  `ScrollView` alto `min(archivedHeight, ...)` che parte da 0, il lazy non realizzerebbe le righe,
-  il `GeometryReader` misurerebbe 0 e la sezione resterebbe invisibile (freccia sì, contenuto no).
+  (`archiveSection`, header sempre visibile = drop zone; lista archiviati con tetto ~metà sidebar,
+  poi scroll interno; espansa/collassata in `AppSettings.archiveExpanded`). L'altezza del contenuto
+  si misura con **`onGeometryChange` sul contenuto dentro lo ScrollView, mai con una preference**:
+  su macOS le preference non attraversano il confine dello `ScrollView` (bridge NSScrollView) - a
+  `onPreferenceChange` fuori arrivava solo lo 0 iniziale e la lista restava alta 1px (freccia sì,
+  contenuto no: il bug dell'archivio che "non si apriva"). La lista è un **`VStack`, non
+  `LazyVStack`**: dentro lo `ScrollView` alto `min(archivedHeight, ...)` che parte da 1px, il lazy
+  non realizzerebbe le righe e la misura resterebbe 0.
   L'header è ancorato, non nel flusso scrollabile, perché su macOS
   lo `ScrollView` non fa drag-scroll: sotto la piega non ci potresti trascinare sopra. `archived`
   è mutuamente esclusivo con `pinned` (archiviare de-pinna) e col float (gli archiviati non
