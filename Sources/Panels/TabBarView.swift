@@ -154,8 +154,10 @@ private struct TabItemView: View {
         .onHover { hovered = $0 }
         .contextMenu {
             Button("Rename", action: beginRename)
-            // Toggle manuale del marker di attenzione (metafora unread), per-tab.
-            let unreadLabel = tab.attention == .none ? "Mark as Unread" : "Mark as Read"
+            // Toggle manuale del marker di attenzione (metafora unread), per-tab. Solo `unseen`
+            // (segnale forte, non visto) è "unread": lì offro "Mark as Read". Un `pending` è già
+            // visto (quieto), quindi lo si può solo ri-alzare a forte ("Mark as Unread").
+            let unreadLabel = tab.attention == .unseen ? "Mark as Read" : "Mark as Unread"
             Button(unreadLabel, action: onToggleUnread)
             Button("Close", role: .destructive, action: onClose)
         }

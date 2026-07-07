@@ -339,16 +339,17 @@ private struct WorkspaceRow: View {
             }
             // Toggle del marker sulla tab selezionata: riaccende o spegne il segnale di attenzione
             // a mano (metafora unread). Il label riflette lo stato corrente della tab selezionata.
-            Button(hasAttention ? "Mark as Read" : "Mark as Unread", action: onToggleUnread)
+            Button(isUnseen ? "Mark as Read" : "Mark as Unread", action: onToggleUnread)
             Button(workspace.archived ? "Unarchive" : "Archive", action: onToggleArchive)
             Button("Close", role: .destructive, action: onClose)
         }
     }
 
-    /// La tab selezionata del workspace ha un marker acceso (unseen o pending): guida il label del
-    /// toggle unread nel menu contestuale.
-    private var hasAttention: Bool {
-        (workspace.selectedTab?.attention ?? .none) != .none
+    /// La tab selezionata del workspace è in `unseen` (segnale forte, non visto): guida il label
+    /// del toggle unread nel menu contestuale. Solo `unseen` è "unread" -> "Mark as Read";
+    /// `pending` è già visto (quieto) -> "Mark as Unread" (ri-alza a forte).
+    private var isUnseen: Bool {
+        (workspace.selectedTab?.attention ?? .none) == .unseen
     }
 
     /// Campo di rinomina inline: commit su Invio o perdita focus, Esc annulla.

@@ -36,14 +36,17 @@ import Testing
     #expect(tab.attention == .unseen)
     #expect(tab.attentionSince != nil)
 
-    // Con attenzione (a qualunque livello) -> spegne ("Mark as Read").
+    // `unseen` (segnale forte, non visto) -> spegne ("Mark as Read").
     store.toggleUnread(tab.id)
     #expect(tab.attention == .none)
     #expect(tab.attentionSince == nil)
 
+    // `pending` è già visto (quieto): il toggle non lo "legge" ma lo ri-alza a forte
+    // ("Mark as Unread"). Il pending si spegne altrove (resume, dismiss, decadenza).
     tab.attention = .pending
     store.toggleUnread(tab.id)
-    #expect(tab.attention == .none)
+    #expect(tab.attention == .unseen)
+    #expect(tab.attentionSince != nil)
 }
 
 @Test func markUnreadStampsAttentionSinceAndIgnoresRepeat() {
