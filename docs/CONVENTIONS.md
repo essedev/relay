@@ -5,7 +5,8 @@ Regole di stile, qualità, test e processo. Struttura moduli e regole di dipende
 
 ## Lingua
 
-- Codice, identificatori, commenti, commit, doc tecnica: inglese.
+- Codice, identificatori, commit: inglese.
+- Commenti e documentazione tecnica (`docs/`, README, CLAUDE.md): italiano.
 - UI dell'app: inglese (prodotto per sviluppatori, non solo mercato italiano).
 
 ## Stile E Lint
