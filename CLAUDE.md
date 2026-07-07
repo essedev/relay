@@ -290,7 +290,9 @@ girano solo dal bundle (`make run-app`).
   workspace dal menu contestuale (`WorkspaceStore.renameWorkspace`).
 - Archive: i workspace archiviati (`Workspace.archived`, persistito, additivo) escono da
   `orderedWorkspaces` e vivono in una sezione collassabile ancorata **in fondo** alla sidebar
-  (`archiveSection`, header sempre visibile = drop zone; lista archiviati con tetto ~metà sidebar,
+  (`archiveSection`, header **sempre presente** anche a zero archiviati = drop zone e affordance
+  permanente; il conteggio accanto a "Archive" compare solo se > 0; aperta e vuota mostra un empty
+  state discreto "No archived workspaces"; lista archiviati con tetto ~metà sidebar,
   poi scroll interno; espansa/collassata in `AppSettings.archiveExpanded`). L'altezza del contenuto
   si misura con **`onGeometryChange` sul contenuto dentro lo ScrollView, mai con una preference**:
   su macOS le preference non attraversano il confine dello `ScrollView` (bridge NSScrollView) - a

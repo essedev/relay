@@ -145,56 +145,66 @@ public struct SidebarView: View {
     }
 
     /// Sezione Archive: header ancorato in fondo alla sidebar (sempre visibile come drop zone del
-    /// drag), collassabile; quando espansa mostra i workspace archiviati in uno ScrollView che si
-    /// adatta al contenuto fino a `maxListHeight` (~metà sidebar), poi scrolla dentro. Assente se
-    /// non ci sono archiviati.
-    @ViewBuilder
+    /// drag e affordance dell'archivio, anche a vuoto), collassabile; quando espansa mostra i
+    /// workspace archiviati in uno ScrollView che si adatta al contenuto fino a `maxListHeight`
+    /// (~metà sidebar), poi scrolla dentro. A vuoto mostra un empty state se aperta.
     private func archiveSection(_ colors: ChromeColors, maxListHeight: CGFloat) -> some View {
         let archived = store.archivedWorkspaces
-        if !archived.isEmpty {
-            VStack(spacing: 0) {
-                Divider()
-                archiveHeader(
-                    colors,
-                    count: archived.count,
-                    attention: hasArchivedAttention(archived)
-                )
-                // Sempre nel tree, mai `if expanded` (inserire/rimuovere la view faceva un pop:
-                // apriva a 1px, saltava all'altezza misurata senza animazione, e chiudeva con un
-                // fade). Ad animare è solo il frame: expanded <-> 0 è una slide continua.
-                // VStack, non LazyVStack: dentro uno ScrollView basso (0/1px) il lazy non
-                // realizzerebbe le righe e la misura resterebbe 0 per sempre. Gli archiviati sono
-                // pochi: realizzarli tutti va bene.
-                // La misura passa da `onGeometryChange` sul contenuto, NON da una preference:
-                // su macOS le preference non attraversano il confine dello ScrollView (bridge
-                // NSScrollView), a `onPreferenceChange` fuori arrivava solo lo 0 iniziale e la
-                // lista restava a 1px (la causa dell'archivio che non si apriva). La write della
-                // misura è animata: copre la primissima apertura (altezza ancora ignota, 1px ->
-                // misura) e i cambi di contenuto a lista aperta.
-                ScrollView {
-                    VStack(spacing: 1) {
+        return VStack(spacing: 0) {
+            Divider()
+            archiveHeader(
+                colors,
+                count: archived.count,
+                attention: hasArchivedAttention(archived)
+            )
+            // Sempre nel tree, mai `if expanded` (inserire/rimuovere la view faceva un pop:
+            // apriva a 1px, saltava all'altezza misurata senza animazione, e chiudeva con un
+            // fade). Ad animare è solo il frame: expanded <-> 0 è una slide continua.
+            // VStack, non LazyVStack: dentro uno ScrollView basso (0/1px) il lazy non
+            // realizzerebbe le righe e la misura resterebbe 0 per sempre. Gli archiviati sono
+            // pochi: realizzarli tutti va bene.
+            // La misura passa da `onGeometryChange` sul contenuto, NON da una preference:
+            // su macOS le preference non attraversano il confine dello ScrollView (bridge
+            // NSScrollView), a `onPreferenceChange` fuori arrivava solo lo 0 iniziale e la
+            // lista restava a 1px (la causa dell'archivio che non si apriva). La write della
+            // misura è animata: copre la primissima apertura (altezza ancora ignota, 1px ->
+            // misura) e i cambi di contenuto a lista aperta.
+            ScrollView {
+                VStack(spacing: 1) {
+                    if archived.isEmpty {
+                        archiveEmptyState(colors)
+                    } else {
                         ForEach(archived) { workspace in
                             makeRow(workspace, colors: colors)
                         }
                     }
-                    .padding(.horizontal, Theme.Spacing.sm)
-                    .padding(.vertical, Theme.Spacing.xxs)
-                    .onGeometryChange(
-                        for: CGFloat.self,
-                        of: { $0.size.height },
-                        action: { height in
-                            withAnimation(.easeInOut(duration: 0.2)) { archivedHeight = height }
-                        }
-                    )
                 }
-                .frame(
-                    height: settings.archiveExpanded
-                        ? min(max(archivedHeight, 1), maxListHeight)
-                        : 0
+                .padding(.horizontal, Theme.Spacing.sm)
+                .padding(.vertical, Theme.Spacing.xxs)
+                .onGeometryChange(
+                    for: CGFloat.self,
+                    of: { $0.size.height },
+                    action: { height in
+                        withAnimation(.easeInOut(duration: 0.2)) { archivedHeight = height }
+                    }
                 )
-                .scrollContentBackground(.hidden)
             }
+            .frame(
+                height: settings.archiveExpanded
+                    ? min(max(archivedHeight, 1), maxListHeight)
+                    : 0
+            )
+            .scrollContentBackground(.hidden)
         }
+    }
+
+    /// Empty state dell'archivio aperto e vuoto: una riga discreta, non un box vistoso.
+    private func archiveEmptyState(_ colors: ChromeColors) -> some View {
+        Text("No archived workspaces")
+            .font(Theme.Typography.subtitle)
+            .foregroundStyle(colors.secondary)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, Theme.Spacing.sm)
     }
 
     /// Header cliccabile della sezione Archive: chevron, conteggio, e un pallino discreto se un
@@ -218,9 +228,11 @@ public struct SidebarView: View {
                 Text("Archive")
                     .font(Theme.Typography.item)
                     .foregroundStyle(colors.foreground)
-                Text("\(count)")
-                    .font(Theme.Typography.subtitle)
-                    .foregroundStyle(colors.secondary)
+                if count > 0 {
+                    Text("\(count)")
+                        .font(Theme.Typography.subtitle)
+                        .foregroundStyle(colors.secondary)
+                }
                 Spacer()
                 if attention {
                     Circle().fill(colors.accent).frame(width: 6, height: 6)
@@ -261,139 +273,5 @@ public struct SidebarView: View {
         case let .after(target): store.moveWorkspace(dragID, after: target)
         case nil: break
         }
-    }
-}
-
-/// Riga workspace con selezione/hover dal tema. View separata per lo stato locale (hover +
-/// editing): su hover il badge di severità lascia il posto alla x di chiusura; il rename dal
-/// menu contestuale scambia il nome con un `TextField` inline.
-private struct WorkspaceRow: View {
-    let workspace: Workspace
-    let selected: Bool
-    let colors: ChromeColors
-    let onSelect: () -> Void
-    let onTogglePin: () -> Void
-    let onRename: (String) -> Void
-    let onToggleUnread: () -> Void
-    let onToggleArchive: () -> Void
-    let onClose: () -> Void
-
-    @State private var hovered = false
-    @State private var editing = false
-    @State private var draft = ""
-    @FocusState private var nameFocused: Bool
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Image(systemName: workspace.pinned ? "pin.fill" : "folder")
-                .foregroundStyle(workspace.pinned ? colors.accent : colors.secondary)
-                .font(.system(size: 12))
-                // Larghezza fissa: i simboli SF hanno larghezze intrinseche diverse (pin più
-                // stretto di folder), altrimenti il testo scatta orizzontalmente al pin/unpin.
-                .frame(width: 16)
-                .padding(.trailing, Theme.Spacing.sm)
-            VStack(alignment: .leading, spacing: 1) {
-                if editing {
-                    nameField
-                } else {
-                    Text(workspace.name)
-                        .font(Theme.Typography.item)
-                        .foregroundStyle(colors.foreground)
-                        .lineLimit(1)
-                }
-                // Cosa succede nella tab selezionata: nome chat Claude (titolo OSC) o cwd. Resta
-                // visibile anche in rename, così la riga non cambia altezza.
-                if let subtitle = WindowTitle.workspaceSubtitle(workspace) {
-                    Text(subtitle)
-                        .font(Theme.Typography.subtitle)
-                        .foregroundStyle(colors.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            // Slot trailing riservato (pattern A): badge e x occupano lo stesso spazio, così su
-            // hover il sottotitolo non ri-tronca. `minWidth` (non width fissa) così i badge larghi
-            // (col contatore) non si clippano. In editing lo slot sparisce: il campo nome prende
-            // tutta la riga.
-            if !editing {
-                trailing
-                    .frame(minWidth: 14, alignment: .trailing)
-                    .padding(.leading, Theme.Spacing.xs)
-            }
-        }
-        .padding(.horizontal, Theme.Spacing.xs)
-        .padding(.vertical, 5)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(selected ? colors.selection : hovered ? colors.hover : Color.clear)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onSelect)
-        .onHover { hovered = $0 }
-        .contextMenu {
-            Button("Rename", action: beginRename)
-            // Pin e Archive sono opposti: un archiviato non si pinna (lo mostro solo se in lista).
-            if !workspace.archived {
-                Button(workspace.pinned ? "Unpin" : "Pin", action: onTogglePin)
-            }
-            // Toggle del marker sulla tab selezionata: riaccende o spegne il segnale di attenzione
-            // a mano (metafora unread). Il label riflette lo stato corrente della tab selezionata.
-            Button(isUnseen ? "Mark as Read" : "Mark as Unread", action: onToggleUnread)
-            Button(workspace.archived ? "Unarchive" : "Archive", action: onToggleArchive)
-            Button("Close", role: .destructive, action: onClose)
-        }
-    }
-
-    /// La tab selezionata del workspace è in `unseen` (segnale forte, non visto): guida il label
-    /// del toggle unread nel menu contestuale. Solo `unseen` è "unread" -> "Mark as Read";
-    /// `pending` è già visto (quieto) -> "Mark as Unread" (ri-alza a forte).
-    private var isUnseen: Bool {
-        (workspace.selectedTab?.attention ?? .none) == .unseen
-    }
-
-    /// Campo di rinomina inline: commit su Invio o perdita focus, Esc annulla.
-    private var nameField: some View {
-        TextField("", text: $draft)
-            .textFieldStyle(.plain)
-            .font(Theme.Typography.item)
-            .foregroundStyle(colors.foreground)
-            .focused($nameFocused)
-            .onSubmit(commit)
-            .onExitCommand(perform: cancel)
-            .onChange(of: nameFocused) { _, focused in
-                if !focused { commit() }
-            }
-            .onAppear { DispatchQueue.main.async { nameFocused = true } }
-    }
-
-    /// Su hover mostra la x di chiusura; a riposo il badge di severità aggregato.
-    @ViewBuilder private var trailing: some View {
-        if hovered {
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-            }
-            .buttonStyle(.plain) // niente padding/bezel del bottone: glyph a filo come il badge
-            .foregroundStyle(colors.secondary)
-            .help("Close workspace")
-        } else {
-            WorkspaceBadge(workspace: workspace, colors: colors)
-        }
-    }
-
-    private func beginRename() {
-        draft = workspace.name
-        editing = true
-    }
-
-    private func commit() {
-        guard editing else { return }
-        editing = false
-        onRename(draft)
-    }
-
-    private func cancel() {
-        editing = false
     }
 }
