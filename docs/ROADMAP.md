@@ -192,6 +192,12 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 - **Override unread manuale**: dal menu contestuale (workspace nella sidebar, tab nella tab bar)
   "Mark as Unread"/"Mark as Read" riaccende o spegne il marker a mano (`toggleUnread`, riusa
   `unseen`; niente notifica).
+- **Drop preciso a ogni distanza** (fix successivo): la misura dei frame di riga vive **dopo**
+  l'`.offset` del drag, dentro `reorderableRow`. Prima stava sotto l'offset (un GeometryReader lì
+  dentro ne assorbe la traslazione, l'offset è un GeometryEffect): il frame della riga in volo
+  seguiva il gesto, il centro proiettato raddoppiava la traslazione e la linea di inserimento
+  derivava proporzionalmente alla distanza dal punto di presa - drop sempre più impreciso più il
+  drag era lungo.
 
 ## Fatto - Resume affidabile + archive (post-brew)
 

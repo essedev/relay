@@ -793,7 +793,10 @@ Costruito (UI/UX e tooling, fuori milestone):
 - interazione e chiusura: lista workspace custom (`LazyVStack`, no highlight di sistema sul menu
   contestuale), padding riga allineato all'header, riordino di workspace e tab via drag & drop
   (`Panels/Reorderable`: `DragGesture` + `.offset` + linea di inserimento, non `onDrag`/`onDrop` di
-  sistema che al rilascio farebbero snap-back; store posizionale `moveWorkspace(before:/after:)` /
+  sistema che al rilascio farebbero snap-back; i frame di riga sono misurati **dopo** l'`.offset`
+  del drag, dentro `reorderableRow` - un GeometryReader sotto l'offset ne assorbe la traslazione,
+  il centro proiettato la raddoppiava e la linea di inserimento derivava con la distanza; store
+  posizionale `moveWorkspace(before:/after:)` /
   `moveTab(before:in:)`; nella sidebar la linea è libera e il drop è risolto dal resolver puro
   `SidebarDrop`: il drag edita direttamente l'ordine canonico - due segmenti, pinned/resto -
   attraversare il blocco pinned pinna/spinna), x di chiusura su
