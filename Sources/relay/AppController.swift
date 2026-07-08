@@ -57,7 +57,9 @@ final class AppController: NSObject, NSApplicationDelegate {
             store: store,
             settings: settings,
             engine: engine,
-            updateConfig: updateController.makeSidebarConfig(),
+            updateConfig: updateController.makeSidebarConfig(
+                onRunUpdate: { [weak self] in self?.runUpdateInTab() }
+            ),
             onNewWorkspace: onNewWorkspace,
             onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
             onCloseTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) }

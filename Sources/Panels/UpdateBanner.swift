@@ -26,6 +26,7 @@ public struct SidebarUpdateConfig {
     let currentVersion: String
     let upgradeCommand: String
     let onCopyCommand: () -> Void
+    let onRunUpdate: () -> Void
     let onOpenRelease: () -> Void
     let onSkip: () -> Void
 
@@ -34,6 +35,7 @@ public struct SidebarUpdateConfig {
         currentVersion: String,
         upgradeCommand: String,
         onCopyCommand: @escaping () -> Void,
+        onRunUpdate: @escaping () -> Void,
         onOpenRelease: @escaping () -> Void,
         onSkip: @escaping () -> Void
     ) {
@@ -41,6 +43,7 @@ public struct SidebarUpdateConfig {
         self.currentVersion = currentVersion
         self.upgradeCommand = upgradeCommand
         self.onCopyCommand = onCopyCommand
+        self.onRunUpdate = onRunUpdate
         self.onOpenRelease = onOpenRelease
         self.onSkip = onSkip
     }
@@ -103,6 +106,26 @@ struct UpdateBanner: View {
             Text("Update with Homebrew:")
                 .font(Theme.Typography.subtitle)
                 .foregroundStyle(colors.secondary)
+            commandRow
+
+            Divider()
+
+            HStack {
+                Button("Skip this version", action: config.onSkip)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(colors.secondary)
+                Spacer()
+                Button("Release notes", action: config.onOpenRelease)
+            }
+            .font(Theme.Typography.subtitle)
+        }
+        .padding(Theme.Spacing.md)
+        .frame(width: 320)
+    }
+
+    /// Comando brew + azioni: copia negli appunti oppure play (esegue in una tab dedicata).
+    private var commandRow: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             HStack(spacing: Theme.Spacing.xs) {
                 Text(config.upgradeCommand)
                     .font(.system(size: 11, design: .monospaced))
@@ -121,20 +144,21 @@ struct UpdateBanner: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(copied ? colors.completed : colors.secondary)
                 .help(copied ? "Copied" : "Copy command")
+                Button {
+                    showDetails = false
+                    config.onRunUpdate()
+                } label: {
+                    Image(systemName: "play.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(colors.accent)
+                .help("Run in a new tab")
             }
-
-            Divider()
-
-            HStack {
-                Button("Skip this version", action: config.onSkip)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(colors.secondary)
-                Spacer()
-                Button("Release notes", action: config.onOpenRelease)
-            }
-            .font(Theme.Typography.subtitle)
+            Text("Play runs it in a \u{201C}Relay Update\u{201D} tab. Quit and reopen Relay "
+                + "when it finishes.")
+                .font(.system(size: 10))
+                .foregroundStyle(colors.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(Theme.Spacing.md)
-        .frame(width: 320)
     }
 }

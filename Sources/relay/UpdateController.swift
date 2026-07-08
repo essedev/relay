@@ -36,14 +36,17 @@ final class UpdateController {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     }
 
-    /// Config per la sidebar, o `nil` se non conosciamo la versione (niente pill).
-    func makeSidebarConfig() -> SidebarUpdateConfig? {
+    /// Config per la sidebar, o `nil` se non conosciamo la versione (niente pill). `onRunUpdate`
+    /// (play) esegue il comando in una tab dedicata: lo fornisce il composition root, che ha lo
+    /// store e le surface (qui viviamo solo di rete/clipboard).
+    func makeSidebarConfig(onRunUpdate: @escaping () -> Void) -> SidebarUpdateConfig? {
         guard let current = currentVersion else { return nil }
         return SidebarUpdateConfig(
             availability: availability,
             currentVersion: current,
             upgradeCommand: Self.upgradeCommand,
             onCopyCommand: { [weak self] in self?.copyCommand() },
+            onRunUpdate: onRunUpdate,
             onOpenRelease: { [weak self] in self?.openRelease() },
             onSkip: { [weak self] in self?.skip() }
         )

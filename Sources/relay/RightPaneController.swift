@@ -69,6 +69,11 @@ final class RightPaneController: NSViewController {
         area.focusTerminal()
     }
 
+    /// Inietta testo nella surface della tab (play dell'update). Inoltra all'area.
+    func sendText(to tabID: UUID, _ text: String) {
+        area.sendText(to: tabID, text)
+    }
+
     /// L'evento appartiene al terminale in vista (mark-read filtrato). Inoltra all'area.
     func terminalOwns(_ event: NSEvent) -> Bool {
         area.terminalOwns(event)

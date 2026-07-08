@@ -183,7 +183,11 @@ girano solo dal bundle (`make run-app`).
   stanno nel controller. **Non scarica**: la pill offre solo il comando `brew update && brew upgrade
   --cask relay` da copiare, le release notes e "Skip this version" (persistito in
   `skippedUpdateVersion`, si ripropone solo a una versione ancora più nuova). Nessun conflitto con
-  brew, che resta l'updater. Come le notifiche gira **solo dal bundle** (`swift run` non ha
+  brew, che resta l'updater. Oltre a "copia", la pill ha un **play** che esegue il comando in una
+  tab dedicata "Relay Update" (`AppController.runUpdateInTab`, iniettato via
+  `makeSidebarConfig(onRunUpdate:)`): sempre una tab fresca, il testo va nel pty col solito ritardo
+  del resume; `brew` sostituisce il bundle mentre l'app gira (safe su APFS, riparte alla
+  riapertura). Come le notifiche gira **solo dal bundle** (`swift run` non ha
   `CFBundleShortVersionString`: `makeSidebarConfig()` -> `nil`, niente pill, check no-op). Preferenza
   in Settings > Updates (default on) + voce menu "Check for Updates…" (check manuale, dà sempre un
   feedback, anche "yoùre up to date").

@@ -97,6 +97,11 @@ final class MainSplitViewController: NSSplitViewController {
         right.focusTerminal()
     }
 
+    /// Inietta un comando nella surface di una tab (play dell'update). Inoltra al right pane.
+    func sendText(to tabID: UUID, _ text: String) {
+        right.sendText(to: tabID, text)
+    }
+
     /// L'evento appartiene al terminale in vista (mark-read filtrato). Inoltra al right pane.
     func terminalOwns(_ event: NSEvent) -> Bool {
         right.terminalOwns(event)
