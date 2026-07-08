@@ -50,7 +50,10 @@ struct ShortcutRow: View {
                 recording ? "Type shortcut…" : settings.binding(for: action).display,
                 colors: colors,
                 foreground: recording ? colors.accent : nil,
-                minWidth: 58,
+                // Larghezza della pill: prima il minWidth 58 stava sul testo (poi +16 di padding),
+                // qui è sulla pill intera, quindi 58 + 2*Spacing.sm per conservare la stessa
+                // taglia.
+                minWidth: 58 + 2 * Theme.Spacing.sm,
                 fill: recording ? 0.8 : 0.4,
                 border: recording ? colors.accent : nil
             )

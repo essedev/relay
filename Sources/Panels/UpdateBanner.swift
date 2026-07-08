@@ -131,6 +131,10 @@ struct UpdateBanner: View {
                     config.upgradeCommand,
                     colors: colors,
                     weight: .regular,
+                    // Il popup dell'update usa il material di sistema, non i colori del tema: il
+                    // testo del comando resta sulla label di sistema (`.primary`), adattiva a
+                    // light/dark, come prima (senza, un tema chiaro su OS scuro perde contrasto).
+                    foreground: .primary,
                     fill: 1.0,
                     selectable: true
                 )
