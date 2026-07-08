@@ -71,6 +71,12 @@ public final class SurfaceRegistry {
         surfaces[tabID]?.foregroundProcessName()
     }
 
+    /// Argv del comando in foreground nella surface della tab, o `nil` (prompt / tab non
+    /// realizzata). Guida la nomina automatica del workspace (poll di "cosa stai facendo").
+    public func foregroundCommandLine(for tabID: UUID) -> [String]? {
+        surfaces[tabID]?.foregroundCommandLine()
+    }
+
     /// Scrive testo nello stdin della surface della tab (resume dell'agente). No-op se la tab non è
     /// realizzata.
     public func sendText(to tabID: UUID, _ text: String) {

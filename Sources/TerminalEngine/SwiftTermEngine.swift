@@ -166,6 +166,70 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         return name.isEmpty ? "process" : (Self.safeForegroundNames.contains(name) ? nil : name)
     }
 
+    /// Argv completa del processo in foreground del pty, `nil` se la shell è al prompt (pgid ==
+    /// shellPid) o la surface non è avviata. Stesso pgid di `foregroundProcessName` (`tcgetpgrp`),
+    /// letto via `sysctl(KERN_PROCARGS2)`: funziona su processi dello stesso uid senza entitlement
+    /// (Relay non è sandboxed). Nessun filtro/formattazione qui (la fa il puro `WorkspaceNaming`).
+    func foregroundCommandLine() -> [String]? {
+        guard started, terminal.process.running else { return nil }
+        let fd = terminal.process.childfd
+        guard fd >= 0 else { return nil }
+        let foreground = tcgetpgrp(fd)
+        guard foreground > 0, foreground != terminal.process.shellPid else { return nil }
+        return Self.processArguments(pid: foreground)
+    }
+
+    /// Legge l'argv di un pid via `KERN_PROCARGS2`. Layout del buffer:
+    /// `[int argc][exec_path\0][padding \0...][argv[0]\0][argv[1]\0]...`. Ritorna gli `argc`
+    /// argomenti (senza l'`exec_path` iniziale, che è ridondante con argv[0]). `nil` se la sysctl
+    /// fallisce (processo sparito, permesso negato) o il buffer è malformato.
+    private static func processArguments(pid: pid_t) -> [String]? {
+        var argMax: Int32 = 0
+        var sizeOfArgMax = MemoryLayout<Int32>.size
+        var mibArgMax = [CTL_KERN, KERN_ARGMAX]
+        guard sysctl(&mibArgMax, 2, &argMax, &sizeOfArgMax, nil, 0) == 0, argMax > 0 else {
+            return nil
+        }
+        var mib = [CTL_KERN, KERN_PROCARGS2, pid]
+        var bufSize = Int(argMax)
+        var buffer = [CChar](repeating: 0, count: bufSize)
+        guard sysctl(&mib, 3, &buffer, &bufSize, nil, 0) == 0,
+              bufSize >= MemoryLayout<Int32>.size else { return nil }
+
+        return buffer.withUnsafeBufferPointer { raw -> [String]? in
+            guard let base = raw.baseAddress else { return nil }
+            var argc: Int32 = 0
+            memcpy(&argc, base, MemoryLayout<Int32>.size)
+            guard argc > 0 else { return nil }
+
+            var cursor = base + MemoryLayout<Int32>.size
+            let end = base + bufSize
+
+            func nextCString() -> String? {
+                guard cursor < end else { return nil }
+                let start = cursor
+                while cursor < end, cursor.pointee != 0 {
+                    cursor += 1
+                }
+                let string = String(cString: start)
+                while cursor < end, cursor.pointee == 0 {
+                    cursor += 1
+                } // salta i \0 di padding
+                return string
+            }
+
+            _ = nextCString() // exec_path: ridondante con argv[0], lo scartiamo
+            var args: [String] = []
+            var index: Int32 = 0
+            while index < argc, cursor < end {
+                guard let arg = nextCString() else { break }
+                args.append(arg)
+                index += 1
+            }
+            return args.isEmpty ? nil : args
+        }
+    }
+
     /// Shell che, se in foreground, non fanno scattare la conferma di chiusura (sono "al prompt").
     private static let safeForegroundNames: Set<String> = [
         "zsh", "bash", "sh", "fish", "dash", "login",

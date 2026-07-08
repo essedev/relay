@@ -146,6 +146,10 @@ public struct SidebarView: View {
             onSelect: { store.selectWorkspace(workspace.id) },
             onTogglePin: { store.togglePin(workspace.id) },
             onRename: { store.renameWorkspace(workspace.id, to: $0) },
+            // Rende il workspace di nuovo eleggibile alla nomina automatica: l'observer del
+            // NamingController reagisce al ritorno di `nameOrigin` a `.default` e lo rinomina al
+            // prossimo segnale. Solo store: nessun cablaggio verso il composition root.
+            onRegenerateName: { store.markNameRegenerable(workspace.id) },
             onToggleUnread: { toggleUnread(workspace) },
             onToggleArchive: { store.toggleArchive(workspace.id) },
             onClose: { onCloseWorkspace(workspace) }

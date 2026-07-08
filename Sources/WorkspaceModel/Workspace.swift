@@ -8,6 +8,9 @@ import Foundation
 public final class Workspace: Identifiable {
     public let id: UUID
     public var name: String
+    /// Origine del nome (vedi `NameOrigin`): guida la nomina automatica. `.default` = eleggibile,
+    /// `.generated` = già nominato (one-shot), `.user` = rinominato a mano (intoccabile).
+    public var nameOrigin: NameOrigin
     public var rootPath: String?
     public var pinned: Bool
     /// Messo via: fuori dalla lista principale, raccolto nella sezione Archive in fondo alla
@@ -20,6 +23,7 @@ public final class Workspace: Identifiable {
     public init(
         id: UUID = UUID(),
         name: String,
+        nameOrigin: NameOrigin = .user,
         rootPath: String? = nil,
         pinned: Bool = false,
         archived: Bool = false,
@@ -28,6 +32,7 @@ public final class Workspace: Identifiable {
     ) {
         self.id = id
         self.name = name
+        self.nameOrigin = nameOrigin
         self.rootPath = rootPath
         self.pinned = pinned
         self.archived = archived

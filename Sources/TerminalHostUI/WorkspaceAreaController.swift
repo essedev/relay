@@ -65,6 +65,12 @@ public final class WorkspaceAreaController: NSViewController {
         registry.foregroundProcess(for: tabID)
     }
 
+    /// Argv del comando in foreground nella tab (o `nil`). Inoltra alla registry; usato dalla
+    /// nomina automatica del workspace nel composition root.
+    public func foregroundCommandLine(for tabID: UUID) -> [String]? {
+        registry.foregroundCommandLine(for: tabID)
+    }
+
     /// Inietta testo nella surface della tab (resume dell'agente). Inoltra alla registry.
     public func sendText(to tabID: UUID, _ text: String) {
         registry.sendText(to: tabID, text)

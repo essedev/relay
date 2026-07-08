@@ -27,6 +27,9 @@ public struct LayoutSnapshot: Codable, Equatable {
 public struct WorkspaceSnapshot: Codable, Equatable {
     public var id: UUID
     public var name: String
+    /// Origine del nome (vedi `NameOrigin`). Campo additivo (assente nei layout vecchi -> `.user`,
+    /// vedi `init(from:)`): non richiede un bump di versione.
+    public var nameOrigin: NameOrigin
     public var rootPath: String?
     public var pinned: Bool
     /// Nella sezione Archive. Campo additivo (assente nei layout vecchi -> `false`), quindi non
@@ -38,6 +41,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     public init(
         id: UUID,
         name: String,
+        nameOrigin: NameOrigin = .user,
         rootPath: String?,
         pinned: Bool,
         archived: Bool = false,
@@ -46,6 +50,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     ) {
         self.id = id
         self.name = name
+        self.nameOrigin = nameOrigin
         self.rootPath = rootPath
         self.pinned = pinned
         self.archived = archived
@@ -53,14 +58,18 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         self.tabs = tabs
     }
 
-    /// Decode tollerante: `archived` è un `Bool` additivo, assente nei layout salvati prima della
-    /// feature. La sintesi lo esigerebbe come chiave e farebbe fallire l'intero decode (= layout
-    /// dell'utente buttato via), quindi lo leggo con `decodeIfPresent ?? false`. Gli altri campi
-    /// seguono la sintesi (gli opzionali già tollerano l'assenza). Encode resta sintetizzato.
+    /// Decode tollerante: `archived` e `nameOrigin` sono additivi, assenti nei layout salvati prima
+    /// delle rispettive feature. La sintesi li esigerebbe come chiave e farebbe fallire l'intero
+    /// decode (= layout dell'utente buttato via), quindi li leggo con `decodeIfPresent ?? default`.
+    /// `nameOrigin` assente -> `.user`: i nomi salvati prima della nomina automatica sono
+    /// conosciuti
+    /// dall'utente, non vanno rigenerati. Gli altri campi seguono la sintesi (gli opzionali già
+    /// tollerano l'assenza). Encode resta sintetizzato.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
+        nameOrigin = try c.decodeIfPresent(NameOrigin.self, forKey: .nameOrigin) ?? .user
         rootPath = try c.decodeIfPresent(String.self, forKey: .rootPath)
         pinned = try c.decode(Bool.self, forKey: .pinned)
         archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false

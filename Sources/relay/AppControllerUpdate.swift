@@ -19,7 +19,10 @@ extension AppController {
             store.selectWorkspace(existing.id)
             tab = store.addTab(to: existing)
         } else {
-            let workspace = store.createWorkspace(name: name, rootPath: NSHomeDirectory())
+            // `.user`: "Relay Update" è un nome intenzionale, la nomina automatica non lo rigenera.
+            let workspace = store.createWorkspace(
+                name: name, nameOrigin: .user, rootPath: NSHomeDirectory()
+            )
             guard let created = workspace.selectedTab else { return }
             tab = created
         }

@@ -14,6 +14,23 @@ extension SettingsView {
             keywords: ["update", "version", "upgrade", "brew", "homebrew", "release"],
             view: AnyView(updatesBlock(colors))
         ))
+        // La nomina automatica sta in Agents (dopo "pending", prima degli hook): l'append in coda
+        // tiene l'ordine dato dal filtro per categoria in `detail`.
+        if let naming {
+            blocks.append(SettingsBlock(
+                id: "naming",
+                category: .agents,
+                keywords: [
+                    "naming", "name", "workspace", "auto", "llm", "openai", "model", "api key",
+                    "rename",
+                ],
+                view: AnyView(WorkspaceNamingBlock(
+                    settings: settings,
+                    naming: naming,
+                    colors: colors
+                ))
+            ))
+        }
         // Gli hook stanno nella categoria Agents (dopo il blocco "pending"): l'append in coda li
         // lascia lì, perché il filtro per categoria in `detail` tiene l'ordine dell'array.
         if let hooks {

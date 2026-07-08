@@ -54,6 +54,11 @@ final class RightPaneController: NSViewController {
         area.foregroundProcess(for: tabID)
     }
 
+    /// Inoltra la query "argv in foreground" della tab all'area (nomina automatica del workspace).
+    func foregroundCommandLine(for tabID: UUID) -> [String]? {
+        area.foregroundCommandLine(for: tabID)
+    }
+
     /// Pulisce il terminale della tab attiva (Cmd+K).
     func clearActiveTerminal() {
         area.clearActiveTerminal()

@@ -23,7 +23,11 @@ collassabile in fondo alla sidebar, menu `Archive`/`Unarchive`; drag dentro/fuor
 versione dal bundle) - vedi gotcha** + **onboarding "Welcome to Relay" (overlay al primo avvio,
 riapribile da Help > Welcome to Relay: 5 pagine coi componenti veri al posto di screenshot,
 pagina hook azionabile, stati di attenzione cliccabili con preview live, temi selezionabili
-dal vivo) - vedi gotcha**.
+dal vivo) - vedi gotcha** + **nomina automatica dei workspace via LLM OpenAI-compatible
+(`NameOrigin`/`Core.WorkspaceNaming`/`NamingController`, API key su file 0600) - vedi gotcha** +
+**flash di completamento sulla tab in vista (nasce forte, declassa dopo ~4s) + notifiche
+cliccabili (il click porta in vista la tab) + play dell'update in una tab dedicata - vedi
+gotcha**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
@@ -49,8 +53,10 @@ girano solo dal bundle (`make run-app`).
 - `Core` - primitivi condivisi (logging; `RelayTheme`/`RelayColor` = modello tema dato puro;
   `OSC7` = parsing cwd; `LatencyStats` = statistiche misure; `ShellEscape` = escaping path per il
   drop di file; `SemanticVersion` + `ReleaseCheck` = confronto versioni e parsing della GitHub
-  Release per il check aggiornamenti, puro e testato). Nessuna dipendenza. Il tema vive qui perché
-  sia il terminale (`TerminalEngine`) sia la chrome (`Panels`) lo convertono nei rispettivi tipi.
+  Release per il check aggiornamenti, puro e testato; `WorkspaceNaming` = prompt/parse/sanitize
+  della nomina automatica dei workspace, puro e testato). Nessuna dipendenza. Il tema vive qui
+  perché sia il terminale (`TerminalEngine`) sia la chrome (`Panels`) lo convertono nei rispettivi
+  tipi.
 - `AgentProtocol` - tipi evento/stato agente, puro. Niente I/O, niente AppKit.
 - `AgentRuntime` - trasporto eventi agente: `AgentEventReceiver` (server Unix socket),
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),
@@ -60,7 +66,8 @@ girano solo dal bundle (`make run-app`).
   `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
   sidebar/notifiche/**keybindings**/decadenza sospesi, UserDefaults) + `WindowTitle` +
   `LayoutSnapshot` (Codable) + `AgentNotification` + `ShortcutAction`/`KeyCombo` (azioni
-  rimappabili + combinazione pura). Puro, niente AppKit.
+  rimappabili + combinazione pura) + `NameOrigin` (origine del nome workspace:
+  `.default`/`.generated`/`.user`, guida la nomina automatica). Puro, niente AppKit.
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`). `RelayTerminalView`
   (sottoclasse della view SwiftTerm) aggiunge il drop di file: inserisce i path escaped
@@ -76,7 +83,8 @@ girano solo dal bundle (`make run-app`).
   finestra dalla title strip), `SettingsView` (+ `SettingsComponents`), `AboutView` (pannello
   "About Relay" a tema), `Onboarding` (`OnboardingModel` puro + `OnboardingView` +
   `OnboardingPages`/`OnboardingAttention` + `RelayMarkView`, icona procedurale), `ShortcutsList`
-  (recorder shortcut), `KeyEventBridge`
+  (recorder shortcut), `NamingControls` (closure per la API key della nomina automatica +
+  `WorkspaceNamingBlock` nelle impostazioni), `KeyEventBridge`
   (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori vengono dal tema
   (`AppSettings.theme`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
@@ -89,8 +97,10 @@ girano solo dal bundle (`make run-app`).
   dashboard), `MainMenuBuilder`, `AgentCoordinator` (unico punto che lega `AgentRuntime` a
   `WorkspaceModel`), `NotificationCoordinator` (unico punto che tocca `UNUserNotificationCenter`),
   `UpdateController` (unico punto che tocca rete/clipboard per il check aggiornamenti),
-  `LayoutAutosave`, `PerfSampler` (misure `RELAY_PERF`), `ShortcutRuntime` (`perform(action)` +
-  `KeyEventBridge`), `AppControllerDashboard` (apri/chiudi dashboard + decadenza sospesi),
+  `NamingController` (unico punto che tocca la rete per la nomina automatica dei workspace) +
+  `NamingCredentialStore` (API key su file 0600 in `~/.relay`), `LayoutAutosave`, `PerfSampler`
+  (misure `RELAY_PERF`), `ShortcutRuntime` (`perform(action)` + `KeyEventBridge`),
+  `AppControllerDashboard` (apri/chiudi dashboard + decadenza sospesi),
   `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
 - `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status`,
   `claude-hook <state>` (invocato dagli hook: stdin + `RELAY_TAB_ID` -> socket) e `simulate`.
@@ -201,6 +211,28 @@ girano solo dal bundle (`make run-app`).
   `CFBundleShortVersionString`: `makeSidebarConfig()` -> `nil`, niente pill, check no-op). Preferenza
   in Settings > Updates (default on) + voce menu "Check for Updates…" (check manuale, dà sempre un
   feedback, anche "yoùre up to date").
+- Nomina automatica workspace (LLM OpenAI-compatible): un workspace nato come placeholder o da
+  cartella (`NameOrigin.default`) viene rinominato al primo segnale utile da quello che ci fai. La
+  logica pura sta in `Core.WorkspaceNaming` (costruzione prompt dai segnali cwd/comando/agente,
+  parsing, sanitizzazione: strip virgolette/markdown, cap ~28 char al confine di parola, reject dei
+  generici; testata). Il `NamingController` (RelayApp, **unico punto che tocca la rete** per questa
+  feature) osserva l'eleggibilità (`settings.workspaceNamingEnabled` + esiste un `.default` +
+  `credentials.hasKey()`) e, quando serve, fa girare un **poll** (timer ~3s) sulla tab selezionata
+  dei workspace `.default`. Tre trigger, dal più forte: agente attivo (`running`/`needs_input`) ->
+  subito; comando in foreground stabile per 2 tick (argv via `TerminalSurfaceHandle
+  .foregroundCommandLine`, letta con `KERN_PROCARGS2`) -> es. "Homebrew Update"; cwd stabile fuori
+  dalla home per ~10s -> es. "Yellow Hub". **Single-flight per workspace**, max 2 tentativi poi si
+  arrende in silenzio (mai un alert per un nome). Il poll gira **solo** finché c'è un `.default`
+  (osservazione su `nameOrigin`): quando tutti sono nominati il timer si ferma. Alla risposta,
+  `store.applyGeneratedName` applica **solo** se il workspace è ancora `.default` (l'utente può aver
+  rinominato nel frattempo: `renameWorkspace` marca `.user`, intoccabile). `NameOrigin`: `.default`
+  (eleggibile) -> `.generated` (one-shot) / `.user` (a mano). Snapshot **additivo** (assente ->
+  `.user`: i nomi pre-feature sono conosciuti dall'utente, non rigenerare). "Regenerate name" dal
+  menu contestuale (`store.markNameRegenerable` -> torna `.default`, l'observer lo ripesca). La
+  API key è un segreto: **file 0600** `~/.relay/naming-credentials.json` (`NamingCredentialStore`),
+  **non** UserDefaults; base URL + model in `AppSettings`. Config in Settings > Agents > Workspace
+  naming. Gira anche da `swift run` (non è bundle-gated come notifiche/update), ma è inerte senza
+  chiave. Mai in demo mode (nomi fissi).
 - Misure di performance: `RELAY_PERF=1` accende `PerfSampler` (RSS + surface vive + latenza input,
   categoria log `perf`, livello `.notice`); `RELAY_PERF_CYCLE=1` cicla il focus; `RELAY_SURFACE_CAP=N`
   override del cap LRU. Vedi `docs/research/PERF.md` per numeri e metodo. Spento a regime.

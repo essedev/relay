@@ -67,6 +67,12 @@ final class MainSplitViewController: NSSplitViewController {
         right.foregroundProcess(for: tabID)
     }
 
+    /// Inoltra la query "argv in foreground" della tab al right pane. Usata dalla nomina automatica
+    /// del workspace nell'AppController (poll di "cosa stai facendo").
+    func foregroundCommandLine(for tabID: UUID) -> [String]? {
+        right.foregroundCommandLine(for: tabID)
+    }
+
     /// Surface vive nel right pane (strumentazione di performance, misure M3).
     var liveSurfaceCount: Int {
         right.liveSurfaceCount

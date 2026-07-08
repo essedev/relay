@@ -55,6 +55,17 @@ public final class AppSettings {
     /// riapre solo da Help > Welcome to Relay. One-shot, non torna `false`.
     public private(set) var onboardingSeen: Bool
 
+    /// Nomina automatica dei workspace via LLM (endpoint OpenAI-compatible). `enabled` di default
+    /// on, ma la feature resta **inerte senza una API key** (salvata a parte, file 0600): serve
+    /// solo a spegnerla anche con la chiave presente. `baseURL`/`model` puntano all'endpoint;
+    /// niente segreti qui (la chiave sta nel `NamingCredentialStore` nel composition root).
+    public private(set) var workspaceNamingEnabled: Bool
+    public private(set) var workspaceNamingBaseURL: String
+    public private(set) var workspaceNamingModel: String
+
+    public static let defaultNamingBaseURL = "https://api.openai.com/v1"
+    public static let defaultNamingModel = "gpt-4o-mini"
+
     /// Combinazioni per le azioni rimappabili. Dizionario completo (ogni `ShortcutAction`), che
     /// parte dai default e sovrascrive con quanto salvato. I select-by-number e i comandi di
     /// sistema non sono rimappabili e non stanno qui.
@@ -102,6 +113,11 @@ public final class AppSettings {
         checkForUpdatesAutomatically = Self.boolDefaultingTrue(defaults, Keys.checkForUpdates)
         skippedUpdateVersion = defaults.string(forKey: Keys.skippedUpdateVersion)
         onboardingSeen = defaults.bool(forKey: Keys.onboardingSeen)
+        workspaceNamingEnabled = Self.boolDefaultingTrue(defaults, Keys.workspaceNamingEnabled)
+        workspaceNamingBaseURL = defaults.string(forKey: Keys.workspaceNamingBaseURL)
+            ?? Self.defaultNamingBaseURL
+        workspaceNamingModel = defaults.string(forKey: Keys.workspaceNamingModel)
+            ?? Self.defaultNamingModel
         keybindings = Self.loadKeybindings(defaults)
     }
 
@@ -323,6 +339,39 @@ public final class AppSettings {
         static let checkForUpdates = "relay.updates.checkAutomatically"
         static let skippedUpdateVersion = "relay.updates.skippedVersion"
         static let onboardingSeen = "relay.onboarding.seen"
+        static let workspaceNamingEnabled = "relay.naming.enabled"
+        static let workspaceNamingBaseURL = "relay.naming.baseURL"
+        static let workspaceNamingModel = "relay.naming.model"
         static let keybindings = "relay.shortcuts.bindings"
+    }
+}
+
+// MARK: - Nomina automatica workspace
+
+/// Setter della nomina automatica, in extension nello stesso file: fuori dal corpo del tipo (il
+/// budget `type_body_length`), ma con accesso a `defaults`/`Keys` privati (stesso file).
+public extension AppSettings {
+    func setWorkspaceNamingEnabled(_ enabled: Bool) {
+        guard enabled != workspaceNamingEnabled else { return }
+        workspaceNamingEnabled = enabled
+        defaults.set(enabled, forKey: Keys.workspaceNamingEnabled)
+    }
+
+    /// Base URL dell'endpoint OpenAI-compatible. Vuoto -> torna al default. Il trailing slash viene
+    /// normalizzato al momento della richiesta (nel controller), non qui.
+    func setWorkspaceNamingBaseURL(_ url: String) {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? Self.defaultNamingBaseURL : trimmed
+        guard value != workspaceNamingBaseURL else { return }
+        workspaceNamingBaseURL = value
+        defaults.set(value, forKey: Keys.workspaceNamingBaseURL)
+    }
+
+    func setWorkspaceNamingModel(_ model: String) {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? Self.defaultNamingModel : trimmed
+        guard value != workspaceNamingModel else { return }
+        workspaceNamingModel = value
+        defaults.set(value, forKey: Keys.workspaceNamingModel)
     }
 }

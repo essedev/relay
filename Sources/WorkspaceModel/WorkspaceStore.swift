@@ -85,6 +85,7 @@ public final class WorkspaceStore {
                 WorkspaceSnapshot(
                     id: workspace.id,
                     name: workspace.name,
+                    nameOrigin: workspace.nameOrigin,
                     rootPath: workspace.rootPath,
                     pinned: workspace.pinned,
                     archived: workspace.archived,
@@ -139,6 +140,7 @@ public final class WorkspaceStore {
             return Workspace(
                 id: workspace.id,
                 name: workspace.name,
+                nameOrigin: workspace.nameOrigin,
                 rootPath: workspace.rootPath,
                 pinned: workspace.pinned,
                 archived: workspace.archived,
@@ -157,9 +159,18 @@ public final class WorkspaceStore {
 
     // MARK: - Workspace
 
+    /// Crea un workspace. `nameOrigin` di default `.default` (eleggibile alla nomina automatica: il
+    /// nome è un placeholder "Workspace N" o il basename della cartella aperta, che la nomina AI
+    /// può
+    /// migliorare). Passa `.user` per i nomi intenzionali che non vanno rigenerati (es. "Relay
+    /// Update").
     @discardableResult
-    public func createWorkspace(name: String, rootPath: String? = nil) -> Workspace {
-        let workspace = Workspace(name: name, rootPath: rootPath)
+    public func createWorkspace(
+        name: String,
+        nameOrigin: NameOrigin = .default,
+        rootPath: String? = nil
+    ) -> Workspace {
+        let workspace = Workspace(name: name, nameOrigin: nameOrigin, rootPath: rootPath)
         workspaces.append(workspace)
         selectedWorkspaceID = workspace.id
         addTab(to: workspace) // ogni workspace nasce con una tab
@@ -202,12 +213,16 @@ public final class WorkspaceStore {
         setArchived(id, !workspace.archived)
     }
 
-    /// Rinomina un workspace. Nome vuoto (solo spazi) ignorato: si tiene quello vecchio.
+    /// Rinomina un workspace (azione utente esplicita dal menu contestuale). Nome vuoto (solo
+    /// spazi)
+    /// ignorato: si tiene quello vecchio. Marca l'origine `.user`: un nome scelto a mano è
+    /// intoccabile, la nomina automatica non lo sovrascrive più.
     public func renameWorkspace(_ id: UUID, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
               let workspace = workspaces.first(where: { $0.id == id }) else { return }
         workspace.name = trimmed
+        workspace.nameOrigin = .user
     }
 
     /// Rimuove un workspace. Ritorna gli id delle tab rimosse (per il teardown delle surface).

@@ -9,12 +9,18 @@ import WorkspaceModel
 public struct SettingsView: View {
     let settings: AppSettings
     let hooks: HookControls?
+    let naming: NamingControls?
     @State private var search = ""
     @State private var category: SettingsCategory = .appearance
 
-    public init(settings: AppSettings, hooks: HookControls? = nil) {
+    public init(
+        settings: AppSettings,
+        hooks: HookControls? = nil,
+        naming: NamingControls? = nil
+    ) {
         self.settings = settings
         self.hooks = hooks
+        self.naming = naming
     }
 
     public var body: some View {

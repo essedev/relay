@@ -25,6 +25,14 @@ public protocol TerminalSurfaceHandle: AnyObject {
     /// (nessun comando attivo). Usato per chiedere conferma prima di chiudere una tab "occupata".
     /// Confina i tipi dell'engine: espone solo un `String`.
     func foregroundProcessName() -> String?
+    /// Argv completa del processo in foreground nel pty (basename escluso: path grezzo di argv[0] +
+    /// argomenti), o `nil` se la shell è al prompt (nessun comando) o la surface non è avviata. A
+    /// differenza di `foregroundProcessName` **non** filtra le shell né formatta: espone l'argv
+    /// grezza, e la policy (shell nuda -> niente, formattazione) vive nel puro
+    /// `Core.WorkspaceNaming`.
+    /// Usato dalla nomina automatica dei workspace per capire "cosa stai facendo" (es. `brew
+    /// update`).
+    func foregroundCommandLine() -> [String]?
     /// `true` se la shell ha processi figli (foreground, background o agente). Segnala che c'è
     /// lavoro vivo: la surface non va sfrattata dalla LRU (perderebbe quel processo). Più largo di
     /// `foregroundProcessName` (che vede solo il foreground).

@@ -11,6 +11,7 @@ struct WorkspaceRow: View {
     let onSelect: () -> Void
     let onTogglePin: () -> Void
     let onRename: (String) -> Void
+    let onRegenerateName: () -> Void
     let onToggleUnread: () -> Void
     let onToggleArchive: () -> Void
     let onClose: () -> Void
@@ -70,6 +71,12 @@ struct WorkspaceRow: View {
         .onHover { hovered = $0 }
         .contextMenu {
             Button("Rename", action: beginRename)
+            // Ripete la nomina automatica: rende il workspace di nuovo eleggibile (torna
+            // `.default`,
+            // il NamingController lo ripesca dall'observer). Utile su un nome generato non
+            // azzeccato
+            // o per rinominare un nome scelto a mano tramite AI.
+            Button("Regenerate name", action: onRegenerateName)
             // Pin e Archive sono opposti: un archiviato non si pinna (lo mostro solo se in lista).
             if !workspace.archived {
                 Button(workspace.pinned ? "Unpin" : "Pin", action: onTogglePin)

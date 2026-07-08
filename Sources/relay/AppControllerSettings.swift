@@ -12,7 +12,11 @@ extension AppController {
             return
         }
         let hosting = NSHostingController(
-            rootView: SettingsView(settings: settings, hooks: makeHookControls())
+            rootView: SettingsView(
+                settings: settings,
+                hooks: makeHookControls(),
+                naming: makeNamingControls()
+            )
         )
         hosting.preferredContentSize = NSSize(width: 580, height: 400)
         let panel = NSWindow(contentViewController: hosting)
@@ -61,6 +65,18 @@ extension AppController {
             isInstalled: { installer.status() },
             install: { try installer.setup(cliPath: cli) },
             uninstall: { try installer.uninstall() }
+        )
+    }
+
+    /// Controlli per la API key della nomina automatica: legge/salva la chiave dal
+    /// `NamingCredentialStore` (file 0600) e ri-valuta il controller dopo un cambio
+    /// (chiave/toggle),
+    /// perché la presenza della chiave non è osservabile.
+    func makeNamingControls() -> NamingControls {
+        NamingControls(
+            hasKey: { [weak self] in self?.namingCredentials.hasKey() ?? false },
+            saveKey: { [weak self] key in self?.namingCredentials.saveKey(key) },
+            onConfigChange: { [weak self] in self?.reconfigureWorkspaceNaming() }
         )
     }
 }

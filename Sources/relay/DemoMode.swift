@@ -17,6 +17,7 @@ enum DemoSeeder {
         for index in 1 ... config.workspaces {
             let workspace = store.createWorkspace(
                 name: "Demo \(index)",
+                nameOrigin: .user, // la demo non nomina: nomi fissi (il NamingController è assente)
                 rootPath: NSHomeDirectory()
             )
             // createWorkspace aggiunge già una tab: rinominala e aggiungi le altre.
