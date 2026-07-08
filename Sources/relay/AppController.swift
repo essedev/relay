@@ -57,18 +57,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         agentCoordinator.start()
         seedIfNeeded()
 
-        let onNewWorkspace: () -> Void = { [weak self] in self?.newWorkspace(nil) }
-        let split = MainSplitViewController(
-            store: store,
-            settings: settings,
-            engine: engine,
-            updateConfig: updateController.makeSidebarConfig(
-                onRunUpdate: { [weak self] in self?.runUpdateInTab() }
-            ),
-            onNewWorkspace: onNewWorkspace,
-            onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
-            onCloseTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) }
-        )
+        let split = makeSplitViewController()
         splitVC = split
 
         window = NSWindow(
@@ -112,6 +101,25 @@ final class AppController: NSObject, NSApplicationDelegate {
         updateController.checkOnLaunch()
         // Onboarding al primo avvio, mai in demo mode (lì l'app serve a mostrare, non a spiegare).
         if demoDriver == nil { showOnboardingIfFirstLaunch() }
+    }
+
+    /// Costruisce lo split principale con le closure d'azione (create/close workspace e tab, move
+    /// tab in un nuovo workspace, config sidebar). Fuori dal launch per tenerlo corto.
+    private func makeSplitViewController() -> MainSplitViewController {
+        MainSplitViewController(
+            store: store,
+            settings: settings,
+            engine: engine,
+            updateConfig: updateController.makeSidebarConfig(
+                onRunUpdate: { [weak self] in self?.runUpdateInTab() }
+            ),
+            onNewWorkspace: { [weak self] in self?.newWorkspace(nil) },
+            onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
+            onCloseTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) },
+            onMoveTabToNewWorkspace: { [weak self] tab, workspace in
+                self?.moveTabToNewWorkspace(tab, from: workspace)
+            }
+        )
     }
 
     /// Config dello store legata alla run corrente (soglie di scarto eventi + hook imperativi),
@@ -283,6 +291,14 @@ final class AppController: NSObject, NSApplicationDelegate {
     func createUntitledWorkspace() {
         untitledCount += 1
         store.createWorkspace(name: "Workspace \(untitledCount)", rootPath: NSHomeDirectory())
+    }
+
+    /// Sposta una tab in un nuovo workspace placeholder ("Workspace N", eleggibile alla nomina
+    /// automatica). Lo store sposta lo stesso oggetto `Tab`, quindi la surface/pty resta viva: il
+    /// lavoro dentro la tab non si tocca (vedi `WorkspaceStore.moveTabToNewWorkspace`).
+    func moveTabToNewWorkspace(_ tab: WorkspaceModel.Tab, from workspace: Workspace) {
+        untitledCount += 1
+        store.moveTabToNewWorkspace(tab.id, from: workspace, name: "Workspace \(untitledCount)")
     }
 
     // MARK: - Actions

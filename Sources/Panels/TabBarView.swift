@@ -8,6 +8,9 @@ public struct TabBarView: View {
     let store: WorkspaceStore
     let settings: AppSettings
     let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
+    /// Sposta la tab in un nuovo workspace (menu contestuale). Risale all'app perché il nuovo
+    /// workspace prende un nome placeholder gestito lì (`Workspace N`); la surface resta viva.
+    let onMoveTabToNewWorkspace: (WorkspaceModel.Tab, Workspace) -> Void
 
     // Stato del riordino via drag & drop (vedi Reorderable), in un @GestureState che si azzera
     // da solo anche a gesto annullato. Nessun segmento: l'ordine è unico e niente freeze (le tab
@@ -19,11 +22,13 @@ public struct TabBarView: View {
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
-        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void
+        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
+        onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
     ) {
         self.store = store
         self.settings = settings
         self.onCloseTab = onCloseTab
+        self.onMoveTabToNewWorkspace = onMoveTabToNewWorkspace
     }
 
     public var body: some View {
@@ -48,10 +53,14 @@ public struct TabBarView: View {
                     TabItemView(
                         tab: tab,
                         selected: tab.id == workspace.selectedTabID,
+                        // Spostare l'unica tab svuoterebbe il workspace: la voce compare solo con
+                        // almeno due tab (coerente col no-op dello store).
+                        canMoveToNewWorkspace: tabs.count > 1,
                         colors: colors,
                         onSelect: { store.selectTab(tab.id, in: workspace) },
                         onRename: { store.renameTab(tab.id, in: workspace, to: $0) },
                         onToggleUnread: { store.toggleUnread(tab.id) },
+                        onMoveToNewWorkspace: { onMoveTabToNewWorkspace(tab, workspace) },
                         onClose: { onCloseTab(tab, workspace) }
                     )
                     .reorderableRow(ReorderRowConfig(
@@ -101,10 +110,12 @@ public struct TabBarView: View {
 private struct TabItemView: View {
     let tab: WorkspaceModel.Tab
     let selected: Bool
+    let canMoveToNewWorkspace: Bool
     let colors: ChromeColors
     let onSelect: () -> Void
     let onRename: (String) -> Void
     let onToggleUnread: () -> Void
+    let onMoveToNewWorkspace: () -> Void
     let onClose: () -> Void
 
     @State private var hovered = false
@@ -153,6 +164,11 @@ private struct TabItemView: View {
             // visto (quieto), quindi lo si può solo ri-alzare a forte ("Mark as Unread").
             let unreadLabel = tab.attention == .unseen ? "Mark as Read" : "Mark as Unread"
             Button(unreadLabel, action: onToggleUnread)
+            if canMoveToNewWorkspace {
+                // Estrae la tab in un nuovo workspace senza toccare la sessione viva (stesso
+                // Tab.id -> surface intatta). Nascosta con una sola tab (sarebbe un no-op).
+                Button("Move to New Workspace", action: onMoveToNewWorkspace)
+            }
             Button("Close", role: .destructive, action: onClose)
         }
     }

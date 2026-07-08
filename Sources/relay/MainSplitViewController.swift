@@ -22,14 +22,16 @@ final class MainSplitViewController: NSSplitViewController {
         updateConfig: SidebarUpdateConfig?,
         onNewWorkspace: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
-        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void
+        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
+        onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
     ) {
         self.settings = settings
         right = RightPaneController(
             store: store,
             settings: settings,
             engine: engine,
-            onCloseTab: onCloseTab
+            onCloseTab: onCloseTab,
+            onMoveTabToNewWorkspace: onMoveTabToNewWorkspace
         )
         super.init(nibName: nil, bundle: nil)
 

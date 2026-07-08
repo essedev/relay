@@ -14,6 +14,7 @@ final class RightPaneController: NSViewController {
     private let settings: AppSettings
     private let engine: TerminalEngine
     private let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
+    private let onMoveTabToNewWorkspace: (WorkspaceModel.Tab, Workspace) -> Void
     private var resumeBarHost: NSView?
     private let findModel = FindModel()
     private var findBarHost: NSView?
@@ -31,12 +32,14 @@ final class RightPaneController: NSViewController {
         store: WorkspaceStore,
         settings: AppSettings,
         engine: TerminalEngine,
-        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void
+        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
+        onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
     ) {
         self.store = store
         self.settings = settings
         self.engine = engine
         self.onCloseTab = onCloseTab
+        self.onMoveTabToNewWorkspace = onMoveTabToNewWorkspace
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -155,7 +158,12 @@ final class RightPaneController: NSViewController {
         titleBar.safeAreaRegions = []
 
         let tabBar = NSHostingView(
-            rootView: TabBarView(store: store, settings: settings, onCloseTab: onCloseTab)
+            rootView: TabBarView(
+                store: store,
+                settings: settings,
+                onCloseTab: onCloseTab,
+                onMoveTabToNewWorkspace: onMoveTabToNewWorkspace
+            )
         )
         tabBar.translatesAutoresizingMaskIntoConstraints = false
         tabBar.safeAreaRegions = []

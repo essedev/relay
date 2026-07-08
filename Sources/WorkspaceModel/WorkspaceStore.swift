@@ -360,6 +360,39 @@ public final class WorkspaceStore {
         workspace.moveTab(tabID, before: targetID)
     }
 
+    /// Sposta una tab in un **nuovo** workspace preservando la sessione viva: sposta lo stesso
+    /// oggetto `Tab` (stesso `Tab.id`), quindi la surface legata per id resta intatta - nessun
+    /// teardown del pty, il lavoro dentro la tab non si tocca. Il nuovo workspace eredita la cwd
+    /// della tab come `rootPath` e nasce `.default` (eleggibile alla nomina automatica: il nome
+    /// passato è un placeholder). Diventa il selezionato, con la tab spostata attiva.
+    ///
+    /// **No-op se la tab è l'unica del suo workspace** (sarebbe solo un rename del workspace, e
+    /// svuoterebbe l'origine) o se `tabID` non esiste lì. Ritorna il nuovo workspace, o `nil` se
+    /// no-op. L'append + il remove avvengono nella stessa mutazione sincrona, così la tab è sempre
+    /// presente in `store.workspaces` a ogni istante osservabile: il reconcile delle surface
+    /// (`retain` su tutti gli id) non la sfratta mai (vedi TerminalHostUI).
+    @discardableResult
+    public func moveTabToNewWorkspace(
+        _ tabID: UUID,
+        from workspace: Workspace,
+        name: String,
+        nameOrigin: NameOrigin = .default
+    ) -> Workspace? {
+        guard workspace.tabs.count > 1,
+              let tab = workspace.tabs.first(where: { $0.id == tabID }) else { return nil }
+        let newWorkspace = Workspace(
+            name: name,
+            nameOrigin: nameOrigin,
+            rootPath: tab.currentDirectory,
+            tabs: [tab],
+            selectedTabID: tab.id
+        )
+        workspaces.append(newWorkspace)
+        workspace.removeTab(tabID)
+        selectedWorkspaceID = newWorkspace.id
+        return newWorkspace
+    }
+
     // Stato agente e marker di attenzione (applyAgentState, dismiss, decadenza): in
     // `WorkspaceStore+AgentState.swift`.
 }
