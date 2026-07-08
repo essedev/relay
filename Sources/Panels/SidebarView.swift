@@ -75,7 +75,7 @@ public struct SidebarView: View {
     private func workspacesHeader(_ colors: ChromeColors) -> some View {
         HStack {
             Text("Workspaces")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.Typography.sectionHeader)
                 .foregroundStyle(colors.secondary)
             Spacer()
             Button(action: onNewWorkspace) {
@@ -235,7 +235,7 @@ public struct SidebarView: View {
                     .rotationEffect(.degrees(settings.archiveExpanded ? 90 : 0))
                     .frame(width: 10)
                 Image(systemName: "archivebox")
-                    .font(.system(size: 12))
+                    .font(Theme.Typography.rowIcon)
                     .foregroundStyle(colors.secondary)
                 Text("Archive")
                     .font(Theme.Typography.item)

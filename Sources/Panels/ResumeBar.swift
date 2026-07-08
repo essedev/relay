@@ -28,7 +28,7 @@ public struct ResumeBar: View {
     public var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "arrow.clockwise")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.Typography.sectionHeader)
                 .foregroundStyle(colors.accent)
             Text("Resume the Claude session")
                 .font(Theme.Typography.caption)
@@ -55,7 +55,7 @@ public struct ResumeBar: View {
     private var resumeButton: some View {
         Button(action: onResume) {
             Text("Resume")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.Typography.sectionHeader)
                 .foregroundStyle(colors.accent)
                 .padding(.horizontal, Theme.Spacing.sm)
                 .padding(.vertical, 2)

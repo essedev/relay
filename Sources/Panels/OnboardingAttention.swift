@@ -132,7 +132,7 @@ struct AttentionPreview: View {
     private var sidebarRow: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "folder")
-                .font(.system(size: 11))
+                .font(Theme.Typography.subtitle)
                 .foregroundStyle(colors.secondary)
             Text("api-refactor")
                 .font(Theme.Typography.item)
@@ -144,7 +144,7 @@ struct AttentionPreview: View {
         .padding(.vertical, Theme.Spacing.xs + 1)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(colors.selection.opacity(0.45))
+                .fill(colors.hover)
         )
     }
 

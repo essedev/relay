@@ -44,6 +44,13 @@ struct ChromeColors {
         Color(theme.selection).opacity(0.45)
     }
 
+    /// Fondo tenue di un pannello/carta, un gradino sotto `hover`: unifica le tinte `selection`
+    /// allo
+    /// 0.35 (card della dashboard, pannelli dell'onboarding).
+    var surface: Color {
+        Color(theme.selection).opacity(0.35)
+    }
+
     var accent: Color {
         Color(theme.ansiColor(4))
     } // blu

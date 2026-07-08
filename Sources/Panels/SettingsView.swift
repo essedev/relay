@@ -64,7 +64,7 @@ public struct SettingsView: View {
     private func searchBar(_ colors: ChromeColors) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 11))
+                .font(Theme.Typography.subtitle)
                 .foregroundStyle(colors.secondary)
             TextField("Search", text: $search)
                 .textFieldStyle(.plain)

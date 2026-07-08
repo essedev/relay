@@ -130,7 +130,7 @@ struct HooksPage: View {
                     .padding(Theme.Spacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: Theme.Radius.md)
-                            .fill(colors.selection.opacity(0.35))
+                            .fill(colors.surface)
                     )
             } else {
                 manualSetup
@@ -172,7 +172,7 @@ struct HooksPage: View {
         .padding(Theme.Spacing.md)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.md)
-                .fill(colors.selection.opacity(0.35))
+                .fill(colors.surface)
         )
     }
 }
@@ -289,7 +289,7 @@ struct CustomizePage: View {
     private func bullet(_ symbol: String, _ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
             Image(systemName: symbol)
-                .font(.system(size: 11))
+                .font(Theme.Typography.subtitle)
                 .foregroundStyle(colors.accent)
                 .frame(width: 16)
             Text(text)

@@ -26,6 +26,11 @@ public enum Theme {
         public static let windowTitle = Font.system(size: 12, weight: .medium)
         public static let subtitle = Font.system(size: 11)
         public static let caption = Font.system(size: 10, weight: .medium)
+        /// Etichetta di sezione / piccola affordance a peso semibold (header sidebar, icone
+        /// find/resume). Fratello semibold di `subtitle`.
+        public static let sectionHeader = Font.system(size: 11, weight: .semibold)
+        /// Icona di testa in una riga di lista/impostazioni (pin, cartella, categoria, radio tema).
+        public static let rowIcon = Font.system(size: 12)
     }
 
     public enum Metrics {

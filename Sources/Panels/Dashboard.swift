@@ -290,7 +290,7 @@ private struct SessionCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(hovered ? colors.hover : colors.selection.opacity(0.35))
+                .fill(hovered ? colors.hover : colors.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.sm)

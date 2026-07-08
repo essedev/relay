@@ -123,7 +123,7 @@ struct CategoryRow: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: category.icon)
-                .font(.system(size: 12))
+                .font(Theme.Typography.rowIcon)
                 .frame(width: 18)
                 .foregroundStyle(selected ? colors.accent : colors.secondary)
             Text(category.title)
@@ -156,7 +156,7 @@ struct ThemeRow: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 12))
+                .font(Theme.Typography.rowIcon)
                 .foregroundStyle(selected ? chrome.accent : chrome.secondary.opacity(0.4))
             Text(theme.name)
                 .font(Theme.Typography.item)

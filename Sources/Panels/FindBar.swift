@@ -49,7 +49,7 @@ public struct FindBar: View {
     public var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.Typography.sectionHeader)
                 .foregroundStyle(colors.secondary)
             field
             counter
