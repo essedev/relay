@@ -127,21 +127,17 @@ public extension WorkspaceStore {
     /// flash scatta). No-op se la tab non esiste o non è `unseen` (l'utente ha già interagito,
     /// ripreso o dismesso nel frattempo): idempotente, coerente con `Tab.markSeen`.
     func markSeen(_ tabID: UUID) {
-        workspaces.flatMap(\.tabs).first { $0.id == tabID }?.markSeen()
+        tab(id: tabID)?.markSeen()
     }
 
     /// Dismiss esplicito dell'attenzione di una tab ("era done, niente da fare"): spegne il
     /// marker a qualunque livello (unseen o pending). Ritorna `true` se c'era qualcosa da spegnere.
     @discardableResult
     func dismissAttention(_ tabID: UUID) -> Bool {
-        for workspace in workspaces {
-            guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
-            guard tab.attention != .none else { return false }
-            tab.attention = .none
-            tab.attentionSince = nil
-            return true
-        }
-        return false
+        guard let tab = tab(id: tabID), tab.attention != .none else { return false }
+        tab.attention = .none
+        tab.attentionSince = nil
+        return true
     }
 
     /// Toggle manuale del marker dal menu contestuale (sidebar/tab bar). Solo `unseen` è "unread":
@@ -150,7 +146,7 @@ public extension WorkspaceStore {
     /// altrove (resume, dismiss, decadenza). Cerca la tab per id fra tutti i workspace, come
     /// `dismissAttention`.
     func toggleUnread(_ tabID: UUID) {
-        guard let tab = workspaces.flatMap(\.tabs).first(where: { $0.id == tabID }) else { return }
+        guard let tab = tab(id: tabID) else { return }
         if tab.attention == .unseen {
             tab.attention = .none
             tab.attentionSince = nil

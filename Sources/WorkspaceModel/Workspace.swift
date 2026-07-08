@@ -77,19 +77,37 @@ public final class Workspace: Identifiable {
     /// Sposta `id` immediatamente prima di `targetID` (`nil` = in fondo). No-op se coincidono o
     /// `id` non esiste. Non tocca la selezione: spostare non cambia quale tab è attiva.
     func moveTab(_ id: UUID, before targetID: UUID?) {
-        guard id != targetID,
-              let from = tabs.firstIndex(where: { $0.id == id }) else { return }
-        let moved = tabs.remove(at: from)
-        if let targetID, let to = tabs.firstIndex(where: { $0.id == targetID }) {
-            tabs.insert(moved, at: to)
-        } else {
-            tabs.append(moved)
-        }
+        tabs.move(id, before: targetID)
     }
 }
 
 extension Array {
     subscript(safe index: Int) -> Element? {
         indices.contains(index) ? self[index] : nil
+    }
+}
+
+extension Array where Element: Identifiable, Element.ID == UUID {
+    /// Rimuove `id` e lo reinserisce **prima** di `targetID` (`nil` o assente = in fondo). No-op se
+    /// `id == targetID` o `id` non c'è. Base posizionale del riordino (workspace e tab).
+    mutating func move(_ id: UUID, before targetID: UUID?) {
+        guard id != targetID, let from = firstIndex(where: { $0.id == id }) else { return }
+        let moved = remove(at: from)
+        if let targetID, let to = firstIndex(where: { $0.id == targetID }) {
+            insert(moved, at: to)
+        } else {
+            append(moved)
+        }
+    }
+
+    /// Come `move(_:before:)` ma reinserisce **dopo** `targetID` (`targetID` assente = in fondo).
+    mutating func move(_ id: UUID, after targetID: UUID) {
+        guard id != targetID, let from = firstIndex(where: { $0.id == id }) else { return }
+        let moved = remove(at: from)
+        if let to = firstIndex(where: { $0.id == targetID }) {
+            insert(moved, at: to + 1)
+        } else {
+            append(moved)
+        }
     }
 }

@@ -170,12 +170,12 @@ import Testing
 @Test func togglePinPartitionsWorkspaces() {
     let store = WorkspaceStore()
     let a = store.createWorkspace(name: "a")
-    _ = store.createWorkspace(name: "b")
+    let b = store.createWorkspace(name: "b")
 
     store.togglePin(a.id)
 
-    #expect(store.pinnedWorkspaces.map(\.id) == [a.id])
-    #expect(store.otherWorkspaces.count == 1)
+    // Il pinned galleggia in testa all'ordine visibile, il resto segue.
+    #expect(store.orderedWorkspaces.map(\.id) == [a.id, b.id])
 }
 
 @Test func renameWorkspaceIgnoresEmpty() {

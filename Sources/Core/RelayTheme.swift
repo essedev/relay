@@ -73,37 +73,28 @@ public struct RelayTheme: Sendable, Equatable {
 
     /// Copia con una dimensione font diversa (lo zoom cambia la size, non il tema).
     public func withFontSize(_ size: Double) -> RelayTheme {
-        RelayTheme(
-            name: name,
-            background: background,
-            foreground: foreground,
-            cursor: cursor,
-            selection: selection,
-            ansi: ansi,
-            fontName: fontName,
-            fontSize: size,
-            cursorBlink: cursorBlink
-        )
+        copy(fontSize: size)
     }
 
     /// Copia con un font family diverso (preferenza globale sovrapposta al tema; `nil` = monospace
     /// di sistema). Come la size, il font è una scelta utente, non un tratto del tema.
     public func withFontName(_ fontName: String?) -> RelayTheme {
-        RelayTheme(
-            name: name,
-            background: background,
-            foreground: foreground,
-            cursor: cursor,
-            selection: selection,
-            ansi: ansi,
-            fontName: fontName,
-            fontSize: fontSize,
-            cursorBlink: cursorBlink
-        )
+        copy(fontName: fontName)
     }
 
     /// Copia con il blink del caret diverso (preferenza globale sovrapposta al tema).
     public func withCursorBlink(_ enabled: Bool) -> RelayTheme {
+        copy(cursorBlink: enabled)
+    }
+
+    /// Copia sovrascrivendo solo i campi utente (font/blink), elencati una volta sola. `fontName`
+    /// è un doppio optional apposta: `.none` = tieni il valore corrente, `.some(x)` = imposta a `x`
+    /// (dove `x` può a sua volta essere `nil`, cioè monospace di sistema).
+    private func copy(
+        fontSize: Double? = nil,
+        fontName: String?? = nil,
+        cursorBlink: Bool? = nil
+    ) -> RelayTheme {
         RelayTheme(
             name: name,
             background: background,
@@ -111,9 +102,9 @@ public struct RelayTheme: Sendable, Equatable {
             cursor: cursor,
             selection: selection,
             ansi: ansi,
-            fontName: fontName,
-            fontSize: fontSize,
-            cursorBlink: enabled
+            fontName: fontName ?? self.fontName,
+            fontSize: fontSize ?? self.fontSize,
+            cursorBlink: cursorBlink ?? self.cursorBlink
         )
     }
 

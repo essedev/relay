@@ -49,14 +49,6 @@ public final class WorkspaceStore {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public var pinnedWorkspaces: [Workspace] {
-        workspaces.filter(\.pinned)
-    }
-
-    public var otherWorkspaces: [Workspace] {
-        workspaces.filter { !$0.pinned }
-    }
-
     /// Ordine di visualizzazione della lista principale: esclude gli archiviati (vivono nella loro
     /// sezione), poi pinned (ordine manuale), poi il resto - entrambi **nell'ordine canonico** di
     /// `workspaces`. Nessun float derivato dall'attenzione: la posizione è reale e persistente. Un
@@ -244,14 +236,7 @@ public final class WorkspaceStore {
     /// `orderedWorkspaces` (canonico, pinned in testa): l'ancora giusta per lo slot visivo la
     /// sceglie `SidebarDrop`.
     public func moveWorkspace(_ id: UUID, before targetID: UUID?) {
-        guard id != targetID,
-              let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
-        let moved = workspaces.remove(at: from)
-        if let targetID, let to = workspaces.firstIndex(where: { $0.id == targetID }) {
-            workspaces.insert(moved, at: to)
-        } else {
-            workspaces.append(moved)
-        }
+        workspaces.move(id, before: targetID)
     }
 
     /// Inserisce il workspace `id` immediatamente **dopo** `targetID` nell'ordine canonico. Serve
@@ -259,14 +244,7 @@ public final class WorkspaceStore {
     /// primo del segmento successivo, che in ordine canonico non è contiguo, producendo un no-op.
     /// No-op se gli id coincidono o `id` non esiste.
     public func moveWorkspace(_ id: UUID, after targetID: UUID) {
-        guard id != targetID,
-              let from = workspaces.firstIndex(where: { $0.id == id }) else { return }
-        let moved = workspaces.remove(at: from)
-        if let to = workspaces.firstIndex(where: { $0.id == targetID }) {
-            workspaces.insert(moved, at: to + 1)
-        } else {
-            workspaces.append(moved)
-        }
+        workspaces.move(id, after: targetID)
     }
 
     /// Porta il workspace in cima ai non-pinned nell'ordine canonico ("bump" da attività non vista:

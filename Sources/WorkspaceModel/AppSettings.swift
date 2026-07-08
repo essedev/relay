@@ -156,14 +156,12 @@ public final class AppSettings {
     public func selectTheme(_ name: String) {
         guard RelayTheme.all.contains(where: { $0.name == name }) else { return }
         themeName = name
-        persist()
+        defaults.set(name, forKey: Keys.themeName)
     }
 
     public func setFontSize(_ size: Double) {
         let clamped = min(max(size, Self.minFontSize), Self.maxFontSize)
-        guard clamped != fontSize else { return }
-        fontSize = clamped
-        persist()
+        update(\.fontSize, clamped, key: Keys.fontSize)
     }
 
     public func adjustFontSize(by delta: Double) {
@@ -188,89 +186,63 @@ public final class AppSettings {
     }
 
     public func setCursorBlink(_ enabled: Bool) {
-        guard enabled != cursorBlink else { return }
-        cursorBlink = enabled
-        defaults.set(cursorBlink, forKey: Keys.cursorBlink)
+        update(\.cursorBlink, enabled, key: Keys.cursorBlink)
     }
 
     public func toggleSidebar() {
-        sidebarCollapsed.toggle()
-        defaults.set(sidebarCollapsed, forKey: Keys.sidebarCollapsed)
+        toggle(\.sidebarCollapsed, key: Keys.sidebarCollapsed)
     }
 
     public func toggleArchiveExpanded() {
-        archiveExpanded.toggle()
-        defaults.set(archiveExpanded, forKey: Keys.archiveExpanded)
+        toggle(\.archiveExpanded, key: Keys.archiveExpanded)
     }
 
     public func setSidebarWidth(_ width: Double) {
         let clamped = min(max(width, Self.minSidebarWidth), Self.maxSidebarWidth)
-        guard clamped != sidebarWidth else { return }
-        sidebarWidth = clamped
-        defaults.set(clamped, forKey: Keys.sidebarWidth)
+        update(\.sidebarWidth, clamped, key: Keys.sidebarWidth)
     }
 
     public func setAutoResumeAgents(_ enabled: Bool) {
-        guard enabled != autoResumeAgents else { return }
-        autoResumeAgents = enabled
-        defaults.set(autoResumeAgents, forKey: Keys.autoResumeAgents)
+        update(\.autoResumeAgents, enabled, key: Keys.autoResumeAgents)
     }
 
     public func setPendingDecayHours(_ hours: Int) {
         let clamped = max(0, hours)
-        guard clamped != pendingDecayHours else { return }
-        pendingDecayHours = clamped
-        defaults.set(clamped, forKey: Keys.pendingDecayHours)
+        update(\.pendingDecayHours, clamped, key: Keys.pendingDecayHours)
     }
 
     public func setCheckForUpdatesAutomatically(_ enabled: Bool) {
-        guard enabled != checkForUpdatesAutomatically else { return }
-        checkForUpdatesAutomatically = enabled
-        defaults.set(enabled, forKey: Keys.checkForUpdates)
+        update(\.checkForUpdatesAutomatically, enabled, key: Keys.checkForUpdates)
     }
 
     /// Timbra l'onboarding come visto (alla prima presentazione): non ripartirà da solo.
     public func markOnboardingSeen() {
-        guard !onboardingSeen else { return }
-        onboardingSeen = true
-        defaults.set(true, forKey: Keys.onboardingSeen)
+        update(\.onboardingSeen, true, key: Keys.onboardingSeen)
     }
 
     /// Mette in "skip" una versione: non verrà più proposta finché non ne esce una più nuova.
     public func skipUpdateVersion(_ version: String) {
-        guard version != skippedUpdateVersion else { return }
-        skippedUpdateVersion = version
-        defaults.set(version, forKey: Keys.skippedUpdateVersion)
+        update(\.skippedUpdateVersion, version, key: Keys.skippedUpdateVersion)
     }
 
     public func setNotificationsEnabled(_ enabled: Bool) {
-        guard enabled != notificationsEnabled else { return }
-        notificationsEnabled = enabled
-        defaults.set(enabled, forKey: Keys.notificationsEnabled)
+        update(\.notificationsEnabled, enabled, key: Keys.notificationsEnabled)
     }
 
     public func setNotifyOnNeedsInput(_ enabled: Bool) {
-        guard enabled != notifyOnNeedsInput else { return }
-        notifyOnNeedsInput = enabled
-        defaults.set(enabled, forKey: Keys.notifyOnNeedsInput)
+        update(\.notifyOnNeedsInput, enabled, key: Keys.notifyOnNeedsInput)
     }
 
     public func setNotifyOnCompleted(_ enabled: Bool) {
-        guard enabled != notifyOnCompleted else { return }
-        notifyOnCompleted = enabled
-        defaults.set(enabled, forKey: Keys.notifyOnCompleted)
+        update(\.notifyOnCompleted, enabled, key: Keys.notifyOnCompleted)
     }
 
     public func setNotificationSound(_ enabled: Bool) {
-        guard enabled != notificationSound else { return }
-        notificationSound = enabled
-        defaults.set(enabled, forKey: Keys.notificationSound)
+        update(\.notificationSound, enabled, key: Keys.notificationSound)
     }
 
     public func setNotificationSoundName(_ name: String) {
-        guard name != notificationSoundName else { return }
-        notificationSoundName = name
-        defaults.set(name, forKey: Keys.notificationSoundName)
+        update(\.notificationSoundName, name, key: Keys.notificationSoundName)
     }
 
     // MARK: - Keybindings
@@ -316,9 +288,23 @@ public final class AppSettings {
         }
     }
 
-    private func persist() {
-        defaults.set(themeName, forKey: Keys.themeName)
-        defaults.set(fontSize, forKey: Keys.fontSize)
+    /// Assegna `value` a `keyPath` e lo persiste, solo se cambia (evita scritture e notifiche di
+    /// Observation inutili). Il write passa dal setter sintetizzato da `@Observable`, quindi
+    /// l'osservazione scatta come per un'assegnazione diretta.
+    private func update<T: Equatable>(
+        _ keyPath: ReferenceWritableKeyPath<AppSettings, T>,
+        _ value: T,
+        key: String
+    ) {
+        guard self[keyPath: keyPath] != value else { return }
+        self[keyPath: keyPath] = value
+        defaults.set(value, forKey: key)
+    }
+
+    /// Inverte un flag booleano e lo persiste.
+    private func toggle(_ keyPath: ReferenceWritableKeyPath<AppSettings, Bool>, key: String) {
+        self[keyPath: keyPath].toggle()
+        defaults.set(self[keyPath: keyPath], forKey: key)
     }
 
     private enum Keys {
@@ -352,9 +338,7 @@ public final class AppSettings {
 /// budget `type_body_length`), ma con accesso a `defaults`/`Keys` privati (stesso file).
 public extension AppSettings {
     func setWorkspaceNamingEnabled(_ enabled: Bool) {
-        guard enabled != workspaceNamingEnabled else { return }
-        workspaceNamingEnabled = enabled
-        defaults.set(enabled, forKey: Keys.workspaceNamingEnabled)
+        update(\.workspaceNamingEnabled, enabled, key: Keys.workspaceNamingEnabled)
     }
 
     /// Base URL dell'endpoint OpenAI-compatible. Vuoto -> torna al default. Il trailing slash viene
@@ -362,16 +346,12 @@ public extension AppSettings {
     func setWorkspaceNamingBaseURL(_ url: String) {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.isEmpty ? Self.defaultNamingBaseURL : trimmed
-        guard value != workspaceNamingBaseURL else { return }
-        workspaceNamingBaseURL = value
-        defaults.set(value, forKey: Keys.workspaceNamingBaseURL)
+        update(\.workspaceNamingBaseURL, value, key: Keys.workspaceNamingBaseURL)
     }
 
     func setWorkspaceNamingModel(_ model: String) {
         let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.isEmpty ? Self.defaultNamingModel : trimmed
-        guard value != workspaceNamingModel else { return }
-        workspaceNamingModel = value
-        defaults.set(value, forKey: Keys.workspaceNamingModel)
+        update(\.workspaceNamingModel, value, key: Keys.workspaceNamingModel)
     }
 }
