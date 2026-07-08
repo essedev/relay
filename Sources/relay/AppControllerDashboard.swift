@@ -9,7 +9,7 @@ import WorkspaceModel
 /// apri/chiudi dell'overlay, il jump verso una sessione e l'applicazione della decadenza.
 extension AppController {
     var isDashboardOpen: Bool {
-        dashboardHost != nil
+        overlayPresenter.isPresenting(.dashboard)
     }
 
     func toggleDashboard() {
@@ -17,37 +17,24 @@ extension AppController {
     }
 
     private func openDashboard() {
-        closeOnboarding() // un overlay full-window alla volta, con lo stato che resta coerente
         applyPendingDecayIfEnabled() // le card nascono già decadute, se la preferenza è attiva
-        let dashboard = DashboardView(
-            store: store,
-            settings: settings,
-            onJump: { [weak self] workspace, tab in
-                guard let self else { return }
-                closeDashboard()
-                store.selectWorkspace(workspace.id)
-                store.selectTab(tab.id, in: workspace)
-            },
-            onClose: { [weak self] in self?.closeDashboard() }
-        )
-        let host = NSHostingView(rootView: dashboard)
-        host.safeAreaRegions = []
-        rootController.presentFullOverlay(host)
-        dashboardHost = host
-        // First responder all'overlay sul runloop successivo: la dashboard è una vista pesante
-        // (grid + card), sincrono l'hosting view non ha ancora montato il campo filtro e il focus
-        // resterebbe "vuoto" (né frecce né Esc). Deferito, SwiftUI ha montato il TextField e il
-        // `@FocusState` aggancia. La find bar può farlo sincrono perché è minima e monta in tempo.
-        DispatchQueue.main.async { [weak self] in
-            self?.splitVC.view.window?.makeFirstResponder(host)
+        overlayPresenter.present(.dashboard) {
+            fullOverlayHost(DashboardView(
+                store: self.store,
+                settings: self.settings,
+                onJump: { [weak self] workspace, tab in
+                    guard let self else { return }
+                    closeDashboard()
+                    store.selectWorkspace(workspace.id)
+                    store.selectTab(tab.id, in: workspace)
+                },
+                onClose: { [weak self] in self?.closeDashboard() }
+            ))
         }
     }
 
     func closeDashboard() {
-        guard isDashboardOpen else { return }
-        rootController.dismissFullOverlay()
-        dashboardHost = nil
-        splitVC.focusTerminal() // il focus torna al terminale in vista
+        overlayPresenter.dismiss(.dashboard)
     }
 
     /// Decadenza opzionale dei sospesi (`pendingDecayHours` > 0): spegne i pending più vecchi

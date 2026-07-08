@@ -20,10 +20,10 @@ final class AppController: NSObject, NSApplicationDelegate {
     var window: NSWindow! // internal: usato dall'extension di chiusura (confirmClose sheet)
     var splitVC: MainSplitViewController! // internal: usato dalle extension in altri file
     var rootController: RootOverlayController! // internal: overlay dashboard (extension)
-    /// Host dell'overlay dashboard quando è aperta (`nil` = chiusa). Vedi AppControllerDashboard.
-    var dashboardHost: NSView?
-    /// Host dell'overlay onboarding quando è aperto (`nil` = chiuso). Vedi AppControllerOnboarding.
-    var onboardingHost: NSView?
+    /// Presenter unico degli overlay full-window (dashboard/onboarding): un solo host, mutua
+    /// esclusione per costruzione. Assegnato in `applicationDidFinishLaunching`. Usato dalle
+    /// extension `AppControllerDashboard`/`AppControllerOnboarding`.
+    var overlayPresenter: FullOverlayPresenter!
     var settingsWindow: NSWindow? // internal: aperto/chiuso dall'extension delle impostazioni
     var aboutWindow: NSWindow? // internal: pannello "About Relay" (extension impostazioni)
     private var untitledCount = 0
@@ -90,6 +90,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         window.isMovableByWindowBackground = false
         let root = RootOverlayController(content: split, overlay: makeSidebarToggleOverlay())
         rootController = root
+        overlayPresenter = FullOverlayPresenter(root: root, splitVC: split)
         split.onSidebarWidthChange = { [weak root] width in
             root?.sidebarWidthDidChange(width)
         }

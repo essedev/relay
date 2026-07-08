@@ -7,7 +7,7 @@ import SwiftUI
 /// `RootOverlayController`); extension per tenere il corpo di `AppController` sul solo bootstrap.
 extension AppController {
     var isOnboardingOpen: Bool {
-        onboardingHost != nil
+        overlayPresenter.isPresenting(.onboarding)
     }
 
     /// Voce di menu Help > Welcome to Relay.
@@ -25,28 +25,16 @@ extension AppController {
     }
 
     func presentOnboarding() {
-        closeDashboard() // un overlay full-window alla volta, con lo stato che resta coerente
-        guard !isOnboardingOpen else { return }
-        let onboarding = OnboardingView(
-            settings: settings,
-            hooks: makeHookControls(),
-            onClose: { [weak self] in self?.closeOnboarding() }
-        )
-        let host = NSHostingView(rootView: onboarding)
-        host.safeAreaRegions = []
-        rootController.presentFullOverlay(host)
-        onboardingHost = host
-        // First responder deferito, come la dashboard: sincrono la hosting view non ha ancora
-        // montato la vista `.focusable` e frecce/Esc cadrebbero nel vuoto.
-        DispatchQueue.main.async { [weak self] in
-            self?.splitVC.view.window?.makeFirstResponder(host)
+        overlayPresenter.present(.onboarding) {
+            fullOverlayHost(OnboardingView(
+                settings: self.settings,
+                hooks: self.makeHookControls(),
+                onClose: { [weak self] in self?.closeOnboarding() }
+            ))
         }
     }
 
     func closeOnboarding() {
-        guard isOnboardingOpen else { return }
-        rootController.dismissFullOverlay()
-        onboardingHost = nil
-        splitVC.focusTerminal() // il focus torna al terminale in vista
+        overlayPresenter.dismiss(.onboarding)
     }
 }
