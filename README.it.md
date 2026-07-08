@@ -1,6 +1,24 @@
+<div align="center">
+
+<img src="docs/images/relay-icon.png" alt="Relay" width="128" height="128">
+
 # Relay
 
+**Terminale macOS nativo per lavorare con molti coding agent in parallelo.**
+
+[![Release](https://img.shields.io/github/v/release/essedev/relay?label=release&color=2f81f7)](https://github.com/essedev/relay/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/essedev/relay/ci.yml?branch=main&label=CI)](https://github.com/essedev/relay/actions/workflows/ci.yml)
+[![Homebrew](https://img.shields.io/badge/install-brew%20cask-FBB040?logo=homebrew&logoColor=white)](#installazione)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
+![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+
 [English](README.md) · **Italiano**
+
+</div>
+
+<p align="center">
+  <img src="docs/images/hero.png" alt="Relay con più sessioni agente in parallelo tra i workspace" width="900">
+</p>
 
 Terminale macOS nativo per lavorare con molti coding agent in parallelo: stati agente
 affidabili (via hook Claude Code), organizzazione a workspace (sidebar con pin e riordino,
