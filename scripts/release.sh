@@ -110,10 +110,14 @@ git tag -a "$TAG" -m "Relay $TAG"
 git push origin "$TAG"
 
 info "creo la GitHub Release e carico il dmg"
+# Note dai conventional commit tra il tag precedente e questo (il repo e trunk-based: niente PR,
+# quindi --generate-notes darebbe un body vuoto col solo link di compare).
+NOTES="$(mktemp)"; trap 'rm -f "$NOTES"' EXIT
+bash "$ROOT/scripts/release-notes.sh" "$TAG" > "$NOTES"
 gh release create "$TAG" "$DMG" \
   --repo "$REPO" \
   --title "Relay $TAG" \
-  --generate-notes
+  --notes-file "$NOTES"
 
 # --- Aggiorna il cask nel tap ---------------------------------------------
 update_tap
