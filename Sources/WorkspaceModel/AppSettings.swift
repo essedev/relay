@@ -45,6 +45,12 @@ public final class AppSettings {
     public private(set) var notificationSound: Bool
     public private(set) var notificationSoundName: String
 
+    /// Check aggiornamenti (default on): al lancio l'app confronta la versione installata con
+    /// l'ultima release. `skippedUpdateVersion` è la versione che l'utente ha scelto di ignorare
+    /// (si torna a proporre solo quando ne esce una più nuova).
+    public private(set) var checkForUpdatesAutomatically: Bool
+    public private(set) var skippedUpdateVersion: String?
+
     /// Combinazioni per le azioni rimappabili. Dizionario completo (ogni `ShortcutAction`), che
     /// parte dai default e sovrascrive con quanto salvato. I select-by-number e i comandi di
     /// sistema non sono rimappabili e non stanno qui.
@@ -89,6 +95,8 @@ public final class AppSettings {
         notifyOnCompleted = Self.boolDefaultingTrue(defaults, Keys.notifyOnCompleted)
         notificationSound = Self.boolDefaultingTrue(defaults, Keys.notificationSound)
         notificationSoundName = defaults.string(forKey: Keys.notificationSoundName) ?? "Default"
+        checkForUpdatesAutomatically = Self.boolDefaultingTrue(defaults, Keys.checkForUpdates)
+        skippedUpdateVersion = defaults.string(forKey: Keys.skippedUpdateVersion)
         keybindings = Self.loadKeybindings(defaults)
     }
 
@@ -194,6 +202,19 @@ public final class AppSettings {
         defaults.set(clamped, forKey: Keys.pendingDecayHours)
     }
 
+    public func setCheckForUpdatesAutomatically(_ enabled: Bool) {
+        guard enabled != checkForUpdatesAutomatically else { return }
+        checkForUpdatesAutomatically = enabled
+        defaults.set(enabled, forKey: Keys.checkForUpdates)
+    }
+
+    /// Mette in "skip" una versione: non verrà più proposta finché non ne esce una più nuova.
+    public func skipUpdateVersion(_ version: String) {
+        guard version != skippedUpdateVersion else { return }
+        skippedUpdateVersion = version
+        defaults.set(version, forKey: Keys.skippedUpdateVersion)
+    }
+
     public func setNotificationsEnabled(_ enabled: Bool) {
         guard enabled != notificationsEnabled else { return }
         notificationsEnabled = enabled
@@ -287,6 +308,8 @@ public final class AppSettings {
         static let notifyOnCompleted = "relay.notifications.completed"
         static let notificationSound = "relay.notifications.sound"
         static let notificationSoundName = "relay.notifications.soundName"
+        static let checkForUpdates = "relay.updates.checkAutomatically"
+        static let skippedUpdateVersion = "relay.updates.skippedVersion"
         static let keybindings = "relay.shortcuts.bindings"
     }
 }

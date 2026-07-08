@@ -45,8 +45,9 @@ girano solo dal bundle (`make run-app`).
 
 - `Core` - primitivi condivisi (logging; `RelayTheme`/`RelayColor` = modello tema dato puro;
   `OSC7` = parsing cwd; `LatencyStats` = statistiche misure; `ShellEscape` = escaping path per il
-  drop di file). Nessuna dipendenza. Il tema vive qui perché sia il terminale (`TerminalEngine`) sia
-  la chrome (`Panels`) lo convertono nei rispettivi tipi.
+  drop di file; `SemanticVersion` + `ReleaseCheck` = confronto versioni e parsing della GitHub
+  Release per il check aggiornamenti, puro e testato). Nessuna dipendenza. Il tema vive qui perché
+  sia il terminale (`TerminalEngine`) sia la chrome (`Panels`) lo convertono nei rispettivi tipi.
 - `AgentProtocol` - tipi evento/stato agente, puro. Niente I/O, niente AppKit.
 - `AgentRuntime` - trasporto eventi agente: `AgentEventReceiver` (server Unix socket),
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),
@@ -83,6 +84,7 @@ girano solo dal bundle (`make run-app`).
   `RightPaneController`, `RootOverlayController` (overlay toggle + overlay full-window della
   dashboard), `MainMenuBuilder`, `AgentCoordinator` (unico punto che lega `AgentRuntime` a
   `WorkspaceModel`), `NotificationCoordinator` (unico punto che tocca `UNUserNotificationCenter`),
+  `UpdateController` (unico punto che tocca rete/clipboard per il check aggiornamenti),
   `LayoutAutosave`, `PerfSampler` (misure `RELAY_PERF`), `ShortcutRuntime` (`perform(action)` +
   `KeyEventBridge`), `AppControllerDashboard` (apri/chiudi dashboard + decadenza sospesi),
   `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
@@ -168,6 +170,19 @@ girano solo dal bundle (`make run-app`).
   banner sono soppressi quando Relay è frontmost**. Al primo avvio dal bundle macOS chiede il
   permesso una volta; una firma ad-hoc che cambia a ogni reinstall può farlo decadere (log
   `auth status` al boot: 2 = authorized).
+- Check aggiornamenti (canale brew): `UpdateController` (RelayApp) al lancio confronta la versione
+  installata (`CFBundleShortVersionString`) con l'ultima GitHub Release
+  (`/repos/essedev/relay/releases/latest`), e se più recente accende una pill transitoria in fondo
+  alla sidebar, **sopra la sezione Archive** (l'ancora Archive resta fissa, la pill si inserisce nel
+  flusso sopra di lei). La logica è pura in `Core` (`SemanticVersion` compara, `ReleaseCheck` parsa
+  e decide se l'update è azionabile rispettando lo skip), testata; rete/clipboard/apertura URL
+  stanno nel controller. **Non scarica**: la pill offre solo il comando `brew update && brew upgrade
+  --cask relay` da copiare, le release notes e "Skip this version" (persistito in
+  `skippedUpdateVersion`, si ripropone solo a una versione ancora più nuova). Nessun conflitto con
+  brew, che resta l'updater. Come le notifiche gira **solo dal bundle** (`swift run` non ha
+  `CFBundleShortVersionString`: `makeSidebarConfig()` -> `nil`, niente pill, check no-op). Preferenza
+  in Settings > Updates (default on) + voce menu "Check for Updates…" (check manuale, dà sempre un
+  feedback, anche "yoùre up to date").
 - Misure di performance: `RELAY_PERF=1` accende `PerfSampler` (RSS + surface vive + latenza input,
   categoria log `perf`, livello `.notice`); `RELAY_PERF_CYCLE=1` cicla il focus; `RELAY_SURFACE_CAP=N`
   override del cap LRU. Vedi `docs/research/PERF.md` per numeri e metodo. Spento a regime.

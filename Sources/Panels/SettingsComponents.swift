@@ -38,6 +38,13 @@ extension SettingsView {
         Binding(get: { settings.pendingDecayHours }, set: { settings.setPendingDecayHours($0) })
     }
 
+    var checkForUpdatesBinding: Binding<Bool> {
+        Binding(
+            get: { settings.checkForUpdatesAutomatically },
+            set: { settings.setCheckForUpdatesAutomatically($0) }
+        )
+    }
+
     var notificationsEnabledBinding: Binding<Bool> {
         Binding(
             get: { settings.notificationsEnabled },
@@ -74,6 +81,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     case terminal
     case agents
     case notifications
+    case updates
     case shortcuts
 
     var id: String {
@@ -86,6 +94,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .terminal: "Terminal"
         case .agents: "Agents"
         case .notifications: "Notifications"
+        case .updates: "Updates"
         case .shortcuts: "Shortcuts"
         }
     }
@@ -96,6 +105,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .terminal: "terminal"
         case .agents: "sparkles"
         case .notifications: "bell"
+        case .updates: "arrow.down.circle"
         case .shortcuts: "keyboard"
         }
     }

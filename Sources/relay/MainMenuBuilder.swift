@@ -55,6 +55,12 @@ enum MainMenuBuilder {
             keyEquivalent: ""
         )
         about.target = target
+        let checkUpdates = NSMenuItem(
+            title: "Check for Updates…",
+            action: #selector(AppController.checkForUpdates(_:)),
+            keyEquivalent: ""
+        )
+        checkUpdates.target = target
         let settingsItem = NSMenuItem(
             title: "Settings…",
             action: #selector(AppController.openSettings(_:)),
@@ -66,7 +72,10 @@ enum MainMenuBuilder {
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )
-        return submenu("Relay", [about, .separator(), settingsItem, .separator(), quit])
+        return submenu(
+            "Relay",
+            [about, checkUpdates, .separator(), settingsItem, .separator(), quit]
+        )
     }
 
     private static func fileMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {

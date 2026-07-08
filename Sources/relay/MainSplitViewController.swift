@@ -19,6 +19,7 @@ final class MainSplitViewController: NSSplitViewController {
         store: WorkspaceStore,
         settings: AppSettings,
         engine: TerminalEngine,
+        updateConfig: SidebarUpdateConfig?,
         onNewWorkspace: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
         onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void
@@ -37,7 +38,8 @@ final class MainSplitViewController: NSSplitViewController {
                 store: store,
                 settings: settings,
                 onNewWorkspace: onNewWorkspace,
-                onCloseWorkspace: onCloseWorkspace
+                onCloseWorkspace: onCloseWorkspace,
+                updateConfig: updateConfig
             )
         )
         // L'header della sidebar vive sulla riga dei semafori (full-size content view): niente

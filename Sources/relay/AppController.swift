@@ -33,6 +33,8 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var perf: PerfSampler?
     /// Notifiche macOS, attive solo quando l'app gira dal bundle `.app` (serve un bundle id).
     private var notifications: NotificationCoordinator?
+    /// Check aggiornamenti (canale brew): pill in sidebar + voce di menu. No-op da `swift run`.
+    private lazy var updateController = UpdateController(settings: settings)
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
@@ -53,6 +55,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             store: store,
             settings: settings,
             engine: engine,
+            updateConfig: updateController.makeSidebarConfig(),
             onNewWorkspace: onNewWorkspace,
             onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
             onCloseTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) }
@@ -96,6 +99,11 @@ final class AppController: NSObject, NSApplicationDelegate {
 
         startPerfSamplerIfEnabled()
         setupNotificationsIfBundled()
+        updateController.checkOnLaunch()
+    }
+
+    @objc func checkForUpdates(_: Any?) {
+        updateController.checkManually()
     }
 
     /// Notifiche macOS: solo dal bundle `.app` (`UNUserNotificationCenter` richiede un bundle id;

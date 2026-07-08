@@ -8,6 +8,12 @@ import WorkspaceModel
 extension SettingsView {
     func allBlocks(_ colors: ChromeColors) -> [SettingsBlock] {
         var blocks = fixedBlocks(colors)
+        blocks.append(SettingsBlock(
+            id: "updates",
+            category: .updates,
+            keywords: ["update", "version", "upgrade", "brew", "homebrew", "release"],
+            view: AnyView(updatesBlock(colors))
+        ))
         // Gli hook stanno nella categoria Agents (dopo il blocco "pending"): l'append in coda li
         // lascia lì, perché il filtro per categoria in `detail` tiene l'ordine dell'array.
         if let hooks {
@@ -66,6 +72,19 @@ extension SettingsView {
                 view: AnyView(ShortcutsList(settings: settings, colors: colors))
             ),
         ]
+    }
+
+    /// On (default) = al lancio confronta con l'ultima release e mostra la pill se disponibile.
+    /// L'aggiornamento passa comunque da brew (o dal dmg): Relay non si auto-scarica.
+    private func updatesBlock(_ colors: ChromeColors) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            toggleRow("Check for updates on launch", colors, checkForUpdatesBinding)
+            Text(
+                "Relay checks the latest release and shows a hint. Updating is done with Homebrew."
+            )
+            .font(Theme.Typography.subtitle)
+            .foregroundStyle(colors.secondary)
+        }
     }
 
     private func themeBlock(_ colors: ChromeColors) -> some View {

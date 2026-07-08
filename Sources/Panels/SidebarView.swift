@@ -14,6 +14,9 @@ public struct SidebarView: View {
     let settings: AppSettings
     let onNewWorkspace: () -> Void
     let onCloseWorkspace: (Workspace) -> Void
+    /// Config della pill di aggiornamento (sopra la sezione Archive). `nil` = niente pill (bundle
+    /// assente / test): la sidebar non dipende dalla rete né dal composition root.
+    let updateConfig: SidebarUpdateConfig?
 
     // Stato del riordino via drag & drop (vedi Reorderable). Il gesto vive in un @GestureState:
     // si azzera da solo (animato) anche se il drag viene annullato. L'ordine visivo è congelato
@@ -31,12 +34,14 @@ public struct SidebarView: View {
         store: WorkspaceStore,
         settings: AppSettings,
         onNewWorkspace: @escaping () -> Void,
-        onCloseWorkspace: @escaping (Workspace) -> Void
+        onCloseWorkspace: @escaping (Workspace) -> Void,
+        updateConfig: SidebarUpdateConfig? = nil
     ) {
         self.store = store
         self.settings = settings
         self.onNewWorkspace = onNewWorkspace
         self.onCloseWorkspace = onCloseWorkspace
+        self.updateConfig = updateConfig
     }
 
     public var body: some View {
@@ -49,6 +54,9 @@ public struct SidebarView: View {
                 trafficLightsStrip
                 workspacesHeader(colors)
                 list(colors)
+                if let updateConfig {
+                    UpdateBanner(config: updateConfig, colors: colors)
+                }
                 archiveSection(colors, maxListHeight: proxy.size.height * 0.5)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
