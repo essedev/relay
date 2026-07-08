@@ -35,5 +35,11 @@ public enum Theme {
         /// Larghezza massima di una tab: un titolo OSC lungo (Claude manda il nome della chat) non
         /// deve allargare la tab oltre la finestra; il testo si tronca.
         public static let maxTabWidth: CGFloat = 180
+        /// Pallino di stato: dimensione piena (badge agente), compatta (card dashboard, righe
+        /// impostazioni), pallino di presenza (accento), spessore dell'anello vuoto.
+        public static let statusDot: CGFloat = 8
+        public static let statusDotCompact: CGFloat = 7
+        public static let presenceDot: CGFloat = 6
+        public static let statusRingWidth: CGFloat = 1.5
     }
 }

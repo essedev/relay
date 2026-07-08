@@ -136,19 +136,13 @@ struct HooksPage: View {
                 manualSetup
             }
             HStack(spacing: Theme.Spacing.sm) {
-                HStack(spacing: Theme.Spacing.xs) {
-                    Text("\u{276F}")
-                        .foregroundStyle(colors.accent)
-                    Text("claude")
-                        .foregroundStyle(colors.foreground)
+                CommandChip(colors: colors) {
+                    HStack(spacing: Theme.Spacing.xs) {
+                        Text("\u{276F}")
+                            .foregroundStyle(colors.accent)
+                        Text("claude")
+                    }
                 }
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .padding(.horizontal, Theme.Spacing.sm)
-                .padding(.vertical, Theme.Spacing.xs)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                        .fill(colors.hover.opacity(0.4))
-                )
                 Text("Once installed, just run claude in any tab: the badge lights up "
                     + "on its own.")
                     .font(Theme.Typography.item)
@@ -173,16 +167,7 @@ struct HooksPage: View {
                 .font(Theme.Typography.item)
                 .foregroundStyle(colors.foreground)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("relay-cli hooks setup")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(colors.foreground)
-                .padding(.horizontal, Theme.Spacing.sm)
-                .padding(.vertical, Theme.Spacing.xs)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                        .fill(colors.hover.opacity(0.4))
-                )
-                .textSelection(.enabled)
+            CommandChip("relay-cli hooks setup", colors: colors, selectable: true)
         }
         .padding(Theme.Spacing.md)
         .background(
@@ -240,16 +225,7 @@ struct NavigationPage: View {
 
     private func shortcut(_ keys: String, _ title: String, _ detail: String) -> some View {
         GridRow {
-            Text(keys)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(colors.foreground)
-                .padding(.horizontal, Theme.Spacing.sm)
-                .padding(.vertical, 3)
-                .frame(minWidth: 48)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                        .fill(colors.hover.opacity(0.4))
-                )
+            CommandChip(keys, colors: colors, minWidth: 48)
                 .gridColumnAlignment(.trailing)
             Text(title)
                 .font(Theme.Typography.item.weight(.medium))

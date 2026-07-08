@@ -309,13 +309,7 @@ private struct SessionCard: View {
                 .foregroundStyle(colors.secondary)
             Spacer()
             if hovered, item.tab.attention != .none {
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .bold))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(colors.secondary)
-                .help("Dismiss")
+                CloseButton(color: colors.secondary, size: 8, help: "Dismiss", action: onDismiss)
             } else if let age = DashboardModel.age(
                 of: DashboardModel.ageDate(for: item.tab),
                 now: now
@@ -328,25 +322,15 @@ private struct SessionCard: View {
     }
 
     @ViewBuilder private var statusDot: some View {
-        switch BadgeKind.forTab(item.tab) {
-        case .pending:
-            Circle().strokeBorder(colors.completed.opacity(0.55), lineWidth: 1.5)
-                .frame(width: 7, height: 7)
-        case .none:
-            Circle().strokeBorder(colors.secondary.opacity(0.5), lineWidth: 1.5)
-                .frame(width: 7, height: 7)
-        case let kind:
-            Circle().fill(statusColor(kind)).frame(width: 7, height: 7)
-        }
-    }
-
-    private func statusColor(_ kind: BadgeKind) -> Color {
+        let kind = BadgeKind.forTab(item.tab)
+        let compact = Theme.Metrics.statusDotCompact
         switch kind {
-        case .needsInput: colors.needsInput
-        case .error: colors.error
-        case .running: colors.running
-        case .completed: colors.completed
-        case .pending, .none: colors.secondary
+        case .pending:
+            StatusDot(color: colors.completed.opacity(0.55), style: .ring, size: compact)
+        case .none:
+            StatusDot(color: colors.secondary.opacity(0.5), style: .ring, size: compact)
+        default:
+            StatusDot(color: kind.tint(colors), size: compact)
         }
     }
 

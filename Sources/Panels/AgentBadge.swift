@@ -36,6 +36,20 @@ enum BadgeKind: Int {
     static func forWorkspace(_ workspace: Workspace) -> BadgeKind {
         workspace.tabs.map(forTab).max { $0.rawValue < $1.rawValue } ?? .none
     }
+
+    /// Colore del badge per questo tipo, dai colori ANSI del tema. Condiviso da `AgentBadge` e
+    /// dalla
+    /// dashboard, così la mappatura vive in un posto solo. `pending`/`none` non si disegnano mai
+    /// pieni (usano l'anello): il fallback `secondary` è totale ma non raggiunto.
+    func tint(_ colors: ChromeColors) -> Color {
+        switch self {
+        case .needsInput: colors.needsInput
+        case .error: colors.error
+        case .running: colors.running
+        case .completed: colors.completed
+        case .pending, .none: colors.secondary
+        }
+    }
 }
 
 /// Aggregato workspace: il badge più severo e quante tab lo condividono. Il contatore compare
@@ -88,19 +102,13 @@ struct AgentBadge: View {
         case .needsInput:
             PulsingDot(color: colors.needsInput) // richiede attenzione: pulsa
         case .error:
-            dot(colors.error)
+            StatusDot(color: colors.error)
         case .completed:
-            dot(colors.completed)
+            StatusDot(color: colors.completed)
         case .pending:
             // Punto quieto del sospeso: anello vuoto, stesso verde del completato ma dimesso.
-            Circle()
-                .strokeBorder(colors.completed.opacity(0.55), lineWidth: 1.5)
-                .frame(width: 8, height: 8)
+            StatusDot(color: colors.completed.opacity(0.55), style: .ring)
         }
-    }
-
-    private func dot(_ color: Color) -> some View {
-        Circle().fill(color).frame(width: 8, height: 8)
     }
 }
 
@@ -110,9 +118,7 @@ private struct PulsingDot: View {
     @State private var dim = false
 
     var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 8, height: 8)
+        StatusDot(color: color)
             .opacity(dim ? 0.35 : 1)
             .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: dim)
             .onAppear { dim = true }

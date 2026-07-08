@@ -247,7 +247,7 @@ public struct SidebarView: View {
                 }
                 Spacer()
                 if attention {
-                    Circle().fill(colors.accent).frame(width: 6, height: 6)
+                    StatusDot(color: colors.accent, size: Theme.Metrics.presenceDot)
                 }
             }
             .padding(.horizontal, Theme.Spacing.md)

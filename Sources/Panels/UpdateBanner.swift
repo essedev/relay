@@ -76,7 +76,7 @@ struct UpdateBanner: View {
 
     private func pill(_ latest: LatestRelease) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
-            Circle().fill(colors.accent).frame(width: 6, height: 6)
+            StatusDot(color: colors.accent, size: Theme.Metrics.presenceDot)
             Text("Update available \(latest.version.description)")
                 .font(Theme.Typography.subtitle)
                 .foregroundStyle(colors.foreground)
@@ -127,14 +127,13 @@ struct UpdateBanner: View {
     private var commandRow: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             HStack(spacing: Theme.Spacing.xs) {
-                Text(config.upgradeCommand)
-                    .font(.system(size: 11, design: .monospaced))
-                    .textSelection(.enabled)
-                    .padding(.horizontal, Theme.Spacing.sm)
-                    .padding(.vertical, Theme.Spacing.xs)
-                    .background(
-                        RoundedRectangle(cornerRadius: Theme.Radius.sm).fill(colors.hover)
-                    )
+                CommandChip(
+                    config.upgradeCommand,
+                    colors: colors,
+                    weight: .regular,
+                    fill: 1.0,
+                    selectable: true
+                )
                 Button {
                     config.onCopyCommand()
                     copied = true

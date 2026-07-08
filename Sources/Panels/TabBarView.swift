@@ -136,14 +136,8 @@ private struct TabItemView: View {
                     .truncationMode(.tail)
                     .frame(maxWidth: Theme.Metrics.maxTabWidth, alignment: .leading)
             }
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(colors.secondary)
-            .opacity(hovered || selected ? 1 : 0)
-            .help("Close tab")
+            CloseButton(color: colors.secondary, size: 8, help: "Close tab", action: onClose)
+                .opacity(hovered || selected ? 1 : 0)
         }
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, Theme.Spacing.xs)

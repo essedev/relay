@@ -69,12 +69,6 @@ public struct ResumeBar: View {
     }
 
     private var dismissButton: some View {
-        Button(action: onDismiss) {
-            Image(systemName: "xmark")
-                .font(.system(size: 9, weight: .bold))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(colors.secondary)
-        .help("Dismiss")
+        CloseButton(color: colors.secondary, help: "Dismiss", action: onDismiss)
     }
 }

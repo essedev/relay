@@ -42,9 +42,10 @@ struct ClaudeHooksBlock: View {
                 .foregroundStyle(colors.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
-                Circle()
-                    .fill(installed ? colors.running : colors.secondary.opacity(0.5))
-                    .frame(width: 7, height: 7)
+                StatusDot(
+                    color: installed ? colors.accent : colors.secondary.opacity(0.5),
+                    size: Theme.Metrics.statusDotCompact
+                )
                 Text(installed ? "Installed" : "Not installed")
                     .font(Theme.Typography.item)
                     .foregroundStyle(colors.foreground)

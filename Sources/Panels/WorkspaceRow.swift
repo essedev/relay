@@ -114,13 +114,8 @@ struct WorkspaceRow: View {
     /// Su hover mostra la x di chiusura; a riposo il badge di severità aggregato.
     @ViewBuilder private var trailing: some View {
         if hovered {
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-            }
-            .buttonStyle(.plain) // niente padding/bezel del bottone: glyph a filo come il badge
-            .foregroundStyle(colors.secondary)
-            .help("Close workspace")
+            // glyph a filo come il badge che rimpiazza a riposo (default size 9)
+            CloseButton(color: colors.secondary, help: "Close workspace", action: onClose)
         } else {
             WorkspaceBadge(workspace: workspace, colors: colors)
         }

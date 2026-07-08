@@ -113,9 +113,10 @@ struct WorkspaceNamingBlock: View {
                     .disabled(keyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             HStack(spacing: Theme.Spacing.xs) {
-                Circle()
-                    .fill(keySaved ? colors.running : colors.secondary.opacity(0.5))
-                    .frame(width: 7, height: 7)
+                StatusDot(
+                    color: keySaved ? colors.accent : colors.secondary.opacity(0.5),
+                    size: Theme.Metrics.statusDotCompact
+                )
                 Text(keySaved ? "A key is saved" : "No key saved")
                     .font(Theme.Typography.caption)
                     .foregroundStyle(colors.secondary)

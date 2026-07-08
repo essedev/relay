@@ -104,12 +104,6 @@ public struct FindBar: View {
     }
 
     private var closeButton: some View {
-        Button(action: onClose) {
-            Image(systemName: "xmark")
-                .font(.system(size: 9, weight: .bold))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(colors.secondary)
-        .help("Close (Esc)")
+        CloseButton(color: colors.secondary, help: "Close (Esc)", action: onClose)
     }
 }

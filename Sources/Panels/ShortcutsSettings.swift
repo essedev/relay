@@ -46,20 +46,14 @@ struct ShortcutRow: View {
 
     private var comboButton: some View {
         Button(action: toggleRecording) {
-            Text(recording ? "Type shortcut…" : settings.binding(for: action).display)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(recording ? colors.accent : colors.foreground)
-                .frame(minWidth: 58)
-                .padding(.horizontal, Theme.Spacing.sm)
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                        .fill(colors.hover.opacity(recording ? 0.8 : 0.4))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                        .stroke(recording ? colors.accent : Color.clear, lineWidth: 1)
-                )
+            CommandChip(
+                recording ? "Type shortcut…" : settings.binding(for: action).display,
+                colors: colors,
+                foreground: recording ? colors.accent : nil,
+                minWidth: 58,
+                fill: recording ? 0.8 : 0.4,
+                border: recording ? colors.accent : nil
+            )
         }
         .buttonStyle(.plain)
     }
