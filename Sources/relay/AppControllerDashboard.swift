@@ -25,8 +25,7 @@ extension AppController {
                 onJump: { [weak self] workspace, tab in
                     guard let self else { return }
                     closeDashboard()
-                    store.selectWorkspace(workspace.id)
-                    store.selectTab(tab.id, in: workspace)
+                    store.reveal(workspaceID: workspace.id, tabID: tab.id)
                 },
                 onClose: { [weak self] in self?.closeDashboard() }
             ))

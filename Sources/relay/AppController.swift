@@ -158,11 +158,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     /// in primo piano. Se un workspace archiviato genera una notifica lo ripristina, altrimenti la
     /// selezione punterebbe a una riga fuori dalla lista visibile.
     private func activateTab(workspaceID: UUID, tabID: UUID) {
-        guard let workspace = store.workspaces.first(where: { $0.id == workspaceID })
-        else { return }
-        if workspace.archived { store.setArchived(workspaceID, false) }
-        store.selectWorkspace(workspaceID)
-        store.selectTab(tabID, in: workspace)
+        store.reveal(workspaceID: workspaceID, tabID: tabID)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
