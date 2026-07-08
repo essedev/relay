@@ -5,8 +5,9 @@ import WorkspaceModel
 
 /// Nomina automatica dei workspace via LLM (endpoint OpenAI-compatible). Vive nel composition root
 /// (come `UpdateController`): è l'unico punto che tocca la rete per questa feature e lega la logica
-/// pura (`Core.WorkspaceNaming`) allo store e alle surface. La policy dei trigger sta qui, la
-/// costruzione del prompt e la sanitizzazione nel modulo puro (testato).
+/// pura allo store e alle surface. La policy dei trigger (`Core.NamingTriggerPolicy`), la
+/// costruzione del prompt e la sanitizzazione (`Core.WorkspaceNaming`) stanno nel modulo puro
+/// (testato); qui resta il wiring: eleggibilità, timer, letture della surface e rete.
 ///
 /// Modello: un workspace `.default` (placeholder o nome-cartella) è "eleggibile"; un poll leggero
 /// osserva la sua tab selezionata e, al primo segnale utile, chiede un nome e lo applica
@@ -33,11 +34,6 @@ final class NamingController {
     /// Intervallo del poll. Un compromesso: abbastanza reattivo per cogliere un `brew update` senza
     /// spammare. La latenza di nomina non è UX critica.
     private static let pollInterval: TimeInterval = 3
-    /// Secondi di cwd stabile (immutata) prima di nominare dalla sola directory.
-    private static let cwdStableSeconds: TimeInterval = 10
-    /// Tick consecutivi con lo stesso comando in foreground prima di nominare da esso (filtra i
-    /// comandi lampo come un `ls`).
-    private static let commandStreakThreshold = 2
     /// Tentativi per workspace prima di arrendersi (errori di rete/parse/sanitize).
     private static let maxAttempts = 2
 
@@ -49,10 +45,9 @@ final class NamingController {
     private var attempts: [UUID: Int] = [:]
     /// Workspace per cui abbiamo smesso di provare (max tentativi): saltati dal poll.
     private var abandoned: Set<UUID> = []
-    /// Streak del comando in foreground per workspace (comando + tick consecutivi).
-    private var commandStreak: [UUID: (command: String, count: Int)] = [:]
-    /// Tracking della cwd per la stabilizzazione (path corrente + da quando è stabile).
-    private var cwdTracking: [UUID: (path: String, since: Date)] = [:]
+    /// Policy dei trigger per workspace (streak comando + stabilizzazione cwd). Logica pura in
+    /// `Core.NamingTriggerPolicy`; qui resta solo lo stato accumulato tick dopo tick.
+    private var policies: [UUID: NamingTriggerPolicy] = [:]
 
     init(
         store: WorkspaceStore,
@@ -153,58 +148,24 @@ final class NamingController {
             && !inFlight.contains(workspace.id)
     }
 
-    /// Valuta la tab selezionata di un workspace eleggibile e, al primo segnale utile, fa partire
-    /// la
-    /// nomina. Priorità: agente attivo (subito) > comando stabile > cwd stabilizzata.
+    /// Legge lo stato osservabile della tab selezionata (agente/comando/cwd) e delega la decisione
+    /// alla `NamingTriggerPolicy` pura; se decide di nominare, fa partire la richiesta. La priorità
+    /// dei segnali (agente > comando stabile > cwd stabilizzata) vive nella policy.
     private func evaluate(_ workspace: Workspace, apiKey: String, now: Date) {
         guard let tab = workspace.selectedTab else { return }
-        let cwd = tab.currentDirectory
         let agentActive = tab.agentState == .running || tab.agentState == .needsInput
         let command = WorkspaceNaming.command(fromArgv: foregroundCommandLine(tab.id))
-
-        // 1) Agente attivo: segnale forte, nomina subito (cwd + eventuale comando + agente).
-        if agentActive {
-            fire(
-                workspace.id,
-                signals: WorkspaceNameSignals(directory: cwd, command: command, agent: "claude"),
-                apiKey: apiKey
-            )
-            return
+        var policy = policies[workspace.id] ?? NamingTriggerPolicy()
+        let decision = policy.observe(
+            agent: agentActive ? "claude" : nil,
+            command: command,
+            cwd: tab.currentDirectory,
+            now: now
+        )
+        policies[workspace.id] = policy
+        if case let .name(signals) = decision {
+            fire(workspace.id, signals: signals, apiKey: apiKey)
         }
-
-        // 2) Comando in foreground stabile per N tick consecutivi (filtra i comandi lampo).
-        if let command {
-            let previous = commandStreak[workspace.id]
-            let streak = (previous?.command == command ? (previous?.count ?? 0) : 0) + 1
-            commandStreak[workspace.id] = (command, streak)
-            if streak >= Self.commandStreakThreshold {
-                fire(
-                    workspace.id,
-                    signals: WorkspaceNameSignals(directory: cwd, command: command),
-                    apiKey: apiKey
-                )
-                return
-            }
-        } else {
-            commandStreak[workspace.id] = nil
-        }
-
-        // 3) cwd stabile (immutata da >= cwdStableSeconds) e fuori dalla home. `fire` scarta da
-        // solo
-        // il caso non azionabile (prompt nil), quindi una cwd = home non fa partire niente.
-        if let cwd {
-            if cwdTracking[workspace.id]?.path != cwd {
-                cwdTracking[workspace.id] = (cwd, now)
-            } else if cwdStable(workspace.id, now: now) {
-                fire(workspace.id, signals: WorkspaceNameSignals(directory: cwd), apiKey: apiKey)
-            }
-        }
-    }
-
-    /// `true` se la cwd tracciata per il workspace è stabile da almeno `cwdStableSeconds`.
-    private func cwdStable(_ id: UUID, now: Date) -> Bool {
-        guard let since = cwdTracking[id]?.since else { return false }
-        return now.timeIntervalSince(since) >= Self.cwdStableSeconds
     }
 
     /// Fa partire una richiesta di nomina se i segnali sono azionabili (`prompt != nil`) e non ce
@@ -248,16 +209,14 @@ final class NamingController {
     }
 
     private func cleanupTracking(_ id: UUID) {
-        commandStreak[id] = nil
-        cwdTracking[id] = nil
+        policies[id] = nil
     }
 
     /// Toglie lo stato di tracking dei workspace non più esistenti (chiusi), per non accumulare.
     private func prune(to liveIDs: Set<UUID>) {
         attempts = attempts.filter { liveIDs.contains($0.key) }
         abandoned = abandoned.intersection(liveIDs)
-        commandStreak = commandStreak.filter { liveIDs.contains($0.key) }
-        cwdTracking = cwdTracking.filter { liveIDs.contains($0.key) }
+        policies = policies.filter { liveIDs.contains($0.key) }
     }
 
     // MARK: - Rete

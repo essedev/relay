@@ -54,7 +54,9 @@ girano solo dal bundle (`make run-app`).
   `OSC7` = parsing cwd; `LatencyStats` = statistiche misure; `ShellEscape` = escaping path per il
   drop di file; `SemanticVersion` + `ReleaseCheck` = confronto versioni e parsing della GitHub
   Release per il check aggiornamenti, puro e testato; `WorkspaceNaming` = prompt/parse/sanitize
-  della nomina automatica dei workspace, puro e testato). Nessuna dipendenza. Il tema vive qui
+  della nomina automatica dei workspace + `NamingTriggerPolicy` = decisione pura su *quando*
+  nominare (streak comando + stabilizzazione cwd), entrambi puri e testati). Nessuna dipendenza.
+  Il tema vive qui
   perché sia il terminale (`TerminalEngine`) sia la chrome (`Panels`) lo convertono nei rispettivi
   tipi.
 - `AgentProtocol` - tipi evento/stato agente, puro. Niente I/O, niente AppKit.
@@ -215,7 +217,9 @@ girano solo dal bundle (`make run-app`).
   cartella (`NameOrigin.default`) viene rinominato al primo segnale utile da quello che ci fai. La
   logica pura sta in `Core.WorkspaceNaming` (costruzione prompt dai segnali cwd/comando/agente,
   parsing, sanitizzazione: strip virgolette/markdown, cap ~28 char al confine di parola, reject dei
-  generici; testata). Il `NamingController` (RelayApp, **unico punto che tocca la rete** per questa
+  generici; testata) e in `Core.NamingTriggerPolicy` (la state-machine pura che decide *quando* il
+  segnale è abbastanza forte: streak del comando + stabilizzazione cwd, con soglie; testata). Il
+  `NamingController` (RelayApp, **unico punto che tocca la rete** per questa
   feature) osserva l'eleggibilità (`settings.workspaceNamingEnabled` + esiste un `.default` +
   `credentials.hasKey()`) e, quando serve, fa girare un **poll** (timer ~3s) sulla tab selezionata
   dei workspace `.default`. Tre trigger, dal più forte: agente attivo (`running`/`needs_input`) ->
