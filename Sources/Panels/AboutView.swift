@@ -1,30 +1,24 @@
-import AppKit
 import SwiftUI
 import WorkspaceModel
 
 /// Pannello "About Relay" (menu Relay > About Relay). Look pulito ispirato ad "About This Mac":
 /// icona, nome, tagline, versione, in colonna centrata. I colori vengono dal tema corrente
 /// (`ChromeColors`) per restare coerenti con la chrome, non hardcoded (principio UI #6).
+/// L'icona è `RelayMarkView` (procedurale): identica all'`.icns` del bundle e disponibile anche
+/// nei build di sviluppo, dove `NSApp.applicationIconImage` darebbe l'icona generica.
 public struct AboutView: View {
     let settings: AppSettings
     let version: String
-    let icon: NSImage?
 
-    public init(settings: AppSettings, version: String, icon: NSImage?) {
+    public init(settings: AppSettings, version: String) {
         self.settings = settings
         self.version = version
-        self.icon = icon
     }
 
     public var body: some View {
         let colors = ChromeColors(settings.theme)
         VStack(spacing: Theme.Spacing.sm) {
-            if let icon {
-                Image(nsImage: icon)
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: 96, height: 96)
-            }
+            RelayMarkView(size: 96)
             Text("Relay")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(colors.foreground)

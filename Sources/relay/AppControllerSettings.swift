@@ -35,11 +35,7 @@ extension AppController {
         }
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
         let hosting = NSHostingController(
-            rootView: AboutView(
-                settings: settings,
-                version: version,
-                icon: NSApp.applicationIconImage
-            )
+            rootView: AboutView(settings: settings, version: version)
         )
         hosting.preferredContentSize = NSSize(width: 320, height: 300)
         let panel = NSWindow(contentViewController: hosting)
