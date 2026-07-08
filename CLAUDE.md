@@ -20,7 +20,10 @@ il workspace in cima con un riordino reale e persistente; la ripresa non muove n
 dei workspace (sezione
 collassabile in fondo alla sidebar, menu `Archive`/`Unarchive`; drag dentro/fuori ancora da fare)**
 + **pannello "About Relay" (menu Relay > About Relay, stile "About This Mac": icona + nome +
-versione dal bundle) - vedi gotcha**.
+versione dal bundle) - vedi gotcha** + **onboarding "Welcome to Relay" (overlay al primo avvio,
+riapribile da Help > Welcome to Relay: 5 pagine coi componenti veri al posto di screenshot,
+pagina hook azionabile, stati di attenzione cliccabili con preview live, temi selezionabili
+dal vivo) - vedi gotcha**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
@@ -71,8 +74,9 @@ girano solo dal bundle (`make run-app`).
   `DashboardView`: griglia di triage delle sessioni), `Reorderable` (riordino drag & drop di
   workspace e tab: `DragGesture` + `.offset` + linea di inserimento), `WindowDragArea` (drag
   finestra dalla title strip), `SettingsView` (+ `SettingsComponents`), `AboutView` (pannello
-  "About Relay" a tema), `ShortcutsList` (recorder
-  shortcut), `KeyEventBridge`
+  "About Relay" a tema), `Onboarding` (`OnboardingModel` puro + `OnboardingView` +
+  `OnboardingPages`/`OnboardingAttention` + `RelayMarkView`, icona procedurale), `ShortcutsList`
+  (recorder shortcut), `KeyEventBridge`
   (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori vengono dal tema
   (`AppSettings.theme`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
@@ -287,6 +291,23 @@ girano solo dal bundle (`make run-app`).
   L'observer del ring (`observeRing`) è **separato** da `render()` e **non** scrive `attention`:
   altrimenti un completamento sulla tab in vista si spegnerebbe da solo (loop col reset della
   visita). Il declassamento (mark-read) lo fa solo l'interazione col terminale (monitor key/mouse).
+- Onboarding: overlay full-window come la dashboard (`AppControllerOnboarding`, wiring identico a
+  `AppControllerDashboard`), al primo avvio (`AppSettings.onboardingSeen`, timbrato alla
+  presentazione; mai in demo mode) e da Help > Welcome to Relay. Mentre è aperto il monitor si fa
+  da parte (`isOnboardingOpen`, i tasti vanno alla vista: frecce/Invio/Esc via `.focusable` +
+  first responder deferito). Un solo overlay full-window alla volta: aprire l'uno chiude l'altro
+  (`presentOnboarding`/`openDashboard` si chiudono a vicenda, altrimenti gli host resterebbero
+  incoerenti). Niente screenshot nelle pagine: componenti veri (`AgentBadge`, keycap dai binding
+  correnti, `ThemeSwatch` che seleziona il tema dal vivo, `RelayMarkView` = icona ridisegnata in
+  SwiftUI con la geometria di `bundle/make-icon.swift`, usata anche da About - da dev build
+  `NSApp.applicationIconImage` darebbe l'icona generica).
+- Overlay full-window e hit-testing: `presentFullOverlay` avvolge l'overlay in un
+  `FullOverlayContainerView` il cui `hitTest` non torna mai `nil` dentro i bounds e consuma il
+  mouse nelle zone senza contenuto hit-testable; senza, mouse e cursor update cadevano sul
+  terminale sotto (selezione di testo con l'overlay aperto). Le cursor rects della finestra sono
+  disattivate finché l'overlay è su (`disableCursorRects`): quelle di SwiftTerm
+  (`addCursorRect(bounds, .iBeam)`) non rispettano l'occlusione e terrebbero l'I-beam sopra
+  l'overlay.
 - Toggle sidebar: è un overlay a livello finestra (`RootOverlayController`), **non** un
   `NSTitlebarAccessoryViewController` - quello non viene renderizzato con `titleVisibility = .hidden`
   su macOS 26. L'overlay insegue il bordo della sidebar via `splitViewDidResizeSubviews`.

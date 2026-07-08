@@ -22,6 +22,8 @@ final class AppController: NSObject, NSApplicationDelegate {
     var rootController: RootOverlayController! // internal: overlay dashboard (extension)
     /// Host dell'overlay dashboard quando è aperta (`nil` = chiusa). Vedi AppControllerDashboard.
     var dashboardHost: NSView?
+    /// Host dell'overlay onboarding quando è aperto (`nil` = chiuso). Vedi AppControllerOnboarding.
+    var onboardingHost: NSView?
     var settingsWindow: NSWindow? // internal: aperto/chiuso dall'extension delle impostazioni
     var aboutWindow: NSWindow? // internal: pannello "About Relay" (extension impostazioni)
     private var untitledCount = 0
@@ -100,6 +102,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         startPerfSamplerIfEnabled()
         setupNotificationsIfBundled()
         updateController.checkOnLaunch()
+        // Onboarding al primo avvio, mai in demo mode (lì l'app serve a mostrare, non a spiegare).
+        if demoDriver == nil {
+            showOnboardingIfFirstLaunch()
+        }
     }
 
     @objc func checkForUpdates(_: Any?) {

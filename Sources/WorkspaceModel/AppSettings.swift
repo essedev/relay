@@ -51,6 +51,10 @@ public final class AppSettings {
     public private(set) var checkForUpdatesAutomatically: Bool
     public private(set) var skippedUpdateVersion: String?
 
+    /// Onboarding (Welcome to Relay) già mostrato: al primo avvio l'overlay parte da solo, poi si
+    /// riapre solo da Help > Welcome to Relay. One-shot, non torna `false`.
+    public private(set) var onboardingSeen: Bool
+
     /// Combinazioni per le azioni rimappabili. Dizionario completo (ogni `ShortcutAction`), che
     /// parte dai default e sovrascrive con quanto salvato. I select-by-number e i comandi di
     /// sistema non sono rimappabili e non stanno qui.
@@ -97,6 +101,7 @@ public final class AppSettings {
         notificationSoundName = defaults.string(forKey: Keys.notificationSoundName) ?? "Default"
         checkForUpdatesAutomatically = Self.boolDefaultingTrue(defaults, Keys.checkForUpdates)
         skippedUpdateVersion = defaults.string(forKey: Keys.skippedUpdateVersion)
+        onboardingSeen = defaults.bool(forKey: Keys.onboardingSeen)
         keybindings = Self.loadKeybindings(defaults)
     }
 
@@ -208,6 +213,13 @@ public final class AppSettings {
         defaults.set(enabled, forKey: Keys.checkForUpdates)
     }
 
+    /// Timbra l'onboarding come visto (alla prima presentazione): non ripartirà da solo.
+    public func markOnboardingSeen() {
+        guard !onboardingSeen else { return }
+        onboardingSeen = true
+        defaults.set(true, forKey: Keys.onboardingSeen)
+    }
+
     /// Mette in "skip" una versione: non verrà più proposta finché non ne esce una più nuova.
     public func skipUpdateVersion(_ version: String) {
         guard version != skippedUpdateVersion else { return }
@@ -310,6 +322,7 @@ public final class AppSettings {
         static let notificationSoundName = "relay.notifications.soundName"
         static let checkForUpdates = "relay.updates.checkAutomatically"
         static let skippedUpdateVersion = "relay.updates.skippedVersion"
+        static let onboardingSeen = "relay.onboarding.seen"
         static let keybindings = "relay.shortcuts.bindings"
     }
 }

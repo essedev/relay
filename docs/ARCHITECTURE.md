@@ -292,6 +292,15 @@ root:
   così scattano anche col terminale in focus.
 - Dashboard (`Cmd+D`): overlay full-window sopra tutto (`RootOverlayController.presentFullOverlay`)
   con la griglia delle sessioni agente - vedi #Dashboard-Delle-Sessioni.
+- Onboarding ("Welcome to Relay"): overlay full-window al primo avvio (flag
+  `AppSettings.onboardingSeen`, mai in demo mode), riapribile da Help > Welcome to Relay. Cinque
+  pagine coi componenti veri del design system al posto di screenshot (badge live, keycap dai
+  binding correnti, temi selezionabili dal vivo, icona procedurale `RelayMarkView`); la pagina
+  hook riusa `ClaudeHooksBlock` (stato + install). Logica di navigazione pura
+  (`OnboardingModel`, testata), wiring in `AppControllerOnboarding`.
+- Gli overlay full-window sono avvolti in un container che chiude i buchi di hit-testing (il
+  mouse non passa mai al terminale sotto) e disattivano le cursor rects della finestra finché
+  sono su (quelle di SwiftTerm non rispettano l'occlusione: I-beam sopra l'overlay).
 - Sidebar: `NSSplitViewItem` normale, **non** `sidebarWithViewController:` (su macOS 26 quello stila
   la sidebar come pannello glass flottante, in conflitto col design flat themed). Righe con
   selezione/hover dai colori del tema (niente highlight di sistema), sottotitolo per riga

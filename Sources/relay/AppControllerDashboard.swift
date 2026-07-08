@@ -17,6 +17,7 @@ extension AppController {
     }
 
     private func openDashboard() {
+        closeOnboarding() // un overlay full-window alla volta, con lo stato che resta coerente
         applyPendingDecayIfEnabled() // le card nascono già decadute, se la preferenza è attiva
         let dashboard = DashboardView(
             store: store,

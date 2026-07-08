@@ -53,6 +53,9 @@ extension AppController {
             guard let self else { return event }
             // Mentre il recorder registra, il monitor è trasparente: l'evento arriva al recorder.
             if settings.isCapturingShortcut { return event }
+            // Onboarding aperto: i tasti vanno alla vista (frecce, Invio, Esc, gestiti da lei);
+            // nav 1..9, azioni rimappabili e mark-read sospesi, come per la dashboard.
+            if isOnboardingOpen { return event }
             // Dashboard aperta: i tasti vanno alla vista (filtro, frecce, Invio; Esc lo gestisce
             // lei). Resta attivo solo il toggle per chiuderla; niente nav 1..9 e niente mark-read
             // (stai facendo triage, non usando la tab sotto l'overlay).

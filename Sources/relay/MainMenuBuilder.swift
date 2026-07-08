@@ -14,6 +14,7 @@ enum MainMenuBuilder {
         mainMenu.addItem(goMenu(target, settings))
         mainMenu.addItem(viewMenu(target, settings))
         mainMenu.addItem(editMenu(target, settings))
+        mainMenu.addItem(helpMenu(target))
         return mainMenu
     }
 
@@ -143,6 +144,17 @@ enum MainMenuBuilder {
             actionItem(.zoomOut, settings, target),
             actionItem(.actualSize, settings, target),
         ])
+    }
+
+    /// Help: riapre l'onboarding (Welcome to Relay), che al primo avvio parte da solo.
+    private static func helpMenu(_ target: AnyObject) -> NSMenuItem {
+        let welcome = NSMenuItem(
+            title: "Welcome to Relay",
+            action: #selector(AppController.showWelcome(_:)),
+            keyEquivalent: ""
+        )
+        welcome.target = target
+        return submenu("Help", [welcome])
     }
 
     /// Edit: Copy/Paste/Select All restano `keyEquivalent` (responder chain di SwiftTerm); find e
