@@ -62,10 +62,10 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
     /// Applica il tema al terminale. I tipi SwiftTerm/NSColor restano confinati qui.
     func apply(theme: RelayTheme) {
         terminal.installColors(theme.ansi.map(Self.swiftTermColor))
-        terminal.nativeBackgroundColor = Self.nsColor(theme.background)
-        terminal.nativeForegroundColor = Self.nsColor(theme.foreground)
-        terminal.caretColor = Self.nsColor(theme.cursor)
-        terminal.selectedTextBackgroundColor = Self.nsColor(theme.selection)
+        terminal.nativeBackgroundColor = NSColor(relay: theme.background)
+        terminal.nativeForegroundColor = NSColor(relay: theme.foreground)
+        terminal.caretColor = NSColor(relay: theme.cursor)
+        terminal.selectedTextBackgroundColor = NSColor(relay: theme.selection)
         // Blink del caret: SwiftTerm parte con `.blinkBlock`. `setCursorStyle` notifica la view e
         // (dis)attiva l'animazione. Un'app interna può comunque richiederlo via DECSCUSR.
         terminal.getTerminal().setCursorStyle(theme.cursorBlink ? .blinkBlock : .steadyBlock)
@@ -82,15 +82,6 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
             red: UInt16(color.red) * 257,
             green: UInt16(color.green) * 257,
             blue: UInt16(color.blue) * 257
-        )
-    }
-
-    private static func nsColor(_ color: RelayColor) -> NSColor {
-        NSColor(
-            srgbRed: CGFloat(color.red) / 255,
-            green: CGFloat(color.green) / 255,
-            blue: CGFloat(color.blue) / 255,
-            alpha: 1
         )
     }
 

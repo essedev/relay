@@ -94,17 +94,3 @@ final class AttentionRingView: NSView {
         ringLayer.add(blink, forKey: "flash")
     }
 }
-
-extension NSColor {
-    /// Da colore del tema (dato puro) a `NSColor`. Locale a TerminalHostUI: il modulo non dipende
-    /// da
-    /// AppKit+tema altrove.
-    convenience init(relay color: RelayColor) {
-        self.init(
-            srgbRed: CGFloat(color.red) / 255,
-            green: CGFloat(color.green) / 255,
-            blue: CGFloat(color.blue) / 255,
-            alpha: 1
-        )
-    }
-}
