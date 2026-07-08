@@ -11,6 +11,8 @@ struct CommandChip<Content: View>: View {
     private let weight: Font.Weight
     private let foreground: Color?
     private let minWidth: CGFloat?
+    private let maxWidth: CGFloat?
+    private let alignment: Alignment
     private let fill: Double
     private let border: Color?
     private let selectable: Bool
@@ -21,6 +23,8 @@ struct CommandChip<Content: View>: View {
         weight: Font.Weight = .medium,
         foreground: Color? = nil,
         minWidth: CGFloat? = nil,
+        maxWidth: CGFloat? = nil,
+        alignment: Alignment = .center,
         fill: Double = 0.4,
         border: Color? = nil,
         selectable: Bool = false,
@@ -30,6 +34,8 @@ struct CommandChip<Content: View>: View {
         self.weight = weight
         self.foreground = foreground
         self.minWidth = minWidth
+        self.maxWidth = maxWidth
+        self.alignment = alignment
         self.fill = fill
         self.border = border
         self.selectable = selectable
@@ -42,7 +48,7 @@ struct CommandChip<Content: View>: View {
             .foregroundStyle(foreground ?? colors.foreground)
             .padding(.horizontal, Theme.Spacing.sm)
             .padding(.vertical, 3)
-            .frame(minWidth: minWidth)
+            .frame(minWidth: minWidth, maxWidth: maxWidth, alignment: alignment)
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.sm)
                     .fill(colors.hover.opacity(fill))
@@ -71,6 +77,8 @@ extension CommandChip where Content == Text {
         weight: Font.Weight = .medium,
         foreground: Color? = nil,
         minWidth: CGFloat? = nil,
+        maxWidth: CGFloat? = nil,
+        alignment: Alignment = .center,
         fill: Double = 0.4,
         border: Color? = nil,
         selectable: Bool = false
@@ -80,6 +88,8 @@ extension CommandChip where Content == Text {
             weight: weight,
             foreground: foreground,
             minWidth: minWidth,
+            maxWidth: maxWidth,
+            alignment: alignment,
             fill: fill,
             border: border,
             selectable: selectable

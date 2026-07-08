@@ -135,6 +135,12 @@ struct UpdateBanner: View {
                     // testo del comando resta sulla label di sistema (`.primary`), adattiva a
                     // light/dark, come prima (senza, un tema chiaro su OS scuro perde contrasto).
                     foreground: .primary,
+                    // Il box si estende a tutta la larghezza disponibile: il comando va a capo su
+                    // due righe e ritornerebbe una larghezza minore di quella proposta, staccando
+                    // le icone dal bordo destro (lo spazio vuoto). Espanso, le azioni si ancorano
+                    // a destra e la riga si allinea al resto del popover (full-width).
+                    maxWidth: .infinity,
+                    alignment: .leading,
                     fill: 1.0,
                     selectable: true
                 )
