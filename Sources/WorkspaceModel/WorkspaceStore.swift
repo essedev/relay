@@ -16,6 +16,13 @@ public final class WorkspaceStore {
     /// `@ObservationIgnored`: è un hook imperativo, non stato osservato.
     @ObservationIgnored public var onNotifiableTransition: ((AgentNotification) -> Void)?
 
+    /// Effetto per il "flash" di completamento sulla tab in vista: lo store lo chiama con l'id
+    /// della tab quando il lavoro finisce mentre la guardi. Il completamento nasce forte (`unseen`:
+    /// ring + flash + badge pieno) e il composition root schedula un mark-read differito che dopo
+    /// qualche secondo lo declassa a `pending` (via `markSeen`). Fuori di qui perché richiede un
+    /// timer (AppKit/dispatch), che lo store puro non ha. `@ObservationIgnored`: hook imperativo.
+    @ObservationIgnored public var onVisibleCompletion: ((UUID) -> Void)?
+
     /// Soglia anti-stantio per gli eventi agente: un evento con `timestamp` anteriore viene
     /// scartato (vedi `applyAgentState`). Il composition root la timbra all'avvio. Serve perché il
     /// `RELAY_TAB_ID` è stabile tra i riavvii: un evento generato prima del restart (`SessionEnd`

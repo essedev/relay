@@ -1,4 +1,5 @@
 import AgentProtocol
+import Foundation
 
 /// Tipo di notifica macOS meritata da una transizione di stato agente.
 public enum AgentNotificationKind: Sendable, Equatable {
@@ -13,6 +14,10 @@ public enum AgentNotificationKind: Sendable, Equatable {
 /// composition root (`RelayApp`), non qui.
 public struct AgentNotification: Sendable, Equatable {
     public let kind: AgentNotificationKind
+    /// Tab e workspace che hanno originato la notifica: viaggiano nel `userInfo` così che il click
+    /// sulla notifica possa riportare in vista la tab giusta.
+    public let tabID: UUID
+    public let workspaceID: UUID
     public let tabTitle: String
     public let workspaceName: String
     /// La tab era quella in vista in Relay. Il coordinatore la usa per sopprimere il caso "la stai
@@ -21,11 +26,15 @@ public struct AgentNotification: Sendable, Equatable {
 
     public init(
         kind: AgentNotificationKind,
+        tabID: UUID,
+        workspaceID: UUID,
         tabTitle: String,
         workspaceName: String,
         isVisible: Bool
     ) {
         self.kind = kind
+        self.tabID = tabID
+        self.workspaceID = workspaceID
         self.tabTitle = tabTitle
         self.workspaceName = workspaceName
         self.isVisible = isVisible

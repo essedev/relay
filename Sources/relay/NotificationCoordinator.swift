@@ -1,4 +1,5 @@
 import Core
+import Foundation
 import UserNotifications
 import WorkspaceModel
 
@@ -14,6 +15,16 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
     private let settings: AppSettings
     private let center = UNUserNotificationCenter.current()
     private let log = RelayLog.logger("notifications")
+
+    /// Chiavi del `userInfo` che legano la notifica alla tab da riportare in vista.
+    private enum UserInfoKey {
+        static let workspaceID = "relay.workspaceID"
+        static let tabID = "relay.tabID"
+    }
+
+    /// Click sulla notifica: (workspaceID, tabID) della tab da attivare. Wired dal composition
+    /// root.
+    var onActivate: ((UUID, UUID) -> Void)?
 
     init(settings: AppSettings) {
         self.settings = settings
@@ -31,6 +42,27 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             -> Void
     ) {
         completionHandler([.banner, .sound, .list])
+    }
+
+    /// Click sulla notifica (azione di default): riporta in vista la tab che l'ha generata. Legge
+    /// gli id dal `userInfo` e delega al composition root, che seleziona workspace+tab e attiva la
+    /// finestra. Senza questo handler il click non faceva nulla (era la causa del "cliccare la
+    /// notifica non apre la tab").
+    nonisolated func userNotificationCenter(
+        _: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        defer { completionHandler() }
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
+        let info = response.notification.request.content.userInfo
+        guard let wsRaw = info[UserInfoKey.workspaceID] as? String,
+              let tabRaw = info[UserInfoKey.tabID] as? String,
+              let workspaceID = UUID(uuidString: wsRaw),
+              let tabID = UUID(uuidString: tabRaw) else { return }
+        Task { @MainActor [weak self] in
+            self?.onActivate?(workspaceID, tabID)
+        }
     }
 
     /// Chiede l'autorizzazione al boot e logga l'esito + lo stato corrente (diagnostica: una
@@ -79,6 +111,10 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         let content = UNMutableNotificationContent()
         content.title = Self.title(for: request.kind)
         content.body = "\(request.workspaceName) / \(request.tabTitle)"
+        content.userInfo = [
+            UserInfoKey.workspaceID: request.workspaceID.uuidString,
+            UserInfoKey.tabID: request.tabID.uuidString,
+        ]
         if settings.notificationSound {
             content.sound = Self.sound(named: settings.notificationSoundName)
         }

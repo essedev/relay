@@ -71,8 +71,10 @@ private func makeFixture() -> Fixture {
     #expect(fixture.hiddenTab.lastEventAt == Date(timeIntervalSince1970: 99)) // monotonicità avanza
 }
 
-@Test @MainActor func completedOnVisibleTabBecomesPending() {
+@Test @MainActor func completedOnVisibleTabRaisesUnseenAndSignalsFlash() {
     let fixture = makeFixture()
+    var flashed: [UUID] = []
+    fixture.store.onVisibleCompletion = { flashed.append($0) }
     let tabID = fixture.visibleTab.id.uuidString
     fixture.store.applyAgentState(
         paneId: tabID,
@@ -81,8 +83,45 @@ private func makeFixture() -> Fixture {
     )
     fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
     #expect(fixture.visibleTab.agentState == .idle)
-    // Guardavi: percezione già avvenuta -> "in sospeso" (quieto), non forte.
+    // Anche guardando, il marker nasce forte (`unseen`: ring + flash + badge pieno); il
+    // declassamento a "in sospeso" lo fa il composition root col mark-read differito, segnalato
+    // qui da `onVisibleCompletion`.
+    #expect(fixture.visibleTab.attention == .unseen)
+    #expect(flashed == [fixture.visibleTab.id])
+}
+
+/// Un completamento non visto (tab nascosta) NON segnala il flash: resta forte finché non lo vedi,
+/// senza timer di declassamento.
+@Test @MainActor func completedOnHiddenTabDoesNotSignalFlash() {
+    let fixture = makeFixture()
+    var flashed: [UUID] = []
+    fixture.store.onVisibleCompletion = { flashed.append($0) }
+    let tabID = fixture.hiddenTab.id.uuidString
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 1)
+    )
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
+    #expect(fixture.hiddenTab.attention == .unseen)
+    #expect(flashed.isEmpty)
+}
+
+/// `store.markSeen(id)` (target del timer di flash): declassa un `unseen` a `pending` e restamp
+/// `attentionSince`; è un no-op su ogni altro livello (idempotente).
+@Test @MainActor func markSeenByIdDeclassesUnseenOnly() {
+    let fixture = makeFixture()
+    fixture.visibleTab.attention = .unseen
+    fixture.store.markSeen(fixture.visibleTab.id)
     #expect(fixture.visibleTab.attention == .pending)
+    // No-op su pending e none.
+    fixture.store.markSeen(fixture.visibleTab.id)
+    #expect(fixture.visibleTab.attention == .pending)
+    fixture.hiddenTab.attention = .none
+    fixture.store.markSeen(fixture.hiddenTab.id)
+    #expect(fixture.hiddenTab.attention == .none)
+    // Id inesistente: no-op, nessun crash.
+    fixture.store.markSeen(UUID())
 }
 
 @Test func resumeBindingRejectsUnsafeComponents() {
@@ -142,16 +181,16 @@ private func makeFixture() -> Fixture {
     #expect(emitted.map(\.kind) == [.completed])
 }
 
-@Test @MainActor func activeAppOnSelectedTabGoesPendingWithoutNotifying() {
-    // Relay in primo piano sulla tab in vista: completare non notifica (lo stai guardando);
-    // il marker nasce quieto ("in sospeso"), non forte.
+@Test @MainActor func activeAppOnSelectedTabRaisesUnseenWithoutNotifying() {
+    // Relay in primo piano sulla tab in vista: completare non notifica (lo stai guardando). Il
+    // marker nasce comunque forte (`unseen`, per il flash); il composition root lo declassa dopo.
     let fixture = makeFixture()
     var emitted: [AgentNotification] = []
     fixture.store.onNotifiableTransition = { emitted.append($0) }
     let tabID = fixture.visibleTab.id.uuidString
     fixture.store.applyAgentState(paneId: tabID, state: .running, at: Date(), appActive: true)
     fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(), appActive: true)
-    #expect(fixture.visibleTab.attention == .pending)
+    #expect(fixture.visibleTab.attention == .unseen)
     #expect(emitted.isEmpty)
 }
 
@@ -200,8 +239,8 @@ private func makeFixture() -> Fixture {
     #expect(store.orderedWorkspaces.map(\.name) == ["c", "a", "b"])
 }
 
-/// Se completa mentre la stai guardando, la riga NON salta sotto le mani: la percezione è già
-/// avvenuta (il marker nasce quieto, `pending`).
+/// Se completa mentre la stai guardando, la riga NON salta sotto le mani: il bump è gated su
+/// `!isVisible` (indipendente dal livello del marker, che qui nasce `unseen` per il flash).
 @Test @MainActor func completionOnVisibleTabDoesNotBump() {
     let store = WorkspaceStore()
     _ = store.createWorkspace(name: "a")
@@ -212,7 +251,7 @@ private func makeFixture() -> Fixture {
     store.applyAgentState(paneId: cTab, state: .running, at: Date(timeIntervalSince1970: 1))
     store.applyAgentState(paneId: cTab, state: .idle, at: Date(timeIntervalSince1970: 2))
     #expect(store.orderedWorkspaces.map(\.name) == ["a", "b", "c"]) // resta dov'è
-    #expect(c.tabs[0].attention == .pending)
+    #expect(c.tabs[0].attention == .unseen)
 }
 
 /// L'entrata in `needs_input` mentre non guardavi bumpa come il completamento.

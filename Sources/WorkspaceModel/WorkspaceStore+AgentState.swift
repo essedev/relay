@@ -59,19 +59,26 @@ public extension WorkspaceStore {
             let result = AgentStateReducer.reduce(
                 current: previousState,
                 incoming: state,
-                isVisible: isVisible,
                 currentAttention: tab.attention,
                 resetsAttention: resetsAttention
             )
             tab.apply(result, at: timestamp)
-            // Bump posizionale (modello lista chat): un'attività **non vista** - un completamento
-            // (il marker nasce) o l'entrata in `needs_input` - porta il workspace in cima. Reale e
-            // persistente, non float derivato. Simmetrico al segnale forte e alla notifica: solo
-            // `!isVisible`. La ripresa (`running`) non muove niente: la riga su cui lavori resta
-            // ferma; a scavalcarla è solo un altro bump o il tuo drag.
+            // `attentionBorn` = un completamento ha appena acceso il marker (`unseen`): è l'unico
+            // evento che alza `attention` da `none` (running/needs_input/error -> none, unknown
+            // preserva), quindi equivale a "running -> idle".
             let attentionBorn = previousAttention == .none && tab.attention != .none
             let enteredNeedsInput = previousState != .needsInput && tab.agentState == .needsInput
-            if !isVisible, attentionBorn || enteredNeedsInput {
+            if isVisible, attentionBorn {
+                // Flash di completamento sulla tab in vista: il marker è nato forte come ogni
+                // completamento; segnalo al composition root, che schedula un mark-read differito
+                // (declassa a `pending` dopo qualche secondo). Un completamento non visto invece
+                // resta forte finché non lo vedi (nessun timer).
+                onVisibleCompletion?(tab.id)
+            } else if !isVisible, attentionBorn || enteredNeedsInput {
+                // Bump (modello lista chat): un'attività **non vista** - un completamento o
+                // l'entrata in `needs_input` - porta il workspace in cima. Ordine reale e
+                // persistente, non un float derivato. La ripresa (`running`) non muove niente:
+                // la riga su cui lavori resta ferma, la scavalca solo un altro bump o il drag.
                 bumpWorkspaceToTop(workspace.id)
             }
             // Notifica (needs_input / completato non visto): classificazione pura, effetto nel
@@ -84,28 +91,44 @@ public extension WorkspaceStore {
             ) {
                 onNotifiableTransition?(AgentNotification(
                     kind: kind,
+                    tabID: tab.id,
+                    workspaceID: workspace.id,
                     tabTitle: tab.title,
                     workspaceName: workspace.name,
                     isVisible: isVisible
                 ))
             }
-            // Resume binding: aggiornato finché la sessione è viva, azzerato alla chiusura
-            // (`unknown` = SessionEnd). Si crea solo con componenti sicuri: sessionId/agent vuoti o
-            // con metacaratteri non producono un binding che `autoResumeAgents` inietterebbe nel
-            // pty.
-            let safeToBind = ResumeBinding.isSafeComponent(sessionId)
-                && ResumeBinding.isSafeComponent(agent)
-            if state == .unknown {
-                tab.resume = nil
-            } else if safeToBind {
-                tab.resume = ResumeBinding(agent: agent, sessionId: sessionId, label: tab.title)
-            }
+            updateResumeBinding(tab, agent: agent, sessionId: sessionId, state: state)
             return true
         }
         return false
     }
 
-    // MARK: - Attenzione (dismiss e decadenza)
+    /// Resume binding: aggiornato finché la sessione è viva, azzerato alla chiusura (`unknown` =
+    /// SessionEnd). Si crea solo con componenti sicuri: sessionId/agent vuoti o con metacaratteri
+    /// non producono un binding che `autoResumeAgents` inietterebbe nel pty.
+    private func updateResumeBinding(
+        _ tab: Tab,
+        agent: String,
+        sessionId: String,
+        state: AgentState
+    ) {
+        if state == .unknown {
+            tab.resume = nil
+        } else if ResumeBinding.isSafeComponent(sessionId), ResumeBinding.isSafeComponent(agent) {
+            tab.resume = ResumeBinding(agent: agent, sessionId: sessionId, label: tab.title)
+        }
+    }
+
+    // MARK: - Attenzione (mark-read, dismiss e decadenza)
+
+    /// Declassa (markSeen) il completamento non visto della tab per id: `unseen` -> `pending`.
+    /// Cerca la tab fra tutti i workspace (potrebbe non essere più selezionata quando il timer del
+    /// flash scatta). No-op se la tab non esiste o non è `unseen` (l'utente ha già interagito,
+    /// ripreso o dismesso nel frattempo): idempotente, coerente con `Tab.markSeen`.
+    func markSeen(_ tabID: UUID) {
+        workspaces.flatMap(\.tabs).first { $0.id == tabID }?.markSeen()
+    }
 
     /// Dismiss esplicito dell'attenzione di una tab ("era done, niente da fare"): spegne il
     /// marker a qualunque livello (unseen o pending). Ritorna `true` se c'era qualcosa da spegnere.

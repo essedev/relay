@@ -6,7 +6,6 @@ import Testing
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .idle,
-        isVisible: false,
         currentAttention: .none
     )
     #expect(result == AgentStateReducer.Result(state: .idle, attention: .none))
@@ -16,51 +15,29 @@ import Testing
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .idle,
-        isVisible: true,
         currentAttention: .pending
     )
     #expect(result == AgentStateReducer.Result(state: .idle, attention: .pending))
 }
 
-@Test func completedWhileHiddenRaisesUnseen() {
+/// Un completamento (running -> idle) nasce sempre col segnale forte (`unseen`), a prescindere
+/// dalla visibilità: sulla tab in vista è il composition root a declassarlo a `pending` dopo un
+/// breve flash (mark-read differito), non il reducer.
+@Test func completedRaisesUnseenRegardlessOfVisibility() {
     let result = AgentStateReducer.reduce(
         current: .running,
         incoming: .idle,
-        isVisible: false,
         currentAttention: .none
     )
     #expect(result == AgentStateReducer.Result(state: .idle, attention: .unseen))
 }
 
-/// Completare mentre guardi: la percezione è già avvenuta, il marker nasce direttamente "in
-/// sospeso" (quieto). Non sparisce: se ti distrai senza riprendere, la dashboard lo ricorda.
-@Test func completedWhileVisibleBecomesPending() {
-    let result = AgentStateReducer.reduce(
-        current: .running,
-        incoming: .idle,
-        isVisible: true,
-        currentAttention: .none
-    )
-    #expect(result == AgentStateReducer.Result(state: .idle, attention: .pending))
-}
-
 /// needs_input è uno stato, non un marker: non usa `attention` (il badge lo mostra dallo stato,
 /// e resta finché rispondi a Claude - non si spegne alla visita).
-@Test func needsInputDoesNotUseAttentionWhenHidden() {
+@Test func needsInputDoesNotUseAttention() {
     let result = AgentStateReducer.reduce(
         current: .running,
         incoming: .needsInput,
-        isVisible: false,
-        currentAttention: .none
-    )
-    #expect(result == AgentStateReducer.Result(state: .needsInput, attention: .none))
-}
-
-@Test func needsInputDoesNotUseAttentionWhenVisible() {
-    let result = AgentStateReducer.reduce(
-        current: .running,
-        incoming: .needsInput,
-        isVisible: true,
         currentAttention: .none
     )
     #expect(result == AgentStateReducer.Result(state: .needsInput, attention: .none))
@@ -70,7 +47,6 @@ import Testing
     let result = AgentStateReducer.reduce(
         current: .running,
         incoming: .error,
-        isVisible: false,
         currentAttention: .none
     )
     #expect(result == AgentStateReducer.Result(state: .error, attention: .none))
@@ -84,7 +60,6 @@ import Testing
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .running,
-        isVisible: false,
         currentAttention: .unseen
     )
     #expect(result == AgentStateReducer.Result(state: .running, attention: .none))
@@ -94,7 +69,6 @@ import Testing
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .running,
-        isVisible: true,
         currentAttention: .pending
     )
     #expect(result == AgentStateReducer.Result(state: .running, attention: .none))
@@ -104,7 +78,6 @@ import Testing
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .needsInput,
-        isVisible: false,
         currentAttention: .pending
     )
     #expect(result == AgentStateReducer.Result(state: .needsInput, attention: .none))
@@ -116,7 +89,6 @@ import Testing
     let unseen = AgentStateReducer.reduce(
         current: .idle,
         incoming: .unknown,
-        isVisible: false,
         currentAttention: .unseen
     )
     #expect(unseen == AgentStateReducer.Result(state: .unknown, attention: .unseen))
@@ -124,7 +96,6 @@ import Testing
     let pending = AgentStateReducer.reduce(
         current: .idle,
         incoming: .unknown,
-        isVisible: true,
         currentAttention: .pending
     )
     #expect(pending == AgentStateReducer.Result(state: .unknown, attention: .pending))
@@ -139,7 +110,6 @@ import Testing
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .idle,
-        isVisible: true,
         currentAttention: .pending,
         resetsAttention: true
     )
@@ -152,7 +122,6 @@ import Testing
     let result = AgentStateReducer.reduce(
         current: .idle,
         incoming: .idle,
-        isVisible: false,
         currentAttention: .unseen,
         resetsAttention: true
     )

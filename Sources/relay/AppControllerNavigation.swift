@@ -87,6 +87,27 @@ extension AppController {
         }
     }
 
+    /// Durata del "flash" di completamento sulla tab in vista: il marker nasce forte (ring verde +
+    /// flash + badge pieno) e dopo questo intervallo si declassa a "in sospeso" (badge dimesso).
+    private static let completionFlashDuration: TimeInterval = 4
+
+    /// Schedula il mark-read differito per un completamento avvenuto sulla tab in vista (segnalato
+    /// da `store.onVisibleCompletion`): dopo `completionFlashDuration` declassa `unseen` ->
+    /// `pending` (`store.markSeen`, no-op se nel frattempo hai interagito, ripreso o dismesso).
+    /// Rimpiazza un timer già pendente sulla stessa tab, così un nuovo completamento riparte con un
+    /// flash pieno. Sta qui, accanto al mark-read da interazione: è la sua variante automatica.
+    func scheduleCompletionFlashDecay(for tabID: UUID) {
+        completionFlashTimers[tabID]?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.completionFlashTimers[tabID] = nil
+            self?.store.markSeen(tabID)
+        }
+        completionFlashTimers[tabID] = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.completionFlashDuration, execute: work
+        )
+    }
+
     /// L'azione rimappata sulla combinazione dell'evento, se qualcuna la usa.
     private func shortcutAction(for event: NSEvent) -> ShortcutAction? {
         guard let combo = KeyEventBridge.combo(from: event) else { return nil }

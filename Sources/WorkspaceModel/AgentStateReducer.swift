@@ -20,15 +20,18 @@ public enum AgentStateReducer {
     /// Calcola stato e `attention` dopo un evento.
     /// - `current`: stato attuale della tab.
     /// - `incoming`: stato dell'evento appena arrivato.
-    /// - `isVisible`: la tab è quella attualmente in vista (workspace + tab selezionati).
     /// - `currentAttention`: livello attuale del marker.
     /// - `resetsAttention`: l'evento è una ri-presa attiva della conversazione (clear/resume): come
     ///   il primo prompt, dimostra che te ne stai occupando (o che hai buttato il contesto), quindi
     ///   risolve il completamento in sospeso a prescindere dallo stato in ingresso.
+    ///
+    /// Nota: il livello nascente **non** dipende dalla visibilità. Un completamento nasce sempre
+    /// col segnale forte (`unseen`); se la tab è in vista è il composition root a declassarlo a
+    /// `pending` dopo un breve flash (mark-read differito, vedi gotcha attention), non il reducer.
+    /// La visibilità resta rilevante solo per bump e notifiche, calcolati fuori di qui.
     public static func reduce(
         current: AgentState,
         incoming: AgentState,
-        isVisible: Bool,
         currentAttention: AttentionLevel,
         resetsAttention: Bool = false
     ) -> Result {
@@ -49,13 +52,10 @@ public enum AgentStateReducer {
             // risolve il completamento, visto o in sospeso che fosse.
             .none
         case .idle:
-            if current == .running {
-                // Lavoro completato: forte se non guardavi; se guardavi la percezione è già
-                // avvenuta, quindi nasce direttamente "in sospeso" (visto, non ancora ripreso).
-                isVisible ? .pending : .unseen
-            } else {
-                currentAttention
-            }
+            // Lavoro completato: nasce sempre col segnale forte (`unseen`). Sulla tab in vista il
+            // composition root lo declassa a `pending` dopo un breve flash; se non guardavi resta
+            // forte finché non lo vedi.
+            current == .running ? .unseen : currentAttention
         case .unknown:
             // Fine sessione: un completamento mai ripreso resta tale (la tab e il suo output
             // esistono ancora); si spegne solo con dismiss, decadenza o chiusura tab.

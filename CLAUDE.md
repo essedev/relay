@@ -142,7 +142,7 @@ girano solo dal bundle (`make run-app`).
   solo un **bump** (`WorkspaceStore.bumpWorkspaceToTop`, da `applyAgentState`), che porta il
   workspace in cima ai non-pinned quando un'attività arriva **non vista** - completamento o entrata
   in `needs_input` con `!isVisible` (simmetrico al segnale forte e alla notifica: un completamento
-  sulla tab **in vista** nasce `pending` e **non** bumpa, così la riga non salta sotto le mani). La
+  sulla tab **in vista** **non** bumpa, così la riga non salta sotto le mani). La
   ripresa (`running`) non muove niente: la riga su cui lavori resta ferma, la scavalca solo un altro
   bump o il tuo drag. Il segnale (`attention`: ring/badge) vive a parte: declassamento (mark-read),
   dismiss e decadenza lo spengono ma **non** fanno scendere la riga (scende solo col drag).
@@ -166,14 +166,24 @@ girano solo dal bundle (`make run-app`).
   declassamento), **distinto** da `lastEventAt` (che avanza a ogni evento per la monotonicità): il
   decay e l'età del sospeso misurano da `attentionSince`, così un no-op (SessionEnd, idle->idle) non
   li falsifica, e al restore il clock riparte dal boot (un completamento vecchio mai visto non viene
-  spazzato al primo avvio). Un completamento sulla tab in vista nasce direttamente `pending`. Al
-  ritorno in foreground un flash del ring richiama l'occhio, senza spegnere. Modello ispirato a cmux
+  spazzato al primo avvio). Un completamento sulla tab **in vista** nasce comunque col segnale
+  forte (`unseen`: ring verde + flash + badge pieno) e dopo un breve **flash** (~4s) il composition
+  root lo declassa a `pending` (mark-read differito: `store.onVisibleCompletion` ->
+  `AppController.scheduleCompletionFlashDecay` -> `store.markSeen(id)`; no-op se nel frattempo
+  interagisci/riprendi/dismetti). Prima nasceva già `pending`, niente flash. Il reducer non guarda
+  più la visibilità (`reduce` senza `isVisible`): il completamento nasce sempre `unseen`, il
+  declassamento in vista è un effetto del composition root. Al ritorno in foreground un flash del
+  ring richiama l'occhio, senza spegnere. Modello ispirato a cmux
   (vedi CYCLES),
   esteso col livello quieto. Il coordinatore è
   `UNUserNotificationCenterDelegate` e forza `willPresent -> [.banner,.sound,.list]`: **senza, i
   banner sono soppressi quando Relay è frontmost**. Al primo avvio dal bundle macOS chiede il
   permesso una volta; una firma ad-hoc che cambia a ogni reinstall può farlo decadere (log
-  `auth status` al boot: 2 = authorized).
+  `auth status` al boot: 2 = authorized). **Click sulla notifica**: riporta in vista la tab che
+  l'ha generata. `AgentNotification` porta `tabID`/`workspaceID`, che il coordinatore mette nel
+  `userInfo` del contenuto; alla ricezione (`didReceive response`, azione di default) legge gli id
+  e delega a `AppController.activateTab` (seleziona workspace+tab, de-archivia se serve, porta la
+  finestra in primo piano). Senza l'handler il click non faceva nulla.
 - Check aggiornamenti (canale brew): `UpdateController` (RelayApp) al lancio confronta la versione
   installata (`CFBundleShortVersionString`) con l'ultima GitHub Release
   (`/repos/essedev/relay/releases/latest`), e se più recente accende una pill transitoria in fondo

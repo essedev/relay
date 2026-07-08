@@ -28,6 +28,11 @@ final class AppController: NSObject, NSApplicationDelegate {
     var aboutWindow: NSWindow? // internal: pannello "About Relay" (extension impostazioni)
     private var untitledCount = 0
     var keyMonitor: Any? // internal: installato dall'extension di navigazione
+    /// Timer del "flash" di completamento sulla tab in vista, per tab: alla scadenza declassa il
+    /// marker forte (`unseen`) a "in sospeso" (`pending`), un mark-read differito. Keyed per tab
+    /// così un nuovo completamento sulla stessa tab rimpiazza il timer pendente. Internal: gestito
+    /// da `scheduleCompletionFlashDecay` nell'extension di navigazione.
+    var completionFlashTimers: [UUID: DispatchWorkItem] = [:]
     private var demoDriver: DemoDriver?
     /// Autosave del layout, attivo solo in modalità normale (la demo non tocca il file reale).
     private var autosave: LayoutAutosave?
@@ -42,13 +47,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         log.info("relay launched")
         observeKeybindings()
         installNavigationKeyMonitor()
-        // Soglia anti-stantio timbrata prima di ricevere: gli eventi generati prima di questo
-        // avvio sono di sessioni morte (le surface di questa run non esistono ancora) e non devono
-        // azzerare i resume binding ripristinati (il RELAY_TAB_ID è stabile tra i riavvii).
-        store.eventFloor = Date()
-        // Fence di run: scarta anche gli eventi eseguiti *dopo* il boot ma nati da sessioni di run
-        // precedenti (claude orfani sopravvissuti al riavvio), che il floor non può distinguere.
-        store.runID = RelayRunID.current
+        configureStoreForRun()
         agentCoordinator.start()
         seedIfNeeded()
 
@@ -105,8 +104,23 @@ final class AppController: NSObject, NSApplicationDelegate {
         setupNotificationsIfBundled()
         updateController.checkOnLaunch()
         // Onboarding al primo avvio, mai in demo mode (lì l'app serve a mostrare, non a spiegare).
-        if demoDriver == nil {
-            showOnboardingIfFirstLaunch()
+        if demoDriver == nil { showOnboardingIfFirstLaunch() }
+    }
+
+    /// Config dello store legata alla run corrente (soglie di scarto eventi + hook imperativi),
+    /// fuori dal launch per tenerlo corto e raccogliere in un punto ciò che dipende dall'avvio.
+    private func configureStoreForRun() {
+        // Soglia anti-stantio timbrata prima di ricevere: gli eventi generati prima di questo avvio
+        // sono di sessioni morte (le surface di questa run non esistono ancora) e non devono
+        // azzerare i resume binding ripristinati (il RELAY_TAB_ID è stabile tra i riavvii).
+        store.eventFloor = Date()
+        // Fence di run: scarta anche gli eventi eseguiti *dopo* il boot ma nati da sessioni di run
+        // precedenti (claude orfani sopravvissuti al riavvio), che il floor non può distinguere.
+        store.runID = RelayRunID.current
+        // Flash di completamento sulla tab in vista: nasce forte (unseen) e dopo qualche secondo si
+        // declassa a "in sospeso". Il timer vive nel composition root (lo store puro non ne ha).
+        store.onVisibleCompletion = { [weak self] tabID in
+            self?.scheduleCompletionFlashDecay(for: tabID)
         }
     }
 
@@ -126,7 +140,24 @@ final class AppController: NSObject, NSApplicationDelegate {
         store.onNotifiableTransition = { [weak self] request in
             self?.notifications?.handle(request)
         }
+        coordinator.onActivate = { [weak self] workspaceID, tabID in
+            self?.activateTab(workspaceID: workspaceID, tabID: tabID)
+        }
         notifications = coordinator
+    }
+
+    /// Riporta in vista la tab di una notifica cliccata: seleziona workspace+tab e porta la
+    /// finestra
+    /// in primo piano. Se un workspace archiviato genera una notifica lo ripristina, altrimenti la
+    /// selezione punterebbe a una riga fuori dalla lista visibile.
+    private func activateTab(workspaceID: UUID, tabID: UUID) {
+        guard let workspace = store.workspaces.first(where: { $0.id == workspaceID })
+        else { return }
+        if workspace.archived { store.setArchived(workspaceID, false) }
+        store.selectWorkspace(workspaceID)
+        store.selectTab(tabID, in: workspace)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     /// Attiva la strumentazione di performance solo su richiesta (`RELAY_PERF=1`). Legge le surface
