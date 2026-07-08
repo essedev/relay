@@ -99,8 +99,14 @@ public struct LayoutStore {
             Self.log.notice("backup non ruotato: primario non valido, conservo il .bak esistente")
             return
         }
-        try? fileManager.removeItem(atPath: backupPath)
-        try? fileManager.copyItem(atPath: path, toPath: backupPath)
+        do {
+            try? fileManager.removeItem(atPath: backupPath) // assente = normale, non un errore
+            try fileManager.copyItem(atPath: path, toPath: backupPath)
+        } catch {
+            // Best-effort ma non silenzioso: se il backup fallisce (disco pieno, permessi) la
+            // scrittura atomica del primario resta la rete, ma il fallimento va segnalato.
+            Self.log.error("backup del layout non riuscito: \(error)")
+        }
     }
 
     /// Invariante di un layout persistibile: almeno un workspace, e ogni workspace con almeno una

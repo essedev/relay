@@ -33,6 +33,10 @@ case "hooks":
     exit(HookCLI.run(Array(arguments.dropFirst()), cliPath: cliExecutablePath()))
 case "simulate":
     exit(SimulateCommand.run(Array(arguments.dropFirst())))
+case nil:
+    print(usage) // nessun comando: help, uscita 0
 default:
+    FileHandle.standardError.write(Data("relay-cli: unknown command '\(arguments[0])'\n".utf8))
     print(usage)
+    exit(1)
 }

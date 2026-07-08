@@ -1,3 +1,4 @@
+import Core
 import Foundation
 
 public enum HookInstallerError: Error, Equatable {
@@ -93,9 +94,12 @@ public struct ClaudeHookInstaller {
 
     // MARK: - Trasformazioni pure (testabili senza I/O)
 
-    /// Comando hook per uno spec: `RELAY_MANAGED_HOOK=1 "<cli>" claude-hook <state>`.
+    /// Comando hook per uno spec: `RELAY_MANAGED_HOOK=1 <cli> claude-hook <state>`. Il path
+    /// dell'eseguibile è shell-escaped (`Core.ShellEscape`, backslash sui caratteri non sicuri) e
+    /// non solo racchiuso tra apici: spazi o metacaratteri (`$`, backtick) nel path del bundle non
+    /// possono rompere il comando o iniettare nel `settings.json` dell'utente.
     static func command(for spec: HookSpec, cliPath: String) -> String {
-        "\(marker) \"\(cliPath)\" claude-hook \(spec.state)"
+        "\(marker) \(ShellEscape.path(cliPath)) claude-hook \(spec.state)"
     }
 
     /// Aggiunge/rimpiazza i nostri hook nel dizionario settings, preservando tutto il resto.

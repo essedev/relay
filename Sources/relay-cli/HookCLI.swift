@@ -32,9 +32,15 @@ enum HookCLI {
             print(installer.status() ? "Relay hooks: installed" : "Relay hooks: not installed")
             return 0
 
-        default:
+        case nil:
             print("usage: relay-cli hooks setup|uninstall|status")
             return 0
+
+        default:
+            let message = "relay-cli hooks: unknown subcommand '\(args[0])'\n"
+            FileHandle.standardError.write(Data(message.utf8))
+            print("usage: relay-cli hooks setup|uninstall|status")
+            return 1
         }
     }
 }

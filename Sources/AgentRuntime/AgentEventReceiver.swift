@@ -172,7 +172,13 @@ public final class AgentEventReceiver: @unchecked Sendable {
             let n = read(fd, &chunk, chunkSize)
             if n > 0 {
                 buffer.append(contentsOf: chunk[0 ..< n])
+            } else if n == 0 {
+                break // EOF pulito: il client ha inviato la sua linea e chiuso.
+            } else if errno == EINTR {
+                continue // interrotto da un segnale: riprova, non è una fine.
             } else {
+                // Errore di trasporto reale: senza log sarebbe indistinguibile da un EOF pulito.
+                log.error("agent receiver read failed: \(String(cString: strerror(errno)))")
                 break
             }
         }
