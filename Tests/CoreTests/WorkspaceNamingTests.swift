@@ -53,7 +53,7 @@ private let home = "/Users/dev"
     let result = WorkspaceNaming.prompt(for: signals, homePath: home)
     #expect(result != nil)
     #expect(try #require(result?.user.contains("Directory: yellow-hub-v2")))
-    #expect(try !(#require(result?.user.contains("Command:"))))
+    #expect(try !#require(result?.user.contains("Command:")))
 }
 
 @Test func promptBuiltFromCommandEvenInHome() throws {
@@ -62,7 +62,7 @@ private let home = "/Users/dev"
     #expect(result != nil)
     #expect(try #require(result?.user.contains("Command: brew update")))
     // La home non contribuisce la directory.
-    #expect(try !(#require(result?.user.contains("Directory:"))))
+    #expect(try !#require(result?.user.contains("Directory:")))
 }
 
 @Test func promptIncludesAgentWhenPresent() throws {
@@ -108,5 +108,5 @@ private let home = "/Users/dev"
     #expect(result != nil)
     #expect(try #require(result?.count) <= WorkspaceNaming.maxNameLength)
     // Non taglia a metà parola: l'ultimo carattere non è dentro una parola spezzata.
-    #expect(try !(#require(result?.hasSuffix(" "))))
+    #expect(try !#require(result?.hasSuffix(" ")))
 }

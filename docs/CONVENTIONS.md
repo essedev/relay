@@ -12,7 +12,10 @@ Regole di stile, qualità, test e processo. Struttura moduli e regole di dipende
 ## Stile E Lint
 
 - **SwiftFormat** per la formattazione, **SwiftLint** per le regole. Config committate nel
-  repo, attive dal primo commit. Zero warning tollerati in CI.
+  repo, attive dal primo commit. Zero warning tollerati in CI. Le versioni degli strumenti sono
+  **pinnate** (binari dai release GitHub scaricati da `make tools` in `.build/tools`, versioni nel
+  Makefile): CI e locale usano la stessa, così un upgrade upstream non rompe il lint su codice
+  invariato. Bumpare la versione = aggiornare il Makefile e riformattare in un commit dedicato.
 - Line length: 100.
 - File: warning a 400 righe, errore a 500. Nessuna eccezione: se un file non ci sta, va
   spezzato in tipi o in un modulo.

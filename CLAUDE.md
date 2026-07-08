@@ -37,7 +37,10 @@ girano solo dal bundle (`make run-app`).
 
 - `make build` / `make test` / `make run` / `make check` (definition of done prima di un commit
   grosso e sempre prima di proporre un push).
-- Lint: `brew install swiftlint swiftformat` (installati in locale).
+- Lint: `make tools` scarica le versioni **pinnate** di SwiftFormat/SwiftLint in `.build/tools`
+  (binari dai release GitHub, versioni nel Makefile). `make lint`/`format`/`check` le usano; CI
+  e locale girano la stessa versione, così un upgrade upstream non rompe il lint su codice
+  invariato. Non usare la `brew install` (prende sempre l'ultima) per il giro di qualità.
 - **Release**: `make release` (routine sotto). Versione = `./VERSION` (semver). Bumpa VERSION,
   `make check`, commit, poi `make release`: **è pubblicazione** (push tag + GitHub Release + tap
   brew), chiedi il via prima di lanciarla.

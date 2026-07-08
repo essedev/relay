@@ -9,7 +9,18 @@ VERSION := $(shell cat VERSION)
 # `make release` fa tutto da solo). L'identita e' risolta dalla search list dei keychain.
 SIGN_IDENTITY ?= -
 
-.PHONY: help install build run cli test lint format check clean bundle run-app dmg install-app icon release
+# Strumenti di lint pinnati (binari dai release GitHub, in .build/tools): CI e locale usano la
+# STESSA versione, mentre `brew install` prende sempre l'ultima e ogni nuova regola rompe il lint
+# senza che il codice cambi. Bumpa qui e rilancia `make tools` (lo stamp versionato forza il
+# riscarico).
+SWIFTFORMAT_VERSION := 0.61.1
+SWIFTLINT_VERSION := 0.65.0
+TOOLS_DIR := .build/tools
+SWIFTFORMAT := $(TOOLS_DIR)/swiftformat
+SWIFTLINT := $(TOOLS_DIR)/swiftlint
+TOOLS_STAMP := $(TOOLS_DIR)/.installed-sf$(SWIFTFORMAT_VERSION)-sl$(SWIFTLINT_VERSION)
+
+.PHONY: help install build run cli test tools lint format check clean bundle run-app dmg install-app icon release
 
 APP := .build/Relay.app
 DMG := .build/Relay-$(VERSION).dmg
@@ -33,15 +44,25 @@ cli: ## Avvia la CLI (uso: make cli ARGS="hooks status")
 test: ## Esegue i test
 	$(SWIFT) test
 
-format: ## Formatta il codice (SwiftFormat, scrive)
-	@command -v swiftformat >/dev/null 2>&1 || { echo "swiftformat mancante: brew install swiftformat"; exit 1; }
-	swiftformat .
+tools: $(TOOLS_STAMP) ## Scarica gli strumenti di lint pinnati (.build/tools)
 
-lint: ## Lint (SwiftFormat --lint + SwiftLint --strict)
-	@command -v swiftformat >/dev/null 2>&1 || { echo "swiftformat mancante: brew install swiftformat"; exit 1; }
-	@command -v swiftlint  >/dev/null 2>&1 || { echo "swiftlint mancante: brew install swiftlint"; exit 1; }
-	swiftformat --lint .
-	swiftlint lint --strict
+$(TOOLS_STAMP):
+	@rm -rf $(TOOLS_DIR) && mkdir -p $(TOOLS_DIR)
+	@echo "scarico swiftformat $(SWIFTFORMAT_VERSION) e swiftlint $(SWIFTLINT_VERSION)"
+	@curl -fsSL https://github.com/nicklockwood/SwiftFormat/releases/download/$(SWIFTFORMAT_VERSION)/swiftformat.zip -o $(TOOLS_DIR)/sf.zip
+	@unzip -oq $(TOOLS_DIR)/sf.zip -d $(TOOLS_DIR) && rm -f $(TOOLS_DIR)/sf.zip
+	@curl -fsSL https://github.com/realm/SwiftLint/releases/download/$(SWIFTLINT_VERSION)/portable_swiftlint.zip -o $(TOOLS_DIR)/sl.zip
+	@unzip -oq $(TOOLS_DIR)/sl.zip -d $(TOOLS_DIR) && rm -f $(TOOLS_DIR)/sl.zip
+	@chmod +x $(SWIFTFORMAT) $(SWIFTLINT)
+	@xattr -c $(SWIFTFORMAT) $(SWIFTLINT) 2>/dev/null || true
+	@touch $(TOOLS_STAMP)
+
+format: tools ## Formatta il codice (SwiftFormat pinnato, scrive)
+	$(SWIFTFORMAT) .
+
+lint: tools ## Lint (SwiftFormat --lint + SwiftLint --strict, versioni pinnate)
+	$(SWIFTFORMAT) --lint .
+	$(SWIFTLINT) lint --strict
 
 check: lint build test ## Giro completo qualità (definition of done)
 

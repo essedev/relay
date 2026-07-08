@@ -9,8 +9,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install lint tools
-        run: brew install swiftlint swiftformat
+      # Niente `brew install` (prende l'ultima versione e ogni nuova regola romperebbe il lint su
+      # codice invariato): make check scarica gli strumenti pinnati via `make tools`.
       - name: Quality gate
         run: make check
       # La release builda in configurazione release (dentro make dmg): esercitala anche in CI, così
