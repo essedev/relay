@@ -91,12 +91,18 @@ private func ourEntries(_ settings: [String: Any], _ event: String) -> [[String:
     #expect(ClaudeHookInstaller.isInstalled(in: merged))
 }
 
+/// Crea una directory temporanea univoca per i test su disco. Il chiamante la rimuove nel `defer`.
+private func makeTempHooksDir() throws -> String {
+    let dir = "\(NSTemporaryDirectory())relay-hooks-\(UInt64.random(in: 0 ..< 1_000_000_000))"
+    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    return dir
+}
+
 // MARK: - Round-trip su file
 
 @Test func setupAndUninstallRoundTripOnDisk() throws {
     let fileManager = FileManager.default
-    let dir = "\(NSTemporaryDirectory())relay-hooks-\(UInt64.random(in: 0 ..< 1_000_000_000))"
-    try fileManager.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let dir = try makeTempHooksDir()
     defer { try? fileManager.removeItem(atPath: dir) }
     let settingsPath = "\(dir)/settings.json"
 
@@ -132,8 +138,7 @@ private func ourEntries(_ settings: [String: Any], _ event: String) -> [[String:
 
 @Test func setupPrunesOldBackups() throws {
     let fileManager = FileManager.default
-    let dir = "\(NSTemporaryDirectory())relay-hooks-\(UInt64.random(in: 0 ..< 1_000_000_000))"
-    try fileManager.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let dir = try makeTempHooksDir()
     defer { try? fileManager.removeItem(atPath: dir) }
     let settingsPath = "\(dir)/settings.json"
     try Data("{}".utf8).write(to: URL(fileURLWithPath: settingsPath))

@@ -3,26 +3,12 @@ import Foundation
 import Testing
 @testable import WorkspaceModel
 
-/// `applyAgentState` è il path che il coordinatore esegue per ogni evento: locate della tab via
-/// paneId, calcolo visibilità, reducer. Qui lo testiamo senza socket né app.
-private struct Fixture {
-    let store: WorkspaceStore
-    let visibleTab: Tab
-    let hiddenTab: Tab
-}
-
-@MainActor
-private func makeFixture() -> Fixture {
-    let store = WorkspaceStore()
-    let visible = store.createWorkspace(name: "A")
-    let hidden = store.createWorkspace(name: "B")
-    // L'ultima creata resta selezionata: rendo esplicito che "A" è la visibile.
-    store.selectWorkspace(visible.id)
-    return Fixture(store: store, visibleTab: visible.tabs[0], hiddenTab: hidden.tabs[0])
-}
+// `applyAgentState` è il path che il coordinatore esegue per ogni evento: locate della tab via
+// paneId, calcolo visibilità, reducer. Qui lo testiamo senza socket né app. La fixture è condivisa
+// (vedi `Fixtures.swift`).
 
 @Test @MainActor func needsInputSetsStateNotAttention() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     let applied = fixture.store.applyAgentState(
         paneId: fixture.hiddenTab.id.uuidString,
         state: .needsInput,
@@ -36,7 +22,7 @@ private func makeFixture() -> Fixture {
 }
 
 @Test @MainActor func completedOnHiddenTabRaisesUnseen() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     let tabID = fixture.hiddenTab.id.uuidString
     fixture.store.applyAgentState(
         paneId: tabID,
@@ -53,7 +39,7 @@ private func makeFixture() -> Fixture {
 /// Un no-op (SessionEnd che preserva l'unseen) avanza `lastEventAt` per la monotonicità ma NON
 /// ringiovanisce `attentionSince`: l'età del marker e la finestra di decadenza restano fedeli.
 @Test @MainActor func noOpEventDoesNotRejuvenateMarkerClock() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     let tabID = fixture.hiddenTab.id.uuidString
     fixture.store.applyAgentState(
         paneId: tabID,
@@ -72,7 +58,7 @@ private func makeFixture() -> Fixture {
 }
 
 @Test @MainActor func completedOnVisibleTabRaisesUnseenAndSignalsFlash() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     var flashed: [UUID] = []
     fixture.store.onVisibleCompletion = { flashed.append($0) }
     let tabID = fixture.visibleTab.id.uuidString
@@ -93,7 +79,7 @@ private func makeFixture() -> Fixture {
 /// Un completamento non visto (tab nascosta) NON segnala il flash: resta forte finché non lo vedi,
 /// senza timer di declassamento.
 @Test @MainActor func completedOnHiddenTabDoesNotSignalFlash() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     var flashed: [UUID] = []
     fixture.store.onVisibleCompletion = { flashed.append($0) }
     let tabID = fixture.hiddenTab.id.uuidString
@@ -110,7 +96,7 @@ private func makeFixture() -> Fixture {
 /// `store.markSeen(id)` (target del timer di flash): declassa un `unseen` a `pending` e restamp
 /// `attentionSince`; è un no-op su ogni altro livello (idempotente).
 @Test @MainActor func markSeenByIdDeclassesUnseenOnly() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     fixture.visibleTab.attention = .unseen
     fixture.store.markSeen(fixture.visibleTab.id)
     #expect(fixture.visibleTab.attention == .pending)
@@ -133,7 +119,7 @@ private func makeFixture() -> Fixture {
 }
 
 @Test @MainActor func unsafeSessionIdDoesNotCreateResume() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     fixture.store.applyAgentState(
         paneId: fixture.hiddenTab.id.uuidString,
         agent: "claude",
@@ -145,17 +131,17 @@ private func makeFixture() -> Fixture {
 }
 
 @Test @MainActor func applyUnknownTabIsNoOp() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     #expect(!fixture.store.applyAgentState(paneId: UUID().uuidString, state: .running, at: Date()))
 }
 
 @Test @MainActor func applyInvalidPaneIdIsNoOp() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     #expect(!fixture.store.applyAgentState(paneId: "not-a-uuid", state: .running, at: Date()))
 }
 
 @Test @MainActor func emitsNeedsInputNotificationOnceOnEntry() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     var emitted: [AgentNotification] = []
     fixture.store.onNotifiableTransition = { emitted.append($0) }
     let tabID = fixture.hiddenTab.id.uuidString
@@ -171,7 +157,7 @@ private func makeFixture() -> Fixture {
 
 @Test @MainActor func inactiveAppTreatsSelectedTabAsHidden() {
     // Relay in background: anche la tab in vista completa "non vista" -> marker acceso + notifica.
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     var emitted: [AgentNotification] = []
     fixture.store.onNotifiableTransition = { emitted.append($0) }
     let tabID = fixture.visibleTab.id.uuidString
@@ -184,7 +170,7 @@ private func makeFixture() -> Fixture {
 @Test @MainActor func activeAppOnSelectedTabRaisesUnseenWithoutNotifying() {
     // Relay in primo piano sulla tab in vista: completare non notifica (lo stai guardando). Il
     // marker nasce comunque forte (`unseen`, per il flash); il composition root lo declassa dopo.
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     var emitted: [AgentNotification] = []
     fixture.store.onNotifiableTransition = { emitted.append($0) }
     let tabID = fixture.visibleTab.id.uuidString
@@ -197,7 +183,7 @@ private func makeFixture() -> Fixture {
 /// `/clear` o `/new`: SessionStart(clear) arriva come idle con `resetsAttention`. Un sospeso
 /// residuo del completamento precedente si spegne, senza notificare.
 @Test @MainActor func activeReEngagementClearsPending() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     var emitted: [AgentNotification] = []
     fixture.store.onNotifiableTransition = { emitted.append($0) }
     let tabID = fixture.hiddenTab.id.uuidString
@@ -300,7 +286,7 @@ private func makeFixture() -> Fixture {
 }
 
 @Test @MainActor func emitsCompletedNotificationOnlyWhenHidden() {
-    let fixture = makeFixture()
+    let fixture = makeAgentFixture()
     var emitted: [AgentNotification] = []
     fixture.store.onNotifiableTransition = { emitted.append($0) }
 
