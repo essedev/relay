@@ -2,9 +2,10 @@ import AppKit
 import Panels
 import WorkspaceModel
 
-/// Handler di navigazione e comandi terminale da menu, estratti dal corpo di `AppController` per
-/// tenerlo sul solo wiring. I Cmd/Option + 1..9 passano dall'event monitor (`handleNavigationKey`);
-/// Cmd+F/Cmd+K/Cmd+J sono keyEquivalent veri (menu), che funzionano anche col terminale in focus.
+/// Handler di navigazione da menu, estratti dal corpo di `AppController` per tenerlo sul solo
+/// wiring. I Cmd/Option + 1..9 passano dall'event monitor (`handleNavigationKey`), non da
+/// keyEquivalent (gli shortcut con solo Option non fanno match in AppKit). Find/Clear/Jump non
+/// stanno più qui: sono azioni rimappabili, eseguite via `ShortcutRuntime.perform(_:)`.
 extension AppController {
     /// Cmd+1..9: seleziona il workspace all'indice nell'ordine della sidebar (`orderedWorkspaces`:
     /// pinned, poi con attenzione, poi il resto), non quello canonico. Così Cmd+1 apre sempre la
@@ -20,21 +21,6 @@ extension AppController {
         guard let workspace = store.selectedWorkspace,
               sender.tag < workspace.tabs.count else { return }
         store.selectTab(workspace.tabs[sender.tag].id, in: workspace)
-    }
-
-    /// Cmd+F: apre/chiude la ricerca nel terminale attivo.
-    @objc func performFind(_: Any?) {
-        splitVC.toggleFind()
-    }
-
-    /// Cmd+K: pulisce il terminale attivo (scrollback + schermo, prompt ridisegnato).
-    @objc func clearTerminal(_: Any?) {
-        splitVC.clearActiveTerminal()
-    }
-
-    /// Cmd+J: salta alla prossima tab che richiede attenzione (input o completamento non visto).
-    @objc func jumpToAttention(_: Any?) {
-        store.focusNextAttention()
     }
 
     // MARK: - Monitor tastiera/mouse

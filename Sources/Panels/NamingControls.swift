@@ -90,7 +90,6 @@ struct WorkspaceNamingBlock: View {
             fieldRow("Model", text: modelBinding, placeholder: AppSettings.defaultNamingModel)
             apiKeyRow
         }
-        .disabled(false)
         .onAppear { keySaved = naming.hasKey() }
     }
 

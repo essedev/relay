@@ -32,11 +32,6 @@ enum BadgeKind: Int {
         }
     }
 
-    /// Badge aggregato di un workspace: il più severo tra le sue tab.
-    static func forWorkspace(_ workspace: Workspace) -> BadgeKind {
-        workspace.tabs.map(forTab).max { $0.rawValue < $1.rawValue } ?? .none
-    }
-
     /// Colore del badge per questo tipo, dai colori ANSI del tema. Condiviso da `AgentBadge` e
     /// dalla
     /// dashboard, così la mappatura vive in un posto solo. `pending`/`none` non si disegnano mai

@@ -100,7 +100,7 @@ public struct FindBar: View {
         .buttonStyle(.plain)
         .foregroundStyle(model.total == 0 ? colors.secondary.opacity(0.4) : colors.secondary)
         .disabled(model.total == 0)
-        .help(up ? "Risultato successivo" : "Risultato precedente")
+        .help(up ? "Next match" : "Previous match")
     }
 
     private var closeButton: some View {

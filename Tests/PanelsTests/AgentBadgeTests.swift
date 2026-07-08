@@ -40,24 +40,24 @@ private func tab(_ state: AgentState, attention: AttentionLevel = .none) -> Tab 
 
 @Test func workspaceAggregatesMostSevere() {
     let workspace = Workspace(name: "w", tabs: [tab(.running), tab(.needsInput), tab(.idle)])
-    #expect(BadgeKind.forWorkspace(workspace) == .needsInput)
+    #expect(WorkspaceBadgeInfo.forWorkspace(workspace).kind == .needsInput)
 }
 
 @Test func workspaceRunningBeatsCompleted() {
     let workspace = Workspace(name: "w", tabs: [tab(.running), tab(.idle, attention: .unseen)])
-    #expect(BadgeKind.forWorkspace(workspace) == .running)
+    #expect(WorkspaceBadgeInfo.forWorkspace(workspace).kind == .running)
 }
 
 /// Il punto quieto del sospeso è il segnale meno severo: qualunque altro lo copre.
 @Test func workspacePendingIsQuietest() {
     let alone = Workspace(name: "w", tabs: [tab(.idle, attention: .pending), tab(.idle)])
-    #expect(BadgeKind.forWorkspace(alone) == .pending)
+    #expect(WorkspaceBadgeInfo.forWorkspace(alone).kind == .pending)
 
     let withCompleted = Workspace(
         name: "w",
         tabs: [tab(.idle, attention: .pending), tab(.idle, attention: .unseen)]
     )
-    #expect(BadgeKind.forWorkspace(withCompleted) == .completed)
+    #expect(WorkspaceBadgeInfo.forWorkspace(withCompleted).kind == .completed)
 }
 
 /// Il contatore conta solo le tab nello stato più severo, non tutti gli agenti attivi.
