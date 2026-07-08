@@ -59,24 +59,62 @@ final class RootOverlayController: NSViewController {
         sidebarWidthDidChange(lastKnownSidebarWidth)
     }
 
-    /// Monta un overlay a tutta finestra sopra qualunque cosa (dashboard). Uno alla volta: un
-    /// overlay nuovo sostituisce il precedente.
+    /// Monta un overlay a tutta finestra sopra qualunque cosa (dashboard, onboarding). Uno alla
+    /// volta: un overlay nuovo sostituisce il precedente. L'overlay viene avvolto in un container
+    /// che chiude i buchi di hit-testing (vedi `FullOverlayContainerView`) e, finché è su, le
+    /// cursor rects della finestra sono disattivate: quelle del terminale sotto
+    /// (`addCursorRect(_:cursor:)` di SwiftTerm) non rispettano l'occlusione e terrebbero
+    /// l'I-beam sopra l'overlay.
     func presentFullOverlay(_ overlayView: NSView) {
         dismissFullOverlay()
+        let container = FullOverlayContainerView()
+        container.translatesAutoresizingMaskIntoConstraints = false
         overlayView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(overlayView) // ultimo aggiunto = sopra contenuto e toggle sidebar
+        container.addSubview(overlayView)
+        view.addSubview(container) // ultimo aggiunto = sopra contenuto e toggle sidebar
         NSLayoutConstraint.activate([
-            overlayView.topAnchor.constraint(equalTo: view.topAnchor),
-            overlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            overlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            overlayView.topAnchor.constraint(equalTo: container.topAnchor),
+            overlayView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            overlayView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            overlayView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            container.topAnchor.constraint(equalTo: view.topAnchor),
+            container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
-        fullOverlay = overlayView
+        fullOverlay = container
+        view.window?.disableCursorRects()
+        NSCursor.arrow.set() // il cursore corrente può essere l'I-beam del terminale
     }
 
     func dismissFullOverlay() {
-        fullOverlay?.removeFromSuperview()
-        fullOverlay = nil
+        guard let fullOverlay else { return }
+        fullOverlay.removeFromSuperview()
+        self.fullOverlay = nil
+        view.window?.enableCursorRects()
+        view.window?.resetCursorRects() // ricostruisce le rects del contenuto tornato scoperto
+    }
+
+    /// Container degli overlay full-window: chiude i buchi di hit-testing della hosting SwiftUI.
+    /// Dove il contenuto non è hit-testable `hitTest` tornerebbe `nil` e mouse e cursor update
+    /// cadrebbero sulle view sotto (selezione di testo nel terminale con l'overlay aperto,
+    /// cursore I-beam): il fallback è il container stesso, che consuma il mouse e tiene il
+    /// cursore freccia.
+    private final class FullOverlayContainerView: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            if let hit = super.hitTest(point) { return hit }
+            let local = convert(point, from: superview)
+            return bounds.contains(local) ? self : nil
+        }
+
+        override func cursorUpdate(with _: NSEvent) {
+            NSCursor.arrow.set()
+        }
+
+        // Zone morte dell'overlay: il mouse muore qui, non passa al contenuto sotto.
+        override func mouseDown(with _: NSEvent) {}
+        override func mouseDragged(with _: NSEvent) {}
+        override func mouseUp(with _: NSEvent) {}
     }
 
     /// Segue la larghezza corrente della sidebar (chiamato a ogni resize, anche frame-by-frame
