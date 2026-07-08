@@ -225,6 +225,26 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
   muovono la riga - niente scivolamento sotto le mani. `attention` resta solo un segnale
   (badge/ring), scollegato dall'ordine. Supera il precedente "float sticky" (che cadeva alla ripresa).
 
+## Fatto - Onboarding "Welcome to Relay" (post-resume)
+
+- **Overlay di benvenuto** al primo avvio (flag `AppSettings.onboardingSeen`, timbrato alla
+  presentazione; mai in demo mode), riapribile da **Help > Welcome to Relay**. Stessa meccanica
+  full-window della dashboard (`AppControllerOnboarding` + `RootOverlayController.presentFullOverlay`):
+  mentre è aperto il monitor si fa da parte (i tasti vanno alla vista - frecce/Invio/Esc), e un solo
+  overlay full-window alla volta (aprire onboarding o dashboard chiude l'altro).
+- **Cinque pagine coi componenti veri** del design system, non screenshot: hero con icona
+  procedurale (`RelayMarkView`, geometria dell'`.icns`), pagina hook **azionabile** (riusa
+  `ClaudeHooksBlock`: stato live + install col `relay-cli` impacchettato, comando manuale in dev),
+  modello di attenzione con **stati cliccabili e preview live** (badge, riga di sidebar finta, mini
+  terminale col ring pulsante), scorciatoie lette dai binding correnti, e temi selezionabili **dal
+  vivo** (l'app si ridipinge, onboarding compreso). Logica di navigazione pura (`OnboardingModel`,
+  testata).
+- **Fix collaterale (copre anche la dashboard)**: gli overlay full-window ora bloccano il
+  passthrough di mouse e cursore verso il terminale sotto (niente selezione di testo né I-beam con
+  l'overlay aperto): container che chiude i buchi di hit-testing + cursor rects della finestra
+  disattivate finché l'overlay è su. Icona di About ridisegnata con `RelayMarkView` (dai build di
+  sviluppo `NSApp.applicationIconImage` dava l'icona generica).
+
 ## Più avanti
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
@@ -275,6 +295,6 @@ supportare più agenti; `ARCHITECTURE.md` #Fuori-Scope-Baseline).
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),
-oltre alla dashboard di triage. Prossimo giro a scelta dell'utente: distribuzione **firmata**
-(Developer ID + notarizzazione, per homebrew-cask ufficiale), split, oppure generalizzazione
-multi-agente (Codex/opencode, vedi Più avanti).
+con dashboard di triage e onboarding di benvenuto. Prossimo giro a scelta dell'utente: distribuzione
+**firmata** (Developer ID + notarizzazione, per homebrew-cask ufficiale), split, oppure
+generalizzazione multi-agente (Codex/opencode, vedi Più avanti).

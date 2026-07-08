@@ -139,8 +139,11 @@ finale se un'istanza sfugge ai guard.
 
 Distinte dallo snapshot del layout: `AppSettings` (`Sources/WorkspaceModel/`) persiste in
 `UserDefaults` (chiavi `relay.*`) tema, font family/size, cursore, sidebar
-(collapsed + width), preferenze notifiche, keybindings rimappati, `autoResumeAgents` e la
-decadenza dei sospesi (`pendingDecayHours`). Sono *preferenze* utente, non stato di sessione - per
+(collapsed + width + archivio espanso), preferenze notifiche, keybindings rimappati,
+`autoResumeAgents`, la decadenza dei sospesi (`pendingDecayHours`), il check aggiornamenti
+(`checkForUpdatesAutomatically` + `skippedUpdateVersion`) e il flag one-shot dell'onboarding
+(`onboardingSeen`, timbrato alla prima presentazione del "Welcome to Relay"). Sono *preferenze*
+utente, non stato di sessione - per
 quello UserDefaults è il posto giusto. Font e cursore sono sovrapposti al tema base
 (`RelayTheme.withFontSize` / `withCursorBlink`), così il terminale li applica insieme al resto
 della palette. L'elenco canonico è `AppSettings` stesso: questo paragrafo dice solo dove vivono.
