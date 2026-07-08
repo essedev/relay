@@ -906,3 +906,56 @@ dalla tua vista**.
 La riga su cui lavori sta ferma; il resto sale in background e ci resta. `make check` verde (226
 test), incluso `resumeDoesNotDropFromTop` (il caso esatto del bug: riprendi una riga in cima, ci
 scrivi, resta su).
+
+## Cycle 14 - Pulizia codebase, CI deterministica, move-tab
+
+### Obiettivo
+
+Un giro di pulizia sistematica del codice (duplicazione, componenti UI, dead code) a comportamento
+invariato, la messa in sicurezza della CI (rossa da due release) e una piccola funzione: spostare
+una tab in un nuovo workspace.
+
+### Pulizia (refactor a comportamento invariato)
+
+Revisione sistematica, poi undici commit atomici, ognuno verificato (build + lint + test) e passato
+a una **verifica adversariale commit per commit** (un agente scettico per commit):
+
+- **Panels**: estratti i componenti condivisi `StatusDot`/`CommandChip`/`CloseButton` (prima
+  duplicati a mano con dimensioni divergenti) e tokenizzati i font/tint ricorrenti nel design system.
+- **Model**: `RelayTheme.copy` unico dietro i tre `withX`, helper `update`/`toggle` per i setter di
+  `AppSettings` (via keypath, compatibile con Observation), `Array.move` generico, lookup `tab(id:)`
+  condiviso.
+- **Composition root**: `FullOverlayPresenter` unico per gli overlay full-window (mutua esclusione
+  per costruzione, prima cablata a mano), `reveal(workspaceID:tabID:)` centralizzato, dead code
+  rimosso.
+- **Core/Engine**: trigger-policy della nomina estratta pura in `Core.NamingTriggerPolicy` (testata),
+  conversione `NSColor(relay:)` unica in `TerminalEngine` (prima triplicata).
+- **I/O**: errori di trasporto/backup non più inghiottiti (drain, LayoutStore), path hook
+  shell-escaped, exit code del CLI.
+
+La verifica adversariale ha intercettato due regressioni visive sfuggite (larghezza della pill del
+recorder di shortcut e colore del comando nel popover update), poi corrette prima del push.
+
+### CI deterministica (il version skew di SwiftFormat)
+
+La CI era **rossa da 0.7.0**: falliva in ~15s sul lint. Causa: il workflow faceva `brew install
+swiftformat` (sempre l'ultima), e una regola nuova (`redundantParens`, poi `wrapIfStatementBodies`)
+bocciava codice invariato che la SwiftFormat locale, più vecchia, non vedeva. Ogni versione vede
+errori diversi: `brew install` flottante rende la CI non-deterministica. Soluzione: strumenti
+**pinnati** a versione fissa, scaricati come binari dai release GitHub in `.build/tools` (`make
+tools`, stamp versionato per il bump); CI e locale girano la stessa versione. Il fix di codice vero
+era di 3 righe (le parentesi che la versione pinnata vuole).
+
+### Move to New Workspace
+
+Dal menu contestuale di una tab (solo con >=2 tab) la si estrae in un nuovo workspace placeholder
+**senza toccare la sessione viva**: lo store sposta lo stesso oggetto `Tab` (stesso `Tab.id`),
+quindi la surface/pty resta intatta. Chiave: append del nuovo workspace + remove dall'origine nella
+stessa mutazione sincrona, così il reconcile delle surface non sfratta la tab. Il nuovo workspace
+eredita la cwd come `rootPath` e nasce `.default` (nominabile). Testato (stesso oggetto, no-op sui
+casi limite).
+
+### Esito
+
+`make check` verde (279 test), CI di nuovo verde e **deterministica**. Undici commit di pulizia + il
+fix CI + la funzione, rilasciati come patch 0.7.2.

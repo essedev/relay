@@ -27,7 +27,10 @@ dal vivo) - vedi gotcha** + **nomina automatica dei workspace via LLM OpenAI-com
 (`NameOrigin`/`Core.WorkspaceNaming`/`NamingController`, API key su file 0600) - vedi gotcha** +
 **flash di completamento sulla tab in vista (nasce forte, declassa dopo ~4s) + notifiche
 cliccabili (il click porta in vista la tab) + play dell'update in una tab dedicata - vedi
-gotcha**.
+gotcha** + **sposta una tab in un nuovo workspace dal menu contestuale (surface viva preservata)
++ giro di pulizia del codice (componenti UI condivisi, dedup di helper, overlay full-window
+unificato, conversione colore unica) + strumenti di lint pinnati per una CI deterministica -
+vedi gotcha**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
@@ -72,9 +75,15 @@ girano solo dal bundle (`make run-app`).
   sidebar/notifiche/**keybindings**/decadenza sospesi, UserDefaults) + `WindowTitle` +
   `LayoutSnapshot` (Codable) + `AgentNotification` + `ShortcutAction`/`KeyCombo` (azioni
   rimappabili + combinazione pura) + `NameOrigin` (origine del nome workspace:
-  `.default`/`.generated`/`.user`, guida la nomina automatica). Puro, niente AppKit.
+  `.default`/`.generated`/`.user`, guida la nomina automatica). Lookup e navigazione in
+  `WorkspaceStore+Navigation` (`reveal(workspaceID:tabID:)` = seleziona workspace+tab e de-archivia;
+  `tab(id:)` = tab per id fra tutti i workspace); `moveTabToNewWorkspace` estrae una tab in un nuovo
+  workspace preservando la surface viva (vedi gotcha). Puro, niente AppKit.
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
-  **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`). `RelayTerminalView`
+  **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`). `NSColor(relay:)`
+  (init da `RelayColor`) vive qui: è il modulo AppKit più basso che TerminalHostUI e il composition
+  root importano entrambi (Core non può, niente AppKit), così la conversione non è triplicata.
+  `RelayTerminalView`
   (sottoclasse della view SwiftTerm) aggiunge il drop di file: inserisce i path escaped
   (`Core.ShellEscape`, testato) nel PTY, come Terminal.app. SwiftTerm non lo fa da solo.
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy, cap LRU via `SurfaceEvictionPolicy`
@@ -89,9 +98,11 @@ girano solo dal bundle (`make run-app`).
   "About Relay" a tema), `Onboarding` (`OnboardingModel` puro + `OnboardingView` +
   `OnboardingPages`/`OnboardingAttention` + `RelayMarkView`, icona procedurale), `ShortcutsList`
   (recorder shortcut), `NamingControls` (closure per la API key della nomina automatica +
-  `WorkspaceNamingBlock` nelle impostazioni), `KeyEventBridge`
-  (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori vengono dal tema
-  (`AppSettings.theme`), non hardcoded.
+  `WorkspaceNamingBlock` nelle impostazioni), `StatusDot`/`CommandChip`/`CloseButton` (primitive UI
+  condivise: pallino di stato pieno/anello, pill monospace per keycap e comandi, bottone di chiusura
+  `xmark`), `KeyEventBridge`
+  (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori e le misure vengono
+  dal design system (`Theme`/`ThemeColors`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
   scrittura atomica. Trasformazioni pure (`merge`/`remove`) separate dall'I/O per i test.
@@ -105,7 +116,8 @@ girano solo dal bundle (`make run-app`).
   `NamingController` (unico punto che tocca la rete per la nomina automatica dei workspace) +
   `NamingCredentialStore` (API key su file 0600 in `~/.relay`), `LayoutAutosave`, `PerfSampler`
   (misure `RELAY_PERF`), `ShortcutRuntime` (`perform(action)` + `KeyEventBridge`),
-  `AppControllerDashboard` (apri/chiudi dashboard + decadenza sospesi),
+  `AppControllerDashboard` (apri/chiudi dashboard + decadenza sospesi), `FullOverlayPresenter`
+  (host unico degli overlay full-window dashboard/onboarding: mutua esclusione per costruzione),
   `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
 - `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status`,
   `claude-hook <state>` (invocato dagli hook: stdin + `RELAY_TAB_ID` -> socket) e `simulate`.
@@ -479,5 +491,21 @@ girano solo dal bundle (`make run-app`).
   aperta il monitor si fa da parte**: i tasti vanno al filtro (niente nav 1..9, niente mark-read),
   resta attivo solo il toggle per chiuderla; Esc lo gestisce la vista (`onExitCommand`). La
   decadenza dei sospesi si applica a boot/foreground/apertura dashboard (niente timer).
+- Sposta tab in nuovo workspace ("Move to New Workspace", menu contestuale della tab, visibile
+  solo con **>=2 tab**): `WorkspaceStore.moveTabToNewWorkspace` sposta lo **stesso** oggetto `Tab`
+  (stesso `Tab.id`), così la surface legata per id resta **viva** - niente teardown del pty, il
+  lavoro dentro la tab non si tocca. L'append del nuovo workspace e il `removeTab` dall'origine
+  avvengono nella **stessa mutazione sincrona**: la tab è sempre presente in `store.workspaces` a
+  ogni istante osservabile, quindi il reconcile delle surface (`retain` su tutti gli id, vedi
+  TerminalHostUI) non la sfratta mai. Il nuovo workspace eredita la cwd della tab come `rootPath`,
+  nasce `.default` (eleggibile alla nomina automatica: il nome è un placeholder) e diventa il
+  selezionato con la tab spostata attiva. **No-op se la tab è l'unica del suo workspace**
+  (svuoterebbe l'origine) o se l'id non esiste lì. Il nome placeholder ("Workspace N") lo assegna
+  il composition root (`AppController.moveTabToNewWorkspace`), non lo store, come per `newWorkspace`.
+- CI deterministica: gli strumenti di lint sono **pinnati** (SwiftFormat/SwiftLint, versioni nel
+  Makefile), scaricati come binari dai release GitHub in `.build/tools` da `make tools` (uno stamp
+  versionato forza il riscarico al bump). `make lint`/`format`/`check` li usano; il workflow CI non
+  fa più `brew install` (prendeva l'ultima: una regola nuova upstream rompeva il lint su codice
+  invariato, la causa della CI rossa da 0.7.0). CI e locale girano la stessa identica versione.
 - Non ancora fatto: split, distribuzione firmata Developer ID, generalizzazione multi-agente
   (Codex/opencode).

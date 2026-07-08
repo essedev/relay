@@ -245,6 +245,27 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
   disattivate finché l'overlay è su. Icona di About ridisegnata con `RelayMarkView` (dai build di
   sviluppo `NSApp.applicationIconImage` dava l'icona generica).
 
+## Fatto - Pulizia codebase, CI deterministica e move-tab (post-onboarding)
+
+- **Move to New Workspace**: dal menu contestuale di una tab (visibile solo con **>=2 tab**) la si
+  estrae in un nuovo workspace placeholder **preservando la sessione viva** - lo store sposta lo
+  **stesso** oggetto `Tab` (stesso `Tab.id`), quindi la surface/pty non si tocca; append del nuovo
+  workspace + `removeTab` dall'origine nella stessa mutazione sincrona, così il reconcile delle
+  surface non sfratta mai la tab. Il nuovo workspace eredita la cwd come `rootPath` e nasce
+  `.default` (nominabile). No-op sull'unica tab. Testato (`moveTabToNewWorkspace`).
+- **Giro di pulizia del codice** (refactor a comportamento invariato, undici commit atomici
+  verificati uno per uno, incluso un passo adversariale commit per commit): componenti UI condivisi
+  in `Panels` (`StatusDot`/`CommandChip`/`CloseButton` + token font/tint), dedup nel model
+  (`RelayTheme.copy`, helper setter di `AppSettings`, `Array.move`, lookup `tab(id:)`),
+  trigger-policy della nomina estratta pura in `Core.NamingTriggerPolicy`, `FullOverlayPresenter`
+  unico per dashboard/onboarding, `reveal(workspaceID:tabID:)` centralizzato, conversione
+  `NSColor(relay:)` unica in `TerminalEngine`, errori I/O non più inghiottiti (drain/backup/CLI),
+  dead code rimosso.
+- **CI deterministica**: gli strumenti di lint erano installati con `brew install` (sempre
+  l'ultima), e una regola nuova di SwiftFormat bocciava codice invariato - CI **rossa da 0.7.0**.
+  Ora versioni **pinnate** (binari dai release GitHub in `.build/tools` via `make tools`), stesse
+  in CI e locale.
+
 ## Più avanti
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
