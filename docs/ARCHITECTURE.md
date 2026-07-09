@@ -145,7 +145,7 @@ repo/
     WorkspaceModel/     store workspace/tab, reducer stati, attention, persistence, settings
     TerminalEngine/     backend SwiftTerm dietro un'astrazione, surface lifecycle
     TerminalHostUI/     AppKit: host view, surface registry (lazy + LRU), attention ring
-    Panels/             SwiftUI: sidebar, tab bar, dashboard, settings, badge
+    Panels/             SwiftUI: sidebar, tab bar, dashboard, settings, stats, badge
     HookInstaller/      manipolazione ~/.claude/settings.json + mapping hook -> stato
     LayoutStore/        persistence layout: snapshot JSON su disco (I/O), path iniettato
     relay/              eseguibile `relay` (RelayApp): composition root e wiring
@@ -292,6 +292,9 @@ root:
   così scattano anche col terminale in focus.
 - Dashboard (`Cmd+D`): overlay full-window sopra tutto (`RootOverlayController.presentFullOverlay`)
   con la griglia delle sessioni agente - vedi #Dashboard-Delle-Sessioni.
+- Runtime Stats (`View > Runtime Stats…`): pannello read-only separato dalle Settings (non è una
+  preferenza), con RSS, CPU del processo, conteggi workspace/tab e surface vive/cap. Campiona solo
+  mentre la finestra è aperta; a regime non aggiunge polling.
 - Onboarding ("Welcome to Relay"): overlay full-window al primo avvio (flag
   `AppSettings.onboardingSeen`, mai in demo mode), riapribile da Help > Welcome to Relay. Cinque
   pagine coi componenti veri del design system al posto di screenshot (badge live, keycap dai
@@ -851,7 +854,9 @@ Costruito (Milestone 3):
 - misure di performance chiuse (`docs/research/PERF.md`), strumentazione `RELAY_PERF` integrata:
   latenza input aggiunta dallo shell max 2.4µs (budget 16ms p99, ~4 ordini di grandezza di margine),
   ~0.3-0.5 MB per surface idle e ~98 MB con 30 surface vive. Cap confermato a 12, knob
-  `RELAY_SURFACE_CAP` per ri-tarare.
+  `RELAY_SURFACE_CAP` per ri-tarare;
+- pannello Runtime Stats (`View > Runtime Stats…`) per vedere RSS, CPU del processo, workspace/tab
+  e surface vive/cap con campionamento on-demand solo mentre la finestra è aperta.
 
 Costruito (Milestone 4, bundle + notifiche):
 

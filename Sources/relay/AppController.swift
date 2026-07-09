@@ -26,6 +26,8 @@ final class AppController: NSObject, NSApplicationDelegate {
     var overlayPresenter: FullOverlayPresenter!
     var settingsWindow: NSWindow? // internal: aperto/chiuso dall'extension delle impostazioni
     var aboutWindow: NSWindow? // internal: pannello "About Relay" (extension impostazioni)
+    var statsWindow: NSWindow? // internal: runtime stats panel
+    var runtimeStatsSampler: RuntimeStatsSampler?
     private var untitledCount = 0
     var keyMonitor: Any? // internal: installato dall'extension di navigazione
     /// Timer del "flash" di completamento sulla tab in vista, per tab: alla scadenza declassa il

@@ -130,6 +130,8 @@ Shortcuts). Resta aperto (later): import da config Ghostty.
 - Misure di performance chiuse (`docs/research/PERF.md`) con strumentazione integrata (`RELAY_PERF`):
   latenza input aggiunta dallo shell max 2.4µs (budget 16ms p99), ~0.3-0.5 MB per surface idle,
   ~98 MB con 30 surface vive. Cap confermato a 12; knob `RELAY_SURFACE_CAP` per ri-tarare.
+- Pannello Runtime Stats (`View > Runtime Stats…`) con RSS, CPU processo, workspace/tab e surface
+  vive/cap; campiona solo mentre la finestra è aperta.
 
 ## Milestone 4 - Bundle `.app` + notifiche - fatto
 

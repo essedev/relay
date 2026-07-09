@@ -137,8 +137,16 @@ enum MainMenuBuilder {
     }
 
     private static func viewMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
-        submenu("View", [
+        let runtimeStats = NSMenuItem(
+            title: "Runtime Stats…",
+            action: #selector(AppController.showRuntimeStats(_:)),
+            keyEquivalent: ""
+        )
+        runtimeStats.target = target
+        return submenu("View", [
             actionItem(.toggleSidebar, settings, target),
+            .separator(),
+            runtimeStats,
             .separator(),
             actionItem(.zoomIn, settings, target),
             actionItem(.zoomOut, settings, target),

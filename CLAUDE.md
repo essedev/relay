@@ -29,8 +29,9 @@ dal vivo) - vedi gotcha** + **nomina automatica dei workspace via LLM OpenAI-com
 cliccabili (il click porta in vista la tab) + play dell'update in una tab dedicata - vedi
 gotcha** + **sposta una tab in un nuovo workspace dal menu contestuale (surface viva preservata)
 + giro di pulizia del codice (componenti UI condivisi, dedup di helper, overlay full-window
-unificato, conversione colore unica) + strumenti di lint pinnati per una CI deterministica -
-vedi gotcha**.
+unificato, conversione colore unica) + strumenti di lint pinnati per una CI deterministica +
+**pannello Runtime Stats dal menu View (RSS, CPU, workspace/tab, surface vive; campiona solo da
+aperto) - vedi gotcha**.
 **Baseline delle milestone chiuso**, app
 installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
 `docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
@@ -98,9 +99,10 @@ girano solo dal bundle (`make run-app`).
   "About Relay" a tema), `Onboarding` (`OnboardingModel` puro + `OnboardingView` +
   `OnboardingPages`/`OnboardingAttention` + `RelayMarkView`, icona procedurale), `ShortcutsList`
   (recorder shortcut), `NamingControls` (closure per la API key della nomina automatica +
-  `WorkspaceNamingBlock` nelle impostazioni), `StatusDot`/`CommandChip`/`CloseButton` (primitive UI
-  condivise: pallino di stato pieno/anello, pill monospace per keycap e comandi, bottone di chiusura
-  `xmark`), `KeyEventBridge`
+  `WorkspaceNamingBlock` nelle impostazioni), `RuntimeStatsView` (pannello read-only menu View per
+  memoria/CPU/conteggi runtime), `StatusDot`/`CommandChip`/`CloseButton` (primitive UI condivise:
+  pallino di stato pieno/anello, pill monospace per keycap e comandi, bottone di chiusura `xmark`),
+  `KeyEventBridge`
   (NSEvent -> `KeyCombo`, usato anche dal monitor), `MonospaceFonts`. I colori e le misure vengono
   dal design system (`Theme`/`ThemeColors`), non hardcoded.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
@@ -115,7 +117,8 @@ girano solo dal bundle (`make run-app`).
   `UpdateController` (unico punto che tocca rete/clipboard per il check aggiornamenti),
   `NamingController` (unico punto che tocca la rete per la nomina automatica dei workspace) +
   `NamingCredentialStore` (API key su file 0600 in `~/.relay`), `LayoutAutosave`, `PerfSampler`
-  (misure `RELAY_PERF`), `ShortcutRuntime` (`perform(action)` + `KeyEventBridge`),
+  (misure `RELAY_PERF`), `RuntimeStatsSampler` (campionamento utente on-demand per il pannello
+  Runtime Stats), `ShortcutRuntime` (`perform(action)` + `KeyEventBridge`),
   `AppControllerDashboard` (apri/chiudi dashboard + decadenza sospesi), `FullOverlayPresenter`
   (host unico degli overlay full-window dashboard/onboarding: mutua esclusione per costruzione),
   `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
@@ -255,6 +258,10 @@ girano solo dal bundle (`make run-app`).
 - Misure di performance: `RELAY_PERF=1` accende `PerfSampler` (RSS + surface vive + latenza input,
   categoria log `perf`, livello `.notice`); `RELAY_PERF_CYCLE=1` cicla il focus; `RELAY_SURFACE_CAP=N`
   override del cap LRU. Vedi `docs/research/PERF.md` per numeri e metodo. Spento a regime.
+- Runtime Stats: voce `View > Runtime Stats…`, pannello read-only con RSS, CPU del processo,
+  workspace/tab e surface vive/cap. `RuntimeStatsSampler` campiona solo finché il pannello è aperto
+  (~2s), poi invalida il timer in `windowWillClose`: non trasformarlo in polling permanente. Resta
+  separato da `PerfSampler`, che è dev tooling (`RELAY_PERF`) e misura anche la latenza input.
 - `Tab` è ambiguo: SwiftUI ha un suo `Tab`. Nei file che importano SwiftUI + WorkspaceModel usa
   `WorkspaceModel.Tab`.
 - Bridge Observation -> AppKit: `WorkspaceAreaController.observe()` usa `withObservationTracking`
