@@ -205,14 +205,16 @@ struct NavigationPage: View {
                 shortcut("\u{2318}1\u{2013}9", "Switch workspace",
                          "follows the sidebar order, top row first")
                 shortcut("\u{2325}1\u{2013}9", "Switch tab", "within the current workspace")
+                shortcut("\u{2325} text", "Type layout symbols",
+                         "Option-generated characters go to the terminal first")
                 shortcut(combo(.newTab), "New tab",
                          "inherits the directory you are working in")
                 shortcut(combo(.find), "Find in terminal", "with next and previous matches")
                 shortcut(combo(.clear), "Clear terminal", "screen and scrollback")
             }
             Spacer(minLength: 0)
-            Text("Every shortcut except \u{2318}/\u{2325} 1\u{2013}9 is remappable in "
-                + "Settings > Shortcuts.")
+            Text("Every shortcut except \u{2318}1\u{2013}9 and non-text \u{2325}1\u{2013}9 is "
+                + "remappable in Settings > Shortcuts.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
         }

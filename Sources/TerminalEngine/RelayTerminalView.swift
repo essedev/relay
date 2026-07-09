@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import SwiftTerm
 
 /// `LocalProcessTerminalView` con due aggiunte: il drop di file (trascinare uno o più file dal
@@ -19,11 +20,20 @@ final class RelayTerminalView: LocalProcessTerminalView {
         super.init(frame: frame)
         registerForDraggedTypes([.fileURL])
         SmoothScrollInterceptor.installIfNeeded()
+        OptionTextInterceptor.installIfNeeded()
     }
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("RelayTerminalView is programmatic-only")
+    }
+
+    func handleOptionText(_ event: NSEvent) -> Bool {
+        if let text = event.optionGeneratedText {
+            process.send(data: ArraySlice(Array(text.utf8)))
+            return true
+        }
+        return false
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -112,5 +122,17 @@ final class RelayTerminalView: LocalProcessTerminalView {
             options: options
         )
         return objects as? [URL] ?? []
+    }
+}
+
+private extension NSEvent {
+    var optionGeneratedText: String? {
+        KeyboardTextInput.optionGeneratedText(
+            characters: characters,
+            charactersIgnoringModifiers: charactersIgnoringModifiers,
+            hasOption: modifierFlags.contains(.option),
+            hasCommand: modifierFlags.contains(.command),
+            hasControl: modifierFlags.contains(.control)
+        )
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import Core
 import SwiftUI
 import WorkspaceModel
 
@@ -88,6 +89,11 @@ struct ShortcutRow: View {
         if event.keyCode == 53 { stopRecording(); return } // Esc annulla
         // Serve un modificatore forte (⌘/⌃/⌥): un tasto nudo o solo-shift è digitazione, aspetta.
         guard let combo = KeyEventBridge.combo(from: event), combo.hasStrongModifier else { return }
+        if let text = event.optionGeneratedText {
+            warning = "Types “\(text)” on this keyboard"
+            stopRecording()
+            return
+        }
         if let rejection = combo.recordingRejection {
             warning = Self.warningText(for: rejection)
             stopRecording()
@@ -124,6 +130,18 @@ struct ShortcutRow: View {
     }
 }
 
+private extension NSEvent {
+    var optionGeneratedText: String? {
+        KeyboardTextInput.optionGeneratedText(
+            characters: characters,
+            charactersIgnoringModifiers: charactersIgnoringModifiers,
+            hasOption: modifierFlags.contains(.option),
+            hasCommand: modifierFlags.contains(.command),
+            hasControl: modifierFlags.contains(.control)
+        )
+    }
+}
+
 /// Lista delle scorciatoie nel pannello impostazioni: azioni rimappabili per gruppo (con recorder),
 /// reset globale e una sezione di sola lettura per i select-by-number, che restano fissi.
 struct ShortcutsList: View {
@@ -149,7 +167,7 @@ struct ShortcutsList: View {
             }
             section("FIXED") {
                 fixedRow("Select workspace 1–9", "⌘1–9")
-                fixedRow("Select tab 1–9", "⌥1–9")
+                fixedRow("Select tab 1–9", "⌥1–9, unless it types text")
             }
         }
     }

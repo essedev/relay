@@ -317,6 +317,14 @@ girano solo dal bundle (`make run-app`).
   implementa: query + encoding). Claude Code attiva il protocollo solo per terminali noti; **non**
   settare `TERM_PROGRAM` (lo prioritizza e maschererebbe il segnale, claude-code#27868). Cosi
   Shift+Invio/Ctrl+Invio arrivano distinti all'app, senza intercettare l'input nel path caldo.
+- Testo da `Option`/AltGr: sui layout internazionali `Option` è anche composizione di testo
+ (`Option+ò` = `@`, `Option+digit` = simboli). `Core.KeyboardTextInput` è la policy unica: se
+ macOS produce testo stampabile da `Option` senza `Cmd/Ctrl`, quel testo vince sulle shortcut.
+ Il monitor delle shortcut lo lascia passare e `OptionTextInterceptor` chiama
+ `RelayTerminalView.handleOptionText`, che lo scrive UTF-8 nel PTY prima che il kitty keyboard
+ protocol lo codifichi come tasto modificato. Quindi `Option+1..9` seleziona le tab solo quando il
+ layout corrente non produce testo; il recorder rifiuta le combo che digitano caratteri sul layout
+ attivo.
 - Scroll fluido: SwiftTerm quantizza lo scroll (`event.deltaY` -> salti di 1/3/10/20+ righe,
   delta precisi del trackpad ignorati). `RelayTerminalView.handleSmoothScroll` converte
   `scrollingDeltaY` in righe (1:1 col gesto, momentum incluso) accumulando il residuo sub-riga

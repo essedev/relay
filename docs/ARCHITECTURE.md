@@ -330,6 +330,13 @@ Il **recorder** (impostazioni) installa un monitor locale temporaneo e alza
 invece di eseguire l'azione. Rifiuta le combo di sistema e segnala i conflitti; reset per singola
 azione o globale.
 
+Precedenza del testo: sui layout internazionali `Option` spesso equivale ad AltGr (`Option+ò` =
+`@`, `Option+digit` = simboli). Se macOS produce un carattere stampabile da una combinazione
+`Option` senza `Cmd/Ctrl`, Relay la considera digitazione: il monitor non la consuma e la surface
+scrive il testo UTF-8 nel PTY prima che il keyboard protocol del terminale lo trasformi in un tasto
+modificato. Le scorciatoie `Option+1..9` per le tab quindi valgono solo quando quella combinazione
+non produce testo nel layout corrente.
+
 ## Tooling Di Test (Simulatore E Demo)
 
 Due strumenti esercitano la pipeline agente senza sessioni Claude reali, **passando dal socket

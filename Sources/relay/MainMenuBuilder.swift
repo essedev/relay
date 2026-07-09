@@ -115,7 +115,7 @@ enum MainMenuBuilder {
         items.append(.separator())
         for index in 1 ... 9 {
             items.append(numberItem(
-                "Tab \(index)   ⌥\(index)",
+                "Tab \(index)   ⌥\(index) if not text",
                 #selector(AppController.selectTabByShortcut(_:)),
                 index - 1,
                 target
