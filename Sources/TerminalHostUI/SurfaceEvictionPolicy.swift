@@ -1,30 +1,31 @@
 import Foundation
 
-/// Decisione pura della LRU sulle surface vive: quali sfrattare per rientrare nel cap. Isolata qui
-/// (niente I/O, niente AppKit) così è testabile senza surface reali; `SurfaceRegistry` la applica.
+/// Pure LRU decision for live surfaces: which ones to evict to move back toward the cap. Kept
+/// separate from I/O and AppKit so `SurfaceRegistry` can apply it while tests exercise the policy
+/// without real terminal surfaces.
 ///
-/// Regole: si sfratta dai meno recenti; non si sfratta mai il tab da tenere (`keep`, cioè il
-/// visibile) né un tab con lavoro vivo (`isEvictable == false`: shell con figli). Se gli evictabili
-/// non bastano a rientrare nel cap, si sfratta quel che si può e si resta sopra il cap: meglio
-/// sforare che uccidere un processo.
+/// Rules: evict from least recent to most recent; never evict `keep`, protected tabs, or tabs with
+/// live work (`isEvictable == false`). If the remaining candidates are not enough to reach the cap,
+/// tolerate going over budget rather than killing useful context or a live process.
 public enum SurfaceEvictionPolicy {
-    /// - `recency`: tab con surface viva, dal più recente (primo) al meno recente (ultimo).
-    /// - `keep`: tab da non sfrattare mai (il visibile). `nil` se nessuno.
-    /// - `cap`: numero massimo di surface vive desiderato.
-    /// - `isEvictable`: `false` per i tab con lavoro vivo (da tenere a prescindere).
+    /// - `recency`: tabs with live surfaces, from most recent (first) to least recent (last).
+    /// - `keep`: tab that must never be evicted, usually the visible one.
+    /// - `cap`: desired maximum number of live surfaces.
+    /// - `isProtected`: `true` for tabs whose context should survive a soft-cap overflow.
+    /// - `isEvictable`: `false` for tabs with live work that must survive regardless of the cap.
     public static func evictions(
         recency: [UUID],
         keep: UUID?,
         cap: Int,
+        isProtected: (UUID) -> Bool = { _ in false },
         isEvictable: (UUID) -> Bool
     ) -> [UUID] {
         guard cap >= 0, recency.count > cap else { return [] }
         var live = recency.count
         var toEvict: [UUID] = []
-        // Dai meno recenti verso i più recenti: sfratta finché non si rientra nel cap.
         for id in recency.reversed() {
             if live <= cap { break }
-            if id == keep || !isEvictable(id) { continue }
+            if id == keep || isProtected(id) || !isEvictable(id) { continue }
             toEvict.append(id)
             live -= 1
         }

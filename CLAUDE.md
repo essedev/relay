@@ -479,11 +479,13 @@ girano solo dal bundle (`make run-app`).
   legittime usano `RELAY_SOCKET`/`RELAY_LAYOUT` diversi: path diverso, nessun match, partono
   normali. Non elimina la race di due lanci simultanei (per quella servirebbe un lockfile): copre
   il caso reale del lancio dev mentre un'istanza è già viva.
-- Cap LRU surface: `SurfaceRegistry.enforceLRU(cap:keep:)` sfratta le meno recenti **solo se idle**
-  (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente), mai la
-  visibile. Eviction = teardown SwiftTerm (scrollback perso, shell ricreata alla cwd al re-focus).
-  Cap in `WorkspaceAreaController` (12, da tarare). Se cambi il criterio di eviction, tienilo
-  conservativo: meglio sforare il cap che uccidere un processo.
+- Cap LRU surface: `SurfaceRegistry.enforceLRU` è un **soft cap**. Sfratta le meno recenti **solo se
+  idle** (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente) e
+  non protette: mai la visibile, le tab del workspace attivo, le tab con attenzione fresca
+  (`needs_input`/`error`/`unseen`) o quelle usate negli ultimi ~30 minuti. Eviction = teardown
+  SwiftTerm (scrollback perso, shell ricreata alla cwd al re-focus). Cap in
+  `WorkspaceAreaController` (12, knob `RELAY_SURFACE_CAP`). Se cambi il criterio, tienilo
+  conservativo: meglio sforare il cap che resettare contesto utile o uccidere un processo.
 - Resume Claude: `ResumeBinding` (agent/sessionId/label) catturato in `applyAgentState` (viva) e
   azzerato su `unknown`, persistito nel `TabSnapshot`. Al primo focus di una tab `pendingResume`
   (binding + `agentState==unknown`) `RightPaneController` overlaya `ResumeBar` sul terminale;

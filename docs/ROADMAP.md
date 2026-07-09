@@ -122,9 +122,10 @@ Shortcuts). Resta aperto (later): import da config Ghostty.
 
 ## Milestone 3 - Disciplina performance - fatto
 
-- Cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy` pura, cap in
-  `WorkspaceAreaController`). Sfratta le meno recenti solo se idle (shell senza figli: copre
-  foreground/background/agente), mai la visibile; al re-focus la surface rinasce lazy alla cwd
+- Cap LRU soft sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy` pura, cap
+  in `WorkspaceAreaController`). Sfratta le meno recenti solo se idle (shell senza figli: copre
+  foreground/background/agente) e non protette: visibile, workspace attivo, attenzione fresca, tab
+  recenti e lavoro vivo restano in memoria; al re-focus una surface sfrattata rinasce lazy alla cwd
   salvata (scrollback perso).
 - Misure di performance chiuse (`docs/research/PERF.md`) con strumentazione integrata (`RELAY_PERF`):
   latenza input aggiunta dallo shell max 2.4µs (budget 16ms p99), ~0.3-0.5 MB per surface idle,

@@ -247,9 +247,25 @@ public final class WorkspaceAreaController: NSViewController {
             view.window?.makeFirstResponder(surface.view)
         }
 
-        // Cap LRU: dopo aver reso viva la tab corrente, sfratta le surface idle meno recenti oltre
-        // il cap (mai la visibile né quelle con lavoro vivo). Rinascono lazy al re-focus.
-        registry.enforceLRU(cap: liveSurfaceCap, keep: tab.id)
+        registry.enforceLRU(
+            cap: liveSurfaceCap,
+            keep: tab.id,
+            protectedTabIDs: protectedTabIDs(activeWorkspace: workspace)
+        )
+    }
+
+    private func protectedTabIDs(activeWorkspace workspace: Workspace) -> Set<UUID> {
+        var ids = Set(workspace.tabs.map(\.id))
+        for candidateWorkspace in store.workspaces {
+            for tab in candidateWorkspace.tabs where hasFreshAttention(tab) {
+                ids.insert(tab.id)
+            }
+        }
+        return ids
+    }
+
+    private func hasFreshAttention(_ tab: Tab) -> Bool {
+        tab.agentState == .needsInput || tab.agentState == .error || tab.attention == .unseen
     }
 
     /// Massimo di surface vive tenute in memoria. Default 12, tarato sulle misure di memoria (M3,

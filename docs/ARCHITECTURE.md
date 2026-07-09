@@ -596,10 +596,13 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
   visita** della tab (lazy) e viene distrutta quando la tab non esiste più (reconcile via
   `retain(aliveTabIDs)`). Il PTY di una tab non visibile resta vivo.
 - `WorkspaceAreaController` (AppKit) osserva lo store e scambia la view della surface attiva.
-- Cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU`, cap in `WorkspaceAreaController`): oltre
-  il cap si sfrattano le meno recenti **solo se idle** (`hasRunningChildren == false`: shell senza
-  figli, copre foreground/background/agente), mai la visibile. Eviction = teardown della surface
-  SwiftTerm: scrollback perso, shell ricreata alla cwd salvata al re-focus. La decisione
+- Cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU`, cap in `WorkspaceAreaController`): il
+  cap è **soft**. Oltre budget si sfrattano le meno recenti **solo se idle** (`hasRunningChildren ==
+  false`: shell senza figli, copre foreground/background/agente) e non protette: mai la visibile, le
+  tab del workspace attivo, le tab con attenzione fresca (`needs_input`/`error`/`unseen`) o quelle
+  usate negli ultimi ~30 minuti. Se tutte le candidate sono protette o vive, si resta sopra cap:
+  meglio sforare che resettare contesto utile. Eviction = teardown della surface SwiftTerm:
+  scrollback perso, shell ricreata alla cwd salvata al re-focus. La decisione
   (`SurfaceEvictionPolicy`) è pura e testabile.
 
 ### Persistence Del Layout
@@ -842,9 +845,9 @@ Costruito (resume agenti, follow-on M2):
 
 Costruito (Milestone 3):
 
-- cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy` pura, cap in
-  `WorkspaceAreaController`): sfratta le meno recenti solo se idle, mai la visibile né quelle con
-  lavoro vivo;
+- cap LRU soft sulle surface vive (`SurfaceRegistry.enforceLRU` + `SurfaceEvictionPolicy` pura, cap
+  in `WorkspaceAreaController`): sfratta le meno recenti solo se idle e non protette; tiene la
+  visibile, il workspace attivo, l'attenzione fresca, le tab recenti e quelle con lavoro vivo;
 - misure di performance chiuse (`docs/research/PERF.md`), strumentazione `RELAY_PERF` integrata:
   latenza input aggiunta dallo shell max 2.4µs (budget 16ms p99, ~4 ordini di grandezza di margine),
   ~0.3-0.5 MB per surface idle e ~98 MB con 30 surface vive. Cap confermato a 12, knob
