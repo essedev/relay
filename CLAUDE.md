@@ -350,6 +350,18 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
  `Option+1` = `«` sull'italiano) non è digitabile; l'eccezione sta dentro la policy, così monitor,
  surface e recorder restano coerenti senza dipendere dall'ordine dei local monitor. Il recorder
  rifiuta le combo che digitano caratteri sul layout attivo (e `⌘/⌥ 1..9` come `fixedSelect`).
+- Selezione durante l'output: di suo SwiftTerm azzera la selezione a **ogni** feed
+  (`feedPrepare`), quindi con uno spinner attivo (`railway login`, `npm install`) copiare era
+  impossibile. `RelayTerminalView.dataReceived` sincronizza `allowMouseReporting` con lo stato
+  reale del mouse tracking (`terminal.mouseMode != .off`, la guardia proposta in SwiftTerm#560):
+  con mouse mode spento la selezione sopravvive all'output, con mouse mode attivo (es. Claude
+  Code) resta dell'app come prima. Due guardie in più perché le coordinate della selezione sono
+  assolute e SwiftTerm non le compensa: la selezione si azzera se lo scrollback **trimma**
+  (`totalLinesTrimmed`) o al cambio di buffer primary/alternate (`bufferActivated`), altrimenti
+  Cmd+C copierebbe righe mai evidenziate. Semantica bloccata da `SelectionPersistenceTests`
+  (passano dal percorso pty vero, `dataReceived`): se un bump di SwiftTerm cambia le regole
+  sotto, i test diventano rossi invece di rompersi in silenzio. Quando la #560 (o equivalente)
+  verrà mergiata, il toggle diventa ridondante e cancellabile.
 - Scroll fluido: SwiftTerm quantizza lo scroll (`event.deltaY` -> salti di 1/3/10/20+ righe,
   delta precisi del trackpad ignorati). `RelayTerminalView.handleSmoothScroll` converte
   `scrollingDeltaY` in righe (1:1 col gesto, momentum incluso) accumulando il residuo sub-riga

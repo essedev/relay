@@ -2,11 +2,12 @@ import AppKit
 import Core
 import SwiftTerm
 
-/// `LocalProcessTerminalView` con due aggiunte: il drop di file (trascinare uno o più file dal
+/// `LocalProcessTerminalView` con tre aggiunte: il drop di file (trascinare uno o più file dal
 /// Finder inserisce i path escaped nell'input, come Terminal.app/iTerm - SwiftTerm non lo fa da
-/// solo) e lo scroll fluido (delta precisi del trackpad invece della quantizzazione a scatti di
-/// SwiftTerm, via `SmoothScrollInterceptor`). Resta dentro TerminalEngine: nessun tipo SwiftTerm
-/// esce (la surface espone solo `NSView`).
+/// solo), lo scroll fluido (delta precisi del trackpad invece della quantizzazione a scatti di
+/// SwiftTerm, via `SmoothScrollInterceptor`) e la selezione che sopravvive all'output (vedi
+/// `dataReceived`). Resta dentro TerminalEngine: nessun tipo SwiftTerm esce (la surface espone
+/// solo `NSView`).
 final class RelayTerminalView: LocalProcessTerminalView {
     /// Chiamato al drop con gli URL dei file; la surface costruisce la stringa e la scrive nel PTY.
     var onFilesDropped: (([URL]) -> Void)?
@@ -105,6 +106,35 @@ final class RelayTerminalView: LocalProcessTerminalView {
                 pixelX: pixelX,
                 pixelY: pixelY
             )
+        }
+    }
+
+    /// La selezione deve sopravvivere all'output che continua ad arrivare: gli spinner dei CLI
+    /// riscrivono la loro riga ogni ~100ms e ogni riscrittura è un feed, quindi col comportamento
+    /// di default di SwiftTerm (`feedPrepare` azzera la selezione a ogni feed) copiare da un
+    /// terminale "vivo" è impossibile. SwiftTerm preserva solo con `allowMouseReporting == false`,
+    /// ma quello è un flag statico della view: qui lo si sincronizza con lo stato **reale** del
+    /// mouse tracking, la stessa guardia proposta upstream (SwiftTerm#560). È un no-op per tutto
+    /// il resto: ogni gestore mouse di SwiftTerm ri-controlla `terminal.mouseMode` per conto suo.
+    ///
+    /// Due guardie che upstream non ha, perché le coordinate della selezione sono assolute nel
+    /// buffer e SwiftTerm non le compensa: se lo scrollback trimma o si cambia buffer
+    /// (primary/alternate), una selezione preservata coprirebbe **altro testo** e Cmd+C copierebbe
+    /// righe mai evidenziate. Meglio perderla che copiarne una sbagliata in silenzio.
+    override func dataReceived(slice: ArraySlice<UInt8>) {
+        let terminal = getTerminal()
+        allowMouseReporting = terminal.mouseMode != .off
+        let trimmedBefore = terminal.buffer.totalLinesTrimmed
+        super.dataReceived(slice: slice)
+        if selectionActive, terminal.buffer.totalLinesTrimmed != trimmedBefore {
+            selectNone()
+        }
+    }
+
+    override func bufferActivated(source: Terminal) {
+        super.bufferActivated(source: source)
+        if selectionActive {
+            selectNone()
         }
     }
 
