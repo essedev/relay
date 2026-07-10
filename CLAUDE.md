@@ -369,6 +369,16 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
 - Chrome full-size content view: le `NSHostingView` della chrome (title strip, sidebar, overlay)
   devono avere `safeAreaRegions = []`, altrimenti SwiftUI applica la safe area della title bar e
   spinge il contenuto sotto i semafori. Il layout verticale lo gestiamo noi.
+- **Finestre di servizio SwiftUI (Settings/About/Runtime Stats): sempre da `makePanelWindow`**
+  (`PanelWindow.swift`), mai `NSWindow(contentViewController: NSHostingController)` +
+  `preferredContentSize`. Con la safe area attiva, ogni `setFrameSize` fa reinvalidare a
+  `NSHostingView` i suoi safe area insets, che chiede un altro "update constraints pass", che
+  ridimensiona la finestra: superati i pass rispetto al numero di view, AppKit **abortisce**
+  (`NSGenericException`, "more Update Constraints passes than there are views"). `makePanelWindow`
+  monta una `NSHostingView` con `safeAreaRegions = []` come `contentView` e fissa la dimensione.
+  Nella stessa famiglia: `NSWindow.applyRelayChrome` è **idempotente** e confronta l'appearance per
+  **nome** (`NSAppearance(named:)` non torna istanze condivise, quindi `!==` è sempre vero).
+  Riassegnare appearance/sfondo identici consuma pass e porta allo stesso abort.
 - Drag finestra: **non** `isMovableByWindowBackground` (trascinerebbe anche il terminale). Le due
   strip in alto (`ContextTitleBar` nel right pane, `trafficLightsStrip` nella sidebar) usano
   `WindowDragArea` (NSView pura con `performDrag` + doppio click = zoom secondo la preferenza
