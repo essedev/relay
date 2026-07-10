@@ -60,6 +60,12 @@ public struct KeyCombo: Codable, Equatable, Hashable, Sendable {
         KeyCombo(key: "c", modifiers: [.command]),
         KeyCombo(key: "v", modifiers: [.command]),
         KeyCombo(key: "a", modifiers: [.command]),
+        // Voci standard di sistema con keyEquivalent veri (Hide/Hide Others/Minimize/Full Screen):
+        // legarle a un'azione farebbe doppio trigger.
+        KeyCombo(key: "h", modifiers: [.command]),
+        KeyCombo(key: "h", modifiers: [.command, .option]),
+        KeyCombo(key: "m", modifiers: [.command]),
+        KeyCombo(key: "f", modifiers: [.command, .control]),
     ]
 
     /// Rappresentazione simbolica per la UI (es. `⌘⇧T`, `⌃⇥`). Ordine dei modificatori come Apple.
@@ -96,7 +102,7 @@ public enum ShortcutRejection: Equatable, Sendable {
 
 /// Gruppo di azioni, per raggruppare la lista shortcut nel pannello impostazioni.
 public enum ShortcutGroup: String, CaseIterable, Identifiable, Sendable {
-    case workspace, tab, pane, agent, terminal, view
+    case workspace, window, tab, pane, agent, terminal, view
 
     public var id: String {
         rawValue
@@ -105,6 +111,7 @@ public enum ShortcutGroup: String, CaseIterable, Identifiable, Sendable {
     public var title: String {
         switch self {
         case .workspace: "Workspace"
+        case .window: "Window"
         case .tab: "Tab"
         case .pane: "Pane"
         case .agent: "Agent"
@@ -119,6 +126,7 @@ public enum ShortcutGroup: String, CaseIterable, Identifiable, Sendable {
 public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendable {
     case newWorkspace, openFolder, closeWorkspace
     case cycleWorkspaceForward, cycleWorkspaceBackward
+    case newWindow, closeWindow
     case newTab, closeTab, cycleTabForward, cycleTabBackward
     case splitRight, splitDown, closePane, focusNextPane, focusPrevPane
     case nextAttention, prevAttention, toggleDashboard
@@ -129,33 +137,36 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         rawValue
     }
 
+    /// Titolo per menu e lista shortcut: Title Case, come vuole la HIG per le voci di menu.
     public var label: String {
         switch self {
-        case .newWorkspace: "New workspace"
-        case .openFolder: "Open folder as workspace"
-        case .closeWorkspace: "Close workspace"
-        case .cycleWorkspaceForward: "Next workspace"
-        case .cycleWorkspaceBackward: "Previous workspace"
-        case .newTab: "New tab"
-        case .closeTab: "Close tab"
-        case .cycleTabForward: "Next tab"
-        case .cycleTabBackward: "Previous tab"
-        case .splitRight: "Split right"
-        case .splitDown: "Split down"
-        case .closePane: "Close pane"
-        case .focusNextPane: "Next pane"
-        case .focusPrevPane: "Previous pane"
-        case .nextAttention: "Next attention"
-        case .prevAttention: "Previous attention"
-        case .toggleDashboard: "Agent dashboard"
-        case .find: "Find"
-        case .findNext: "Find next"
-        case .findPrevious: "Find previous"
-        case .clear: "Clear terminal"
-        case .toggleSidebar: "Toggle sidebar"
-        case .zoomIn: "Zoom in"
-        case .zoomOut: "Zoom out"
-        case .actualSize: "Actual size"
+        case .newWorkspace: "New Workspace"
+        case .openFolder: "Open Folder as Workspace…"
+        case .closeWorkspace: "Close Workspace"
+        case .cycleWorkspaceForward: "Next Workspace"
+        case .cycleWorkspaceBackward: "Previous Workspace"
+        case .newWindow: "New Window"
+        case .closeWindow: "Close Window"
+        case .newTab: "New Tab"
+        case .closeTab: "Close Tab"
+        case .cycleTabForward: "Next Tab"
+        case .cycleTabBackward: "Previous Tab"
+        case .splitRight: "Split Right"
+        case .splitDown: "Split Down"
+        case .closePane: "Close Pane"
+        case .focusNextPane: "Next Pane"
+        case .focusPrevPane: "Previous Pane"
+        case .nextAttention: "Next Attention"
+        case .prevAttention: "Previous Attention"
+        case .toggleDashboard: "Agent Dashboard"
+        case .find: "Find…"
+        case .findNext: "Find Next"
+        case .findPrevious: "Find Previous"
+        case .clear: "Clear Terminal"
+        case .toggleSidebar: "Toggle Sidebar"
+        case .zoomIn: "Make Text Bigger"
+        case .zoomOut: "Make Text Smaller"
+        case .actualSize: "Actual Size"
         }
     }
 
@@ -164,6 +175,8 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         case .newWorkspace, .openFolder, .closeWorkspace,
              .cycleWorkspaceForward, .cycleWorkspaceBackward:
             .workspace
+        case .newWindow, .closeWindow:
+            .window
         case .newTab, .closeTab, .cycleTabForward, .cycleTabBackward:
             .tab
         case .splitRight, .splitDown, .closePane, .focusNextPane, .focusPrevPane:
@@ -181,9 +194,14 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         switch self {
         case .newWorkspace: KeyCombo(key: "n", modifiers: [.command])
         case .openFolder: KeyCombo(key: "o", modifiers: [.command])
-        case .closeWorkspace: KeyCombo(key: "w", modifiers: [.command, .shift])
+        // `⇧⌘W` è "Close Window" su tutto macOS (Terminal, iTerm, i browser): tenerlo su "chiudi
+        // workspace" - che uccide sessioni - era una trappola per la muscle memory. Il workspace
+        // scala di un modificatore, nella famiglia delle chiusure.
+        case .closeWorkspace: KeyCombo(key: "w", modifiers: [.command, .option, .shift])
         case .cycleWorkspaceForward: KeyCombo(key: "down", modifiers: [.command, .option])
         case .cycleWorkspaceBackward: KeyCombo(key: "up", modifiers: [.command, .option])
+        case .newWindow: KeyCombo(key: "n", modifiers: [.command, .shift])
+        case .closeWindow: KeyCombo(key: "w", modifiers: [.command, .shift])
         case .newTab: KeyCombo(key: "t", modifiers: [.command])
         case .closeTab: KeyCombo(key: "w", modifiers: [.command])
         case .cycleTabForward: KeyCombo(key: "tab", modifiers: [.control])
@@ -191,7 +209,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         // Le combo di iTerm/tmux: dividere condivide il tasto, l'asse lo sceglie lo Shift.
         case .splitRight: KeyCombo(key: "\\", modifiers: [.command])
         case .splitDown: KeyCombo(key: "\\", modifiers: [.command, .shift])
-        // `Cmd+W` chiude la tab (uccide la sessione): smontare un pane è un gesto più leggero.
+        // `Cmd+W` chiude la tab selezionata; il pane chiude tutte le sue tab insieme.
         case .closePane: KeyCombo(key: "w", modifiers: [.command, .option])
         case .focusNextPane: KeyCombo(key: "]", modifiers: [.command])
         case .focusPrevPane: KeyCombo(key: "[", modifiers: [.command])

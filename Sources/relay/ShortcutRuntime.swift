@@ -11,6 +11,8 @@ extension AppController {
         case .newWorkspace: newWorkspace(nil)
         case .openFolder: openFolderAsWorkspace(nil)
         case .closeWorkspace: closeCurrentWorkspace()
+        case .newWindow: newWindow(nil)
+        case .closeWindow: closeCurrentWindow()
         case .cycleWorkspaceForward: store.selectAdjacentWorkspace(forward: true)
         case .cycleWorkspaceBackward: store.selectAdjacentWorkspace(forward: false)
         case .newTab: newTab(nil)

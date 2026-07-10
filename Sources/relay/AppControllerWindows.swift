@@ -69,4 +69,19 @@ extension AppController {
         controller.show()
         controller.activate()
     }
+
+    /// File > New Window (`⇧⌘N`): una finestra nuova con dentro un workspace fresco. Riusa il
+    /// percorso di "Move to New Window": il workspace nasce nella finestra corrente e migra
+    /// subito, nello stesso giro sincrono (l'osservazione coalizza: nessun flash).
+    @objc func newWindow(_: Any?) {
+        createUntitledWorkspace()
+        guard let workspace = store.selectedWorkspace else { return }
+        moveWorkspaceToNewWindow(workspace)
+    }
+
+    /// File > Close Window (`⇧⌘W`): chiude la finestra key. I suoi workspace rimpatriano nella
+    /// finestra attivata più di recente (`windowDidClose`); l'ultima finestra chiude l'app.
+    func closeCurrentWindow() {
+        keyWindowController?.window.performClose(nil)
+    }
 }
