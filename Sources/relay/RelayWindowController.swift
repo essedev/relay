@@ -98,9 +98,7 @@ final class RelayWindowController: NSObject, NSWindowDelegate {
     }
 
     func applyChrome(_ theme: RelayTheme) {
-        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        window.titlebarAppearsTransparent = true
-        window.backgroundColor = NSColor(relay: theme.background)
+        window.applyRelayChrome(theme)
     }
 
     var currentFrame: WindowFrame {
@@ -138,5 +136,24 @@ final class RelayWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_: Notification) {
         onClose?(windowID)
+    }
+}
+
+extension NSWindow {
+    /// Appearance e sfondo del tema, **senza riassegnare ciò che è già a posto**.
+    ///
+    /// Ogni assegnazione a `appearance`/`backgroundColor` invalida i constraint della finestra, e
+    /// ogni invalidazione costa un "update constraints pass". Superato il numero di view della
+    /// finestra AppKit abortisce (`NSGenericException`), e da un pannello piccolo ci si arriva:
+    /// `observeWindowTheme` si ri-arma a ogni cambio osservato e ripassa di qui, e `NSHostingView`
+    /// reagisce a ogni pass reinvalidando la sua safe area.
+    func applyRelayChrome(_ theme: RelayTheme) {
+        // Per **nome**: `NSAppearance(named:)` non restituisce istanze condivise, quindi il
+        // confronto per identità sarebbe sempre falso e riassegnerebbe a ogni giro.
+        let name: NSAppearance.Name = theme.isDark ? .darkAqua : .aqua
+        if appearance?.name != name { appearance = NSAppearance(named: name) }
+        if !titlebarAppearsTransparent { titlebarAppearsTransparent = true }
+        let background = NSColor(relay: theme.background)
+        if backgroundColor != background { backgroundColor = background }
     }
 }

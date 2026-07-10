@@ -11,21 +11,17 @@ extension AppController {
             settingsWindow.makeKeyAndOrderFront(nil)
             return
         }
-        let hosting = NSHostingController(
-            rootView: SettingsView(
+        let panel = makePanelWindow(
+            title: "Settings",
+            size: NSSize(width: 580, height: 400),
+            theme: settings.theme,
+            content: SettingsView(
                 settings: settings,
                 hooks: makeHookControls(),
                 naming: makeNamingControls()
             )
         )
-        hosting.preferredContentSize = NSSize(width: 580, height: 400)
-        let panel = NSWindow(contentViewController: hosting)
-        panel.title = "Settings"
-        panel.styleMask = [.titled, .closable]
-        panel.isReleasedWhenClosed = false
-        panel.center()
         settingsWindow = panel
-        applyWindowChrome(settings.theme) // appearance/background coerenti da subito
         panel.makeKeyAndOrderFront(nil)
     }
 
@@ -38,18 +34,14 @@ extension AppController {
             return
         }
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
-        let hosting = NSHostingController(
-            rootView: AboutView(settings: settings, version: version)
+        let panel = makePanelWindow(
+            title: "",
+            size: NSSize(width: 320, height: 300),
+            theme: settings.theme,
+            content: AboutView(settings: settings, version: version)
         )
-        hosting.preferredContentSize = NSSize(width: 320, height: 300)
-        let panel = NSWindow(contentViewController: hosting)
-        panel.styleMask = [.titled, .closable]
         panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isReleasedWhenClosed = false
-        panel.center()
         aboutWindow = panel
-        applyWindowChrome(settings.theme) // sfondo/appearance del tema da subito
         panel.makeKeyAndOrderFront(nil)
     }
 

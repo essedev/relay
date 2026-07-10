@@ -10,16 +10,13 @@ extension AppController {
         }
 
         let model = RuntimeStatsModel()
-        let hosting = NSHostingController(
-            rootView: RuntimeStatsView(settings: settings, model: model)
+        let panel = makePanelWindow(
+            title: "Runtime Stats",
+            size: NSSize(width: 420, height: 400),
+            theme: settings.theme,
+            content: RuntimeStatsView(settings: settings, model: model)
         )
-        hosting.preferredContentSize = NSSize(width: 420, height: 340)
-        let panel = NSWindow(contentViewController: hosting)
-        panel.title = "Runtime Stats"
-        panel.styleMask = [.titled, .closable]
-        panel.isReleasedWhenClosed = false
         panel.delegate = self
-        panel.center()
 
         let sampler = RuntimeStatsSampler(
             store: store,
@@ -29,7 +26,6 @@ extension AppController {
         sampler.start()
         runtimeStatsSampler = sampler
         statsWindow = panel
-        applyWindowChrome(settings.theme)
         panel.makeKeyAndOrderFront(nil)
     }
 }

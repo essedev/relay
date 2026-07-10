@@ -234,15 +234,11 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     func applyWindowChrome(_ theme: RelayTheme) {
-        let appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        let background = NSColor(relay: theme.background)
         for controller in windowControllers.values {
             controller.applyChrome(theme)
         }
-        for target in [settingsWindow, aboutWindow].compactMap(\.self) {
-            target.appearance = appearance
-            target.titlebarAppearsTransparent = true
-            target.backgroundColor = background
+        for target in [settingsWindow, aboutWindow, statsWindow].compactMap(\.self) {
+            target.applyRelayChrome(theme)
         }
     }
 
