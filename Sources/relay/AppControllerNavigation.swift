@@ -105,7 +105,6 @@ extension AppController {
     func handleNavigationKey(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard flags == .command || flags == .option else { return false }
-        if flags == .option, event.optionGeneratedText != nil { return false }
         guard let chars = event.charactersIgnoringModifiers, chars.count == 1,
               let digit = Int(chars), (1 ... 9).contains(digit) else { return false }
         let index = digit - 1
@@ -129,9 +128,12 @@ private extension NSEvent {
         KeyboardTextInput.optionGeneratedText(
             characters: characters,
             charactersIgnoringModifiers: charactersIgnoringModifiers,
-            hasOption: modifierFlags.contains(.option),
-            hasCommand: modifierFlags.contains(.command),
-            hasControl: modifierFlags.contains(.control)
+            modifiers: .init(
+                option: modifierFlags.contains(.option),
+                shift: modifierFlags.contains(.shift),
+                command: modifierFlags.contains(.command),
+                control: modifierFlags.contains(.control)
+            )
         )
     }
 }

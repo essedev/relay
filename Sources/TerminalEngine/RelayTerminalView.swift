@@ -130,9 +130,12 @@ private extension NSEvent {
         KeyboardTextInput.optionGeneratedText(
             characters: characters,
             charactersIgnoringModifiers: charactersIgnoringModifiers,
-            hasOption: modifierFlags.contains(.option),
-            hasCommand: modifierFlags.contains(.command),
-            hasControl: modifierFlags.contains(.control)
+            modifiers: .init(
+                option: modifierFlags.contains(.option),
+                shift: modifierFlags.contains(.shift),
+                command: modifierFlags.contains(.command),
+                control: modifierFlags.contains(.control)
+            )
         )
     }
 }

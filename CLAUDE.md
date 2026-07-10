@@ -329,9 +329,11 @@ girano solo dal bundle (`make run-app`).
  macOS produce testo stampabile da `Option` senza `Cmd/Ctrl`, quel testo vince sulle shortcut.
  Il monitor delle shortcut lo lascia passare e `OptionTextInterceptor` chiama
  `RelayTerminalView.handleOptionText`, che lo scrive UTF-8 nel PTY prima che il kitty keyboard
- protocol lo codifichi come tasto modificato. Quindi `Option+1..9` seleziona le tab solo quando il
- layout corrente non produce testo; il recorder rifiuta le combo che digitano caratteri sul layout
- attivo.
+ protocol lo codifichi come tasto modificato. **Eccezione: `Option+1..9` (senza Shift) è il
+ select-tab fisso e vince sempre sul testo** - il simbolo che il layout comporrebbe (es.
+ `Option+1` = `«` sull'italiano) non è digitabile; l'eccezione sta dentro la policy, così monitor,
+ surface e recorder restano coerenti senza dipendere dall'ordine dei local monitor. Il recorder
+ rifiuta le combo che digitano caratteri sul layout attivo (e `⌘/⌥ 1..9` come `fixedSelect`).
 - Scroll fluido: SwiftTerm quantizza lo scroll (`event.deltaY` -> salti di 1/3/10/20+ righe,
   delta precisi del trackpad ignorati). `RelayTerminalView.handleSmoothScroll` converte
   `scrollingDeltaY` in righe (1:1 col gesto, momentum incluso) accumulando il residuo sub-riga

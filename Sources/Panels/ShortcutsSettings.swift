@@ -135,9 +135,12 @@ private extension NSEvent {
         KeyboardTextInput.optionGeneratedText(
             characters: characters,
             charactersIgnoringModifiers: charactersIgnoringModifiers,
-            hasOption: modifierFlags.contains(.option),
-            hasCommand: modifierFlags.contains(.command),
-            hasControl: modifierFlags.contains(.control)
+            modifiers: .init(
+                option: modifierFlags.contains(.option),
+                shift: modifierFlags.contains(.shift),
+                command: modifierFlags.contains(.command),
+                control: modifierFlags.contains(.control)
+            )
         )
     }
 }
@@ -167,7 +170,7 @@ struct ShortcutsList: View {
             }
             section("FIXED") {
                 fixedRow("Select workspace 1–9", "⌘1–9")
-                fixedRow("Select tab 1–9", "⌥1–9, unless it types text")
+                fixedRow("Select tab 1–9", "⌥1–9")
             }
         }
     }

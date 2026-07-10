@@ -337,8 +337,10 @@ Precedenza del testo: sui layout internazionali `Option` spesso equivale ad AltG
 `@`, `Option+digit` = simboli). Se macOS produce un carattere stampabile da una combinazione
 `Option` senza `Cmd/Ctrl`, Relay la considera digitazione: il monitor non la consuma e la surface
 scrive il testo UTF-8 nel PTY prima che il keyboard protocol del terminale lo trasformi in un tasto
-modificato. Le scorciatoie `Option+1..9` per le tab quindi valgono solo quando quella combinazione
-non produce testo nel layout corrente.
+modificato. Eccezione: `Option+1..9` (senza Shift) è il select-tab fisso e vince sempre sul simbolo
+che il layout comporrebbe (es. `Option+1` = `«` sull'italiano) - quei simboli non sono digitabili
+finché esiste la shortcut; il resto del testo da `Option` vince sulle scorciatoie. La regola vive
+in un punto solo (`Core.KeyboardTextInput`), condivisa da monitor, surface e recorder.
 
 ## Tooling Di Test (Simulatore E Demo)
 
