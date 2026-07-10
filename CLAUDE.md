@@ -31,8 +31,11 @@ gotcha** + **sposta una tab in un nuovo workspace dal menu contestuale (surface 
 + giro di pulizia del codice (componenti UI condivisi, dedup di helper, overlay full-window
 unificato, conversione colore unica) + strumenti di lint pinnati per una CI deterministica +
 **pannello Runtime Stats dal menu View (RSS, CPU, workspace/tab, surface vive; campiona solo da
-aperto) - vedi gotcha** + **split panes e multi-window (albero di split sul Workspace con foglie
-`Tab.id`, finestre come partizione dei workspace su un solo store) - vedi gotcha**.
+aperto) - vedi gotcha** + **split panes e multi-window (finestre come partizione dei workspace su
+un solo store) - vedi gotcha** + **split v2 sul modello cmux (i pane ospitano le tab: strip per
+pane con action lane, click-to-focus, `docs/features/split-panes.md`) + selezione che sopravvive
+all'output in streaming + menu bar HIG-conforme (Window/Help/Services, New Window `⇧⌘N`, menu Go
+coi nomi reali, keyEquivalent nativi) - vedi gotcha**.
 **Baseline delle milestone chiuso**, app installabile in locale; prossimo giro a scelta
 (distribuzione firmata, multi-agente) - vedi `docs/ROADMAP.md`. Pipeline hook -> badge -> resume
 validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run-app`).
@@ -71,7 +74,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),
   `AgentWireCoding` (codifica JSON date ISO 8601 con ms). Puro, niente AppKit né WorkspaceModel.
 - `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab`/`RelayWindow` (@Observable) +
-  `SplitNode` (albero di split puro, foglie = `Tab.id`; operazioni in `WorkspaceStore+Split`) +
+  `SplitNode`/`SplitPane` (albero di split puro, foglie = pane con le loro tab, modello cmux;
+  operazioni in `WorkspaceStore+Split`, vedi gotcha split) +
   finestre (`WorkspaceStore+Windows`) + persistence (`WorkspaceStore+Persistence`) +
   `AttentionLevel` (marker post-completamento a tre livelli: unseen/pending, vedi gotcha) +
   `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
@@ -92,9 +96,11 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy, cap LRU via `SurfaceEvictionPolicy`
   pura; **una sola per l'app**, condivisa dalle finestre) + `WorkspaceAreaController` (AppKit,
   osserva lo store e riconcilia l'albero di pane in `NSSplitView` annidate, vedi `+PaneTree`) +
-  `PaneView` (terminale + ring + bordo di focus) + `AttentionRingView`. Path caldo.
+  `PaneView` (strip di tab iniettata + terminale scambiabile + ring + bordo di focus) +
+  `AttentionRingView`. Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
-  `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
+  `SidebarView`, `PaneTabBar` (la strip di tab di un pane + action lane; `PaneTabBarActions` =
+  closure verso il composition root), `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
   `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `Dashboard` (`DashboardModel` puro +
   `DashboardView`: griglia di triage delle sessioni), `Reorderable` (riordino drag & drop di
   workspace e tab: `DragGesture` + `.offset` + linea di inserimento), `WindowDragArea` (drag
@@ -181,17 +187,18 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   ripresa (`running`) non muove niente: la riga su cui lavori resta ferma, la scavalca solo un altro
   bump o il tuo drag. Il segnale (`attention`: ring/badge) vive a parte: declassamento (mark-read),
   dismiss e decadenza lo spengono ma **non** fanno scendere la riga (scende solo col drag).
-  "Interazione col terminale" è filtrata (`terminalOwns`,
+  "Interazione col terminale" è filtrata (`owningPane`,
   `WorkspaceAreaController`, via il monitor in `AppControllerNavigation`): un tasto col terminale
   in focus o un click **dentro la sua view**, non un click di navigazione nella chrome (cambio tab
-  nella tab bar, cambio workspace nella sidebar) né un tasto in un campo di rename - quelli non
+  nella strip, cambio workspace nella sidebar) né un tasto in un campo di rename - quelli non
   consumano il marker. Risolve solo un'azione **attiva** sulla conversazione - la ripresa vera
   (prompt -> running) o una ri-presa attiva (`/clear`, `/resume`: SessionStart `source` clear/resume
   -> `resetsAttention`, letto dal CLI, spegne il sospeso mantenendo `state` idle) - più il dismiss
   (card della dashboard), la chiusura tab e la decadenza (`pendingDecayHours`, default **12h**: il
   sospeso è il segnale quieto e già visto, tenerlo per sempre è banner blindness; `unseen` invece
   non scade mai da solo). Override manuale dal **menu contestuale** (sidebar sulla tab selezionata
-  del workspace, tab bar per-tab): `store.toggleUnread` è chiavato su `unseen`, non su "attenzione
+  del workspace, strip per-tab) e dal menu Workspace: `store.toggleUnread` è chiavato su `unseen`,
+  non su "attenzione
   accesa". Solo `unseen` è "unread": lì il menu mostra **"Mark as Read"** e spegne a `none`. Un
   `pending` è **già visto** (segnale quieto), quindi non lo si "legge": come da `none` il menu mostra
   **"Mark as Unread"** -> `Tab.markUnread` che lo ri-alza a `unseen` (riusa il segnale forte
@@ -272,18 +279,26 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
 - Bridge Observation -> AppKit: `WorkspaceAreaController.observe()` usa `withObservationTracking`
   e si ri-arma; leggi le proprietà osservate dentro `render()` o non verranno tracciate.
 - Shortcut numerici (Cmd/Option + 1..9): gestiti da un `NSEvent` local monitor in
-  `AppController`, non da keyEquivalent di menu. Motivo: i menu con solo Option non matchano (il
-  carattere è trasformato, es. Option+1 = "¡"). Le voci del menu "Go" sono solo cliccabili
-  (`AppControllerNavigation`). **Cmd+N segue l'ordine visivo della sidebar** (`orderedWorkspaces`),
-  non quello canonico: Cmd+1 apre sempre la riga in cima anche col float dei completati.
-- Shortcut rimappabili: **tutte** le azioni rimappabili passano dallo **stesso** local monitor
-  (non da keyEquivalent di menu, che non gestisce ogni combo). Il monitor converte l'evento in
-  `KeyCombo` (`KeyEventBridge`) e cerca l'azione in `settings.keybindings`, poi `perform(action)`
-  (`ShortcutRuntime`). I menu mostrano la combo **nel titolo** con `keyEquivalent` vuoto (niente
-  doppio trigger); il menu si ricostruisce al cambio binding (`observeKeybindings`). Fissi (con
-  keyEquivalent vero): Copy/Paste/Select All (responder SwiftTerm), Quit, Settings, e i select
-  1..9. Il recorder in impostazioni alza `settings.isCapturingShortcut`: il monitor si fa da parte
-  così l'evento arriva al recorder invece di eseguire l'azione. Default e conflitti in `AppSettings`.
+  `AppController`, non dai keyEquivalent di menu. Motivo: i menu con solo Option non matchano (il
+  carattere è trasformato, es. Option+1 = "¡"). Le voci numerate del menu "Go" mostrano i **nomi
+  reali** di workspace e tab, ripopolate all'apertura (`menuNeedsUpdate` in `AppControllerMenus`:
+  il menu si ricostruisce solo al cambio keybinding, quindi non possono essere statiche).
+  **Cmd+N segue l'ordine visivo della sidebar** (`orderedWorkspaces`), non quello canonico:
+  Cmd+1 apre sempre la riga in cima anche col float dei completati; Option+N naviga la strip del
+  pane focused.
+- Shortcut rimappabili: **tutte** le azioni rimappabili passano dallo **stesso** local monitor.
+  Il monitor converte l'evento in `KeyCombo` (`KeyEventBridge`) e cerca l'azione in
+  `settings.keybindings`, poi `perform(action)` (`ShortcutRuntime`). Le voci di menu portano la
+  combo come **keyEquivalent vero** (colonna nativa delle scorciatoie), ma il trigger resta il
+  monitor, che consuma l'evento **prima** che arrivi al menu: niente doppio trigger. Quando il
+  monitor si fa da parte (dashboard/onboarding aperti) i keyEquivalent tornerebbero vivi:
+  `validateMenuItem` (`AppControllerMenus`) disabilita lì tutte le voci dell'AppController tranne
+  il toggle della dashboard, e a overlay chiuso disabilita le azioni no-op (pane senza split,
+  move con una tab sola). Il menu si ricostruisce al cambio binding (`observeKeybindings`).
+  Fissi: Copy/Paste/Select All (responder SwiftTerm), Quit, Settings, Hide/Minimize/Full Screen
+  (in `KeyCombo.systemReserved`: il recorder li rifiuta) e i select 1..9. Il recorder in
+  impostazioni alza `settings.isCapturingShortcut` e consuma ogni keyDown nel suo monitor: né il
+  monitor di navigazione né i keyEquivalent vedono la combo. Default e conflitti in `AppSettings`.
 - Agent binding: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'env della surface e torna dall'hook
   come `paneId`; accanto viaggia `RELAY_RUN_ID` (`Core.RelayRunID`, nonce per processo), che torna
   come `runId` e identifica la **run** dell'app che ha creato la surface (vedi fence di run sotto).
@@ -462,7 +477,7 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   galleggiano). `setArchived`/`toggleArchive`: non archivia l'ultimo visibile e sposta la selezione
   fuori dall'archiviato; un archiviato con attenzione fresca accende un pallino discreto
   sull'header (non un buco nero). Archivia/ripristina dal menu contestuale (`Archive`/`Unarchive`).
-- Riordino drag & drop (sidebar e tab bar): meccanismo in `Panels/Reorderable` (`reorderableRow` +
+- Riordino drag & drop (sidebar e strip dei pane): meccanismo in `Panels/Reorderable` (`reorderableRow` +
   `reorderableContainer` + `ReorderInsertionLine`). **Non** `onDrag`/`onDrop` di sistema (generano
   una preview con snap-back al rilascio): la riga *vera* si solleva con un `DragGesture` + `.offset`
   (semitrasparente, zIndex alto) seguendo il puntatore, una linea segnala l'inserimento, e al
@@ -487,9 +502,10 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   pinna/spinna (il bordo esatto non cambia lo stato), l'ancora preferisce il vicino dello stesso
   segmento e ripiega sul vicino grezzo. Durante il gesto l'ordine visivo è **congelato**
   (`frozenOrder`): senza, un evento agente che bumpa un workspace riordinerebbe le righe sotto il
-  puntatore. **Tab bar**: nessun segmento, ordine unico. Su macOS lo `ScrollView` non fa
-  drag-scroll, quindi il `DragGesture` non confligge con lo scroll; niente pasteboard, niente drop
-  incrociati.
+  puntatore. **Strip dei pane**: nessun segmento, ordine unico, il riordino resta **dentro** la
+  strip (`Workspace.moveTab` è no-op cross-pane: il drag di tab fra pane è lavoro futuro). Su
+  macOS lo `ScrollView` non fa drag-scroll, quindi il `DragGesture` non confligge con lo scroll;
+  niente pasteboard, niente drop incrociati.
 - Chiusura tab/workspace: passa da `AppController.requestCloseTab/requestCloseWorkspace` (Cmd+W e le
   x dei pannelli), che chiedono conferma via `NSAlert` sheet se nel pty gira un comando in foreground
   (`TerminalSurfaceHandle.foregroundProcessName()` = `tcgetpgrp` vs `shellPid` + safe-list shell; solo
@@ -564,20 +580,34 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   versionato forza il riscarico al bump). `make lint`/`format`/`check` li usano; il workflow CI non
   fa più `brew install` (prendeva l'ultima: una regola nuova upstream rompeva il lint su codice
   invariato, la causa della CI rossa da 0.7.0). CI e locale girano la stessa identica versione.
-- **Split panes**: l'albero (`Workspace.splitLayout`, `SplitNode`) vive sul **Workspace** e le sue
-  foglie sono `Tab.id`: **non** c'è un'entità `Pane` sotto la Tab (il design originale in
-  ARCHITECTURE è superato). La Tab resta l'unità della sessione agente, quindi montarla o smontarla
-  non ne tocca l'identità né la surface. Due nozioni **distinte**, ed è l'errore facile da fare:
-  **montata** (`isMounted`, a schermo in un pane -> ring, mark-read, protezione LRU, soppressione di
-  notifica/bump) vs **focused** (`selectedTabID`, riceve la tastiera -> `Cmd+K`, find). `selectTab`
-  = **monta o metti a fuoco**: una tab già in un pane riceve solo il focus, una non montata prende il
-  posto di quella focused. Tutta la navigazione passa di lì e lo eredita gratis. Invariante:
-  **foglie uniche** (una tab, una surface, una view); `SplitNode.sanitized` la ripristina al restore.
-  `closePane` (⌥⌘W) smonta ma **lascia viva la tab e la sua sessione**; `Cmd+W` la uccide. Il
-  rendering (`WorkspaceAreaController+PaneTree`) riusa le `PaneView` per `Tab.id` e ricostruisce solo
-  se cambia la **struttura** dell'albero (`hasSameStructure`): durante il drag di un divider cambiano
-  solo i ratio, e rifare le view sotto il puntatore darebbe flicker. Il first responder si prende
-  **solo** quando cambia il pane focused (un render scatta a ogni OSC 7).
+- **Split panes (modello cmux, v2)**: i **pane ospitano le tab**. L'albero (`Workspace.layout`,
+  **sempre presente**) ha foglie `SplitPane` = {id, tabIDs ordinate, selectedTabID}; ogni pane ha
+  la **sua strip** (`Panels/PaneTabBar`, montata dentro la `PaneView` via factory
+  `makePaneStrip` iniettata dal composition root: TerminalHostUI non dipende da Panels) con
+  action lane a destra (nuova tab, split right/down). La tab bar globale non esiste più. La Tab
+  resta l'unità della sessione agente. Due nozioni **distinte**: **visibile** (`isVisible`,
+  selezionata nella sua strip -> ring, mark-read, protezione LRU, soppressione di notifica/bump)
+  vs **focused** (`focusedPaneID` + la sua selezione = `selectedTabID`, ora **derivato**). Ogni
+  "seleziona questa tab" passa da `reveal` (seleziona nel suo pane + focus al pane): selezionare
+  **non muta mai la struttura**. Il design "foglie = Tab.id" (v1) e ogni sua semantica
+  (monta/smonta, replacing) sono superati; il Codable di `SplitNode` decodifica ancora il formato
+  v1 (le tab fuori dall'albero vengono **adottate** al restore, vedi `Workspace.init`).
+  Invarianti: una tab sta in un pane solo, ogni pane ha >= 1 tab (`sanitized` li ripristina).
+  `closePane` (⌥⌘W, action lane, menu) **chiude il pane con le sue tab** (sessioni comprese,
+  conferma sui processi in foreground): nel nuovo modello non c'è un posto fuori dai pane. "Open
+  in Split Right/Down" (menu della tab) **sposta** la tab esistente in un pane nuovo accanto al
+  suo; no-op se è l'unica della sua strip. `Cmd+W` chiude la tab selezionata del pane focused
+  (selezione index-stable tipo browser); `Opt+1..9` e Ctrl+Tab navigano **la strip del pane
+  focused**. **Click-to-focus**: un click nel terminale di un pane aggiorna il focus del model
+  (monitor -> `owningPane` -> `focusPane`), non solo il first responder AppKit. Il rendering
+  (`WorkspaceAreaController+PaneTree`) riusa le `PaneView` per **`SplitPane.id`** e ricostruisce
+  solo se cambia la **struttura** (`hasSameStructure` ignora ratio E contenuto dei pane): un
+  cambio di selezione **scambia solo il terminale attaccato** (`attachTerminal`, le surface
+  restano nella registry per `Tab.id`). Il first responder si prende quando cambia la coppia
+  (pane focused, sua tab) **o dopo ogni rebuild** (staccare le view resetta il responder). Ratio:
+  write-back nello store **solo con mouse premuto** (i layout pass programmatici del boot
+  stomperebbero il ratio persistito con un 50/50) e riapplicazione in `viewDidLayout` al primo
+  layout con dimensioni vere.
 - **Multi-window**: le finestre **partizionano** i workspace (`Workspace.windowID` + `RelayWindow`
   con la **sua** `selectedWorkspaceID`); lo store, il `layout.json`, il receiver e la
   **`SurfaceRegistry` restano unici** (una tab ha una surface sola ovunque sia montata). Nessuna
@@ -591,4 +621,6 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   rimpatriare a ogni passaggio collasserebbe il layout multi-window prima del flush. I frame stanno
   nel `LayoutSnapshot` per id (`setFrameAutosaveName` ne gestirebbe una sola).
 - Non ancora fatto: distribuzione firmata Developer ID, generalizzazione multi-agente
-  (Codex/opencode), drag di workspace **fra** finestre e di tab **fra** pane.
+  (Codex/opencode), drag di workspace **fra** finestre, drag di tab **fra** pane (incluso
+  l'edge-drop stile bonsplit per creare split trascinando), zoom del pane, rename del workspace
+  dalla menu bar (resta nel contestuale della sidebar).

@@ -1,6 +1,6 @@
 # Split panes - modello "pane ospita tab" (stile cmux)
 
-Stato: in lavorazione (v2 dello split). Sostituisce il modello v1 "split di tab" (foglie =
+Stato: **implementato** (v2 dello split). Sostituisce il modello v1 "split di tab" (foglie =
 `Tab.id`), che aveva un difetto strutturale: la tab bar globale e i pane erano due viste dello
 stesso insieme di tab, con la semantica ambigua "montata vs selezionata" e nessun posto naturale
 dove aprire "una tab accanto a una porzione".

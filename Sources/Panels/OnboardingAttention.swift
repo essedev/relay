@@ -13,7 +13,7 @@ struct AttentionPage: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             PageHeader(
                 "Know what needs you",
-                subtitle: "Every session gets a live badge in the sidebar and tab bar. "
+                subtitle: "Every session gets a live badge in the sidebar and its pane strip. "
                     + "Click a state to see what Relay shows you.",
                 colors: colors
             )

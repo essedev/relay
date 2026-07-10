@@ -333,6 +333,44 @@ fra le scorciatoie rimappabili: ⌘\, ⌘⇧\, ⌘], ⌘[, ⌥⌘W.
 **Ancora da fare**: trascinare un workspace **fra** finestre e una tab **fra** pane (oggi si passa
 dai menu); riordinare i pane dentro l'albero col drag.
 
+## Fatto - Split v2 sul modello cmux + menu bar HIG (post-0.8.2)
+
+Il modello "split di tab" (sopra) aveva un difetto strutturale emerso all'uso: tab bar globale e
+pane erano due viste dello stesso insieme di tab, con la semantica ambigua "montata vs
+selezionata" e nessun posto naturale per "apri una tab accanto a questa porzione". Studiati
+bonsplit (il framework di split di cmux, `manaflow-ai/bonsplit`) e la sua integrazione in cmux, e
+adottato il suo pattern. Design e migrazione: `docs/features/split-panes.md`.
+
+- **I pane ospitano le tab** (`SplitPane`: lista ordinata + selezione per pane; `Workspace.layout`
+  sempre presente, `focusedPaneID`; `selectedTabID` derivato). La tab bar globale sparisce: ogni
+  pane ha la **sua strip** (`PaneTabBar`) con action lane (nuova tab, split right/down), click su
+  tab = selezione + focus al pane, doppio click sullo spazio = nuova tab. `selectTab` = **reveal**:
+  non muta mai la struttura.
+- **Chiusure**: `Cmd+W` chiude la tab selezionata del pane focused (selezione index-stable);
+  l'ultima tab di un pane lo collassa; `closePane` (⌥⌘W, action lane, menu) chiude il pane **con
+  le sue tab** (conferma sui processi in foreground). "Open in Split Right/Down" **sposta** la tab
+  esistente in un pane accanto (sessione viva); no-op se è sola nella strip.
+- **Migrazione senza bump**: il `Codable` di `SplitNode` decodifica il formato v1 (foglie-tab ->
+  pane da una tab); le tab fuori dall'albero vengono adottate dal pane della selezione. Verificata
+  sul layout reale (25/25 tab).
+- **Fix del giro** (dalla review dello split v1): click-to-focus nel terminale (il click aggiorna
+  il focus del model, non solo il first responder), first responder riasserito dopo ogni rebuild,
+  ratio dei divider protetto dai layout pass programmatici (write-back solo con mouse premuto +
+  riapplicazione al primo layout vero), navigazione che passa sempre da reveal, due fix
+  multi-window (focusAttention attiva la finestra giusta; moveTabToNewWorkspace resta nella
+  finestra d'origine).
+- **Menu bar HIG-conforme**: ordine standard (Relay, File, Edit, View, Workspace, Pane, Go,
+  Window, Help), Services/Hide/Show All, menu Window (`NSApp.windowsMenu`) e Help
+  (`NSApp.helpMenu`), **File > New Window** (`⇧⌘N`) e **Close Window** (`⇧⌘W`, standard macOS;
+  Close Workspace scala a `⌥⇧⌘W`), Find raggruppato, Enter Full Screen, menu Go coi **nomi reali**
+  di workspace e tab (`menuNeedsUpdate`), nuovo menu Workspace con le azioni prima solo
+  contestuali, keyEquivalent **veri** sulle voci (colonna nativa; il monitor consuma prima, e
+  `validateMenuItem` disabilita con overlay aperti). Title Case ovunque.
+- **Selezione che sopravvive all'output** (0.8.2, stesso giro): vedi gotcha in CLAUDE.md.
+
+**Ancora da fare** (ereditato + nuovo): drag di tab fra pane (incluso l'edge-drop di bonsplit per
+creare split trascinando), drag di workspace fra finestre, zoom del pane, equalize dei divider.
+
 ## Più avanti
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
@@ -399,7 +437,7 @@ limite: era il default, e `Cmd+T` apriva alla radice del workspace.
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),
-con dashboard di triage, onboarding di benvenuto, **split panes e multi-window**. Prossimo giro a
-scelta: distribuzione **firmata** (Developer ID + notarizzazione, per homebrew-cask ufficiale),
-generalizzazione multi-agente (Codex/opencode), oppure il drag di workspace fra finestre e di tab
-fra pane (vedi Fatto - Split panes + multi-window).
+con dashboard di triage, onboarding di benvenuto, **split v2 sul modello cmux** (pane che ospitano
+tab, strip per pane) e **multi-window**. Prossimo giro a scelta: distribuzione **firmata**
+(Developer ID + notarizzazione, per homebrew-cask ufficiale), generalizzazione multi-agente
+(Codex/opencode), oppure il drag di tab fra pane / workspace fra finestre (vedi Fatto - Split v2).
