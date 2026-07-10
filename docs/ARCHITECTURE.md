@@ -74,33 +74,43 @@ surface; lo scrollback usa il default di SwiftTerm.
 ## Modello Di Prodotto
 
 ```text
-Window (una sola, oggi)
-  Sidebar (sinistra)
-    Sezione pinned
-    Lista workspace (drag per riordinare)
-    Sezione Archive
-  Content
-    Workspace attivo
-      Tab verticali
-        Terminale della tab selezionata
-  Dashboard (overlay full-window sopra il workspace attivo)
+App (uno store, un receiver, una SurfaceRegistry)
+  Window 1..N (partizione dei workspace)
+    Sidebar (sinistra)
+      Sezione pinned
+      Lista workspace di QUESTA finestra (drag per riordinare)
+      Sezione Archive
+    Content
+      Workspace selezionato da QUESTA finestra
+        Tab verticali (montate = a schermo, focused = riceve la tastiera)
+          Albero di split -> un pane per tab montata
+    Dashboard (overlay full-window sopra il workspace attivo)
 ```
 
 - **Workspace**: un progetto (tipicamente una cartella/repo). Raggruppa tab. Ha nome, cwd di
-  default, pin, archiviazione, posizione in sidebar, stato agente aggregato.
+  default, pin, archiviazione, posizione in sidebar, stato agente aggregato, **finestra**
+  (`windowID`) e **layout dei pane** (`splitLayout`).
 - **Tab**: una sessione terminale. È **l'unità a cui si lega una sessione agente** (`RELAY_TAB_ID`
   = `Tab.id` = surface = badge = attention = resume = card della dashboard).
+- **Pane**: non è un'entità. È una **posizione** nell'albero di split del workspace, occupata da una
+  tab. Montare o smontare una tab non ne cambia l'identità né tocca la sua sessione.
+- **Finestra**: un contenitore di workspace, non di sessioni. Nessuna è privilegiata.
 - **Dashboard**: overview read-only di tutti i workspace con stato agenti, ultimo evento e
   jump-to al click. v1 volutamente minimale.
 - **Gruppi di workspace**: fuori dalla v1, il data model non deve impedirli.
 
-Split e multi-window sono **decisi ma non implementati** (piano in `ROADMAP.md`). Il design
-originale metteva un pane tree *dentro* la Tab, con un `Pane` come unità della sessione agente:
-superato. La Tab **è già** quel pane (il wire lo chiama `paneId`), e spostare l'attention model a
-un livello più basso costerebbe il doppio togliendo i badge per-sessione dalla tab bar. Quindi:
-l'albero di split vive sul **Workspace** e le sue foglie sono `Tab.id` (split di tab, stile gruppi
-editor di VS Code), e le finestre sono una **partizione** dei workspace su un solo store. Nessuna
-delle due tocca l'identità della Tab.
+Il design originale metteva un pane tree *dentro* la Tab, con un `Pane` come unità della sessione
+agente. **Superato**: la Tab *è già* quel pane (il wire lo chiama `paneId`), e spostare l'attention
+model a un livello più basso sarebbe costato il doppio togliendo i badge per-sessione dalla tab bar.
+Quindi l'albero di split vive sul **Workspace** e le sue foglie sono `Tab.id` (split di tab, stile
+gruppi editor di VS Code), e le finestre sono una **partizione** dei workspace su un solo store.
+
+Da qui nascono due nozioni che prima coincidevano, e che vanno tenute distinte leggendo il codice:
+
+- **montata** (`Workspace.isMounted`) = la tab è a schermo in un pane. Guida tutto ciò che significa
+  "la stai guardando": ring, mark-read, protezione dal cap LRU, soppressione di notifica e bump.
+- **focused** (`Workspace.selectedTabID`) = la tab riceve la tastiera e i comandi (`Cmd+K`, find).
+  Con uno split è **una** delle montate.
 
 ## Architettura Logica
 
@@ -532,10 +542,16 @@ Regole:
 Le notifiche riusano le stesse regole anti-rumore dei badge. La decisione è pura e testabile
 (`AgentStateReducer.notification(current:incoming:isVisible:)`): notifica alla **entrata** in
 `needs_input` (non a ogni evento successivo) e al **completamento non visto** (running -> idle mentre
-la tab non è in vista). Chiave: **"in vista" = tab selezionata *e* Relay in primo piano**. Lo store
-calcola `isVisible = isSelected && appActive` in `applyAgentState` (`appActive = NSApp.isActive`,
-passato dal composition root): se Relay è in background non la stai guardando davvero, anche se è la
-tab selezionata, quindi il completato resta segnalato (`unseen`) e la notifica parte. Il marker
+la tab non è in vista). Chiave: **"in vista" = la tab è *montata in un pane* del workspace mostrato
+*dalla sua finestra*, quella finestra è a schermo, e Relay è in primo piano**. Lo store lo calcola in
+`applyAgentState` come `montata && selezionata-nella-sua-finestra && !occlusa && appActive`
+(`appActive = NSApp.isActive`, `occlusa` da `NSWindow.occlusionState`, entrambi passati dal
+composition root). Tre precisazioni che il codice rende esplicite:
+**montata, non focused** (con uno split guardi tutti i pane a schermo, non solo quello che riceve la
+tastiera); **non occlusa, non key** (con due monitor la finestra che fissi spesso non ha il focus, e
+notificarla sarebbe il bug del caso d'uso che motiva il multi-window); **app in primo piano** (se
+Relay è in background non la stai guardando davvero). Se una qualsiasi cade, il completato resta
+segnalato (`unseen`) e la notifica parte. Il marker
 **non** si spegne al ritorno in foreground né alla selezione della tab: sparirebbe il segnale prima
 che l'utente lo veda (aprire una tab completata mostra il ring verde + flash). La visita reale è
 **interagire** col terminale (tasto o click, dal monitor locale), e anche quella non spegne:
@@ -587,9 +603,14 @@ esauriti quelli i sospesi.
 Stato V0 (in codice, `WorkspaceModel`), `@Observable`:
 
 ```text
-WorkspaceStore { workspaces: [Workspace], selectedWorkspaceID }
-Workspace      { id, name, rootPath?, pinned, tabs: [Tab], selectedTabID }
-Tab            { id, title, hasCustomTitle, currentDirectory?, resume?,  // V0: una tab = terminale
+WorkspaceStore { workspaces: [Workspace], windows: [RelayWindow], keyWindowID,
+                 occludedWindowIDs, selectedWorkspaceID }   // proiezione della finestra key
+RelayWindow    { id, selectedWorkspaceID, frame? }          // ogni finestra ha la SUA selezione
+Workspace      { id, windowID, name, rootPath?, pinned, archived, tabs: [Tab],
+                 selectedTabID,        // il pane focused
+                 splitLayout: SplitNode? }  // nil = pane singolo (forma canonica)
+SplitNode      { .leaf(Tab.id) | .split(id, axis, ratio, first, second) }   // foglie = tab
+Tab            { id, title, hasCustomTitle, currentDirectory?, resume?,
                  agentState, attention (AttentionLevel), lastEventAt }   // runtime; il sospeso
                                                        // persiste come pendingSince nel TabSnapshot
 ```
@@ -597,9 +618,6 @@ Tab            { id, title, hasCustomTitle, currentDirectory?, resume?,  // V0: 
 Futuro (quando servono):
 
 ```text
-Workspace.splitLayout { SplitNode: albero di split, foglie = Tab.id }  // split di tab, non di pane
-Workspace.windowID    { la finestra che possiede il workspace }        // multi-window = partizione
-RelayWindow           { id, selectedWorkspaceID }                      // + keyWindowID nello store
 AgentSession   { sessionId, agent, tabId, state, lastEventAt, resumeCommand, bypass }
 AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
 ```
@@ -607,8 +625,17 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
 - Il model è puro e osservabile: **nessun riferimento alle surface del terminale**. Le surface
   vive sono legate per `Tab.id` fuori dal model, in `SurfaceRegistry` (TerminalHostUI).
 - Gerarchia prodotto: **Workspace -> Tab -> terminale**. Lo split non aggiunge un livello sotto la
-  Tab: aggiunge un layout sopra di lei, dentro il Workspace (vedi Modello Di Prodotto). Con lo
-  split, `selectedTabID` diventa "il pane focused" e `selectTab` significa "monta o metti a fuoco".
+  Tab: aggiunge un layout sopra di lei, dentro il Workspace (vedi Modello Di Prodotto).
+  `selectTab` significa **monta o metti a fuoco**: una tab già in un pane riceve solo il focus, una
+  non montata prende il posto di quella nel pane focused. Tutta la navigazione (tab bar, `Cmd+T`,
+  click su notifica, dashboard, `Cmd+J`) passa di lì e lo eredita senza casi speciali.
+- `SplitNode` mantiene un'invariante: **le foglie sono uniche**. Una tab sta in un pane solo, perché
+  ha una surface e una view sole. Le operazioni la preservano invece di fidarsi, e `sanitized` la
+  ripristina su un albero arrivato dal disco.
+- Le finestre **partizionano** i workspace: uno store, un `layout.json`, un receiver di eventi, una
+  `SurfaceRegistry` (una tab ha una surface sola ovunque sia montata). Chiudere una finestra
+  **rimpatria** i suoi workspace in quella attivata più di recente: è un gesto sul contenitore, non
+  sul lavoro che contiene.
 - Sidebar e tab bar leggono lo store e si aggiornano via Observation, senza toccare le surface.
 - Persistence: snapshot JSON del layout su disco (vedi Persistence Del Layout). Niente database.
 
@@ -617,10 +644,19 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
 - `SurfaceRegistry` mappa `Tab.id -> TerminalSurfaceHandle`. La surface nasce alla **prima
   visita** della tab (lazy) e viene distrutta quando la tab non esiste più (reconcile via
   `retain(aliveTabIDs)`). Il PTY di una tab non visibile resta vivo.
-- `WorkspaceAreaController` (AppKit) osserva lo store e scambia la view della surface attiva.
+- **Una sola registry per l'app**, condivisa da tutte le finestre: una tab ha una surface sola
+  ovunque sia montata, quindi spostare un workspace di finestra non ricrea i pty.
+- `WorkspaceAreaController` (AppKit) osserva lo store e riconcilia l'**albero di pane**
+  (`Workspace.splitLayout`) in `NSSplitView` annidate. Due regole: (1) le `PaneView` sono chiavate
+  per `Tab.id` e riusate, e le view si ricostruiscono solo se cambia la *struttura* dell'albero
+  (`SplitNode.hasSameStructure`) - trascinando un divider cambiano solo i rapporti, e rifare le view
+  sotto il puntatore darebbe flicker; (2) il first responder si prende **solo quando cambia il pane
+  focused**, perché un render scatta anche a ogni OSC 7 dello shell. Smontare un pane stacca il
+  terminale ma **non** distrugge la surface: la tab resta viva nella tab bar col suo agente.
 - Cap LRU sulle surface vive (`SurfaceRegistry.enforceLRU`, cap in `WorkspaceAreaController`): il
   cap è **soft**. Oltre budget si sfrattano le meno recenti **solo se idle** (`hasRunningChildren ==
-  false`: shell senza figli, copre foreground/background/agente) e non protette: mai la visibile, le
+  false`: shell senza figli, copre foreground/background/agente) e non protette: mai le **montate**
+  (in qualunque finestra: sfrattarne una lascerebbe un terminale bianco davanti agli occhi), le
   tab del workspace attivo, le tab con attenzione fresca (`needs_input`/`error`/`unseen`) o quelle
   usate negli ultimi ~30 minuti. Se tutte le candidate sono protette o vive, si resta sopra cap:
   meglio sforare che resettare contesto utile. Eviction = teardown della surface SwiftTerm:

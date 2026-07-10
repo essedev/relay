@@ -287,62 +287,60 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 - **Note di release dai conventional commit** (`release-notes.sh`): `--generate-notes` dava un body
   vuoto su un repo trunk-based (genera dalle PR).
 
+## Fatto - Split panes + multi-window (post-0.7.8)
+
+Fatti **insieme** perché toccano gli stessi punti (cosa vuol dire "visibile", chi possiede le
+surface, come si instrada il monitor): in sequenza li avremmo rifattorizzati due volte.
+
+**Split = split di tab.** L'albero (`SplitNode`, puro e testato) vive sul **Workspace** e le sue
+foglie sono `Tab.id`. Non c'è un'entità `Pane` sotto la Tab, come prevedeva il design originale: la
+Tab *è* quel pane (il wire la chiama `paneId`), e abbassare l'attention model sarebbe costato il
+doppio togliendo i badge per-sessione dalla tab bar. Prezzo accettato: un layout per workspace.
+
+Da qui nascono due nozioni prima coincidenti: **montata** (a schermo in un pane) e **focused**
+(riceve la tastiera). `isVisible` - che sopprime notifica e bump - segue la prima, non la seconda:
+con due pane a schermo, un completamento su quello non focused non è arrivato mentre non guardavi.
+`selectTab` diventa **monta o metti a fuoco**, e tutta la navigazione (tab bar, `Cmd+T`, click su
+notifica, dashboard, `Cmd+J`) lo eredita senza casi speciali. `closePane` (⌥⌘W) smonta il pane ma
+lascia viva la tab e la sua sessione; `Cmd+W` la uccide: due gesti, due tasti.
+
+**Multi-window = partizione.** Uno store, un `layout.json`, un receiver, **una** `SurfaceRegistry`
+(una tab ha una surface sola ovunque sia montata): spostare un workspace di finestra non ricrea i
+pty. Ogni finestra ha la sua selezione; `store.selectedWorkspaceID` resta come **proiezione** della
+key, così menu e scorciatoie non sanno nulla di finestre. Nessuna finestra è privilegiata: chiuderne
+una **rimpatria** i suoi workspace in quella attivata più di recente.
+
+`isVisible` si lega alla finestra **non occlusa** (`NSWindow.occlusionState`), **non** alla key: con
+due monitor la finestra che fissi spesso non ha il focus, e notificarla sarebbe il bug del caso
+d'uso che motiva la feature.
+
+Rendering: `WorkspaceAreaController` riconcilia l'albero in `NSSplitView` annidate riusando le
+`PaneView` per `Tab.id`, e ricostruisce **solo** se cambia la struttura (`hasSameStructure`) -
+durante il drag di un divider cambiano solo i rapporti. Il first responder si prende solo quando
+cambia il pane focused (un render scatta a ogni OSC 7 dello shell).
+
+Persistenza **additiva**, nessun bump di `LayoutSnapshot.currentVersion`: `splitLayout`, `windowID`
+e `windows` assenti nei layout vecchi ricadono su pane singolo e finestra unica. Al restore l'albero
+è sanitizzato contro le tab davvero ricostruite (un pane orfano non è renderizzabile) e le finestre
+senza workspace cadono.
+
+Chrome **senza icone nuove** (i menu qui sono di solo testo; un pallino nella tab bar confliggerebbe
+col badge di stato agente): la tab bar distingue focused (pill piena) da montata (pill tenue), il
+menu contestuale della tab offre "Open in Split Right/Down" (porta una tab esistente in un pane
+accanto, con la sua sessione viva) e quello del workspace "Move to New Window". Nuovo gruppo "Pane"
+fra le scorciatoie rimappabili: ⌘\, ⌘⇧\, ⌘], ⌘[, ⌥⌘W.
+
+**Ancora da fare**: trascinare un workspace **fra** finestre e una tab **fra** pane (oggi si passa
+dai menu); riordinare i pane dentro l'albero col drag.
+
 ## Più avanti
 
-- **Split + multi-window insieme** - pianificato, vedi sotto. Il prossimo giro grosso.
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
   homebrew-cask ufficiale). Il tap brew non firmato c'è gia (vedi Fatto sopra).
 - Dashboard: evoluzioni oltre l'MVP (azioni inline resume/chiudi, contatori in header, toggle
   raggruppa-per-workspace, preview ultime righe - richiede surface vive).
 - **Generalizzazione multi-agente (Codex / opencode)** - vedi sotto.
 - Export timeline; import da config Ghostty.
-
-### Split + multi-window
-
-Oggi Relay è **single-window e single-instance** (una sola `NSWindow` di contenuto in
-`AppController`, più i guard di `App.swift` e `LSMultipleInstancesProhibited`), e una tab = un
-terminale. Si fanno entrambe le cose, **in un unico giro**: toccano gli stessi punti (definizione di
-"visibile", ownership delle surface, routing del monitor), e in sequenza li rifattorizzeremmo due
-volte.
-
-Decisioni prese (luglio 2026). Entrambe scelte per **non toccare l'identità della Tab**, che è
-l'unità sessione/agente/badge (`RELAY_TAB_ID` = `Tab.id`):
-
-- **Split = split di tab**: `Workspace.splitLayout: SplitNode?` con foglie = `Tab.id`, non un pane
-  tree dentro la Tab come previsto in origine (quel design costava il doppio e toglieva i badge
-  per-sessione dalla tab bar). `selectedTabID` diventa "il pane focused" e `selectTab` significa
-  "monta o metti a fuoco". Prezzo esplicito: un layout per workspace, niente viste alternative per
-  tab. In cambio attention model, wire, `SurfaceRegistry` e dashboard restano intatti.
-- **Multi-window = partizione**: uno store, N finestre (`Workspace.windowID` + `RelayWindow` +
-  `keyWindowID`). Nessuna finestra è "la principale": chiuderne una sposta i suoi workspace in
-  quella rimanente attivata più di recente (non distruttivo), e chiudere l'ultima chiude l'app come
-  oggi. Le finestre nascono solo da "Move to New Window", mai vuote. I frame vanno nel
-  `LayoutSnapshot` per id: l'attuale `setFrameAutosaveName("RelayMainWindow")` ne gestisce una sola.
-- **Visibilità = finestra non occlusa**, non finestra key. `isVisible` (che sopprime notifica e
-  bump) diventa: tab **montata** in un pane && workspace selezionato **nella sua finestra** &&
-  finestra visibile sullo schermo (`NSWindow.occlusionState`) && app attiva. Legarla alla finestra
-  **key** sarebbe il bug del caso d'uso principale: con due monitor, un completamento nella finestra
-  che stai fissando ma che non ha il focus ti notificherebbe e ti riordinerebbe la sidebar sotto le
-  mani. Prezzo accettato: una finestra visibile anche solo in parte conta come guardata.
-
-Fasi:
-
-1. **Model puro unico**: albero di split, finestre, `isVisible` nella forma finale (sopra: montata +
-   selezionata nella sua finestra + finestra non occlusa + app attiva; la visibilità della finestra
-   entra come booleano iniettato dal composition root, lo store resta puro), snapshot con campi
-   **additivi** (nessun bump di `LayoutSnapshot.currentVersion`). A layout nullo il comportamento è
-   identico a oggi, quindi la fase è mergeable da sola.
-2. **Due cantieri paralleli**: rendering dei pane in `TerminalHostUI` (reconcile del tree in
-   `NSSplitView` annidate, un ring per pane, `terminalOwns` -> `owningTab(of:) -> UUID?`, `keep`
-   della LRU come `Set`) ed estrazione di `RelayWindowController` da `AppController`, con la
-   `SurfaceRegistry` sollevata al composition root e condivisa fra le finestre.
-3. **Comandi e chrome**: `splitRight`/`splitDown`/`focusNextPane`/`focusPrevPane`/`closePane`
-   (rimappabili; `closePane` smonta senza chiudere la tab), routing del monitor sulla finestra key,
-   tab bar con indicatori di montata/focused, ResumeBar per pane.
-4. **Rifiniture**: ratio dei divider persistiti, doc, smoke con `relay-cli simulate` su due pane.
-
-Rischi noti: reconcile del tree senza rebuild (flicker e perdita di focus/scroll), resize storm dei
-divider con SwiftTerm, loop di focus (serve il guard "solo se cambia", come in `setTerminal`).
 
 ### Generalizzazione multi-agente
 
@@ -401,7 +399,7 @@ limite: era il default, e `Cmd+T` apriva alla radice del workspace.
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),
-con dashboard di triage e onboarding di benvenuto. Il prossimo giro è **split + multi-window
-insieme** (decisioni prese e piano in Più avanti). Restano a scelta dopo: distribuzione **firmata**
-(Developer ID + notarizzazione, per homebrew-cask ufficiale) e generalizzazione multi-agente
-(Codex/opencode).
+con dashboard di triage, onboarding di benvenuto, **split panes e multi-window**. Prossimo giro a
+scelta: distribuzione **firmata** (Developer ID + notarizzazione, per homebrew-cask ufficiale),
+generalizzazione multi-agente (Codex/opencode), oppure il drag di workspace fra finestre e di tab
+fra pane (vedi Fatto - Split panes + multi-window).

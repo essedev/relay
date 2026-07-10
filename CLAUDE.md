@@ -31,12 +31,11 @@ gotcha** + **sposta una tab in un nuovo workspace dal menu contestuale (surface 
 + giro di pulizia del codice (componenti UI condivisi, dedup di helper, overlay full-window
 unificato, conversione colore unica) + strumenti di lint pinnati per una CI deterministica +
 **pannello Runtime Stats dal menu View (RSS, CPU, workspace/tab, surface vive; campiona solo da
-aperto) - vedi gotcha**.
-**Baseline delle milestone chiuso**, app
-installabile in locale; prossimo giro **split + multi-window insieme** (decisioni prese, piano in
-`docs/ROADMAP.md` #Split-+-multi-window; poi distribuzione firmata e multi-agente). Pipeline hook ->
-badge -> resume validata a mano con Claude reale; le notifiche girano solo dal bundle
-(`make run-app`).
+aperto) - vedi gotcha** + **split panes e multi-window (albero di split sul Workspace con foglie
+`Tab.id`, finestre come partizione dei workspace su un solo store) - vedi gotcha**.
+**Baseline delle milestone chiuso**, app installabile in locale; prossimo giro a scelta
+(distribuzione firmata, multi-agente) - vedi `docs/ROADMAP.md`. Pipeline hook -> badge -> resume
+validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run-app`).
 
 ## Comandi
 
@@ -71,7 +70,9 @@ badge -> resume validata a mano con Claude reale; le notifiche girano solo dal b
 - `AgentRuntime` - trasporto eventi agente: `AgentEventReceiver` (server Unix socket),
   `AgentEventClient` (client, usato dal CLI), `RelayRuntimePaths` (path socket + layout),
   `AgentWireCoding` (codifica JSON date ISO 8601 con ms). Puro, niente AppKit né WorkspaceModel.
-- `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab` (@Observable) +
+- `WorkspaceModel` - `WorkspaceStore`/`Workspace`/`Tab`/`RelayWindow` (@Observable) +
+  `SplitNode` (albero di split puro, foglie = `Tab.id`; operazioni in `WorkspaceStore+Split`) +
+  finestre (`WorkspaceStore+Windows`) + persistence (`WorkspaceStore+Persistence`) +
   `AttentionLevel` (marker post-completamento a tre livelli: unseen/pending, vedi gotcha) +
   `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
   sidebar/notifiche/**keybindings**/decadenza sospesi, UserDefaults) + `WindowTitle` +
@@ -89,8 +90,9 @@ badge -> resume validata a mano con Claude reale; le notifiche girano solo dal b
   (sottoclasse della view SwiftTerm) aggiunge il drop di file: inserisce i path escaped
   (`Core.ShellEscape`, testato) nel PTY, come Terminal.app. SwiftTerm non lo fa da solo.
 - `TerminalHostUI` - `SurfaceRegistry` (Tab.id -> surface, lazy, cap LRU via `SurfaceEvictionPolicy`
-  pura) + `WorkspaceAreaController` (AppKit, osserva lo store, scambia il terminale attivo) +
-  `AttentionRingView` (bordo colorato di stato attorno al terminale). Path caldo.
+  pura; **una sola per l'app**, condivisa dalle finestre) + `WorkspaceAreaController` (AppKit,
+  osserva lo store e riconcilia l'albero di pane in `NSSplitView` annidate, vedi `+PaneTree`) +
+  `PaneView` (terminale + ring + bordo di focus) + `AttentionRingView`. Path caldo.
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `TabBarView`, `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
   `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `Dashboard` (`DashboardModel` puro +
@@ -116,6 +118,8 @@ badge -> resume validata a mano con Claude reale; le notifiche girano solo dal b
   dashboard), `MainMenuBuilder`, `AgentCoordinator` (unico punto che lega `AgentRuntime` a
   `WorkspaceModel`), `NotificationCoordinator` (unico punto che tocca `UNUserNotificationCenter`),
   `UpdateController` (unico punto che tocca rete/clipboard per il check aggiornamenti),
+  `RelayWindowController` (una `NSWindow` col suo split e i suoi overlay, legata a `RelayWindow` per
+  id; `AppControllerWindows` le crea e le chiude),
   `NamingController` (unico punto che tocca la rete per la nomina automatica dei workspace) +
   `NamingCredentialStore` (API key su file 0600 in `~/.relay`), `LayoutAutosave`, `PerfSampler`
   (misure `RELAY_PERF`), `RuntimeStatsSampler` (campionamento utente on-demand per il pannello
@@ -538,8 +542,31 @@ badge -> resume validata a mano con Claude reale; le notifiche girano solo dal b
   versionato forza il riscarico al bump). `make lint`/`format`/`check` li usano; il workflow CI non
   fa più `brew install` (prendeva l'ultima: una regola nuova upstream rompeva il lint su codice
   invariato, la causa della CI rossa da 0.7.0). CI e locale girano la stessa identica versione.
-- Non ancora fatto: **split + multi-window** (pianificati insieme, decisioni e fasi in
-  `docs/ROADMAP.md`: split **di tab** con l'albero sul Workspace e foglie `Tab.id`, non un pane tree
-  dentro la Tab; finestre come **partizione** dei workspace su un solo store. Oggi l'app è
-  single-window e single-instance), distribuzione firmata Developer ID, generalizzazione
-  multi-agente (Codex/opencode).
+- **Split panes**: l'albero (`Workspace.splitLayout`, `SplitNode`) vive sul **Workspace** e le sue
+  foglie sono `Tab.id`: **non** c'è un'entità `Pane` sotto la Tab (il design originale in
+  ARCHITECTURE è superato). La Tab resta l'unità della sessione agente, quindi montarla o smontarla
+  non ne tocca l'identità né la surface. Due nozioni **distinte**, ed è l'errore facile da fare:
+  **montata** (`isMounted`, a schermo in un pane -> ring, mark-read, protezione LRU, soppressione di
+  notifica/bump) vs **focused** (`selectedTabID`, riceve la tastiera -> `Cmd+K`, find). `selectTab`
+  = **monta o metti a fuoco**: una tab già in un pane riceve solo il focus, una non montata prende il
+  posto di quella focused. Tutta la navigazione passa di lì e lo eredita gratis. Invariante:
+  **foglie uniche** (una tab, una surface, una view); `SplitNode.sanitized` la ripristina al restore.
+  `closePane` (⌥⌘W) smonta ma **lascia viva la tab e la sua sessione**; `Cmd+W` la uccide. Il
+  rendering (`WorkspaceAreaController+PaneTree`) riusa le `PaneView` per `Tab.id` e ricostruisce solo
+  se cambia la **struttura** dell'albero (`hasSameStructure`): durante il drag di un divider cambiano
+  solo i ratio, e rifare le view sotto il puntatore darebbe flicker. Il first responder si prende
+  **solo** quando cambia il pane focused (un render scatta a ogni OSC 7).
+- **Multi-window**: le finestre **partizionano** i workspace (`Workspace.windowID` + `RelayWindow`
+  con la **sua** `selectedWorkspaceID`); lo store, il `layout.json`, il receiver e la
+  **`SurfaceRegistry` restano unici** (una tab ha una surface sola ovunque sia montata). Nessuna
+  finestra è privilegiata: chiuderne una **rimpatria** i suoi workspace in quella attivata più di
+  recente (`closeWindow`), l'ultima chiude l'app. `store.selectedWorkspaceID` è una **proiezione**
+  della finestra key, così menu e scorciatoie non sanno nulla di finestre. **`isVisible` si lega alla
+  finestra non occlusa (`NSWindow.occlusionState`), NON alla key**: con due monitor la finestra che
+  fissi spesso non ha il focus, e notificarla sarebbe il bug del caso d'uso. Il monitor chiede il
+  pane a **quella da cui l'evento arriva** (`windowController(for:)`), non alla key. Alla
+  terminazione il rimpatrio è **sospeso** (`isTerminating`): macOS chiude le finestre una per una, e
+  rimpatriare a ogni passaggio collasserebbe il layout multi-window prima del flush. I frame stanno
+  nel `LayoutSnapshot` per id (`setFrameAutosaveName` ne gestirebbe una sola).
+- Non ancora fatto: distribuzione firmata Developer ID, generalizzazione multi-agente
+  (Codex/opencode), drag di workspace **fra** finestre e di tab **fra** pane.
