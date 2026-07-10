@@ -1,7 +1,7 @@
 # Architecture
 
 Progetto: **Relay**.
-Ultimo aggiornamento: 2026-07-02.
+Ultimo aggiornamento: 2026-07-10.
 
 Documento vivo: budget, moduli e confini si rivedono quando misure o sviluppo portano evidenze
 nuove. La storia decisionale completa (cicli 0-8: analisi engine, diagnosi lag cmux, benchmark
@@ -74,25 +74,33 @@ surface; lo scrollback usa il default di SwiftTerm.
 ## Modello Di Prodotto
 
 ```text
-Window
+Window (una sola, oggi)
   Sidebar (sinistra)
     Sezione pinned
     Lista workspace (drag per riordinare)
+    Sezione Archive
   Content
     Workspace attivo
       Tab verticali
-        Split pane tree
-          Pane terminale
-  Dashboard (vista alternativa al workspace attivo)
+        Terminale della tab selezionata
+  Dashboard (overlay full-window sopra il workspace attivo)
 ```
 
 - **Workspace**: un progetto (tipicamente una cartella/repo). Raggruppa tab. Ha nome, cwd di
-  default, pin, posizione in sidebar, stato agente aggregato.
-- **Tab**: una vista di lavoro dentro il workspace. Contiene un albero di split pane.
-- **Pane**: una sessione terminale. È l'unità a cui si lega una sessione agente.
+  default, pin, archiviazione, posizione in sidebar, stato agente aggregato.
+- **Tab**: una sessione terminale. È **l'unità a cui si lega una sessione agente** (`RELAY_TAB_ID`
+  = `Tab.id` = surface = badge = attention = resume = card della dashboard).
 - **Dashboard**: overview read-only di tutti i workspace con stato agenti, ultimo evento e
   jump-to al click. v1 volutamente minimale.
 - **Gruppi di workspace**: fuori dalla v1, il data model non deve impedirli.
+
+Split e multi-window sono **decisi ma non implementati** (piano in `ROADMAP.md`). Il design
+originale metteva un pane tree *dentro* la Tab, con un `Pane` come unità della sessione agente:
+superato. La Tab **è già** quel pane (il wire lo chiama `paneId`), e spostare l'attention model a
+un livello più basso costerebbe il doppio togliendo i badge per-sessione dalla tab bar. Quindi:
+l'albero di split vive sul **Workspace** e le sue foglie sono `Tab.id` (split di tab, stile gruppi
+editor di VS Code), e le finestre sono una **partizione** dei workspace su un solo store. Nessuna
+delle due tocca l'identità della Tab.
 
 ## Architettura Logica
 
@@ -589,15 +597,18 @@ Tab            { id, title, hasCustomTitle, currentDirectory?, resume?,  // V0: 
 Futuro (quando servono):
 
 ```text
-Tab.paneTree   { split dei pane dentro una tab }    // split deprioritizzato dall'utente
+Workspace.splitLayout { SplitNode: albero di split, foglie = Tab.id }  // split di tab, non di pane
+Workspace.windowID    { la finestra che possiede il workspace }        // multi-window = partizione
+RelayWindow           { id, selectedWorkspaceID }                      // + keyWindowID nello store
 AgentSession   { sessionId, agent, tabId, state, lastEventAt, resumeCommand, bypass }
 AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
 ```
 
 - Il model è puro e osservabile: **nessun riferimento alle surface del terminale**. Le surface
   vive sono legate per `Tab.id` fuori dal model, in `SurfaceRegistry` (TerminalHostUI).
-- Gerarchia prodotto: **Workspace -> Tab -> terminale**. Lo split (pane tree dentro una tab) è
-  previsto ma deprioritizzato (l'utente non lo usa molto).
+- Gerarchia prodotto: **Workspace -> Tab -> terminale**. Lo split non aggiunge un livello sotto la
+  Tab: aggiunge un layout sopra di lei, dentro il Workspace (vedi Modello Di Prodotto). Con lo
+  split, `selectedTabID` diventa "il pane focused" e `selectTab` significa "monta o metti a fuoco".
 - Sidebar e tab bar leggono lo store e si aggiornano via Observation, senza toccare le surface.
 - Persistence: snapshot JSON del layout su disco (vedi Persistence Del Layout). Niente database.
 

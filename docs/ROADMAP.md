@@ -81,7 +81,8 @@ propria, sottotitolo per workspace (cosa succede nella tab selezionata), padding
 terminale, doppio click sulla strip = zoom.
 
 **Badge e navigazione**: contatore sul badge workspace quando ≥2 tab condividono lo stato più
-severo; `Cmd+T` eredita la cwd corrente della tab attiva.
+severo; `Cmd+T` eredita la cwd corrente della tab attiva (letta dalla shell viva, non solo
+dall'OSC 7: vedi Fatto - cwd di `Cmd+T`).
 
 **Interazione sidebar/tab e chiusura**: lista workspace custom (`LazyVStack`, non `List`) per
 togliere l'highlight full-size del menu contestuale, padding riga allineato all'header, riordino via
@@ -288,13 +289,51 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 
 ## Più avanti
 
+- **Split + multi-window insieme** - pianificato, vedi sotto. Il prossimo giro grosso.
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
   homebrew-cask ufficiale). Il tap brew non firmato c'è gia (vedi Fatto sopra).
 - Dashboard: evoluzioni oltre l'MVP (azioni inline resume/chiudi, contatori in header, toggle
   raggruppa-per-workspace, preview ultime righe - richiede surface vive).
-- Split (pane tree dentro una tab), deprioritizzato dall'utente.
 - **Generalizzazione multi-agente (Codex / opencode)** - vedi sotto.
 - Export timeline; import da config Ghostty.
+
+### Split + multi-window
+
+Oggi Relay è **single-window e single-instance** (una sola `NSWindow` di contenuto in
+`AppController`, più i guard di `App.swift` e `LSMultipleInstancesProhibited`), e una tab = un
+terminale. Si fanno entrambe le cose, **in un unico giro**: toccano gli stessi punti (definizione di
+"visibile", ownership delle surface, routing del monitor), e in sequenza li rifattorizzeremmo due
+volte.
+
+Decisioni prese (luglio 2026). Entrambe scelte per **non toccare l'identità della Tab**, che è
+l'unità sessione/agente/badge (`RELAY_TAB_ID` = `Tab.id`):
+
+- **Split = split di tab**: `Workspace.splitLayout: SplitNode?` con foglie = `Tab.id`, non un pane
+  tree dentro la Tab come previsto in origine (quel design costava il doppio e toglieva i badge
+  per-sessione dalla tab bar). `selectedTabID` diventa "il pane focused" e `selectTab` significa
+  "monta o metti a fuoco". Prezzo esplicito: un layout per workspace, niente viste alternative per
+  tab. In cambio attention model, wire, `SurfaceRegistry` e dashboard restano intatti.
+- **Multi-window = partizione**: uno store, N finestre (`Workspace.windowID` + `RelayWindow` +
+  `keyWindowID`). Chiudere una finestra secondaria riporta i suoi workspace nella principale (non
+  distruttivo); le finestre nascono solo da "Move to New Window", mai vuote.
+
+Fasi:
+
+1. **Model puro unico**: albero di split, finestre, `isVisible` nella forma finale (tab montata &&
+   workspace selezionato nella sua finestra && finestra key && app attiva), snapshot con campi
+   **additivi** (nessun bump di `LayoutSnapshot.currentVersion`). A layout nullo il comportamento è
+   identico a oggi, quindi la fase è mergeable da sola.
+2. **Due cantieri paralleli**: rendering dei pane in `TerminalHostUI` (reconcile del tree in
+   `NSSplitView` annidate, un ring per pane, `terminalOwns` -> `owningTab(of:) -> UUID?`, `keep`
+   della LRU come `Set`) ed estrazione di `RelayWindowController` da `AppController`, con la
+   `SurfaceRegistry` sollevata al composition root e condivisa fra le finestre.
+3. **Comandi e chrome**: `splitRight`/`splitDown`/`focusNextPane`/`focusPrevPane`/`closePane`
+   (rimappabili; `closePane` smonta senza chiudere la tab), routing del monitor sulla finestra key,
+   tab bar con indicatori di montata/focused, ResumeBar per pane.
+4. **Rifiniture**: ratio dei divider persistiti, doc, smoke con `relay-cli simulate` su due pane.
+
+Rischi noti: reconcile del tree senza rebuild (flicker e perdita di focus/scroll), resize storm dei
+divider con SwiftTerm, loop di focus (serve il guard "solo se cambia", come in `setTerminal`).
 
 ### Generalizzazione multi-agente
 
@@ -333,9 +372,27 @@ ogni agente dà un segnale altrettanto affidabile; N integrazioni = N pipeline c
 rompono. **Resta fuori scope** l'orchestrazione multi-agent nella stessa sessione (cosa diversa dal
 supportare più agenti; `ARCHITECTURE.md` #Fuori-Scope-Baseline).
 
+## Fatto - cwd di `Cmd+T` dalla shell viva (0.7.8)
+
+La nuova tab ereditava la cwd solo dall'ultimo OSC 7 noto. Ma zsh in Relay **non emette OSC 7**:
+`/etc/zshrc` carica l'integrazione da `/etc/zshrc_$TERM_PROGRAM` e non settiamo `TERM_PROGRAM` di
+proposito (maschererebbe il kitty keyboard protocol). La shell senza integrazione non era un caso
+limite: era il default, e `Cmd+T` apriva alla radice del workspace.
+
+- La cwd si legge dal processo shell della surface viva (`TerminalSurfaceHandle.currentDirectory()`,
+  `proc_pidinfo`), con precedenza **shell viva -> ultimo OSC 7 noto -> root del workspace**, decisa
+  dal puro `Core.CurrentDirectory` invece che da cascate `??` sparse fra i layer. L'ordine è la
+  parte che conta: col valore memorizzato davanti, la lettura live non verrebbe mai consultata (dopo
+  il primo `Cmd+T` la tab ha sempre una cwd nota) e l'ereditarietà resterebbe cieca ai `cd`.
+- Il risultato **non** si memoizza su `Tab.currentDirectory`: quel campo è l'ultimo OSC 7 noto e
+  alimenta anche titolo, sottotitolo e snapshot, che si congelerebbero alla cwd dell'ultimo `Cmd+T`.
+- Coperto fino al pty vero: un test avvia una shell reale, le manda un `cd` e verifica che la
+  surface segua; un altro copre la precedenza nell'area (invertendo la cascata, fallisce).
+
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),
-con dashboard di triage e onboarding di benvenuto. Prossimo giro a scelta dell'utente: distribuzione
-**firmata** (Developer ID + notarizzazione, per homebrew-cask ufficiale), split, oppure
-generalizzazione multi-agente (Codex/opencode, vedi Più avanti).
+con dashboard di triage e onboarding di benvenuto. Il prossimo giro è **split + multi-window
+insieme** (decisioni prese e piano in Più avanti). Restano a scelta dopo: distribuzione **firmata**
+(Developer ID + notarizzazione, per homebrew-cask ufficiale) e generalizzazione multi-agente
+(Codex/opencode).

@@ -33,9 +33,10 @@ unificato, conversione colore unica) + strumenti di lint pinnati per una CI dete
 **pannello Runtime Stats dal menu View (RSS, CPU, workspace/tab, surface vive; campiona solo da
 aperto) - vedi gotcha**.
 **Baseline delle milestone chiuso**, app
-installabile in locale; prossimo giro a scelta (distribuzione firmata, split, multi-agente) - vedi
-`docs/ROADMAP.md`. Pipeline hook -> badge -> resume validata a mano con Claude reale; le notifiche
-girano solo dal bundle (`make run-app`).
+installabile in locale; prossimo giro **split + multi-window insieme** (decisioni prese, piano in
+`docs/ROADMAP.md` #Split-+-multi-window; poi distribuzione firmata e multi-agente). Pipeline hook ->
+badge -> resume validata a mano con Claude reale; le notifiche girano solo dal bundle
+(`make run-app`).
 
 ## Comandi
 
@@ -537,5 +538,8 @@ girano solo dal bundle (`make run-app`).
   versionato forza il riscarico al bump). `make lint`/`format`/`check` li usano; il workflow CI non
   fa più `brew install` (prendeva l'ultima: una regola nuova upstream rompeva il lint su codice
   invariato, la causa della CI rossa da 0.7.0). CI e locale girano la stessa identica versione.
-- Non ancora fatto: split, distribuzione firmata Developer ID, generalizzazione multi-agente
-  (Codex/opencode).
+- Non ancora fatto: **split + multi-window** (pianificati insieme, decisioni e fasi in
+  `docs/ROADMAP.md`: split **di tab** con l'albero sul Workspace e foglie `Tab.id`, non un pane tree
+  dentro la Tab; finestre come **partizione** dei workspace su un solo store. Oggi l'app è
+  single-window e single-instance), distribuzione firmata Developer ID, generalizzazione
+  multi-agente (Codex/opencode).
