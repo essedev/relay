@@ -287,7 +287,7 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 - **Note di release dai conventional commit** (`release-notes.sh`): `--generate-notes` dava un body
   vuoto su un repo trunk-based (genera dalle PR).
 
-## Fatto - Split panes + multi-window (post-0.7.8)
+## Fatto - Split panes + multi-window (0.8.0)
 
 Fatti **insieme** perché toccano gli stessi punti (cosa vuol dire "visibile", chi possiede le
 surface, come si instrada il monitor): in sequenza li avremmo rifattorizzati due volte.
