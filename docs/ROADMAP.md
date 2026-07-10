@@ -314,13 +314,22 @@ l'unità sessione/agente/badge (`RELAY_TAB_ID` = `Tab.id`):
   "monta o metti a fuoco". Prezzo esplicito: un layout per workspace, niente viste alternative per
   tab. In cambio attention model, wire, `SurfaceRegistry` e dashboard restano intatti.
 - **Multi-window = partizione**: uno store, N finestre (`Workspace.windowID` + `RelayWindow` +
-  `keyWindowID`). Chiudere una finestra secondaria riporta i suoi workspace nella principale (non
-  distruttivo); le finestre nascono solo da "Move to New Window", mai vuote.
+  `keyWindowID`). Nessuna finestra è "la principale": chiuderne una sposta i suoi workspace in
+  quella rimanente attivata più di recente (non distruttivo), e chiudere l'ultima chiude l'app come
+  oggi. Le finestre nascono solo da "Move to New Window", mai vuote. I frame vanno nel
+  `LayoutSnapshot` per id: l'attuale `setFrameAutosaveName("RelayMainWindow")` ne gestisce una sola.
+- **Visibilità = finestra non occlusa**, non finestra key. `isVisible` (che sopprime notifica e
+  bump) diventa: tab **montata** in un pane && workspace selezionato **nella sua finestra** &&
+  finestra visibile sullo schermo (`NSWindow.occlusionState`) && app attiva. Legarla alla finestra
+  **key** sarebbe il bug del caso d'uso principale: con due monitor, un completamento nella finestra
+  che stai fissando ma che non ha il focus ti notificherebbe e ti riordinerebbe la sidebar sotto le
+  mani. Prezzo accettato: una finestra visibile anche solo in parte conta come guardata.
 
 Fasi:
 
-1. **Model puro unico**: albero di split, finestre, `isVisible` nella forma finale (tab montata &&
-   workspace selezionato nella sua finestra && finestra key && app attiva), snapshot con campi
+1. **Model puro unico**: albero di split, finestre, `isVisible` nella forma finale (sopra: montata +
+   selezionata nella sua finestra + finestra non occlusa + app attiva; la visibilità della finestra
+   entra come booleano iniettato dal composition root, lo store resta puro), snapshot con campi
    **additivi** (nessun bump di `LayoutSnapshot.currentVersion`). A layout nullo il comportamento è
    identico a oggi, quindi la fase è mergeable da sola.
 2. **Due cantieri paralleli**: rendering dei pane in `TerminalHostUI` (reconcile del tree in
