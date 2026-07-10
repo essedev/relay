@@ -4,24 +4,50 @@ import Observation
 import TerminalEngine
 import WorkspaceModel
 
-/// Area AppKit che mostra il terminale della tab attualmente selezionata. Osserva lo store e
-/// scambia la surface quando cambia workspace o tab. Solo il terminale: la tab bar e la sidebar
-/// sono pannelli SwiftUI separati (confine AppKit/SwiftUI di ARCHITECTURE).
+/// Area AppKit che mostra i terminali del workspace attivo **di una finestra**: un pane per ogni
+/// tab
+/// montata, disposti secondo `Workspace.splitLayout`. Osserva lo store e ricostruisce l'albero di
+/// view solo quando la sua *struttura* cambia; il drag di un divider riscrive solo i rapporti.
+/// Solo i terminali: tab bar e sidebar sono pannelli SwiftUI separati (confine AppKit/SwiftUI).
 @MainActor
 public final class WorkspaceAreaController: NSViewController {
-    private let store: WorkspaceStore
-    private let settings: AppSettings
-    private let registry: SurfaceRegistry
-    private let container = NSView()
-    private var currentTerminal: NSView?
-    private let attentionRing = AttentionRingView(frame: .zero)
-    /// Ultimo stato del ring: rileva l'accensione di un completamento per il flash.
-    private var lastRingState: RingState = .none
+    let store: WorkspaceStore // internal: letto dal reconcile dell'albero (+PaneTree)
+    let settings: AppSettings
+    let registry: SurfaceRegistry
+    /// La finestra a cui appartiene quest'area: mostra il workspace **che quella finestra ha
+    /// selezionato**, non quello globale (due finestre mostrano due workspace insieme).
+    let windowID: UUID
+    let container = NSView()
+    /// I pane montati, per tab. Chiave del riuso fra un reconcile e l'altro: rimontare una tab non
+    /// deve ricrearne la surface, o il pty morirebbe.
+    var panes: [UUID: PaneView] = [:]
+    /// Struttura attualmente a schermo, per decidere se ricostruire (vedi `hasSameStructure`).
+    var mountedTree: SplitNode?
+    /// Il pane che ha il focus di tastiera: il first responder cambia solo quando cambia lui.
+    var focusedTabID: UUID?
+    /// Ultimo stato del ring per pane: rileva l'accensione di un completamento per il flash.
+    var lastRingStates: [UUID: RingState] = [:]
+    /// Stiamo applicando i rapporti alle `NSSplitView`: le callback di resize che ne derivano non
+    /// devono rimbalzare nello store (sarebbe un loop, e sovrascriverebbe il ratio salvato).
+    var isApplyingRatios = false
 
-    public init(store: WorkspaceStore, engine: TerminalEngine, settings: AppSettings) {
+    /// Un divider è stato trascinato: il composition root scrive il nuovo rapporto nello store, che
+    /// lo persiste. Iniettato perché l'area **mostra** il layout, non lo muta.
+    public var onRatioChange: ((UUID, Double) -> Void)?
+
+    public init(
+        store: WorkspaceStore,
+        engine: TerminalEngine,
+        settings: AppSettings,
+        windowID: UUID = RelayWindow.mainID,
+        registry: SurfaceRegistry? = nil
+    ) {
         self.store = store
         self.settings = settings
-        registry = SurfaceRegistry(engine: engine)
+        self.windowID = windowID
+        // La registry arriva da fuori quando le finestre la condividono: una tab ha una surface
+        // sola, ovunque sia montata.
+        self.registry = registry ?? SurfaceRegistry(engine: engine)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -37,36 +63,16 @@ public final class WorkspaceAreaController: NSViewController {
 
     override public func viewDidLoad() {
         super.viewDidLoad()
-        mountAttentionRing()
         observe()
         observeRing()
     }
 
-    /// Il ring di attenzione copre l'intera zona (il gap dal bordo lo dà il suo `strokeInset`),
-    /// più esterno del terminale, che è inset di più: fra i due resta l'aria contenuto-ring.
-    /// Overlay decorativo (`hitTest` nil): il terminale sotto riceve gli eventi. I terminali si
-    /// inseriscono sotto di lui (`setTerminal`), così resta sempre in cima senza ri-montarlo.
-    private func mountAttentionRing() {
-        attentionRing.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(attentionRing)
-        // Il ring copre l'intera zona (il gap dal bordo lo dà `strokeInset`): sta più esterno del
-        // terminale, che è inset di più, così resta aria tra contenuto e ring.
-        NSLayoutConstraint.activate([
-            attentionRing.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            attentionRing.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            attentionRing.topAnchor.constraint(equalTo: container.topAnchor),
-            attentionRing.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-    }
+    // MARK: - Query per tab (inoltrate alla registry)
 
-    /// Nome del comando in foreground nella tab (o `nil` se al prompt / non realizzata). Inoltra
-    /// alla registry; usato dalla conferma di chiusura nel composition root.
     public func foregroundProcess(for tabID: UUID) -> String? {
         registry.foregroundProcess(for: tabID)
     }
 
-    /// Argv del comando in foreground nella tab (o `nil`). Inoltra alla registry; usato dalla
-    /// nomina automatica del workspace nel composition root.
     public func foregroundCommandLine(for tabID: UUID) -> [String]? {
         registry.foregroundCommandLine(for: tabID)
     }
@@ -85,61 +91,81 @@ public final class WorkspaceAreaController: NSViewController {
         )
     }
 
-    /// Inietta testo nella surface della tab (resume dell'agente). Inoltra alla registry.
     public func sendText(to tabID: UUID, _ text: String) {
         registry.sendText(to: tabID, text)
     }
 
-    /// Pulisce il terminale della tab attiva (Cmd+K).
+    /// Le azioni "sul terminale" (`Cmd+K`, find) colpiscono il pane **focused**, non tutti i
+    /// montati.
+    var focusedTab: Tab? {
+        store.selectedWorkspace(in: windowID)?.selectedTab
+    }
+
     public func clearActiveTerminal() {
-        guard let tabID = store.selectedWorkspace?.selectedTab?.id else { return }
+        guard let tabID = focusedTab?.id else { return }
         registry.clear(tabID)
     }
 
-    /// Cerca nel terminale della tab attiva; ritorna posizione/totale per il contatore.
     public func searchActive(_ term: String, forward: Bool) -> (current: Int, total: Int) {
-        guard let tabID = store.selectedWorkspace?.selectedTab?.id else { return (0, 0) }
+        guard let tabID = focusedTab?.id else { return (0, 0) }
         return registry.search(tabID, term: term, forward: forward)
     }
 
-    /// Termina la ricerca nella tab attiva (pulisce selezione e stato).
     public func endSearchActive() {
-        guard let tabID = store.selectedWorkspace?.selectedTab?.id else { return }
+        guard let tabID = focusedTab?.id else { return }
         registry.endSearch(tabID)
     }
 
-    /// Restituisce il focus al terminale attivo (es. dopo aver chiuso la find bar).
+    /// Restituisce il focus al terminale del pane focused (es. dopo aver chiuso la find bar).
     public func focusTerminal() {
-        guard let terminal = currentTerminal else { return }
-        view.window?.makeFirstResponder(terminal)
+        guard let tabID = focusedTab?.id, let pane = panes[tabID] else { return }
+        view.window?.makeFirstResponder(pane.terminalView)
     }
 
-    /// L'evento è uso *reale* del terminale in vista: un tasto mentre il terminale (o una sua
-    /// discendente) è first responder, o un click dentro la sua view. Guida il mark-read: solo
-    /// così l'utente "vede" il completamento della tab in vista. Un click di navigazione nella
-    /// chrome (tab bar, sidebar) o un tasto in un campo di rename non contano - restano fuori da
-    /// `currentTerminal`.
-    public func terminalOwns(_ event: NSEvent) -> Bool {
-        guard let terminal = currentTerminal, let window = view.window,
-              event.window === window else { return false }
+    /// La tab del pane che possiede l'evento, `nil` se non appartiene a nessun terminale in vista.
+    /// Guida il mark-read: solo un uso **reale** del terminale (un tasto mentre ha il focus, o un
+    /// click dentro la sua view) dice che hai visto quella conversazione. Un click di navigazione
+    /// nella chrome o un tasto in un campo di rename non conta: quelle view non stanno in un pane.
+    /// Con lo split serve sapere **quale** pane, perché l'evento può cadere su uno non focused.
+    public func owningTab(of event: NSEvent) -> UUID? {
+        guard let window = view.window, event.window === window else { return nil }
         switch event.type {
         case .keyDown:
-            guard let responder = window.firstResponder as? NSView else { return false }
-            return responder === terminal || responder.isDescendant(of: terminal)
+            guard let responder = window.firstResponder as? NSView else { return nil }
+            return panes.values.first { $0.owns(responder: responder) }?.tabID
         case .leftMouseDown:
-            return terminal.bounds.contains(terminal.convert(event.locationInWindow, from: nil))
+            let point = event.locationInWindow
+            return panes.values.first { $0.containsInTerminal(windowPoint: point) }?.tabID
         default:
-            return false
+            return nil
         }
     }
 
-    /// Surface attualmente vive (per la strumentazione di performance, misure M3).
+    /// Surface attualmente vive (strumentazione di performance, misure M3).
     public var liveSurfaceCount: Int {
         registry.liveSurfaceCount
     }
 
-    /// Bridge Observation -> AppKit: ri-renderizza quando cambiano le proprietà osservate lette
-    /// in `render()`, poi si ri-arma.
+    /// Le tab a schermo in quest'area, una per pane. Interno: lo usano i test del reconcile, che
+    /// senza AppKit vivo non possono ispezionare la gerarchia di view.
+    var mountedTabIDs: Set<UUID> {
+        Set(panes.keys)
+    }
+
+    /// La view del terminale montata per una tab (identità stabile: il riuso dei pane si verifica
+    /// controllando che sia la **stessa** istanza dopo un reconcile).
+    func mountedTerminal(for tabID: UUID) -> NSView? {
+        panes[tabID]?.terminalView
+    }
+
+    /// Forza un reconcile sincrono. Interno: `observe()` ri-renderizza su un `Task`, che in un test
+    /// sincrono non gira.
+    func renderNow() {
+        render()
+    }
+
+    /// Bridge Observation -> AppKit: ri-renderizza quando cambiano le proprietà osservate lette in
+    /// `render()`, poi si ri-arma.
     private func observe() {
         withObservationTracking {
             render()
@@ -148,60 +174,66 @@ public final class WorkspaceAreaController: NSViewController {
         }
     }
 
-    // MARK: - Ring di attenzione
+    // MARK: - Ring di attenzione (uno per pane)
 
-    /// Stato del ring per la tab in vista. Coerente con `BadgeKind.forTab` (Panels): completato
-    /// dipende da `attention`; needs_input/error sono stati persistenti.
-    private enum RingState: Equatable {
+    enum RingState: Equatable {
         case none, completed, needsInput, error
     }
 
-    /// Bridge Observation -> ring: aggiorna il bordo quando cambia stato/attention della tab in
-    /// vista, la selezione o il tema. Separato da `observe()` perché **non** scrive `attention`
-    /// (niente loop col reset della visita): un completamento sulla tab già in vista accende il
-    /// ring
-    /// senza spegnersi da solo. La visita reale la fa l'interazione (`surface.onInteraction`).
+    /// Bridge Observation -> ring: aggiorna il bordo di **ogni pane montato** quando cambiano stato
+    /// o
+    /// attention delle sue tab, il focus o il tema. Separato da `render()` perché **non** scrive
+    /// `attention` (niente loop col reset della visita): un completamento su un pane in vista
+    /// accende
+    /// il ring senza spegnersi da solo. La visita reale la fa l'interazione (monitor key/mouse).
     private func observeRing() {
         withObservationTracking {
-            updateRing()
+            updateRings()
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeRing() }
         }
     }
 
-    private func updateRing() {
-        let state = ringState(for: store.selectedWorkspace?.selectedTab)
-        if let spec = ringSpec(state, theme: settings.theme) {
-            attentionRing.update(color: spec.color, pulsing: spec.pulsing)
-        } else {
-            attentionRing.update(color: nil, pulsing: false)
+    private func updateRings() {
+        guard let workspace = store.selectedWorkspace(in: windowID) else { return }
+        let theme = settings.theme
+        let focused = workspace.selectedTabID
+        // Col pane singolo non c'è un focus da indicare: il bordo resta spento.
+        let showsFocusBorder = workspace.splitLayout != nil
+        for tabID in workspace.mountedTabIDs {
+            guard let pane = panes[tabID],
+                  let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
+            let state = ringState(for: tab)
+            if let spec = ringSpec(state, theme: theme) {
+                pane.updateRing(color: spec.color, pulsing: spec.pulsing)
+            } else {
+                pane.updateRing(color: nil, pulsing: false)
+            }
+            // Un completamento appena acceso fa un flash per richiamare l'occhio.
+            if state == .completed, lastRingStates[tabID] != .completed {
+                pane.flashRing()
+            }
+            lastRingStates[tabID] = state
+            let focusColor = showsFocusBorder && tabID == focused
+                ? NSColor(relay: theme.cursor)
+                : nil
+            pane.updateFocusBorder(color: focusColor)
         }
-        // Un completamento appena acceso fa un flash per richiamare l'occhio.
-        if state == .completed, lastRingState != .completed {
-            attentionRing.flash()
-        }
-        lastRingState = state
     }
 
-    private func ringState(for tab: Tab?) -> RingState {
-        guard let tab else { return .none }
+    private func ringState(for tab: Tab) -> RingState {
         switch tab.agentState {
-        case .needsInput: return .needsInput
-        case .error: return .error
+        case .needsInput: .needsInput
+        case .error: .error
         // Il ring è il segnale forte: solo `unseen`. Un sospeso (`pending`) non accende il bordo
-        // (segnale quieto: badge dimesso + dashboard), altrimenti userei la shell con un ring
-        // verde permanente addosso.
-        // `unknown` come `idle`: un completamento a sessione finita (Stop poi SessionEnd, o
-        // processo
-        // ucciso) resta `unseen` nel reducer e galleggia/badge; il ring deve concordare (verde +
-        // flash), come fa BadgeKind.
-        case .idle, .unknown: return tab.attention == .unseen ? .completed : .none
-        case .running: return .none
+        // (segnale quieto: badge ad anello + dashboard), altrimenti useresti la shell con un ring
+        // verde permanente addosso. `unknown` come `idle`: un completamento a sessione finita resta
+        // `unseen` nel reducer, e il ring deve concordare (verde + flash), come fa BadgeKind.
+        case .idle, .unknown: tab.attention == .unseen ? .completed : .none
+        case .running: .none
         }
     }
 
-    /// Colore (dai colori ANSI del tema, come i badge) e se pulsa. Completato = verde statico;
-    /// aspetta-input = giallo pulsante; errore = rosso pulsante.
     private func ringSpec(
         _ state: RingState,
         theme: RelayTheme
@@ -214,107 +246,15 @@ public final class WorkspaceAreaController: NSViewController {
         }
     }
 
-    /// Flash del ring al ritorno in foreground: richiama l'occhio su un completamento in vista.
-    /// No-op se il ring è spento o pulsa già.
+    /// Flash dei ring accesi al ritorno in foreground: richiama l'occhio sui completamenti in
+    /// vista.
+    /// No-op sui pane col ring spento o già pulsante.
     public func flashAttentionRing() {
-        attentionRing.flash()
-    }
-
-    private func render() {
-        // Legge settings.theme: entra nel tracking, così un cambio tema/zoom ri-renderizza e
-        // propaga il tema alle surface vive (no-op se invariato).
-        registry.applyTheme(settings.theme)
-
-        let aliveTabIDs = Set(store.workspaces.flatMap { $0.tabs.map(\.id) })
-        registry.retain(aliveTabIDs)
-
-        guard let workspace = store.selectedWorkspace, let tab = workspace.selectedTab else {
-            setTerminal(nil)
-            return
+        for pane in panes.values {
+            pane.flashRing()
         }
-
-        // Nota: selezionare la tab **non** spegne più `attention` (lo faceva il vecchio modello).
-        // Aprire una tab completata mostra il ring verde + flash; il mark-read lo fa solo
-        // l'interazione col terminale (monitor key/mouse). Vedi observeRing / gotcha attention.
-
-        // La shell parte dalla cwd della tab (ereditata da Cmd+T o nota via OSC 7), fallback
-        // sulla cartella del workspace.
-        let surface = registry.surface(
-            for: tab.id,
-            cwd: tab.currentDirectory ?? workspace.rootPath,
-            onTitle: { [weak tab] title in
-                guard let tab, !tab.hasCustomTitle else { return }
-                tab.title = title
-            },
-            onDirectory: { [weak tab] path in
-                tab?.currentDirectory = path
-            }
-        )
-        let changed = setTerminal(surface.view)
-        surface.start()
-        // Prendo il first responder solo quando il terminale mostrato cambia davvero (switch di
-        // tab/workspace), non a ogni render: un render scatta anche su un OSC 7 dello shell
-        // (ridisegno
-        // del prompt), e rubare il focus lì strapperebbe la find bar o la dashboard mentre digiti
-        // (peggio: coi tasti che finiscono nel pty nascosto sotto l'overlay).
-        if changed {
-            view.window?.makeFirstResponder(surface.view)
-        }
-
-        registry.enforceLRU(
-            cap: liveSurfaceCap,
-            keep: tab.id,
-            protectedTabIDs: protectedTabIDs(activeWorkspace: workspace)
-        )
     }
 
-    private func protectedTabIDs(activeWorkspace workspace: Workspace) -> Set<UUID> {
-        var ids = Set(workspace.tabs.map(\.id))
-        for candidateWorkspace in store.workspaces {
-            for tab in candidateWorkspace.tabs where hasFreshAttention(tab) {
-                ids.insert(tab.id)
-            }
-        }
-        return ids
-    }
-
-    private func hasFreshAttention(_ tab: Tab) -> Bool {
-        tab.agentState == .needsInput || tab.agentState == .error || tab.attention == .unseen
-    }
-
-    /// Massimo di surface vive tenute in memoria. Default 12, tarato sulle misure di memoria (M3,
-    /// `docs/research/PERF.md`): ~0.3-0.5 MB per surface idle, 12 surface stanno ampiamente nel
-    /// budget. Override via `RELAY_SURFACE_CAP` (le misure lo usano per esplorare la pendenza).
-    private let liveSurfaceCap: Int = {
-        let raw = ProcessInfo.processInfo.environment["RELAY_SURFACE_CAP"].flatMap(Int.init) ?? 0
-        return raw > 0 ? raw : 12
-    }()
-
-    /// Respiro attorno al testo del terminale (il container ha lo stesso background del tema,
-    /// quindi
-    /// il padding è aria, non una cornice). Più largo del `strokeInset` del ring: lo spazio tra i
-    /// due
-    /// è l'aria fra contenuto e ring.
-    private static let terminalInset: CGFloat = 12
-
-    /// Scambia la view del terminale mostrato. Ritorna `true` se è cambiata davvero (usato per
-    /// decidere se prendere il first responder): a parità di view è un no-op.
-    @discardableResult
-    private func setTerminal(_ terminal: NSView?) -> Bool {
-        guard currentTerminal !== terminal else { return false }
-        currentTerminal?.removeFromSuperview()
-        currentTerminal = terminal
-        guard let terminal else { return true }
-        terminal.translatesAutoresizingMaskIntoConstraints = false
-        // Sotto il ring di attenzione, che resta l'overlay in cima.
-        container.addSubview(terminal, positioned: .below, relativeTo: attentionRing)
-        let inset = Self.terminalInset
-        NSLayoutConstraint.activate([
-            terminal.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: inset),
-            terminal.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -inset),
-            terminal.topAnchor.constraint(equalTo: container.topAnchor, constant: inset),
-            terminal.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -inset),
-        ])
-        return true
-    }
+    // Il reconcile dell'albero di pane (render, mount, ratio, LRU) vive in
+    // `WorkspaceAreaController+PaneTree.swift`.
 }

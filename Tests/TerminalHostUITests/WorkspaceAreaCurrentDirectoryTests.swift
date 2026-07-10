@@ -72,11 +72,16 @@ private final class FakeEngine: TerminalEngine {
 /// Monta l'area e realizza la surface della tab selezionata (è `render()` a crearla, al primo
 /// accesso alla view).
 @MainActor
-private func makeArea(store: WorkspaceStore, liveDirectory: String?) -> WorkspaceAreaController {
+private func makeArea(
+    store: WorkspaceStore,
+    liveDirectory: String?,
+    windowID: UUID = RelayWindow.mainID
+) -> WorkspaceAreaController {
     let area = WorkspaceAreaController(
         store: store,
         engine: FakeEngine(liveDirectory: liveDirectory),
-        settings: AppSettings()
+        settings: AppSettings(),
+        windowID: windowID
     )
     area.loadViewIfNeeded()
     return area
@@ -123,4 +128,70 @@ private func makeArea(store: WorkspaceStore, liveDirectory: String?) -> Workspac
     let area = makeArea(store: store, liveDirectory: "/live")
 
     #expect(area.currentDirectory(for: UUID()) == nil)
+}
+
+// MARK: - Reconcile dell'albero di pane
+
+@MainActor
+@Test func splittingMountsASecondPaneWithoutRecreatingTheFirst() throws {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay", rootPath: "/repo")
+    let first = ws.tabs[0]
+    let area = makeArea(store: store, liveDirectory: nil)
+    let firstTerminal = try #require(area.mountedTerminal(for: first.id))
+
+    let second = try #require(store.splitFocusedPane(axis: .horizontal))
+    area.renderNow()
+
+    #expect(area.mountedTabIDs == Set([first.id, second.id]))
+    // Il pane preesistente non è stato ricreato: la sua surface (e il pty) sopravvive al reconcile.
+    #expect(area.mountedTerminal(for: first.id) === firstTerminal)
+    #expect(area.liveSurfaceCount == 2)
+}
+
+@MainActor
+@Test func closingAPaneUnmountsItButKeepsTheSurfaceAlive() throws {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay", rootPath: "/repo")
+    let first = ws.tabs[0]
+    let area = makeArea(store: store, liveDirectory: nil)
+    let second = try #require(store.splitFocusedPane(axis: .vertical))
+    area.renderNow()
+
+    store.closeFocusedPane()
+    area.renderNow()
+
+    #expect(area.mountedTabIDs == Set([first.id]))
+    // La tab resta viva nella tab bar, quindi la sua surface non va distrutta: solo smontata.
+    #expect(area.liveSurfaceCount == 2)
+    #expect(ws.tabs.contains { $0.id == second.id })
+}
+
+@MainActor
+@Test func closingATabTearsDownItsSurface() throws {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay", rootPath: "/repo")
+    let area = makeArea(store: store, liveDirectory: nil)
+    let second = try #require(store.splitFocusedPane(axis: .horizontal))
+    area.renderNow()
+    #expect(area.liveSurfaceCount == 2)
+
+    store.closeTab(second.id, in: ws)
+    area.renderNow()
+
+    #expect(area.mountedTabIDs.count == 1)
+    #expect(area.liveSurfaceCount == 1) // qui la sessione muore davvero
+}
+
+@MainActor
+@Test func aWindowShowsItsOwnWorkspaceNotTheKeyOne() throws {
+    let store = WorkspaceStore()
+    let main = store.createWorkspace(name: "main")
+    let other = store.createWorkspace(name: "other")
+    let window = try #require(store.moveWorkspaceToNewWindow(other.id))
+    // L'area della finestra principale, mentre la key è l'altra.
+    let area = makeArea(store: store, liveDirectory: nil, windowID: RelayWindow.mainID)
+
+    #expect(store.keyWindowID == window.id)
+    #expect(area.mountedTabIDs == Set(main.tabs.map(\.id))) // mostra il suo, non quello della key
 }

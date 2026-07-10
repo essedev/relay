@@ -119,7 +119,7 @@ public final class SurfaceRegistry {
     /// the registry temporarily stays above the cap.
     public func enforceLRU(
         cap: Int,
-        keep: UUID?,
+        keep: Set<UUID>,
         protectedTabIDs: Set<UUID> = [],
         now: Date = Date()
     ) {

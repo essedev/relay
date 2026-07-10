@@ -174,4 +174,20 @@ public extension SplitNode {
         if case let .leaf(id) = self { return id }
         return nil
     }
+
+    /// Stessa forma (nodi, assi, tab montate) a meno dei `ratio`. Il rendering la usa per **non**
+    /// ricostruire le view mentre trascini un divider: lì cambiano solo le proporzioni, e rifare
+    /// l'albero di view sotto il puntatore darebbe flicker e perdita di focus.
+    func hasSameStructure(as other: SplitNode) -> Bool {
+        switch (self, other) {
+        case let (.leaf(a), .leaf(b)):
+            a == b
+        case let (.split(idA, axisA, _, firstA, secondA), .split(idB, axisB, _, firstB, secondB)):
+            idA == idB && axisA == axisB
+                && firstA.hasSameStructure(as: firstB)
+                && secondA.hasSameStructure(as: secondB)
+        default:
+            false
+        }
+    }
 }

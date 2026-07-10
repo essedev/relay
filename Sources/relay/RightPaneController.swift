@@ -90,9 +90,9 @@ final class RightPaneController: NSViewController {
         area.sendText(to: tabID, text)
     }
 
-    /// L'evento appartiene al terminale in vista (mark-read filtrato). Inoltra all'area.
-    func terminalOwns(_ event: NSEvent) -> Bool {
-        area.terminalOwns(event)
+    /// La tab del pane che possiede l'evento (mark-read filtrato). Inoltra all'area.
+    func owningTab(of event: NSEvent) -> UUID? {
+        area.owningTab(of: event)
     }
 
     // MARK: - Ricerca (Cmd+F)
@@ -154,6 +154,13 @@ final class RightPaneController: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        // Il drag di un divider torna nello store, che persiste il rapporto: l'area mostra il
+        // layout, non lo muta. Il reconcile non ricostruisce nulla (la struttura non è cambiata).
+        area.onRatioChange = { [weak self] branchID, ratio in
+            guard let self, let workspace = store.selectedWorkspace else { return }
+            store.setSplitRatio(ratio, forBranch: branchID, in: workspace)
+        }
 
         // Strip del titolo in cima al right pane: stessa riga verticale dei semafori (full-size
         // content view), centrata sul body e non sull'intera finestra.

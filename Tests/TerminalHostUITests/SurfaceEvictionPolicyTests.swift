@@ -8,7 +8,7 @@ private let a = UUID(), b = UUID(), c = UUID(), d = UUID()
 @Test func noEvictionWhenAtOrUnderCap() {
     let evict = SurfaceEvictionPolicy.evictions(
         recency: [a, b, c],
-        keep: a,
+        keep: [a],
         cap: 3,
         isEvictable: { _ in true }
     )
@@ -18,7 +18,7 @@ private let a = UUID(), b = UUID(), c = UUID(), d = UUID()
 @Test func evictsLeastRecentBeyondCap() {
     let evict = SurfaceEvictionPolicy.evictions(
         recency: [a, b, c, d],
-        keep: a,
+        keep: [a],
         cap: 2,
         isEvictable: { _ in true }
     )
@@ -28,7 +28,7 @@ private let a = UUID(), b = UUID(), c = UUID(), d = UUID()
 @Test func neverEvictsKeepEvenIfLeastRecent() {
     let evict = SurfaceEvictionPolicy.evictions(
         recency: [a, b, c],
-        keep: c,
+        keep: [c],
         cap: 1,
         isEvictable: { _ in true }
     )
@@ -36,10 +36,22 @@ private let a = UUID(), b = UUID(), c = UUID(), d = UUID()
     #expect(!evict.contains(c))
 }
 
+@Test func neverEvictsAnyMountedPane() {
+    // Con uno split ci sono più terminali a schermo: sfrattarne uno lo lascerebbe bianco davanti
+    // agli occhi dell'utente, e ne ucciderebbe la shell.
+    let evict = SurfaceEvictionPolicy.evictions(
+        recency: [a, b, c, d],
+        keep: [c, d], // due pane montati, entrambi vecchi nella recency
+        cap: 1,
+        isEvictable: { _ in true }
+    )
+    #expect(evict == [b, a])
+}
+
 @Test func skipsProtectedTabsAndEvictsOtherIdleCandidates() {
     let evict = SurfaceEvictionPolicy.evictions(
         recency: [a, b, c, d],
-        keep: a,
+        keep: [a],
         cap: 2,
         isProtected: { $0 == c },
         isEvictable: { _ in true }
@@ -51,7 +63,7 @@ private let a = UUID(), b = UUID(), c = UUID(), d = UUID()
 @Test func skipsNonEvictableAndToleratesOverCap() {
     let evict = SurfaceEvictionPolicy.evictions(
         recency: [a, b, c, d],
-        keep: a,
+        keep: [a],
         cap: 1,
         isEvictable: { $0 != c }
     )
@@ -63,7 +75,7 @@ private let a = UUID(), b = UUID(), c = UUID(), d = UUID()
 @Test func toleratesOverCapWhenAllCandidatesAreProtected() {
     let evict = SurfaceEvictionPolicy.evictions(
         recency: [a, b, c],
-        keep: a,
+        keep: [a],
         cap: 1,
         isProtected: { $0 == b || $0 == c },
         isEvictable: { _ in true }

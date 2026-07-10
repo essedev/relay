@@ -118,8 +118,8 @@ final class MainSplitViewController: NSSplitViewController {
     }
 
     /// L'evento appartiene al terminale in vista (mark-read filtrato). Inoltra al right pane.
-    func terminalOwns(_ event: NSEvent) -> Bool {
-        right.terminalOwns(event)
+    func owningTab(of event: NSEvent) -> UUID? {
+        right.owningTab(of: event)
     }
 
     @available(*, unavailable)

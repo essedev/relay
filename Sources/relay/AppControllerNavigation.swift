@@ -64,11 +64,13 @@ extension AppController {
             // Interazione col terminale in vista (tasto col terminale in focus, o click dentro la
             // sua view) = la percezione declassa il completamento da forte a quieto (unseen ->
             // pending), non lo spegne. Un click nella chrome (tab bar/sidebar) o un tasto altrove
-            // è filtrato via da `terminalOwns`: cambiare tab non consuma più il marker. Risolvono
+            // è filtrato via da `owningTab`: cambiare tab non consuma più il marker. Risolvono
             // solo la ripresa vera (prompt -> running, via reducer), il dismiss o la chiusura:
             // "l'ho visto" non è "me ne sono occupato".
-            if splitVC?.terminalOwns(event) == true {
-                store.selectedWorkspace?.selectedTab?.markSeen()
+            // Con lo split si marca la tab del **pane colpito**, che può non essere la focused: un
+            // click in un pane accanto dice che hai visto quella conversazione, non l'altra.
+            if let tabID = splitVC?.owningTab(of: event) {
+                store.markSeen(tabID)
             }
             return event
         }
