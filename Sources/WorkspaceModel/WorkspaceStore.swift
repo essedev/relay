@@ -270,12 +270,10 @@ public final class WorkspaceStore {
         return workspace.appendTab(Tab(title: title, currentDirectory: inherited), select: true)
     }
 
-    /// Seleziona una tab: **monta o metti a fuoco** (vedi `Workspace.mount`). Con uno split aperto,
-    /// una tab già in un pane riceve solo il focus; una non montata prende il posto di quella nel
-    /// pane focused. Tutta la navigazione passa di qui, quindi la eredita gratis.
+    /// Seleziona una tab: la **rivela** (selezionata nel suo pane + focus a quel pane, vedi
+    /// `Workspace.reveal`). Tutta la navigazione passa di qui, quindi la eredita gratis.
     public func selectTab(_ tabID: UUID, in workspace: Workspace) {
-        guard workspace.tabs.contains(where: { $0.id == tabID }) else { return }
-        workspace.mount(tabID)
+        workspace.reveal(tabID)
     }
 
     /// Chiude una tab. Ritorna l'id rimosso (per il teardown della surface).
@@ -326,7 +324,11 @@ public final class WorkspaceStore {
     ) -> Workspace? {
         guard workspace.tabs.count > 1,
               let tab = workspace.tabs.first(where: { $0.id == tabID }) else { return nil }
+        // Nella finestra del workspace d'origine, non nella key: l'azione parte dalla sua strip,
+        // e un nuovo workspace che finisse in un'altra finestra violerebbe la partizione (sidebar
+        // che non lo lista, stessa surface montata in due aree).
         let newWorkspace = Workspace(
+            windowID: workspace.windowID,
             name: name,
             nameOrigin: nameOrigin,
             rootPath: tab.currentDirectory,
@@ -335,7 +337,7 @@ public final class WorkspaceStore {
         )
         workspaces.append(newWorkspace)
         workspace.removeTab(tabID)
-        selectedWorkspaceID = newWorkspace.id
+        windows.first { $0.id == workspace.windowID }?.selectedWorkspaceID = newWorkspace.id
         return newWorkspace
     }
 

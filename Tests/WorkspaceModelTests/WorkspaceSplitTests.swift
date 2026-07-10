@@ -3,10 +3,11 @@ import Foundation
 import Testing
 @testable import WorkspaceModel
 
-// Lo split visto dallo store: la Tab resta l'unità della sessione, il layout dice solo quali tab
-// sono a schermo e quale ha il focus. Le due nozioni sono distinte e qui si separano.
+// Lo split visto dallo store (modello cmux): le tab vivono nei pane, a schermo c'è la selezionata
+// di ogni strip, il focus è di un pane. La Tab resta l'unità della sessione: montare, spostare o
+// selezionare non ne tocca l'identità.
 
-@Test func splitFocusedPaneMountsANewTabAndFocusesIt() throws {
+@Test func splitFocusedPaneOpensANewTabInANewPaneAndFocusesIt() throws {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "relay", rootPath: "/repo")
     let first = ws.tabs[0]
@@ -15,57 +16,63 @@ import Testing
     let created = try #require(store.splitFocusedPane(axis: .horizontal))
 
     #expect(ws.tabs.count == 2)
-    #expect(ws.mountedTabIDs == [first.id, created.id]) // ordine visivo
+    #expect(ws.visibleTabIDs == [first.id, created.id]) // entrambe a schermo, ordine visivo
     #expect(ws.selectedTabID == created.id) // il nuovo pane prende il focus
+    #expect(ws.layout.paneIDs.count == 2)
     #expect(created.currentDirectory == "/repo/Sources") // eredita dal pane diviso
 }
 
-@Test func selectingAMountedTabOnlyMovesTheFocus() throws {
+@Test func selectingATabInAnotherPaneMovesTheFocusThere() throws {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "relay")
     let first = ws.tabs[0]
     let second = try #require(store.splitFocusedPane(axis: .vertical))
-    let layoutBefore = ws.splitLayout
+    let layoutBefore = ws.layout
 
     store.selectTab(first.id, in: ws)
 
     #expect(ws.selectedTabID == first.id)
-    #expect(ws.splitLayout == layoutBefore) // il layout non si tocca
-    #expect(ws.mountedTabIDs == [first.id, second.id])
+    #expect(ws.focusedPaneID == ws.layout.paneID(containing: first.id))
+    #expect(ws.layout == layoutBefore) // selezionare non muta mai la struttura
+    #expect(ws.visibleTabIDs == [first.id, second.id])
 }
 
-@Test func selectingAnUnmountedTabTakesOverTheFocusedPane() throws {
+@Test func newTabJoinsTheFocusedPaneStrip() throws {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "relay")
     let first = ws.tabs[0]
-    let second = try #require(store.splitFocusedPane(axis: .horizontal)) // focused
-    let third = store.addTab(to: ws) // non montata: entra al posto di `second`
+    let second = try #require(store.splitFocusedPane(axis: .horizontal)) // pane B focused
 
-    #expect(ws.mountedTabIDs == [first.id, third.id])
-    #expect(ws.selectedTabID == third.id)
-    #expect(ws.tabs.count == 3) // `second` è viva, solo smontata
-    #expect(!ws.isMounted(second.id))
+    let third = store.addTab(to: ws) // nella strip del pane B, selezionata
+
+    #expect(ws.tabs.count == 3)
+    #expect(ws.layout.paneIDs.count == 2) // nessun pane nuovo
+    #expect(ws.layout.paneID(containing: third.id) == ws.layout.paneID(containing: second.id))
+    #expect(ws.visibleTabIDs == [first.id, third.id]) // `second` resta nella strip, nascosta
+    #expect(ws.isVisible(first.id) && ws.isVisible(third.id) && !ws.isVisible(second.id))
 }
 
-@Test func closingTheFocusedPaneKeepsTheTabAlive() throws {
+@Test func closingAPaneKillsItsTabs() throws {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "relay")
     let first = ws.tabs[0]
     let second = try #require(store.splitFocusedPane(axis: .horizontal))
+    let third = store.addTab(to: ws) // stessa strip di `second`
 
-    #expect(store.closeFocusedPane())
+    let removed = store.closeFocusedPane()
 
-    #expect(ws.tabs.count == 2) // la tab non è stata chiusa: la sessione vive
-    #expect(ws.splitLayout == nil) // una foglia sola = pane singolo (forma canonica)
-    #expect(ws.selectedTabID == first.id)
-    #expect(!ws.isMounted(second.id))
+    #expect(Set(removed) == Set([second.id, third.id])) // le tab muoiono col pane
+    #expect(ws.tabs.map(\.id) == [first.id])
+    #expect(ws.layout.paneIDs.count == 1)
+    #expect(ws.selectedTabID == first.id) // il focus passa al fratello
 }
 
-@Test func closingAPaneWithoutASplitIsANoOp() {
+@Test func closingTheOnlyPaneIsANoOp() {
     let store = WorkspaceStore()
-    store.createWorkspace(name: "relay")
+    let ws = store.createWorkspace(name: "relay")
 
-    #expect(!store.closeFocusedPane()) // l'unico pane non si smonta: si chiude la tab
+    #expect(store.closeFocusedPane().isEmpty) // l'unico pane non si chiude: si chiude la tab
+    #expect(ws.tabs.count == 1)
 }
 
 @Test func focusCyclesBetweenPanes() throws {
@@ -89,30 +96,43 @@ import Testing
     #expect(!store.focusAdjacentPane(forward: true))
 }
 
-@Test func closingAMountedTabCollapsesItsPaneAndMovesTheFocus() throws {
+@Test func closingTheLastTabOfAPaneCollapsesIt() throws {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "relay")
     let first = ws.tabs[0]
-    let second = try #require(store.splitFocusedPane(axis: .horizontal)) // focused
+    let second = try #require(store.splitFocusedPane(axis: .horizontal)) // focused, sola nel pane
 
     store.closeTab(second.id, in: ws)
 
     #expect(ws.tabs.map(\.id) == [first.id])
-    #expect(ws.splitLayout == nil)
-    #expect(ws.selectedTabID == first.id)
+    #expect(ws.layout.paneIDs.count == 1)
+    #expect(ws.selectedTabID == first.id) // il focus passa al pane rimasto
 }
 
-@Test func closingAnUnmountedTabLeavesTheLayoutAlone() throws {
+@Test func closingAVisibleTabRevealsItsStripNeighbor() throws {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay")
+    let second = try #require(store.splitFocusedPane(axis: .horizontal))
+    let third = store.addTab(to: ws) // strip del pane B: [second, third], visibile third
+
+    store.closeTab(third.id, in: ws)
+
+    // Il pane sopravvive con `second`, che torna a schermo (selezione index-stable).
+    #expect(ws.layout.paneIDs.count == 2)
+    #expect(ws.isVisible(second.id))
+    #expect(ws.selectedTabID == second.id)
+}
+
+@Test func closingAHiddenTabLeavesTheScreenAlone() throws {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "relay")
     let first = ws.tabs[0]
     let second = try #require(store.splitFocusedPane(axis: .horizontal))
-    let third = store.addTab(to: ws) // rimpiazza `second` nel pane focused
-    #expect(!ws.isMounted(second.id))
+    let third = store.addTab(to: ws) // nasconde `second` nella strip
 
-    store.closeTab(second.id, in: ws) // tab viva ma smontata
+    store.closeTab(second.id, in: ws) // tab viva ma non a schermo
 
-    #expect(ws.mountedTabIDs == [first.id, third.id]) // layout intatto
+    #expect(ws.visibleTabIDs == [first.id, third.id]) // schermo intatto
     #expect(ws.tabs.count == 2)
 }
 
@@ -120,21 +140,63 @@ import Testing
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "relay")
     store.splitFocusedPane(axis: .horizontal)
-    guard case let .split(branchID, _, _, _, _) = ws.splitLayout else {
+    guard case let .split(branchID, _, _, _, _) = ws.layout else {
         return #expect(Bool(false), "il workspace deve essere splittato")
     }
 
     store.setSplitRatio(0.7, forBranch: branchID, in: ws)
 
-    guard case let .split(_, _, ratio, _, _) = ws.splitLayout else {
+    guard case let .split(_, _, ratio, _, _) = ws.layout else {
         return #expect(Bool(false), "il layout deve restare uno split")
     }
     #expect(ratio == 0.7)
 }
 
-// MARK: - Visibilità: montata, non solo focused
+@Test func moveTabReordersWithinItsStripOnly() throws {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay")
+    let first = ws.tabs[0]
+    let second = try #require(store.splitFocusedPane(axis: .horizontal))
+    let third = store.addTab(to: ws) // strip B: [second, third]
 
-@Test func completionOnAMountedButUnfocusedPaneDoesNotBump() {
+    store.moveTab(third.id, before: second.id, in: ws)
+    let paneB = try #require(ws.layout.pane(ws.focusedPaneID))
+    #expect(paneB.tabIDs == [third.id, second.id])
+
+    // Cross-pane: non è un riordino di strip, è un no-op (il drag fra pane è un lavoro futuro).
+    store.moveTab(third.id, before: first.id, in: ws)
+    #expect(ws.layout.pane(ws.focusedPaneID)?.tabIDs == [third.id, second.id])
+}
+
+// MARK: - Open in Split (sposta una tab esistente in un pane nuovo)
+
+@Test func openInSplitMovesATabOutOfItsStrip() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay")
+    let first = ws.tabs[0]
+    let second = store.addTab(to: ws) // stessa strip: [first, second]
+
+    #expect(store.openInSplit(second.id, axis: .horizontal, in: ws))
+
+    #expect(ws.layout.paneIDs.count == 2)
+    #expect(ws.visibleTabIDs == [first.id, second.id])
+    #expect(ws.tabs.count == 2) // nessuna tab nuova: ha spostato quella che c'era
+    #expect(ws.selectedTabID == second.id) // il nuovo pane prende il focus
+}
+
+@Test func openInSplitRefusesTheOnlyTabOfAPane() throws {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay")
+    let second = try #require(store.splitFocusedPane(axis: .horizontal)) // sola nel suo pane
+
+    // Dividerla accanto a sé stessa non produce niente.
+    #expect(!store.openInSplit(second.id, axis: .vertical, in: ws))
+    #expect(ws.layout.paneIDs.count == 2)
+}
+
+// MARK: - Visibilità: a schermo, non solo focused
+
+@Test func completionOnAVisibleButUnfocusedPaneDoesNotBump() {
     // Con uno split guardi tutti i pane a schermo: un completamento su quello non focused non è
     // "arrivato mentre non guardavi", quindi niente bump del workspace e niente notifica.
     let store = WorkspaceStore()
@@ -154,15 +216,13 @@ import Testing
     #expect(store.workspaces.map(\.id) == [other.id, ws.id]) // nessun bump
 }
 
-@Test func completionOnAnUnmountedTabStillBumpsAndNotifies() {
+@Test func completionOnAHiddenStripTabStillBumpsAndNotifies() {
     let store = WorkspaceStore()
     let other = store.createWorkspace(name: "altro")
     let ws = store.createWorkspace(name: "relay")
     let hidden = ws.tabs[0]
-    store.splitFocusedPane(axis: .horizontal) // [hidden, nuovo], focus sul nuovo
-    store.selectTab(hidden.id, in: ws) // focus su `hidden`, layout invariato
-    store.addTab(to: ws) // la nuova tab prende il pane focused: `hidden` esce dallo schermo
-    #expect(!ws.isMounted(hidden.id))
+    store.addTab(to: ws) // stessa strip: `hidden` esce dallo schermo
+    #expect(!ws.isVisible(hidden.id))
     store.selectWorkspace(ws.id)
 
     var notified = false
@@ -181,38 +241,62 @@ import Testing
     let ws = store.createWorkspace(name: "relay")
     let first = ws.tabs[0]
     let second = try #require(store.splitFocusedPane(axis: .vertical))
+    store.addTab(to: ws) // strip del secondo pane: [second, third]
+    store.selectTab(second.id, in: ws) // visibile `second`, la terza nascosta
 
     let restored = WorkspaceStore()
     restored.restore(from: store.snapshot())
 
     let workspace = restored.workspaces[0]
-    #expect(workspace.mountedTabIDs == [first.id, second.id])
+    #expect(workspace.visibleTabIDs == [first.id, second.id])
     #expect(workspace.selectedTabID == second.id)
-    #expect(workspace.splitLayout == ws.splitLayout)
+    #expect(workspace.focusedPaneID == ws.focusedPaneID)
+    #expect(workspace.layout == ws.layout)
+    #expect(workspace.tabs.count == 3) // `third` è viva nella strip
 }
 
-@Test func restoreDropsPanesWhoseTabIsGone() {
-    // Snapshot con un layout che monta una tab inesistente (file editato a mano, corruzione
-    // parziale): il pane orfano cade e il fratello prende il suo posto.
+@Test func restoreDropsPanesWhoseTabsAreGone() {
+    // Snapshot con un pane le cui tab non esistono più (file editato a mano, corruzione parziale
+    // che decodifica ancora): il pane orfano cade e il fratello prende il suo posto.
     let alive = TabSnapshot(id: UUID(), title: "t", hasCustomTitle: false, currentDirectory: nil)
-    let ghost = UUID()
-    let layout = SplitNode.leaf(alive.id)
-        .splitting(alive.id, axis: .horizontal, with: ghost, branchID: UUID())
+    let root = SplitPane(tabIDs: [alive.id])
+    let ghost = SplitPane(tabIDs: [UUID(), UUID()])
+    let layout = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: ghost, branchID: UUID())
     let ws = WorkspaceSnapshot(
         id: UUID(), name: "w", rootPath: nil, pinned: false,
-        selectedTabID: ghost, splitLayout: layout, tabs: [alive]
+        selectedTabID: alive.id, splitLayout: layout, focusedPaneID: ghost.id, tabs: [alive]
     )
     let store = WorkspaceStore()
     store.restore(from: LayoutSnapshot(selectedWorkspaceID: nil, workspaces: [ws]))
 
     let restored = store.workspaces[0]
-    #expect(restored.splitLayout == nil) // una foglia sola: pane singolo
-    #expect(restored.selectedTabID == alive.id) // la focused non resta appesa al fantasma
+    #expect(restored.layout.paneIDs == [root.id]) // il pane fantasma è caduto
+    #expect(restored.selectedTabID == alive.id)
+    #expect(restored.focusedPaneID == root.id) // il focus non resta appeso al fantasma
+}
+
+@Test func restoreAdoptsTabsLeftOutOfTheLayout() {
+    // Snapshot v1 (foglie-tab): le tab che non stavano nel layout ("non montate" di allora) non
+    // hanno un pane. Vengono adottate dal pane della selezione, in coda alla strip.
+    let mounted = TabSnapshot(id: UUID(), title: "a", hasCustomTitle: false, currentDirectory: nil)
+    let orphan = TabSnapshot(id: UUID(), title: "b", hasCustomTitle: false, currentDirectory: nil)
+    let root = SplitPane(tabIDs: [mounted.id])
+    let ws = WorkspaceSnapshot(
+        id: UUID(), name: "w", rootPath: nil, pinned: false,
+        selectedTabID: mounted.id, splitLayout: .pane(root), tabs: [mounted, orphan]
+    )
+    let store = WorkspaceStore()
+    store.restore(from: LayoutSnapshot(selectedWorkspaceID: nil, workspaces: [ws]))
+
+    let restored = store.workspaces[0]
+    #expect(restored.layout.pane(root.id)?.tabIDs == [mounted.id, orphan.id])
+    #expect(restored.selectedTabID == mounted.id) // l'adozione non ruba la selezione
 }
 
 @Test func layoutsSavedBeforeSplitDecodeAsSinglePane() throws {
-    // Campo additivo: un `WorkspaceSnapshot` senza `splitLayout` deve decodificare, non far
-    // fallire l'intero layout dell'utente.
+    // Campo additivo: un `WorkspaceSnapshot` senza `splitLayout` né `focusedPaneID` deve
+    // decodificare, non far fallire l'intero layout dell'utente.
     let json = """
     {"id":"\(UUID().uuidString)","name":"w","rootPath":null,"pinned":false,
      "selectedTabID":null,"tabs":[]}
@@ -220,28 +304,5 @@ import Testing
     let decoded = try JSONDecoder().decode(WorkspaceSnapshot.self, from: Data(json.utf8))
 
     #expect(decoded.splitLayout == nil)
-}
-
-@Test func openInSplitMountsAnExistingTabBesideTheFocusedOne() {
-    let store = WorkspaceStore()
-    let ws = store.createWorkspace(name: "relay")
-    let first = ws.tabs[0]
-    let second = store.addTab(to: ws) // focused, pane singolo
-    store.selectTab(first.id, in: ws) // torna sulla prima
-
-    #expect(store.openInSplit(second.id, axis: .horizontal))
-
-    #expect(ws.mountedTabIDs == [first.id, second.id])
-    #expect(ws.tabs.count == 2) // nessuna tab nuova: ha montato quella che c'era
-    #expect(ws.selectedTabID == second.id)
-}
-
-@Test func openInSplitRefusesAnAlreadyMountedTab() throws {
-    let store = WorkspaceStore()
-    let ws = store.createWorkspace(name: "relay")
-    let second = try #require(store.splitFocusedPane(axis: .horizontal))
-
-    // Montarla di nuovo la duplicherebbe: una tab ha una surface e una view sole.
-    #expect(!store.openInSplit(second.id, axis: .vertical))
-    #expect(ws.mountedTabIDs.count == 2)
+    #expect(decoded.focusedPaneID == nil)
 }

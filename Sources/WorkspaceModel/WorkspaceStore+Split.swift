@@ -1,47 +1,66 @@
 import Foundation
 
-// Comandi di split del workspace selezionato: dividere un pane, smontarlo, ciclare il focus fra i
-// pane. Estratto da `WorkspaceStore` per tenere il file principale entro il budget di dimensione
-// (vedi CONVENTIONS). Il layout vive sul `Workspace` (`splitLayout`), le foglie sono `Tab.id`.
+// Comandi di split del workspace selezionato: dividere un pane, chiuderlo, ciclare il focus.
+// Estratto da `WorkspaceStore` per tenere il file principale entro il budget di dimensione (vedi
+// CONVENTIONS). Il layout vive sul `Workspace` (`layout`), le foglie sono `SplitPane` (modello
+// cmux: ogni pane ospita le sue tab).
 
 public extension WorkspaceStore {
-    /// Divide il pane focused e ci monta accanto (o sotto) una **nuova tab**, che prende il focus.
-    /// La nuova tab eredita la cwd passata dal chiamante, che la risolve dalla shell viva del pane
-    /// diviso (`Core.CurrentDirectory`). Ritorna la tab creata, o `nil` senza workspace
-    /// selezionato.
+    /// Divide un pane (default il focused) con una **nuova tab**, che prende il focus nel nuovo
+    /// pane. `workspace` esplicito: le strip vivono in ogni finestra, non solo nella key. La nuova
+    /// tab eredita la cwd passata dal chiamante, che la risolve dalla shell viva del pane diviso
+    /// (`Core.CurrentDirectory`). Ritorna la tab creata.
     @discardableResult
-    func splitFocusedPane(axis: SplitAxis, currentDirectory: String? = nil) -> Tab? {
-        guard let workspace = selectedWorkspace, workspace.selectedTabID != nil else { return nil }
-        let inherited = currentDirectory ?? workspace.selectedTab?.currentDirectory
+    func splitPane(
+        _ paneID: UUID? = nil,
+        axis: SplitAxis,
+        in workspace: Workspace,
+        currentDirectory: String? = nil
+    ) -> Tab? {
+        let source = paneID ?? workspace.focusedPaneID
+        let sourceTab = workspace.layout.pane(source)?.selectedTabID.flatMap { workspace.tab($0) }
+        let inherited = currentDirectory ?? sourceTab?.currentDirectory
         let tab = Tab(currentDirectory: inherited)
-        workspace.appendTab(tab, select: false) // lo monta `split`, non la selezione
-        workspace.split(axis: axis, with: tab.id)
+        workspace.splitPane(paneID, axis: axis, adding: tab)
         return tab
     }
 
-    /// Apre una tab **già esistente** in un pane accanto (o sotto) a quello focused, senza crearne
-    /// una nuova: il "Open in Split" del menu contestuale della tab bar. Ci si sposta con la sua
-    /// sessione viva, perché il layout non tocca l'identità della Tab.
-    /// No-op se la tab non è in questo workspace o è già montata (sarebbe un duplicato).
+    /// Compat per le shortcut: divide il pane focused del workspace selezionato.
     @discardableResult
-    func openInSplit(_ tabID: UUID, axis: SplitAxis) -> Bool {
-        guard let workspace = selectedWorkspace,
-              workspace.tabs.contains(where: { $0.id == tabID }),
-              !workspace.isMounted(tabID) else { return false }
-        workspace.split(axis: axis, with: tabID)
-        return true
+    func splitFocusedPane(axis: SplitAxis, currentDirectory: String? = nil) -> Tab? {
+        guard let workspace = selectedWorkspace else { return nil }
+        return splitPane(axis: axis, in: workspace, currentDirectory: currentDirectory)
     }
 
-    /// Chiude il **pane** focused: la tab resta viva nella tab bar (sessione agente compresa),
-    /// sparisce solo dallo schermo, e il fratello prende il suo spazio. Distinto da `closeTab`, che
-    /// uccide la sessione. No-op senza split (l'unico pane non si smonta). Ritorna `true` se ha
-    /// smontato qualcosa.
+    /// Sposta una tab **esistente** in un nuovo pane accanto al suo ("Open in Split Right/Down"
+    /// dal menu della tab): ci va con la sua sessione viva, perché il layout non tocca l'identità
+    /// della Tab. No-op se la tab non è nel workspace o è l'unica del suo pane.
     @discardableResult
-    func closeFocusedPane() -> Bool {
-        guard let workspace = selectedWorkspace, workspace.splitLayout != nil,
-              let focused = workspace.selectedTabID else { return false }
-        workspace.unmount(focused)
-        return true
+    func openInSplit(_ tabID: UUID, axis: SplitAxis, in workspace: Workspace) -> Bool {
+        guard workspace.tab(tabID) != nil else { return false }
+        let before = workspace.layout.paneIDs.count
+        workspace.moveTabToSplit(tabID, axis: axis)
+        return workspace.layout.paneIDs.count > before
+    }
+
+    /// Chiude un pane **e le sue tab** (le sessioni muoiono con lui, come chiudere quelle tab una
+    /// per una): la conferma sui processi in foreground la fa il chiamante prima. No-op sull'ultimo
+    /// pane. Ritorna gli id delle tab rimosse (per il teardown delle surface).
+    @discardableResult
+    func closePane(_ paneID: UUID, in workspace: Workspace) -> [UUID] {
+        workspace.closePane(paneID)
+    }
+
+    /// Chiude il pane focused (`Opt+Cmd+W`). Ritorna gli id delle tab rimosse.
+    @discardableResult
+    func closeFocusedPane() -> [UUID] {
+        guard let workspace = selectedWorkspace else { return [] }
+        return workspace.closePane(workspace.focusedPaneID)
+    }
+
+    /// Dà il focus a un pane (click sulla sua strip o su una sua tab).
+    func focusPane(_ paneID: UUID, in workspace: Workspace) {
+        workspace.focusPane(paneID)
     }
 
     /// Sposta il focus al pane successivo (o precedente) nell'ordine visivo, ciclico. No-op se il
@@ -49,17 +68,27 @@ public extension WorkspaceStore {
     @discardableResult
     func focusAdjacentPane(forward: Bool) -> Bool {
         guard let workspace = selectedWorkspace,
-              let layout = workspace.splitLayout,
-              let focused = workspace.selectedTabID,
-              let next = layout.adjacentLeaf(to: focused, forward: forward) else { return false }
-        workspace.selectedTabID = next
+              let next = workspace.layout.adjacentPaneID(
+                  to: workspace.focusedPaneID, forward: forward
+              ) else { return false }
+        workspace.focusPane(next)
         return true
+    }
+
+    /// Nuova tab in un pane specifico (il `+` della sua strip): il pane prende il focus e la tab
+    /// nasce in fondo alla sua strip, selezionata. Cwd ereditata dalla tab selezionata del pane.
+    @discardableResult
+    func addTab(
+        toPane paneID: UUID, in workspace: Workspace, currentDirectory: String? = nil
+    ) -> Tab? {
+        guard workspace.layout.pane(paneID) != nil else { return nil }
+        workspace.focusPane(paneID)
+        return addTab(to: workspace, currentDirectory: currentDirectory)
     }
 
     /// Nuovo rapporto di divisione di un nodo (l'utente ha trascinato il divider). Il rendering
     /// conosce l'id del nodo; lo store si limita a riscrivere il layout, che l'autosave persiste.
     func setSplitRatio(_ ratio: Double, forBranch branchID: UUID, in workspace: Workspace) {
-        guard let layout = workspace.splitLayout else { return }
-        workspace.splitLayout = layout.settingRatio(ratio, forBranch: branchID)
+        workspace.setRatio(ratio, forBranch: branchID)
     }
 }

@@ -155,14 +155,15 @@ import Testing
     let t3 = store.addTab(to: ws)
     store.selectTab(t2.id, in: ws)
 
-    // t3 prima di t1: ordine [t3, t1, t2], selezione invariata (t2).
+    // t3 prima di t1: ordine della strip [t3, t1, t2], selezione invariata (t2). L'ordine visivo
+    // vive nel pane (`orderedTabs`), non nel sacco `tabs`.
     store.moveTab(t3.id, before: t1.id, in: ws)
-    #expect(ws.tabs.map(\.id) == [t3.id, t1.id, t2.id])
+    #expect(ws.orderedTabs.map(\.id) == [t3.id, t1.id, t2.id])
     #expect(ws.selectedTabID == t2.id)
 
     // target nil: in fondo.
     store.moveTab(t3.id, before: nil, in: ws)
-    #expect(ws.tabs.map(\.id) == [t1.id, t2.id, t3.id])
+    #expect(ws.orderedTabs.map(\.id) == [t1.id, t2.id, t3.id])
 }
 
 @Test func closeWorkspaceReturnsTabIDsAndSelectsNeighbor() {

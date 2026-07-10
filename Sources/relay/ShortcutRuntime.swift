@@ -19,7 +19,7 @@ extension AppController {
         case .cycleTabBackward: store.selectAdjacentTab(forward: false)
         case .splitRight: splitFocusedPane(axis: .horizontal)
         case .splitDown: splitFocusedPane(axis: .vertical)
-        case .closePane: store.closeFocusedPane()
+        case .closePane: closeFocusedPane()
         case .focusNextPane: store.focusAdjacentPane(forward: true)
         case .focusPrevPane: store.focusAdjacentPane(forward: false)
         case .nextAttention: store.focusNextAttention()
@@ -53,5 +53,12 @@ extension AppController {
         guard let tab = store.selectedWorkspace?.selectedTab else { return }
         let cwd = splitVC?.currentDirectory(for: tab.id)
         store.splitFocusedPane(axis: axis, currentDirectory: cwd)
+    }
+
+    /// Chiude il pane focused **con le sue tab** (`Opt+Cmd+W`), passando dalla conferma sui
+    /// processi in foreground come ogni chiusura.
+    func closeFocusedPane() {
+        guard let workspace = store.selectedWorkspace else { return }
+        requestClosePane(workspace.focusedPaneID, in: workspace)
     }
 }

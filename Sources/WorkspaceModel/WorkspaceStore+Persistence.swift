@@ -20,7 +20,8 @@ public extension WorkspaceStore {
                     pinned: workspace.pinned,
                     archived: workspace.archived,
                     selectedTabID: workspace.selectedTabID,
-                    splitLayout: workspace.splitLayout,
+                    splitLayout: workspace.layout,
+                    focusedPaneID: workspace.focusedPaneID,
                     tabs: workspace.tabs.map { tab in
                         TabSnapshot(
                             id: tab.id,
@@ -76,10 +77,9 @@ public extension WorkspaceStore {
             let selectedTabID = tabs.contains { $0.id == workspace.selectedTabID }
                 ? workspace.selectedTabID
                 : nil
-            // Stesso trattamento per il layout: un pane che punta a una tab sparita non è
-            // renderizzabile, quindi le foglie orfane (e le duplicate) cadono e il ramo collassa.
-            let layout = workspace.splitLayout?.sanitized(keeping: Set(tabs.map(\.id)))
-            let restored = Workspace(
+            // Il layout viene sanitizzato da `Workspace.init` contro le tab davvero ricostruite
+            // (pane orfani collassati, duplicati scartati, tab fuori dall'albero adottate).
+            return Workspace(
                 id: workspace.id,
                 windowID: workspace.windowID,
                 name: workspace.name,
@@ -89,12 +89,9 @@ public extension WorkspaceStore {
                 archived: workspace.archived,
                 tabs: tabs,
                 selectedTabID: selectedTabID,
-                splitLayout: layout
+                layout: workspace.splitLayout,
+                focusedPaneID: workspace.focusedPaneID
             )
-            // Riporta il layout alla forma canonica (una foglia sola = pane singolo) e riaggancia
-            // la focused a un pane montato, se la selezione salvata è caduta fuori dall'albero.
-            restored.normalizeLayout()
-            return restored
         }
         restoreWindows(from: snapshot)
         // La selezione deve puntare a un workspace VISIBILE (non archiviato): setArchived la sposta

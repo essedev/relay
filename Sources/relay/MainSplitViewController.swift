@@ -25,10 +25,8 @@ final class MainSplitViewController: NSSplitViewController {
         updateConfig: SidebarUpdateConfig?,
         onNewWorkspace: @escaping () -> Void,
         onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
-        onNewTab: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
-        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
-        onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
+        paneActions: PaneTabBarActions
     ) {
         self.settings = settings
         right = RightPaneController(
@@ -37,9 +35,7 @@ final class MainSplitViewController: NSSplitViewController {
             engine: engine,
             windowID: windowID,
             registry: registry,
-            onNewTab: onNewTab,
-            onCloseTab: onCloseTab,
-            onMoveTabToNewWorkspace: onMoveTabToNewWorkspace
+            paneActions: paneActions
         )
         super.init(nibName: nil, bundle: nil)
 
@@ -125,9 +121,10 @@ final class MainSplitViewController: NSSplitViewController {
         right.sendText(to: tabID, text)
     }
 
-    /// L'evento appartiene al terminale in vista (mark-read filtrato). Inoltra al right pane.
-    func owningTab(of event: NSEvent) -> UUID? {
-        right.owningTab(of: event)
+    /// Il pane (e la sua tab) che possiede l'evento (mark-read filtrato + click-to-focus).
+    /// Inoltra al right pane.
+    func owningPane(of event: NSEvent) -> (paneID: UUID, tabID: UUID)? {
+        right.owningPane(of: event)
     }
 
     @available(*, unavailable)

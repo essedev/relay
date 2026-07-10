@@ -23,6 +23,25 @@ extension AppController {
         }
     }
 
+    /// Chiude un pane **con le sue tab** (le sessioni muoiono, come chiudere quelle tab una per
+    /// una), chiedendo conferma se qualcuna ha un comando in foreground. No-op sull'ultimo pane
+    /// (lo garantisce lo store). Il `workspace` arriva dal chiamante (strip o shortcut), non dalla
+    /// proiezione della key window.
+    func requestClosePane(_ paneID: UUID, in workspace: Workspace) {
+        let tabs = workspace.layout.pane(paneID)?.tabIDs ?? []
+        let busy = tabs.filter { splitVC?.foregroundProcess(for: $0) != nil }
+        guard !busy.isEmpty else {
+            store.closePane(paneID, in: workspace)
+            return
+        }
+        let info = busy.count == 1
+            ? "1 tab in this pane has a running process that will be terminated."
+            : "\(busy.count) tabs in this pane have running processes that will be terminated."
+        confirmClose(title: "Close this pane?", info: info) { [weak self] in
+            self?.store.closePane(paneID, in: workspace)
+        }
+    }
+
     /// Chiude un workspace, chiedendo conferma se una qualsiasi delle sue tab ha un comando in
     /// foreground.
     func requestCloseWorkspace(_ workspace: Workspace) {

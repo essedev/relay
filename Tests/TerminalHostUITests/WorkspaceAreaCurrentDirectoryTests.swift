@@ -145,28 +145,51 @@ private func makeArea(
     let second = try #require(store.splitFocusedPane(axis: .horizontal))
     area.renderNow()
 
-    #expect(area.mountedTabIDs == Set([first.id, second.id]))
+    #expect(area.visibleTabIDs == Set([first.id, second.id]))
     // Il pane preesistente non è stato ricreato: la sua surface (e il pty) sopravvive al reconcile.
     #expect(area.mountedTerminal(for: first.id) === firstTerminal)
     #expect(area.liveSurfaceCount == 2)
 }
 
 @MainActor
-@Test func closingAPaneUnmountsItButKeepsTheSurfaceAlive() throws {
+@Test func selectingAnotherStripTabSwapsTheTerminalInPlace() throws {
+    // Cambio di selezione nella strip: stessa struttura, si scambia solo la surface attaccata.
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay", rootPath: "/repo")
+    let first = ws.tabs[0]
+    let area = makeArea(store: store, liveDirectory: nil)
+    let firstTerminal = try #require(area.mountedTerminal(for: first.id))
+    let second = store.addTab(to: ws) // stessa strip, selezionata: `first` esce dallo schermo
+    area.renderNow()
+
+    #expect(area.visibleTabIDs == Set([second.id]))
+    #expect(area.mountedTerminal(for: first.id) == nil)
+
+    store.selectTab(first.id, in: ws)
+    area.renderNow()
+
+    // La surface di `first` è la stessa istanza: viva nella registry, mai ricreata.
+    #expect(area.mountedTerminal(for: first.id) === firstTerminal)
+    #expect(area.liveSurfaceCount == 2)
+}
+
+@MainActor
+@Test func closingAPaneTearsDownItsTabsSurfaces() throws {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "relay", rootPath: "/repo")
     let first = ws.tabs[0]
     let area = makeArea(store: store, liveDirectory: nil)
     let second = try #require(store.splitFocusedPane(axis: .vertical))
     area.renderNow()
+    #expect(area.liveSurfaceCount == 2)
 
     store.closeFocusedPane()
     area.renderNow()
 
-    #expect(area.mountedTabIDs == Set([first.id]))
-    // La tab resta viva nella tab bar, quindi la sua surface non va distrutta: solo smontata.
-    #expect(area.liveSurfaceCount == 2)
-    #expect(ws.tabs.contains { $0.id == second.id })
+    #expect(area.visibleTabIDs == Set([first.id]))
+    // Le tab muoiono col pane (modello cmux): la surface va distrutta, non solo smontata.
+    #expect(area.liveSurfaceCount == 1)
+    #expect(!ws.tabs.contains { $0.id == second.id })
 }
 
 @MainActor
@@ -181,7 +204,7 @@ private func makeArea(
     store.closeTab(second.id, in: ws)
     area.renderNow()
 
-    #expect(area.mountedTabIDs.count == 1)
+    #expect(area.visibleTabIDs.count == 1)
     #expect(area.liveSurfaceCount == 1) // qui la sessione muore davvero
 }
 
@@ -195,7 +218,7 @@ private func makeArea(
     let area = makeArea(store: store, liveDirectory: nil, windowID: RelayWindow.mainID)
 
     #expect(store.keyWindowID == window.id)
-    #expect(area.mountedTabIDs == Set(main.tabs.map(\.id))) // mostra il suo, non quello della key
+    #expect(area.visibleTabIDs == Set(main.tabs.map(\.id))) // mostra il suo, non quello della key
 }
 
 @MainActor
@@ -211,8 +234,8 @@ private func makeArea(
     let mainArea = makeArea(store: store, windowID: RelayWindow.mainID, registry: registry)
     let otherArea = makeArea(store: store, windowID: window.id, registry: registry)
 
-    #expect(mainArea.mountedTabIDs == Set(main.tabs.map(\.id)))
-    #expect(otherArea.mountedTabIDs == Set(moved.tabs.map(\.id)))
+    #expect(mainArea.visibleTabIDs == Set(main.tabs.map(\.id)))
+    #expect(otherArea.visibleTabIDs == Set(moved.tabs.map(\.id)))
     // Due aree, due tab, due surface: nessuna duplicazione, nessuna surface per finestra.
     #expect(registry.liveSurfaceCount == 2)
     #expect(mainArea.liveSurfaceCount == otherArea.liveSurfaceCount)
@@ -224,8 +247,8 @@ private func makeArea(
     let ws = store.createWorkspace(name: "relay")
     let area = makeArea(store: store)
     area.view.frame = NSRect(x: 0, y: 0, width: 1000, height: 600)
-    try #require(store.splitFocusedPane(axis: .horizontal))
-    guard case let .split(branchID, _, _, _, _) = ws.splitLayout else {
+    _ = try #require(store.splitFocusedPane(axis: .horizontal))
+    guard case let .split(branchID, _, _, _, _) = ws.layout else {
         return #expect(Bool(false), "il workspace deve essere splittato")
     }
     store.setSplitRatio(0.7, forBranch: branchID, in: ws)
@@ -249,7 +272,7 @@ private func makeArea(
     store.createWorkspace(name: "relay")
     let area = makeArea(store: store)
     area.view.frame = NSRect(x: 0, y: 0, width: 1000, height: 600)
-    try #require(store.splitFocusedPane(axis: .vertical))
+    _ = try #require(store.splitFocusedPane(axis: .vertical))
 
     area.renderNow()
     area.view.layoutSubtreeIfNeeded()

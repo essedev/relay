@@ -104,8 +104,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         if demoDriver == nil { showOnboardingIfFirstLaunch() }
     }
 
-    /// Costruisce lo split di una finestra con le closure d'azione (create/close workspace e tab,
-    /// move tab in un nuovo workspace, config sidebar). Fuori dal launch per tenerlo corto.
+    /// Costruisce lo split di una finestra con le closure d'azione (create/close workspace, azioni
+    /// delle strip dei pane, config sidebar). Fuori dal launch per tenerlo corto.
     func makeSplitViewController(windowID: UUID) -> MainSplitViewController {
         MainSplitViewController(
             store: store,
@@ -120,14 +120,13 @@ final class AppController: NSObject, NSApplicationDelegate {
             onMoveWorkspaceToNewWindow: { [weak self] workspace in
                 self?.moveWorkspaceToNewWindow(workspace)
             },
-            onNewTab: { [weak self] in self?.newTab(nil) },
             onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
-            onCloseTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) },
-            onMoveTabToNewWorkspace: { [weak self] tab, workspace in
-                self?.moveTabToNewWorkspace(tab, from: workspace)
-            }
+            paneActions: makePaneActions()
         )
     }
+
+    // Le azioni delle strip dei pane (nuova tab, split, chiusure) vivono in
+    // `AppControllerPanes.swift`.
 
     /// Config dello store legata alla run corrente (soglie di scarto eventi + hook imperativi),
     /// fuori dal launch per tenerlo corto e raccogliere in un punto ciò che dipende dall'avvio.

@@ -25,7 +25,9 @@ enum DemoSeeder {
             for tabIndex in 1 ..< config.tabsPerWorkspace {
                 store.addTab(to: workspace, title: tabTitles[tabIndex % tabTitles.count])
             }
-            workspace.selectedTabID = workspace.tabs.first?.id
+            if let first = workspace.tabs.first {
+                store.selectTab(first.id, in: workspace)
+            }
             allTabIDs.append(contentsOf: workspace.tabs.map(\.id))
         }
         store.selectWorkspace(store.workspaces[0].id)

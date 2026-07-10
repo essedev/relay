@@ -2,90 +2,147 @@ import Foundation
 import Testing
 @testable import WorkspaceModel
 
-// Albero di split: foglie = Tab.id. L'invariante che regge tutto è l'unicità delle foglie (una tab
-// sta in un pane solo); ogni operazione la preserva, `sanitized` la ripristina dopo il disco.
+// Albero di split (modello cmux): foglie = pane con le loro tab. Gli invarianti che reggono tutto:
+// una tab sta in un pane solo, ogni pane ha almeno una tab; ogni operazione li preserva,
+// `sanitized` li ripristina dopo il disco.
 
 private let a = UUID(), b = UUID(), c = UUID(), d = UUID()
 private let branch = UUID()
 
-@Test func leavesFollowVisualOrder() {
-    let tree = SplitNode.leaf(a)
-        .splitting(a, axis: .horizontal, with: b, branchID: branch)
-
-    #expect(tree.leaves == [a, b])
-    #expect(tree.contains(a) && tree.contains(b))
-    #expect(!tree.contains(c))
+private func pane(_ tabs: UUID..., selected: UUID? = nil) -> SplitPane {
+    SplitPane(tabIDs: tabs, selectedTabID: selected)
 }
 
-@Test func splittingUnknownTabIsNoOp() {
-    let tree = SplitNode.leaf(a)
-    #expect(tree.splitting(c, axis: .vertical, with: b) == tree)
+// MARK: - SplitPane
+
+@Test func paneSelectionDefaultsToFirstTabAndValidates() {
+    #expect(pane(a, b).selectedTabID == a)
+    #expect(SplitPane(tabIDs: [a, b], selectedTabID: b).selectedTabID == b)
+    // Una selezione che non è del pane cade sulla prima tab.
+    #expect(SplitPane(tabIDs: [a], selectedTabID: c).selectedTabID == a)
+    #expect(SplitPane(tabIDs: []).selectedTabID == nil)
 }
 
-@Test func splittingWithAnAlreadyMountedTabIsNoOp() {
-    // Unicità delle foglie: la stessa tab non può occupare due pane (una surface, una view).
-    let tree = SplitNode.leaf(a).splitting(a, axis: .horizontal, with: b, branchID: branch)
-    #expect(tree.splitting(a, axis: .vertical, with: b) == tree)
+@Test func paneRemoveKeepsSelectionIndexStable() {
+    // Semantica browser/bonsplit: chiusa la selezionata, si seleziona la tab che scivola nel suo
+    // slot; se era l'ultima, la precedente.
+    var strip = pane(a, b, c, selected: b)
+    strip.remove(b)
+    #expect(strip.selectedTabID == c)
+    strip = pane(a, b, c, selected: c)
+    strip.remove(c)
+    #expect(strip.selectedTabID == b)
+    // Chiudere una non selezionata non tocca la selezione.
+    strip = pane(a, b, c, selected: a)
+    strip.remove(c)
+    #expect(strip.selectedTabID == a)
+}
+
+@Test func paneInsertAndMoveKeepOrder() {
+    var strip = pane(a, b, selected: a)
+    strip.insert(c, select: false)
+    #expect(strip.tabIDs == [a, b, c])
+    #expect(strip.selectedTabID == a) // insert senza select non ruba la selezione
+    strip.insert(c) // già presente: no-op
+    #expect(strip.tabIDs == [a, b, c])
+    strip.move(c, before: a)
+    #expect(strip.tabIDs == [c, a, b])
+    strip.move(c, before: nil) // in fondo
+    #expect(strip.tabIDs == [a, b, c])
+    #expect(strip.selectedTabID == a) // spostare non è selezionare
+}
+
+// MARK: - Albero
+
+@Test func panesFollowVisualOrder() {
+    let root = pane(a)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: pane(b), branchID: branch)
+
+    #expect(tree.allTabIDs == [a, b])
+    #expect(tree.visibleTabIDs == [a, b])
+    #expect(tree.paneID(containing: a) == root.id)
+    #expect(!tree.contains(tabID: c))
+}
+
+@Test func visibleTabsAreTheSelectedOfEachPane() {
+    let root = pane(a, b, selected: b)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: pane(c, d, selected: c), branchID: branch)
+
+    #expect(tree.allTabIDs == [a, b, c, d])
+    #expect(tree.visibleTabIDs == [b, c])
+}
+
+@Test func splittingUnknownPaneIsNoOp() {
+    let tree = SplitNode.pane(pane(a))
+    #expect(tree.splitting(UUID(), axis: .vertical, with: pane(b)) == tree)
 }
 
 @Test func nestedSplitKeepsBothBranches() {
-    let tree = SplitNode.leaf(a)
-        .splitting(a, axis: .horizontal, with: b, branchID: branch)
-        .splitting(b, axis: .vertical, with: c, branchID: UUID())
+    let root = pane(a)
+    let second = pane(b)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: second, branchID: branch)
+        .splitting(second.id, axis: .vertical, with: pane(c), branchID: UUID())
 
-    #expect(tree.leaves == [a, b, c])
+    #expect(tree.allTabIDs == [a, b, c])
+    #expect(tree.paneIDs.count == 3)
 }
 
-@Test func removingALeafCollapsesIntoItsSibling() {
-    let tree = SplitNode.leaf(a).splitting(a, axis: .horizontal, with: b, branchID: branch)
+@Test func removingAPaneCollapsesIntoItsSibling() {
+    let root = pane(a)
+    let second = pane(b)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: second, branchID: branch)
 
-    // Tolto `a`, il fratello prende tutto lo spazio: niente ramo con un figlio solo.
-    #expect(tree.removing(a) == .leaf(b))
-    #expect(tree.removing(b) == .leaf(a))
+    // Tolto un pane, il fratello prende tutto lo spazio: niente ramo con un figlio solo.
+    #expect(tree.removingPane(root.id) == .pane(second))
+    #expect(tree.removingPane(second.id) == .pane(root))
+    #expect(SplitNode.pane(root).removingPane(root.id) == nil) // era l'ultimo
 }
 
-@Test func removingTheLastLeafLeavesNoLayout() {
-    #expect(SplitNode.leaf(a).removing(a) == nil)
+@Test func removingATabPrunesItsPaneWhenEmpty() {
+    let root = pane(a, b, selected: a)
+    let second = pane(c)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: second, branchID: branch)
+
+    // `c` era l'unica tab del suo pane: il pane collassa.
+    #expect(tree.removingTab(c) == .pane(root))
+    // `a` lascia il pane vivo con `b`.
+    let pruned = tree.removingTab(a)
+    #expect(pruned?.allTabIDs == [b, c])
+    #expect(pruned?.paneIDs.count == 2)
+    // L'ultima tab dell'ultimo pane: non resta layout.
+    #expect(SplitNode.pane(pane(a)).removingTab(a) == nil)
+    // Una tab ignota non tocca l'albero.
+    #expect(tree.removingTab(d) == tree)
 }
 
-@Test func removingAnUnknownLeafKeepsTheTree() {
-    let tree = SplitNode.leaf(a).splitting(a, axis: .horizontal, with: b, branchID: branch)
-    #expect(tree.removing(c) == tree)
-}
+@Test func updatingPaneRewritesContentInPlace() {
+    let root = pane(a, b, selected: a)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: pane(c), branchID: branch)
 
-@Test func removingFromANestedTreeKeepsTheRest() {
-    let tree = SplitNode.leaf(a)
-        .splitting(a, axis: .horizontal, with: b, branchID: branch)
-        .splitting(b, axis: .vertical, with: c, branchID: UUID())
-
-    #expect(tree.removing(b)?.leaves == [a, c])
-    #expect(tree.removing(c)?.leaves == [a, b])
-}
-
-@Test func replacingSwapsTheMountedTabInPlace() {
-    // Selezionare dalla tab bar una tab non montata: prende il posto di quella focused.
-    let tree = SplitNode.leaf(a).splitting(a, axis: .horizontal, with: b, branchID: branch)
-
-    #expect(tree.replacing(b, with: c).leaves == [a, c])
-}
-
-@Test func replacingIsNoOpWhenTheTargetIsMissingOrTheNewTabIsMounted() {
-    let tree = SplitNode.leaf(a).splitting(a, axis: .horizontal, with: b, branchID: branch)
-
-    #expect(tree.replacing(c, with: d) == tree) // `c` non è montata
-    #expect(tree.replacing(a, with: b) == tree) // `b` lo è già: creerebbe un duplicato
+    let updated = tree.updatingPane(root.id) { $0.select(b) }
+    #expect(updated.pane(root.id)?.selectedTabID == b)
+    // L'identità del pane non cambia: per il rendering è la stessa struttura.
+    #expect(updated.hasSameStructure(as: tree))
 }
 
 @Test func settingRatioTouchesOnlyTheTargetBranchAndClamps() {
+    let root = pane(a)
+    let second = pane(b)
     let inner = UUID()
-    let tree = SplitNode.leaf(a)
-        .splitting(a, axis: .horizontal, with: b, branchID: branch)
-        .splitting(b, axis: .vertical, with: c, branchID: inner)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: second, branchID: branch)
+        .splitting(second.id, axis: .vertical, with: pane(c), branchID: inner)
 
-    guard case let .split(_, _, outerRatio, _, second) = tree.settingRatio(0.8, forBranch: inner)
+    guard case let .split(_, _, outerRatio, _, second2) = tree.settingRatio(0.8, forBranch: inner)
     else { return #expect(Bool(false), "la radice deve restare uno split") }
     #expect(outerRatio == 0.5) // il ramo esterno non si tocca
-    guard case let .split(_, _, innerRatio, _, _) = second
+    guard case let .split(_, _, innerRatio, _, _) = second2
     else { return #expect(Bool(false), "il ramo interno deve restare uno split") }
     #expect(innerRatio == 0.8)
 
@@ -95,48 +152,91 @@ private let branch = UUID()
     #expect(clamped == 0.05)
 }
 
-@Test func adjacentLeafCyclesInBothDirections() {
-    let tree = SplitNode.leaf(a)
-        .splitting(a, axis: .horizontal, with: b, branchID: branch)
-        .splitting(b, axis: .vertical, with: c, branchID: UUID())
+@Test func adjacentPaneCyclesInBothDirections() {
+    let first = pane(a)
+    let second = pane(b)
+    let third = pane(c)
+    let tree = SplitNode.pane(first)
+        .splitting(first.id, axis: .horizontal, with: second, branchID: branch)
+        .splitting(second.id, axis: .vertical, with: third, branchID: UUID())
 
-    #expect(tree.adjacentLeaf(to: a, forward: true) == b)
-    #expect(tree.adjacentLeaf(to: c, forward: true) == a) // ciclico
-    #expect(tree.adjacentLeaf(to: a, forward: false) == c)
-    #expect(tree.adjacentLeaf(to: d, forward: true) == nil) // non montata
-    #expect(SplitNode.leaf(a).adjacentLeaf(to: a, forward: true) == nil) // unico pane
+    #expect(tree.adjacentPaneID(to: first.id, forward: true) == second.id)
+    #expect(tree.adjacentPaneID(to: third.id, forward: true) == first.id) // ciclico
+    #expect(tree.adjacentPaneID(to: first.id, forward: false) == third.id)
+    #expect(tree.adjacentPaneID(to: UUID(), forward: true) == nil) // ignoto
+    #expect(SplitNode.pane(first).adjacentPaneID(to: first.id, forward: true) == nil) // unico
 }
 
-@Test func sanitizedDropsMissingTabsAndCollapses() {
-    let tree = SplitNode.leaf(a).splitting(a, axis: .horizontal, with: b, branchID: branch)
+@Test func sanitizedDropsMissingTabsAndCollapsesEmptyPanes() {
+    let root = pane(a, b, selected: b)
+    let second = pane(c)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: second, branchID: branch)
 
-    // `b` non esiste più (tab chiusa mentre l'app era spenta, o layout editato a mano).
-    #expect(tree.sanitized(keeping: [a]) == .leaf(a))
+    // `c` non esiste più (tab chiusa mentre l'app era spenta): il suo pane collassa.
+    let sane = tree.sanitized(keeping: [a, b])
+    #expect(sane?.paneIDs == [root.id])
+    #expect(sane?.pane(root.id)?.tabIDs == [a, b])
+    #expect(sane?.pane(root.id)?.selectedTabID == b) // la selezione valida sopravvive
     #expect(tree.sanitized(keeping: []) == nil)
-    #expect(tree.sanitized(keeping: [a, b]) == tree)
 }
 
-@Test func sanitizedDropsDuplicateLeaves() {
-    // Un layout corrotto potrebbe montare la stessa tab due volte: la seconda occorrenza cade.
-    let duplicated = SplitNode.split(
-        id: branch, axis: .horizontal, ratio: 0.5, first: .leaf(a), second: .leaf(a)
-    )
-    #expect(duplicated.sanitized(keeping: [a]) == .leaf(a))
+@Test func sanitizedDropsDuplicateTabsAcrossPanes() {
+    // Un layout corrotto potrebbe ospitare la stessa tab in due pane: la prima occorrenza vince.
+    let first = pane(a, b)
+    let second = pane(a, c)
+    let tree = SplitNode.pane(first)
+        .splitting(first.id, axis: .horizontal, with: second, branchID: branch)
+
+    let sane = tree.sanitized(keeping: [a, b, c])
+    #expect(sane?.allTabIDs == [a, b, c])
+    #expect(sane?.pane(second.id)?.tabIDs == [c])
 }
 
-@Test func collapsedToSingleLeafIdentifiesTheSinglePaneForm() {
-    #expect(SplitNode.leaf(a).collapsedToSingleLeaf == a)
-    let tree = SplitNode.leaf(a).splitting(a, axis: .horizontal, with: b, branchID: branch)
-    #expect(tree.collapsedToSingleLeaf == nil)
+@Test func sameStructureIgnoresRatiosAndPaneContent() {
+    let root = pane(a, b, selected: a)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: pane(c), branchID: branch)
+
+    // Ratio diverso, selezione diversa, tab in più: stessa struttura (il rendering non
+    // ricostruisce, scambia contenuti e riscrive rapporti).
+    let mutated = tree.settingRatio(0.7, forBranch: branch)
+        .updatingPane(root.id) { $0.select(b); $0.insert(d, select: false) }
+    #expect(tree.hasSameStructure(as: mutated))
+    // Un pane in più è un'altra struttura.
+    let grown = tree.splitting(root.id, axis: .vertical, with: pane(d), branchID: UUID())
+    #expect(!tree.hasSameStructure(as: grown))
 }
+
+// MARK: - Codable
 
 @Test func splitNodeSurvivesACodableRoundTrip() throws {
-    let tree = SplitNode.leaf(a)
-        .splitting(a, axis: .horizontal, with: b, branchID: branch)
-        .splitting(b, axis: .vertical, with: c, branchID: UUID())
+    let root = pane(a, b, selected: b)
+    let second = pane(c)
+    let tree = SplitNode.pane(root)
+        .splitting(root.id, axis: .horizontal, with: second, branchID: branch)
+        .splitting(second.id, axis: .vertical, with: pane(d), branchID: UUID())
 
     let data = try JSONEncoder().encode(tree)
     let decoded = try JSONDecoder().decode(SplitNode.self, from: data)
 
     #expect(decoded == tree)
+}
+
+@Test func splitNodeDecodesTheLegacyTabLeafFormat() throws {
+    // Il formato v1 (foglie = Tab.id, sintesi Swift: {"leaf":{"_0":uuid}}) deve decodificare come
+    // pane con quella sola tab: i layout salvati prima del modello cmux sopravvivono senza bump.
+    let json = """
+    {"split":{"id":"\(branch.uuidString)","axis":"horizontal","ratio":0.7,
+    "first":{"leaf":{"_0":"\(a.uuidString)"}},"second":{"leaf":{"_0":"\(b.uuidString)"}}}}
+    """
+    let decoded = try JSONDecoder().decode(SplitNode.self, from: Data(json.utf8))
+
+    #expect(decoded.allTabIDs == [a, b])
+    #expect(decoded.visibleTabIDs == [a, b]) // ogni pane seleziona la sua unica tab
+    guard case let .split(id, axis, ratio, _, _) = decoded
+    else { return #expect(Bool(false), "la radice deve restare uno split") }
+    #expect(id == branch)
+    #expect(axis == .horizontal)
+    #expect(ratio == 0.7)
 }

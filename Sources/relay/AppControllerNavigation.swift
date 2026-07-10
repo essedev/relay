@@ -17,11 +17,13 @@ extension AppController {
         store.selectWorkspace(ordered[sender.tag].id)
     }
 
-    /// Option+1..9: seleziona la tab all'indice nel workspace corrente (tag 0-based).
+    /// Option+1..9: seleziona la tab all'indice **nella strip del pane focused** (tag 0-based).
+    /// Col modello cmux le tab vivono nei pane: l'indice è quello che vedi nella strip.
     @objc func selectTabByShortcut(_ sender: NSMenuItem) {
         guard let workspace = store.selectedWorkspace,
-              sender.tag < workspace.tabs.count else { return }
-        store.selectTab(workspace.tabs[sender.tag].id, in: workspace)
+              let pane = workspace.focusedPane,
+              sender.tag < pane.tabIDs.count else { return }
+        store.selectTab(pane.tabIDs[sender.tag], in: workspace)
     }
 
     // MARK: - Monitor tastiera/mouse
@@ -63,16 +65,25 @@ extension AppController {
             }
             // Interazione col terminale in vista (tasto col terminale in focus, o click dentro la
             // sua view) = la percezione declassa il completamento da forte a quieto (unseen ->
-            // pending), non lo spegne. Un click nella chrome (tab bar/sidebar) o un tasto altrove
-            // è filtrato via da `owningTab`: cambiare tab non consuma più il marker. Risolvono
+            // pending), non lo spegne. Un click nella chrome (strip/sidebar) o un tasto altrove
+            // è filtrato via da `owningPane`: cambiare tab non consuma più il marker. Risolvono
             // solo la ripresa vera (prompt -> running, via reducer), il dismiss o la chiusura:
             // "l'ho visto" non è "me ne sono occupato".
-            // Con lo split si marca la tab del **pane colpito**, che può non essere la focused: un
+            // Con lo split si marca la tab del **pane colpito**, che può non essere il focused: un
             // click in un pane accanto dice che hai visto quella conversazione, non l'altra. E con
             // più finestre l'evento va chiesto a **quella da cui arriva**, non alla key: un click
             // in una finestra di sfondo la rende key solo dopo, e la key di adesso non lo possiede.
-            if let tabID = windowController(for: event)?.splitVC.owningTab(of: event) {
-                store.markSeen(tabID)
+            let controller = windowController(for: event)
+            if let controller, let hit = controller.splitVC.owningPane(of: event) {
+                store.markSeen(hit.tabID)
+                // Click-to-focus (convenzione universale dei terminali con split): un click dentro
+                // il terminale di un pane gli dà anche il focus del model, così bordo, strip e
+                // comandi (`Cmd+K`, find, split) seguono la tastiera, che AppKit ha già spostato
+                // col first responder. Solo il click: un tasto arriva già al pane focused.
+                let workspace = store.selectedWorkspace(in: controller.windowID)
+                if event.type == .leftMouseDown, let workspace {
+                    store.focusPane(hit.paneID, in: workspace)
+                }
             }
             return event
         }
@@ -127,8 +138,10 @@ extension AppController {
             if index < ordered.count {
                 store.selectWorkspace(ordered[index].id)
             }
-        } else if let workspace = store.selectedWorkspace, index < workspace.tabs.count {
-            store.selectTab(workspace.tabs[index].id, in: workspace)
+        } else if let workspace = store.selectedWorkspace, let pane = workspace.focusedPane {
+            // Option+N naviga la strip del pane focused: è l'indice che vedi a schermo.
+            guard index < pane.tabIDs.count else { return true }
+            store.selectTab(pane.tabIDs[index], in: workspace)
         }
         return true
     }

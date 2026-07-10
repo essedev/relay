@@ -6,26 +6,26 @@ import TerminalEngine
 import TerminalHostUI
 import WorkspaceModel
 
-/// Area destra: tab bar (SwiftUI, isolata) sopra, terminale della tab attiva (AppKit) sotto, più la
-/// barra di resume (Panels) overlaid quando la tab selezionata ha una sessione da riprendere.
+/// Area destra: strip del titolo (SwiftUI) sopra, pane del workspace attivo (AppKit) sotto. Ogni
+/// pane porta la **sua** tab strip (modello cmux), montata dentro la `PaneView` via factory: qui
+/// si costruisce la vista SwiftUI (`PaneTabBar`), l'area resta indipendente da Panels. In più la
+/// barra di resume (Panels) overlaid quando la tab focused ha una sessione da riprendere.
 @MainActor
 final class RightPaneController: NSViewController {
     private let store: WorkspaceStore
     private let settings: AppSettings
     private let engine: TerminalEngine
-    /// La finestra che ospita il pane: tab bar, titolo e terminali seguono la selezione **di questa
+    /// La finestra che ospita il pane: strip, titolo e terminali seguono la selezione **di questa
     /// finestra**, non quella globale.
     private let windowID: UUID
     private let registry: SurfaceRegistry
-    private let onNewTab: () -> Void
-    private let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
-    private let onMoveTabToNewWorkspace: (WorkspaceModel.Tab, Workspace) -> Void
+    private let paneActions: PaneTabBarActions
     private var resumeBarHost: NSView?
     private let findModel = FindModel()
     private var findBarHost: NSView?
-    /// Top dell'area terminale: pinnato a `tabBar` senza barra, alla barra quando c'è (così la
-    /// barra spinge giù il terminale invece di coprirlo). Riferimenti stabili per lo swap.
-    private var tabBar: NSView!
+    /// Top dell'area terminale: pinnato alla title bar senza resume bar, alla barra quando c'è
+    /// (così la barra spinge giù i pane invece di coprirli). Riferimenti stabili per lo swap.
+    private var titleBar: NSView!
     private var areaTopConstraint: NSLayoutConstraint!
     private lazy var area = WorkspaceAreaController(
         store: store,
@@ -41,18 +41,14 @@ final class RightPaneController: NSViewController {
         engine: TerminalEngine,
         windowID: UUID,
         registry: SurfaceRegistry,
-        onNewTab: @escaping () -> Void,
-        onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
-        onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
+        paneActions: PaneTabBarActions
     ) {
         self.store = store
         self.settings = settings
         self.engine = engine
         self.windowID = windowID
         self.registry = registry
-        self.onNewTab = onNewTab
-        self.onCloseTab = onCloseTab
-        self.onMoveTabToNewWorkspace = onMoveTabToNewWorkspace
+        self.paneActions = paneActions
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -100,9 +96,9 @@ final class RightPaneController: NSViewController {
         area.sendText(to: tabID, text)
     }
 
-    /// La tab del pane che possiede l'evento (mark-read filtrato). Inoltra all'area.
-    func owningTab(of event: NSEvent) -> UUID? {
-        area.owningTab(of: event)
+    /// Il pane (e la sua tab) che possiede l'evento (mark-read + click-to-focus). Inoltra all'area.
+    func owningPane(of event: NSEvent) -> (paneID: UUID, tabID: UUID)? {
+        area.owningPane(of: event)
     }
 
     // MARK: - Ricerca (Cmd+F)
@@ -172,6 +168,21 @@ final class RightPaneController: NSViewController {
             store.setSplitRatio(ratio, forBranch: branchID, in: workspace)
         }
 
+        // La strip di tab di ogni pane: SwiftUI (Panels) montata dentro la PaneView (AppKit).
+        // Costruita qui perché l'area non dipende da Panels; il contenuto osserva lo store e si
+        // aggiorna da solo, la view resta viva finché vive il pane.
+        area.makePaneStrip = { [store, settings, windowID, paneActions] paneID in
+            let strip = NSHostingView(rootView: PaneTabBar(
+                store: store,
+                settings: settings,
+                windowID: windowID,
+                paneID: paneID,
+                actions: paneActions
+            ))
+            strip.safeAreaRegions = [] // gotcha: senza, la safe area spinge il contenuto
+            return strip
+        }
+
         // Strip del titolo in cima al right pane: stessa riga verticale dei semafori (full-size
         // content view), centrata sul body e non sull'intera finestra.
         let titleBar = NSHostingView(
@@ -181,38 +192,20 @@ final class RightPaneController: NSViewController {
         // Il layout della chrome è esplicito (constraint dal top della finestra): senza questo,
         // SwiftUI applicherebbe la safe area della title bar spingendo il contenuto in basso.
         titleBar.safeAreaRegions = []
-
-        let tabBar = NSHostingView(
-            rootView: TabBarView(
-                store: store,
-                settings: settings,
-                windowID: windowID,
-                onNewTab: onNewTab,
-                onCloseTab: onCloseTab,
-                onMoveTabToNewWorkspace: onMoveTabToNewWorkspace
-            )
-        )
-        tabBar.translatesAutoresizingMaskIntoConstraints = false
-        tabBar.safeAreaRegions = []
-        self.tabBar = tabBar
+        self.titleBar = titleBar
 
         addChild(area)
         let areaView = area.view
         areaView.translatesAutoresizingMaskIntoConstraints = false
 
         view.addSubview(titleBar)
-        view.addSubview(tabBar)
         view.addSubview(areaView)
-        areaTopConstraint = areaView.topAnchor.constraint(equalTo: tabBar.bottomAnchor)
+        areaTopConstraint = areaView.topAnchor.constraint(equalTo: titleBar.bottomAnchor)
         NSLayoutConstraint.activate([
             titleBar.topAnchor.constraint(equalTo: view.topAnchor),
             titleBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             titleBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             titleBar.heightAnchor.constraint(equalToConstant: Theme.Metrics.titleBarHeight),
-            tabBar.topAnchor.constraint(equalTo: titleBar.bottomAnchor),
-            tabBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tabBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tabBar.heightAnchor.constraint(equalToConstant: Theme.Metrics.tabBarHeight),
             areaTopConstraint,
             areaView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             areaView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -273,12 +266,12 @@ final class RightPaneController: NSViewController {
         host.translatesAutoresizingMaskIntoConstraints = false
         host.safeAreaRegions = []
         view.addSubview(host)
-        // La barra è una riga vera tra tab bar e terminale: ripinta il top dell'area sotto di lei,
-        // così spinge giù il terminale invece di coprirne la prima riga.
+        // La barra è una riga vera tra title bar e area dei pane: ripinta il top dell'area sotto
+        // di lei, così spinge giù i terminali invece di coprirne la prima riga.
         areaTopConstraint.isActive = false
         areaTopConstraint = area.view.topAnchor.constraint(equalTo: host.bottomAnchor)
         NSLayoutConstraint.activate([
-            host.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
+            host.topAnchor.constraint(equalTo: titleBar.bottomAnchor),
             host.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             host.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             areaTopConstraint,
@@ -290,9 +283,9 @@ final class RightPaneController: NSViewController {
         guard let host = resumeBarHost else { return }
         host.removeFromSuperview()
         resumeBarHost = nil
-        // Ripristina il terminale attaccato alla tab bar.
+        // Ripristina i pane attaccati alla title bar.
         areaTopConstraint.isActive = false
-        areaTopConstraint = area.view.topAnchor.constraint(equalTo: tabBar.bottomAnchor)
+        areaTopConstraint = area.view.topAnchor.constraint(equalTo: titleBar.bottomAnchor)
         areaTopConstraint.isActive = true
     }
 }

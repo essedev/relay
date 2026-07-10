@@ -42,7 +42,7 @@ public extension WorkspaceStore {
     @discardableResult
     private func focusAttention(forward: Bool) -> Bool {
         let flat: [(ws: Workspace, tab: Tab)] = orderedWorkspaces.flatMap { ws in
-            ws.tabs.map { (ws, $0) }
+            ws.orderedTabs.map { (ws, $0) }
         }
         let fresh = flat.indices.filter {
             flat[$0].tab.agentState == .needsInput || flat[$0].tab.attention == .unseen
@@ -58,18 +58,24 @@ public extension WorkspaceStore {
             ? (hits.first { $0 > current } ?? hits[0])
             : (hits.last { $0 < current } ?? hits[hits.count - 1])
         let target = flat[targetIndex]
-        selectedWorkspaceID = target.ws.id
-        target.ws.selectedTabID = target.tab.id
+        // `selectWorkspace`, non il setter della proiezione: il workspace può vivere in un'altra
+        // finestra (multi-window), e assegnarlo alla key violerebbe la partizione (la stessa
+        // surface finirebbe montata in due aree).
+        selectWorkspace(target.ws.id)
+        target.ws.reveal(target.tab.id)
         return true
     }
 
-    /// Seleziona la tab adiacente nel workspace corrente (ciclico). `forward` = la successiva.
+    /// Seleziona la tab adiacente **nella strip del pane focused** (ciclico). `forward` = la
+    /// successiva. Col modello cmux la navigazione fra tab è per pane; fra pane si va con
+    /// `Cmd+]`/`Cmd+[`.
     func selectAdjacentTab(forward: Bool) {
-        guard let workspace = selectedWorkspace, !workspace.tabs.isEmpty else { return }
-        let tabs = workspace.tabs
-        let current = tabs.firstIndex { $0.id == workspace.selectedTabID } ?? 0
+        guard let workspace = selectedWorkspace,
+              let pane = workspace.focusedPane, !pane.tabIDs.isEmpty else { return }
+        let tabs = pane.tabIDs
+        let current = pane.selectedTabID.flatMap { tabs.firstIndex(of: $0) } ?? 0
         let next = (current + (forward ? 1 : -1) + tabs.count) % tabs.count
-        workspace.selectedTabID = tabs[next].id
+        workspace.reveal(tabs[next])
     }
 
     /// Seleziona il workspace adiacente in ordine visivo (`orderedWorkspaces`, ciclico).

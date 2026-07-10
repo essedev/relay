@@ -80,10 +80,12 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     public var archived: Bool
     public var selectedTabID: UUID?
     public var tabs: [TabSnapshot]
-    /// Disposizione dei pane (`nil` = pane singolo). Campo additivo (assente nei layout salvati
-    /// prima dello split -> `nil`), quindi non richiede un bump di versione. Al restore viene
-    /// sanitizzato contro le tab davvero ricostruite: un pane senza tab non è renderizzabile.
+    /// Disposizione dei pane. Campo additivo (assente nei layout pre-split -> `nil`, ricostruito
+    /// come pane radice con tutte le tab). Il `Codable` di `SplitNode` decodifica anche il formato
+    /// v1 (foglie-tab). Al restore viene sanitizzato contro le tab davvero ricostruite.
     public var splitLayout: SplitNode?
+    /// Il pane focused. Campo additivo (assente nei layout pre-cmux -> il pane della selezione).
+    public var focusedPaneID: UUID?
 
     public init(
         id: UUID,
@@ -95,6 +97,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         archived: Bool = false,
         selectedTabID: UUID?,
         splitLayout: SplitNode? = nil,
+        focusedPaneID: UUID? = nil,
         tabs: [TabSnapshot]
     ) {
         self.id = id
@@ -107,6 +110,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         self.selectedTabID = selectedTabID
         self.tabs = tabs
         self.splitLayout = splitLayout
+        self.focusedPaneID = focusedPaneID
     }
 
     /// Decode tollerante: `archived` e `nameOrigin` sono additivi, assenti nei layout salvati prima
@@ -128,6 +132,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         selectedTabID = try c.decodeIfPresent(UUID.self, forKey: .selectedTabID)
         tabs = try c.decode([TabSnapshot].self, forKey: .tabs)
         splitLayout = try c.decodeIfPresent(SplitNode.self, forKey: .splitLayout)
+        focusedPaneID = try c.decodeIfPresent(UUID.self, forKey: .focusedPaneID)
     }
 }
 
