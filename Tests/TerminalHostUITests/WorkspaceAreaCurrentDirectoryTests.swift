@@ -217,3 +217,44 @@ private func makeArea(
     #expect(registry.liveSurfaceCount == 2)
     #expect(mainArea.liveSurfaceCount == otherArea.liveSurfaceCount)
 }
+
+@MainActor
+@Test func splitRightPlacesPanesSideBySideAtTheSavedRatio() throws {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay")
+    let area = makeArea(store: store)
+    area.view.frame = NSRect(x: 0, y: 0, width: 1000, height: 600)
+    try #require(store.splitFocusedPane(axis: .horizontal))
+    guard case let .split(branchID, _, _, _, _) = ws.splitLayout else {
+        return #expect(Bool(false), "il workspace deve essere splittato")
+    }
+    store.setSplitRatio(0.7, forBranch: branchID, in: ws)
+
+    area.renderNow()
+    area.view.layoutSubtreeIfNeeded()
+
+    let splitView = try #require(area.view.subviews.first as? NSSplitView)
+    // `.horizontal` = pane affiancati, quindi il divider è verticale: gli assi sono ortogonali, ed
+    // è il punto in cui è facile invertirli.
+    #expect(splitView.isVertical)
+    let first = try #require(splitView.arrangedSubviews.first)
+    let total = splitView.bounds.width
+    #expect(total > 0)
+    #expect(abs(first.bounds.width / total - 0.7) < 0.02) // il rapporto salvato è stato applicato
+}
+
+@MainActor
+@Test func splitDownStacksPanes() throws {
+    let store = WorkspaceStore()
+    store.createWorkspace(name: "relay")
+    let area = makeArea(store: store)
+    area.view.frame = NSRect(x: 0, y: 0, width: 1000, height: 600)
+    try #require(store.splitFocusedPane(axis: .vertical))
+
+    area.renderNow()
+    area.view.layoutSubtreeIfNeeded()
+
+    let splitView = try #require(area.view.subviews.first as? NSSplitView)
+    #expect(!splitView.isVertical) // impilati: divider orizzontale
+    #expect(splitView.arrangedSubviews.count == 2)
+}
