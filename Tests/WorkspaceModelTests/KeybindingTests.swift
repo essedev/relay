@@ -151,3 +151,25 @@ import Testing
     #expect(ShortcutAction.closePane.defaultCombo != ShortcutAction.closeTab.defaultCombo)
     #expect(ShortcutAction.splitRight.group == .pane)
 }
+
+@Test func everyActionBelongsToAGroupThatTheSettingsListRenders() {
+    // `ShortcutsList` itera `ShortcutGroup.allCases` e filtra per gruppo: un'azione il cui gruppo
+    // non è fra i casi non comparirebbe mai in Impostazioni > Shortcuts, senza che nulla fallisca.
+    let groups = Set(ShortcutGroup.allCases)
+    for action in ShortcutAction.allCases {
+        #expect(groups.contains(action.group), "\(action.rawValue) ha un gruppo non renderizzato")
+    }
+    // E ogni gruppo dichiarato ha almeno un'azione: una sezione vuota nel pannello è un residuo.
+    for group in ShortcutGroup.allCases {
+        #expect(
+            ShortcutAction.allCases.contains { $0.group == group },
+            "il gruppo \(group.rawValue) non ha azioni"
+        )
+    }
+}
+
+@Test func everyActionHasANonEmptyLabel() {
+    for action in ShortcutAction.allCases {
+        #expect(!action.label.isEmpty)
+    }
+}

@@ -165,8 +165,9 @@ extension SettingsView {
         }
     }
 
-    /// Decadenza dei completamenti "in sospeso" (visti ma mai ripresi). "Never" (default) = si
-    /// spengono solo con ripresa, dismiss o chiusura tab: niente perdita silenziosa.
+    /// Decadenza dei completamenti "in sospeso" (visti ma mai ripresi). Default **12h**: il sospeso
+    /// è il segnale quieto e già visto, tenerlo per sempre è banner blindness. "Never" (opt-out) =
+    /// si spegne solo con ripresa, dismiss o chiusura tab.
     private func pendingBlock(_ colors: ChromeColors) -> some View {
         row("Auto-dismiss pending after", colors) {
             Picker("", selection: pendingDecayBinding) {

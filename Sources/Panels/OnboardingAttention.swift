@@ -29,8 +29,11 @@ struct AttentionPage: View {
             }
             .padding(.top, Theme.Spacing.xs)
             Spacer(minLength: 0)
+            // Il quieto si spegne anche col dismiss dalla dashboard e, di default, da solo dopo
+            // 12h (`AppSettings.pendingDecayHours`): dire "solo la ripresa" sarebbe falso.
             Text("Interacting with the terminal turns the strong signal into the quiet one. "
-                + "Only resuming the conversation clears it.")
+                + "Resuming the conversation clears it, and so does dismissing it from the "
+                + "dashboard.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
                 .fixedSize(horizontal: false, vertical: true)

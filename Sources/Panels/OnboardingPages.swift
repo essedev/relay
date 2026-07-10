@@ -209,6 +209,10 @@ struct NavigationPage: View {
                          "Option-generated characters go to the terminal first")
                 shortcut(combo(.newTab), "New tab",
                          "inherits the directory you are working in")
+                shortcut(combo(.splitRight), "Split the view",
+                         "a second terminal beside this one; \(combo(.splitDown)) splits below")
+                shortcut(combo(.focusNextPane), "Next pane",
+                         "move the keyboard between the panes on screen")
                 shortcut(combo(.find), "Find in terminal", "with next and previous matches")
                 shortcut(combo(.clear), "Clear terminal", "screen and scrollback")
             }
@@ -279,8 +283,12 @@ struct CustomizePage: View {
             Spacer(minLength: 0)
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 bullet("textformat", "Font family, size and cursor live in Settings (\u{2318},).")
-                bullet("bell", "Notifications fire when a session needs you and Relay "
-                    + "is not in front.")
+                // Non "quando Relay non è in primo piano": la regola vera è che la tab non sia a
+                // schermo in una finestra che stai guardando (vedi `isVisible`).
+                bullet("bell", "Notifications fire when a session needs you and you are not "
+                    + "looking at it.")
+                bullet("macwindow", "Right-click a workspace to move it to its own window: "
+                    + "handy on a second screen, and its sessions keep running.")
                 bullet("arrow.clockwise", "Claude sessions survive restarts: a Resume bar "
                     + "offers to pick up where you left off.")
             }
