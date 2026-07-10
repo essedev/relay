@@ -7,6 +7,9 @@ import Foundation
 @Observable
 public final class Workspace: Identifiable {
     public let id: UUID
+    /// La finestra che possiede il workspace: le finestre partizionano i workspace, non li
+    /// condividono (una surface sta in una view sola). Muterla lo sposta di finestra.
+    public var windowID: UUID
     public var name: String
     /// Origine del nome (vedi `NameOrigin`): guida la nomina automatica. `.default` = eleggibile,
     /// `.generated` = già nominato (one-shot), `.user` = rinominato a mano (intoccabile).
@@ -28,6 +31,7 @@ public final class Workspace: Identifiable {
 
     public init(
         id: UUID = UUID(),
+        windowID: UUID = RelayWindow.mainID,
         name: String,
         nameOrigin: NameOrigin = .user,
         rootPath: String? = nil,
@@ -38,6 +42,7 @@ public final class Workspace: Identifiable {
         splitLayout: SplitNode? = nil
     ) {
         self.id = id
+        self.windowID = windowID
         self.name = name
         self.nameOrigin = nameOrigin
         self.rootPath = rootPath

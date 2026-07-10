@@ -51,11 +51,15 @@ public extension WorkspaceStore {
             // azzererebbe il resume vivo). Si scarta solo lo strettamente più vecchio: a parità
             // di timestamp (stesso millisecondo sul filo) vince l'ultimo arrivato, come prima.
             if let last = tab.lastEventAt, timestamp < last { return true }
-            // "In vista" = la tab è **montata in un pane** del workspace selezionato, non solo
-            // quella focused: con uno split guardi davvero tutti i pane a schermo, quindi un
-            // completamento su uno di essi non deve notificare né bumpare il workspace.
-            let isVisible = selectedWorkspaceID == workspace.id
-                && workspace.isMounted(tab.id) && appActive
+            // "In vista" = la tab è **montata in un pane** (con uno split guardi tutti i pane a
+            // schermo, non solo il focused) del workspace mostrato **dalla sua finestra**, e quella
+            // finestra è davvero a schermo (non occlusa né minimizzata) con l'app in primo piano.
+            // Non serve che la finestra sia **key**: su due monitor quella che fissi spesso non ha
+            // il focus, e notificarla sarebbe il bug del caso d'uso che motiva il multi-window.
+            let isVisible = window(of: workspace)?.selectedWorkspaceID == workspace.id
+                && workspace.isMounted(tab.id)
+                && isWindowVisible(workspace.windowID)
+                && appActive
             let previousState = tab.agentState
             let previousAttention = tab.attention
             let result = AgentStateReducer.reduce(

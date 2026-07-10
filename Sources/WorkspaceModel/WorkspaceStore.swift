@@ -8,8 +8,39 @@ import Foundation
 /// teardown delle surface vive corrispondenti.
 @Observable
 public final class WorkspaceStore {
-    public private(set) var workspaces: [Workspace]
-    public var selectedWorkspaceID: UUID?
+    /// Scrivibile dal modulo (`internal(set)`), non da fuori: il restore vive in `+Persistence`,
+    /// che è un altro file. Dall'esterno resta in sola lettura, e a mutarla sono i comandi.
+    public internal(set) var workspaces: [Workspace]
+    /// Le finestre aperte. Ce n'è sempre almeno una; partizionano i workspace
+    /// (`Workspace.windowID`).
+    public internal(set) var windows: [RelayWindow]
+    /// La finestra che ha il focus. I comandi globali (menu, scorciatoie) agiscono su di lei.
+    public var keyWindowID: UUID
+
+    /// Finestre **occluse**: coperte da altre finestre o minimizzate. Timbrate dal composition root
+    /// (`NSWindow.occlusionState`), che è l'unico a saperlo. Guidano `isVisible` insieme ad
+    /// `appActive`: una tab montata in una finestra occlusa non la stai guardando, quindi il suo
+    /// completamento notifica e bumpa. Non ci lego la finestra **key**: con due monitor la finestra
+    /// che fissi spesso non ha il focus, e notificarla sarebbe il bug del caso d'uso principale.
+    /// `@ObservationIgnored`: stato di piattaforma, non UI osservata.
+    @ObservationIgnored public var occludedWindowIDs: Set<UUID> = []
+
+    /// Ordine di attivazione delle finestre, più recente in testa: quando ne chiudi una, i suoi
+    /// workspace rimpatriano nella prima ancora viva. `@ObservationIgnored`: cronologia, non stato
+    /// UI.
+    @ObservationIgnored var activationOrder: [UUID] = []
+
+    /// Il workspace mostrato nella finestra key. Proiezione: la selezione vera vive sulla finestra,
+    /// perché ognuna mostra il suo workspace. Tenuta qui perché menu, scorciatoie e comandi globali
+    /// parlano di "il workspace corrente" senza sapere nulla di finestre.
+    public var selectedWorkspaceID: UUID? {
+        get { keyWindow?.selectedWorkspaceID }
+        set { keyWindow?.selectedWorkspaceID = newValue }
+    }
+
+    public var keyWindow: RelayWindow? {
+        windows.first { $0.id == keyWindowID }
+    }
 
     /// Effetto per le notifiche macOS: il composition root lo aggancia a `UNUserNotificationCenter`
     /// e lo store lo chiama quando una transizione la merita. Dati puri, nessun AppKit qui.
@@ -40,13 +71,41 @@ public final class WorkspaceStore {
 
     public init(workspaces: [Workspace] = []) {
         self.workspaces = workspaces
-        selectedWorkspaceID = workspaces.first?.id
+        let main = RelayWindow(id: RelayWindow.mainID, selectedWorkspaceID: workspaces.first?.id)
+        windows = [main]
+        keyWindowID = main.id
+        activationOrder = [main.id]
     }
 
     // MARK: - Query
 
     public var selectedWorkspace: Workspace? {
         workspaces.first { $0.id == selectedWorkspaceID }
+    }
+
+    /// Il workspace mostrato in una finestra qualsiasi (non solo la key): è ciò che ogni finestra
+    /// renderizza. `selectedWorkspace` è il caso particolare della key.
+    public func selectedWorkspace(in windowID: UUID) -> Workspace? {
+        guard let selected = windows.first(where: { $0.id == windowID })?.selectedWorkspaceID
+        else { return nil }
+        return workspaces.first { $0.id == selected }
+    }
+
+    /// I workspace di una finestra, nell'ordine canonico.
+    public func workspaces(in windowID: UUID) -> [Workspace] {
+        workspaces.filter { $0.windowID == windowID }
+    }
+
+    /// Ordine di visualizzazione della sidebar **di una finestra**: solo i suoi workspace, non
+    /// archiviati, pinned in testa. Vedi `orderedWorkspaces` per la finestra key.
+    public func orderedWorkspaces(in windowID: UUID) -> [Workspace] {
+        let visible = workspaces.filter { $0.windowID == windowID && !$0.archived }
+        return visible.filter(\.pinned) + visible.filter { !$0.pinned }
+    }
+
+    /// Gli archiviati di una finestra (la sua sezione Archive).
+    public func archivedWorkspaces(in windowID: UUID) -> [Workspace] {
+        workspaces.filter { $0.windowID == windowID && $0.archived }
     }
 
     /// Ordine di visualizzazione della lista principale: esclude gli archiviati (vivono nella loro
@@ -56,106 +115,13 @@ public final class WorkspaceStore {
     /// `applyAgentState`), come una lista di chat; poi resta finché non la scavalca un altro bump o
     /// la sposti a mano (drag). L'attenzione è un segnale (badge/ring), non l'ordine.
     public var orderedWorkspaces: [Workspace] {
-        let visible = workspaces.filter { !$0.archived }
-        return visible.filter(\.pinned) + visible.filter { !$0.pinned }
+        orderedWorkspaces(in: keyWindowID)
     }
 
     /// Workspace archiviati (sezione Archive in fondo alla sidebar), in ordine canonico. Non
     /// galleggiano e non entrano in `orderedWorkspaces`.
     public var archivedWorkspaces: [Workspace] {
-        workspaces.filter(\.archived)
-    }
-
-    // MARK: - Persistence
-
-    /// Fotografa il layout corrente (per il salvataggio su disco). Solo dati persistenti: niente
-    /// stato agente né surface.
-    public func snapshot() -> LayoutSnapshot {
-        LayoutSnapshot(
-            selectedWorkspaceID: selectedWorkspaceID,
-            workspaces: workspaces.map { workspace in
-                WorkspaceSnapshot(
-                    id: workspace.id,
-                    name: workspace.name,
-                    nameOrigin: workspace.nameOrigin,
-                    rootPath: workspace.rootPath,
-                    pinned: workspace.pinned,
-                    archived: workspace.archived,
-                    selectedTabID: workspace.selectedTabID,
-                    splitLayout: workspace.splitLayout,
-                    tabs: workspace.tabs.map { tab in
-                        TabSnapshot(
-                            id: tab.id,
-                            title: tab.title,
-                            hasCustomTitle: tab.hasCustomTitle,
-                            currentDirectory: tab.currentDirectory,
-                            resume: tab.resume,
-                            // Un completamento mai ripreso sopravvive al riavvio come "in
-                            // sospeso": anche `unseen` degrada a pending (al restore il segnale
-                            // forte sarebbe stantio; il posto giusto è la dashboard). Persisto il
-                            // clock del marker (`attentionSince`), non `lastEventAt`.
-                            pendingSince: tab.attention == .none
-                                ? nil
-                                : (tab.attentionSince ?? tab.lastEventAt)
-                        )
-                    }
-                )
-            }
-        )
-    }
-
-    /// Ricostruisce workspace e tab da uno snapshot (al restore). Le tab nascono senza stato agente
-    /// e `unrealized`: la surface parte al primo focus (vedi lifecycle in ARCHITECTURE). La
-    /// selezione viene validata contro i workspace effettivamente ricostruiti.
-    /// `now` = istante del restore: un marker sopravvissuto degrada a `pending` e il suo clock di
-    /// decadenza (`attentionSince`) riparte da qui, così un completamento mai visto non viene
-    /// spazzato subito al primo boot (il decay misurerebbe dall'età dell'evento, non da ora).
-    public func restore(from snapshot: LayoutSnapshot, now: Date = Date()) {
-        workspaces = snapshot.workspaces.map { workspace in
-            let tabs = workspace.tabs.map { tab in
-                Tab(
-                    id: tab.id,
-                    title: tab.title,
-                    hasCustomTitle: tab.hasCustomTitle,
-                    currentDirectory: tab.currentDirectory,
-                    attention: tab.pendingSince == nil ? .none : .pending,
-                    lastEventAt: tab.pendingSince, // età reale dell'evento (ordinamento dashboard)
-                    attentionSince: tab.pendingSince == nil ? nil : now, // clock decay dal boot
-                    resume: tab.resume
-                )
-            }
-            // La selezione salvata potrebbe puntare a una tab inesistente (file editato a mano,
-            // corruzione parziale che decodifica ancora): validala, altrimenti `Workspace.init`
-            // ricade sulla prima tab invece di lasciare il right pane senza tab.
-            let selectedTabID = tabs.contains { $0.id == workspace.selectedTabID }
-                ? workspace.selectedTabID
-                : nil
-            // Stesso trattamento per il layout: un pane che punta a una tab sparita non è
-            // renderizzabile, quindi le foglie orfane (e le duplicate) cadono e il ramo collassa.
-            let layout = workspace.splitLayout?.sanitized(keeping: Set(tabs.map(\.id)))
-            let restored = Workspace(
-                id: workspace.id,
-                name: workspace.name,
-                nameOrigin: workspace.nameOrigin,
-                rootPath: workspace.rootPath,
-                pinned: workspace.pinned,
-                archived: workspace.archived,
-                tabs: tabs,
-                selectedTabID: selectedTabID,
-                splitLayout: layout
-            )
-            // Riporta il layout alla forma canonica (una foglia sola = pane singolo) e riaggancia
-            // la focused a un pane montato, se la selezione salvata è caduta fuori dall'albero.
-            restored.normalizeLayout()
-            return restored
-        }
-        // La selezione deve puntare a un workspace VISIBILE (non archiviato): setArchived la sposta
-        // via dagli archiviati, ma un file editato a mano potrebbe averla lasciata su uno. Ricade
-        // sul primo visibile, e solo se tutti sono archiviati (degenere) sul primo assoluto.
-        let restoredID = snapshot.selectedWorkspaceID
-        selectedWorkspaceID = orderedWorkspaces.contains { $0.id == restoredID }
-            ? restoredID
-            : orderedWorkspaces.first?.id ?? workspaces.first?.id
+        archivedWorkspaces(in: keyWindowID)
     }
 
     // MARK: - Workspace
@@ -165,22 +131,28 @@ public final class WorkspaceStore {
     /// può
     /// migliorare). Passa `.user` per i nomi intenzionali che non vanno rigenerati (es. "Relay
     /// Update").
+    /// Il workspace nasce nella finestra key (quella su cui stai lavorando) e la sua selezione.
     @discardableResult
     public func createWorkspace(
         name: String,
         nameOrigin: NameOrigin = .default,
         rootPath: String? = nil
     ) -> Workspace {
-        let workspace = Workspace(name: name, nameOrigin: nameOrigin, rootPath: rootPath)
+        let workspace = Workspace(
+            windowID: keyWindowID, name: name, nameOrigin: nameOrigin, rootPath: rootPath
+        )
         workspaces.append(workspace)
         selectedWorkspaceID = workspace.id
         addTab(to: workspace) // ogni workspace nasce con una tab
         return workspace
     }
 
+    /// Seleziona il workspace **nella sua finestra**, che diventa la key: selezionarne uno che vive
+    /// altrove significa passare a quella finestra, non trascinarlo qui.
     public func selectWorkspace(_ id: UUID) {
-        guard workspaces.contains(where: { $0.id == id }) else { return }
-        selectedWorkspaceID = id
+        guard let workspace = workspaces.first(where: { $0.id == id }) else { return }
+        activateWindow(workspace.windowID)
+        keyWindow?.selectedWorkspaceID = id
     }
 
     public func togglePin(_ id: UUID) {
@@ -197,12 +169,19 @@ public final class WorkspaceStore {
     public func setArchived(_ id: UUID, _ archived: Bool) {
         guard let workspace = workspaces.first(where: { $0.id == id }),
               workspace.archived != archived else { return }
+        let window = workspace.windowID
         if archived {
-            guard workspaces.contains(where: { !$0.archived && $0.id != id }) else { return }
+            // L'ultimo visibile **della sua finestra**: archiviarlo lascerebbe quella sidebar
+            // vuota.
+            let hasVisibleSibling = workspaces.contains {
+                !$0.archived && $0.id != id && $0.windowID == window
+            }
+            guard hasVisibleSibling else { return }
             workspace.archived = true
             workspace.pinned = false
-            if selectedWorkspaceID == id {
-                selectedWorkspaceID = orderedWorkspaces.first?.id
+            let owner = windows.first { $0.id == window }
+            if owner?.selectedWorkspaceID == id {
+                owner?.selectedWorkspaceID = orderedWorkspaces(in: window).first?.id
             }
         } else {
             workspace.archived = false
@@ -230,11 +209,14 @@ public final class WorkspaceStore {
     @discardableResult
     public func closeWorkspace(_ id: UUID) -> [UUID] {
         guard let index = workspaces.firstIndex(where: { $0.id == id }) else { return [] }
+        let window = workspaces[index].windowID
         let removedTabIDs = workspaces[index].tabs.map(\.id)
         workspaces.remove(at: index)
-        if selectedWorkspaceID == id {
-            let neighbor = workspaces[safe: index] ?? workspaces[safe: index - 1] ?? workspaces.last
-            selectedWorkspaceID = neighbor?.id
+        // La selezione della finestra che lo mostrava cade su un vicino **della stessa finestra**:
+        // una finestra non può mostrare un workspace che non le appartiene.
+        if let owner = windows.first(where: { $0.id == window }), owner.selectedWorkspaceID == id {
+            let siblings = workspaces(in: window)
+            owner.selectedWorkspaceID = (orderedWorkspaces(in: window).first ?? siblings.first)?.id
         }
         return removedTabIDs
     }
@@ -263,7 +245,11 @@ public final class WorkspaceStore {
     /// pinned/archiviato (i pinned sono già fissi in cima, gli archiviati fuori dalla lista).
     func bumpWorkspaceToTop(_ id: UUID) {
         guard let ws = workspaces.first(where: { $0.id == id }), !ws.pinned, !ws.archived,
-              let firstFree = workspaces.first(where: { !$0.pinned && !$0.archived }),
+              // In cima **alla sua sidebar**: il bump riordina dentro la finestra che lo mostra,
+              // non lo strappa in testa alla lista globale (che nessuno vede intera).
+              let firstFree = workspaces.first(where: {
+                  !$0.pinned && !$0.archived && $0.windowID == ws.windowID
+              }),
               firstFree.id != id else { return }
         moveWorkspace(id, before: firstFree.id)
     }

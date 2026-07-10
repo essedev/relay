@@ -10,22 +10,65 @@ public struct LayoutSnapshot: Codable, Equatable {
     public static let currentVersion = 1
 
     public var version: Int
+    /// Il workspace mostrato dalla finestra key. Resta anche col multi-window: è la selezione da
+    /// cui
+    /// ripartire, e i layout salvati prima delle finestre non hanno altro.
     public var selectedWorkspaceID: UUID?
     public var workspaces: [WorkspaceSnapshot]
+    /// Le finestre aperte. Campo additivo: assente nei layout salvati prima del multi-window, che
+    /// al
+    /// restore ricadono su una finestra sola (`RelayWindow.mainID`) con tutti i workspace dentro.
+    public var windows: [WindowSnapshot]
 
     public init(
         version: Int = LayoutSnapshot.currentVersion,
         selectedWorkspaceID: UUID?,
-        workspaces: [WorkspaceSnapshot]
+        workspaces: [WorkspaceSnapshot],
+        windows: [WindowSnapshot] = []
     ) {
         self.version = version
         self.selectedWorkspaceID = selectedWorkspaceID
         self.workspaces = workspaces
+        self.windows = windows
+    }
+
+    /// Decode tollerante: `windows` è additivo (vedi sopra), la sintesi lo esigerebbe come chiave e
+    /// farebbe fallire l'intero decode, cioè butterebbe il layout dell'utente.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        selectedWorkspaceID = try c.decodeIfPresent(UUID.self, forKey: .selectedWorkspaceID)
+        workspaces = try c.decode([WorkspaceSnapshot].self, forKey: .workspaces)
+        windows = try c.decodeIfPresent([WindowSnapshot].self, forKey: .windows) ?? []
+    }
+}
+
+/// Una finestra salvata: quale workspace mostrava e dov'era sullo schermo.
+public struct WindowSnapshot: Codable, Equatable {
+    public var id: UUID
+    public var selectedWorkspaceID: UUID?
+    public var frame: WindowFrame?
+    /// Aveva il focus al momento del salvataggio: al restore torna key.
+    public var isKey: Bool
+
+    public init(
+        id: UUID,
+        selectedWorkspaceID: UUID?,
+        frame: WindowFrame? = nil,
+        isKey: Bool = false
+    ) {
+        self.id = id
+        self.selectedWorkspaceID = selectedWorkspaceID
+        self.frame = frame
+        self.isKey = isKey
     }
 }
 
 public struct WorkspaceSnapshot: Codable, Equatable {
     public var id: UUID
+    /// La finestra che lo possiede. Campo additivo (assente nei layout salvati prima del
+    /// multi-window -> `RelayWindow.mainID`, l'unica finestra di allora).
+    public var windowID: UUID
     public var name: String
     /// Origine del nome (vedi `NameOrigin`). Campo additivo (assente nei layout vecchi -> `.user`,
     /// vedi `init(from:)`): non richiede un bump di versione.
@@ -44,6 +87,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
 
     public init(
         id: UUID,
+        windowID: UUID = RelayWindow.mainID,
         name: String,
         nameOrigin: NameOrigin = .user,
         rootPath: String?,
@@ -54,6 +98,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         tabs: [TabSnapshot]
     ) {
         self.id = id
+        self.windowID = windowID
         self.name = name
         self.nameOrigin = nameOrigin
         self.rootPath = rootPath
@@ -74,6 +119,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
+        windowID = try c.decodeIfPresent(UUID.self, forKey: .windowID) ?? RelayWindow.mainID
         name = try c.decode(String.self, forKey: .name)
         nameOrigin = try c.decodeIfPresent(NameOrigin.self, forKey: .nameOrigin) ?? .user
         rootPath = try c.decodeIfPresent(String.self, forKey: .rootPath)
