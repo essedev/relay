@@ -959,3 +959,67 @@ casi limite).
 
 `make check` verde (279 test), CI di nuovo verde e **deterministica**. Undici commit di pulizia + il
 fix CI + la funzione, rilasciati come patch 0.7.2.
+
+## Cycle 15 - Rifiniture: input internazionale, LRU, osservabilità
+
+### Obiettivo
+
+Il giro di patch dopo il baseline delle milestone (0.7.3 -> 0.7.6): tre difetti emersi dall'uso
+reale (tastiera italiana, contesto perso dalla LRU, nessuna visibilità sui consumi) più le note di
+release. Nessuna feature grossa: correggere ciò che si rompe sotto le dita.
+
+### Testo da `Option` vs scorciatoie (il giro completo)
+
+Sui layout internazionali `Option` è anche AltGr: `Option+ò` compone `@`, `Option+è` compone `[`.
+Relay intercettava quelle combinazioni come scorciatoie, quindi **i simboli non si potevano
+digitare** nel terminale. Il primo fix (`924aee8`, 0.7.4) ha introdotto la policy pura
+`Core.KeyboardTextInput`: se macOS produce testo stampabile da `Option` senza `Cmd/Ctrl`, quel testo
+vince; il monitor non consuma l'evento e `OptionTextInterceptor` lo scrive UTF-8 nel PTY prima che il
+kitty keyboard protocol lo codifichi come tasto modificato.
+
+Ma la regola era **troppo larga**: sull'italiano anche `Option+1..9` compone simboli tipografici
+(`Option+1` = `«`, `Option+2` = `™`), quindi la policy classificava come digitazione anche il
+select-tab fisso e **`Option+1..9` smetteva di cambiare tab**. Un difetto tipico da regola universale
+su un dominio con eccezioni.
+
+Fix (`ec28342`): l'eccezione vive **dentro la policy**, non nei chiamanti. `Option`+cifra 1..9 senza
+Shift non è mai testo. Così i tre consumatori (monitor di navigazione, interceptor verso il PTY,
+recorder delle impostazioni) restano coerenti **per costruzione**, senza dipendere dall'ordine in cui
+i local monitor vedono l'evento - la stessa logica che tiene il resto dell'input in un punto solo.
+Tutto il resto continua a essere digitazione: `Option+ò`, `Option+Shift+cifra`, `Option+0`. Tradeoff
+accettato ed esplicito: i simboli su `Option+cifra` non sono digitabili finché la scorciatoia esiste.
+I flag dei modificatori sono passati come `OptionSet` puro (`KeyboardTextInput.Modifiers`), non come
+quattro `Bool`.
+
+Costo di non aver messo l'eccezione subito: una release (0.7.4) in cui le tab non si cambiavano da
+tastiera su ogni layout non-US.
+
+### LRU: proteggere il contesto recente
+
+Il cap LRU sfrattava surface idle appena sopra il cap, anche quelle usate un minuto prima: lo
+sfratto è un teardown SwiftTerm (scrollback perso, shell ricreata). `678ff3b` (0.7.5) aggiunge alla
+policy pura (`SurfaceEvictionPolicy`) il concetto di tab **protetta** oltre a quello di tab con
+lavoro vivo: mai la visibile, le tab del workspace attivo, quelle con attenzione fresca, quelle
+toccate negli ultimi ~30 minuti. Il cap resta un **soft cap**: se i candidati non bastano si sfora,
+perché sforare costa memoria mentre sfrattare costa contesto dell'utente.
+
+### Runtime Stats
+
+`2cf55ee` (0.7.6): pannello read-only da `View > Runtime Stats…` con RSS, CPU del processo,
+workspace/tab e surface vive rispetto al cap. Il campionamento (`RuntimeStatsSampler`, ~2s) gira
+**solo finché il pannello è aperto** e il timer muore in `windowWillClose`: è osservabilità a
+richiesta, non polling permanente. Resta distinto da `PerfSampler`, che è dev tooling
+(`RELAY_PERF`) e misura anche la latenza di input.
+
+### Note di release dai conventional commit
+
+`gh release create --generate-notes` produceva un body vuoto: genera dalle PR, e il repo è
+trunk-based. `9cb3b61` lo sostituisce con `release-notes.sh`, che raggruppa per tipo i conventional
+commit tra due tag, più `backfill-release-notes.sh` per riscrivere il body delle release già
+pubblicate senza toccare tag, asset o cask.
+
+### Esito
+
+`make check` verde (291 test, inclusi i casi della policy: cifre riservate, `Option+Shift+cifra` e
+`Option+0` restano testo). Su tastiera italiana funzionano **entrambi**: `Option+1..9` cambia tab e
+`Option+ò` scrive `@`.

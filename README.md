@@ -85,6 +85,10 @@ Settings > Shortcuts: click a combination, press the new one (conflicts are flag
 available). The window moves by dragging the title strip at the top (not the body/terminal);
 double-clicking the strip zooms, like a native title bar.
 
+On international layouts `Option` doubles as AltGr: whenever it composes a printable character
+(`Option+ò` = `@`), that character is typed into the terminal instead of triggering a shortcut. The
+only exception is `Option+1..9`, reserved for tab selection.
+
 ## Appearance
 
 Curated terminal theme (ANSI palette, so Claude Code/`git`/`ls` render in palette) with matching

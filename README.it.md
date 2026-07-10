@@ -85,6 +85,10 @@ Impostazioni > Shortcuts: clicca una combinazione, premi la nuova (conflitti seg
 disponibile). La finestra si sposta trascinando dalla fascia del titolo in alto (non dal
 corpo/terminale); doppio click sulla fascia = zoom, come una title bar nativa.
 
+Sui layout internazionali `Option` fa anche da AltGr: quando compone un carattere stampabile
+(`Option+ò` = `@`) quel carattere viene digitato nel terminale invece di attivare una scorciatoia.
+L'unica eccezione è `Option+1..9`, riservato alla selezione delle tab.
+
 ## Aspetto
 
 Tema del terminale curato (palette ANSI, quindi Claude Code/`git`/`ls` in palette), con chrome

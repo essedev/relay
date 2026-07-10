@@ -269,6 +269,23 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
   Ora versioni **pinnate** (binari dai release GitHub in `.build/tools` via `make tools`), stesse
   in CI e locale.
 
+## Fatto - Rifiniture: input internazionale, LRU, osservabilità (post-pulizia)
+
+- **Testo da `Option` e scorciatoie convivono** (`Core.KeyboardTextInput`, policy pura unica): su
+  layout internazionali `Option` è AltGr, quindi un carattere stampabile composto da `Option` senza
+  `Cmd/Ctrl` è digitazione e vince sulle scorciatoie (il monitor non consuma, la surface lo scrive
+  UTF-8 nel PTY). **Eccezione dentro la policy**: `Option+1..9` senza Shift è il select-tab fisso e
+  vince sempre - i tre consumatori (monitor, interceptor, recorder) restano coerenti per costruzione,
+  senza dipendere dall'ordine dei local monitor. Prezzo esplicito: i simboli tipografici su
+  `Option+cifra` non sono digitabili.
+- **La LRU non sfratta più contesto recente**: `SurfaceEvictionPolicy` distingue le tab **protette**
+  (visibile, workspace attivo, attenzione fresca, usate negli ultimi ~30 min) da quelle con lavoro
+  vivo. Il cap resta un soft cap: sforare costa memoria, sfrattare costa contesto.
+- **Runtime Stats** (`View > Runtime Stats…`): RSS, CPU, workspace/tab, surface vive/cap. Campiona
+  solo a pannello aperto, non è polling permanente. Distinto da `PerfSampler` (dev tooling).
+- **Note di release dai conventional commit** (`release-notes.sh`): `--generate-notes` dava un body
+  vuoto su un repo trunk-based (genera dalle PR).
+
 ## Più avanti
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
