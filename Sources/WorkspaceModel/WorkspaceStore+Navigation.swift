@@ -1,12 +1,13 @@
 import Foundation
 
-// Navigazione e lookup dello store: helper per trovare/rivelare tab fra i workspace. Estratto da
-// `WorkspaceStore` per tenere il file principale entro il budget di dimensione (vedi CONVENTIONS).
+// Navigazione e lookup dello store: trovare/rivelare una tab fra i workspace, saltare a quelle che
+// richiedono attenzione, ciclare fra tab e workspace adiacenti. Estratto da `WorkspaceStore` per
+// tenere il file principale entro il budget di dimensione (vedi CONVENTIONS).
 
-extension WorkspaceStore {
+public extension WorkspaceStore {
     /// La tab con questo id fra tutti i workspace (`nil` se non c'è). Un solo idiom di lookup
     /// cross-workspace, condiviso dai consumer del marker di attenzione.
-    func tab(id: UUID) -> Tab? {
+    internal func tab(id: UUID) -> Tab? {
         workspaces.lazy.flatMap(\.tabs).first { $0.id == id }
     }
 
@@ -15,10 +16,68 @@ extension WorkspaceStore {
     /// dashboard possono puntare a un workspace archiviato, con la riga nascosta in sidebar), poi
     /// seleziona entrambi. La finestra e l'attivazione dell'app restano al composition root (niente
     /// AppKit qui). No-op se il workspace non esiste più.
-    public func reveal(workspaceID: UUID, tabID: UUID) {
+    func reveal(workspaceID: UUID, tabID: UUID) {
         guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
         if workspace.archived { setArchived(workspaceID, false) }
         selectWorkspace(workspaceID)
         selectTab(tabID, in: workspace)
+    }
+
+    /// Porta in vista la prossima (`focusNextAttention`) o precedente (`focusPrevAttention`) tab
+    /// che
+    /// richiede attenzione, in ordine visivo (`orderedWorkspaces` + ordine tab) e ciclico rispetto
+    /// alla selezione corrente. Due livelli: prima l'attenzione fresca (aspetta input o completato
+    /// non visto); esauriti quelli, i sospesi (`pending`). Salta sempre la corrente. No-op se
+    /// nessuna tab la richiede. Ritorna `true` se la selezione è cambiata.
+    @discardableResult
+    func focusNextAttention() -> Bool {
+        focusAttention(forward: true)
+    }
+
+    @discardableResult
+    func focusPrevAttention() -> Bool {
+        focusAttention(forward: false)
+    }
+
+    @discardableResult
+    private func focusAttention(forward: Bool) -> Bool {
+        let flat: [(ws: Workspace, tab: Tab)] = orderedWorkspaces.flatMap { ws in
+            ws.tabs.map { (ws, $0) }
+        }
+        let fresh = flat.indices.filter {
+            flat[$0].tab.agentState == .needsInput || flat[$0].tab.attention == .unseen
+        }
+        let hits = fresh.isEmpty
+            ? flat.indices.filter { flat[$0].tab.attention == .pending }
+            : fresh
+        guard !hits.isEmpty else { return false }
+        let current = flat.firstIndex {
+            $0.ws.id == selectedWorkspaceID && $0.tab.id == $0.ws.selectedTabID
+        } ?? -1
+        let targetIndex = forward
+            ? (hits.first { $0 > current } ?? hits[0])
+            : (hits.last { $0 < current } ?? hits[hits.count - 1])
+        let target = flat[targetIndex]
+        selectedWorkspaceID = target.ws.id
+        target.ws.selectedTabID = target.tab.id
+        return true
+    }
+
+    /// Seleziona la tab adiacente nel workspace corrente (ciclico). `forward` = la successiva.
+    func selectAdjacentTab(forward: Bool) {
+        guard let workspace = selectedWorkspace, !workspace.tabs.isEmpty else { return }
+        let tabs = workspace.tabs
+        let current = tabs.firstIndex { $0.id == workspace.selectedTabID } ?? 0
+        let next = (current + (forward ? 1 : -1) + tabs.count) % tabs.count
+        workspace.selectedTabID = tabs[next].id
+    }
+
+    /// Seleziona il workspace adiacente in ordine visivo (`orderedWorkspaces`, ciclico).
+    func selectAdjacentWorkspace(forward: Bool) {
+        let ordered = orderedWorkspaces
+        guard !ordered.isEmpty else { return }
+        let current = ordered.firstIndex { $0.id == selectedWorkspaceID } ?? 0
+        let next = (current + (forward ? 1 : -1) + ordered.count) % ordered.count
+        selectedWorkspaceID = ordered[next].id
     }
 }

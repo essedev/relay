@@ -274,64 +274,6 @@ public final class WorkspaceStore {
         workspace.selectedTabID = tabID
     }
 
-    /// Porta in vista la prossima (`focusNextAttention`) o precedente (`focusPrevAttention`) tab
-    /// che
-    /// richiede attenzione, in ordine visivo (`orderedWorkspaces` + ordine tab) e ciclico rispetto
-    /// alla selezione corrente. Due livelli: prima l'attenzione fresca (aspetta input o completato
-    /// non visto); esauriti quelli, i sospesi (`pending`). Salta sempre la corrente. No-op se
-    /// nessuna tab la richiede. Ritorna `true` se la selezione è cambiata.
-    @discardableResult
-    public func focusNextAttention() -> Bool {
-        focusAttention(forward: true)
-    }
-
-    @discardableResult
-    public func focusPrevAttention() -> Bool {
-        focusAttention(forward: false)
-    }
-
-    @discardableResult
-    private func focusAttention(forward: Bool) -> Bool {
-        let flat: [(ws: Workspace, tab: Tab)] = orderedWorkspaces.flatMap { ws in
-            ws.tabs.map { (ws, $0) }
-        }
-        let fresh = flat.indices.filter {
-            flat[$0].tab.agentState == .needsInput || flat[$0].tab.attention == .unseen
-        }
-        let hits = fresh.isEmpty
-            ? flat.indices.filter { flat[$0].tab.attention == .pending }
-            : fresh
-        guard !hits.isEmpty else { return false }
-        let current = flat.firstIndex {
-            $0.ws.id == selectedWorkspaceID && $0.tab.id == $0.ws.selectedTabID
-        } ?? -1
-        let targetIndex = forward
-            ? (hits.first { $0 > current } ?? hits[0])
-            : (hits.last { $0 < current } ?? hits[hits.count - 1])
-        let target = flat[targetIndex]
-        selectedWorkspaceID = target.ws.id
-        target.ws.selectedTabID = target.tab.id
-        return true
-    }
-
-    /// Seleziona la tab adiacente nel workspace corrente (ciclico). `forward` = la successiva.
-    public func selectAdjacentTab(forward: Bool) {
-        guard let workspace = selectedWorkspace, !workspace.tabs.isEmpty else { return }
-        let tabs = workspace.tabs
-        let current = tabs.firstIndex { $0.id == workspace.selectedTabID } ?? 0
-        let next = (current + (forward ? 1 : -1) + tabs.count) % tabs.count
-        workspace.selectedTabID = tabs[next].id
-    }
-
-    /// Seleziona il workspace adiacente in ordine visivo (`orderedWorkspaces`, ciclico).
-    public func selectAdjacentWorkspace(forward: Bool) {
-        let ordered = orderedWorkspaces
-        guard !ordered.isEmpty else { return }
-        let current = ordered.firstIndex { $0.id == selectedWorkspaceID } ?? 0
-        let next = (current + (forward ? 1 : -1) + ordered.count) % ordered.count
-        selectedWorkspaceID = ordered[next].id
-    }
-
     /// Chiude una tab. Ritorna l'id rimosso (per il teardown della surface).
     /// Chiudere l'ultima tab di un workspace chiude anche il workspace (cascade): un progetto
     /// senza terminali non ha senso di esistere.
