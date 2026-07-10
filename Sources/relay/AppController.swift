@@ -116,6 +116,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                 onRunUpdate: { [weak self] in self?.runUpdateInTab() }
             ),
             onNewWorkspace: { [weak self] in self?.newWorkspace(nil) },
+            onNewTab: { [weak self] in self?.newTab(nil) },
             onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
             onCloseTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) },
             onMoveTabToNewWorkspace: { [weak self] tab, workspace in
@@ -319,9 +320,14 @@ final class AppController: NSObject, NSApplicationDelegate {
         store.createWorkspace(name: url.lastPathComponent, rootPath: url.path)
     }
 
+    /// La nuova tab parte dove stai lavorando: la cwd la risolve l'area (shell viva > OSC 7 > root
+    /// del workspace), qui c'è solo il wiring. Il risultato **non** si scrive su
+    /// `Tab.currentDirectory`, che è l'ultimo OSC 7 noto e alimenta anche titolo, sottotitolo e
+    /// snapshot: una cwd letta dal processo li congelerebbe a quella dell'ultimo `Cmd+T`.
     @objc func newTab(_: Any?) {
         guard let workspace = store.selectedWorkspace else { return }
-        store.addTab(to: workspace)
+        let cwd = workspace.selectedTab.flatMap { splitVC?.currentDirectory(for: $0.id) }
+        store.addTab(to: workspace, currentDirectory: cwd ?? workspace.rootPath)
     }
 
     @objc func zoomIn(_: Any?) {

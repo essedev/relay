@@ -33,6 +33,9 @@ public protocol TerminalSurfaceHandle: AnyObject {
     /// Usato dalla nomina automatica dei workspace per capire "cosa stai facendo" (es. `brew
     /// update`).
     func foregroundCommandLine() -> [String]?
+    /// Working directory corrente della shell del pty, letta dal processo. Fallback per shell che
+    /// non emettono OSC 7: serve a creare nuove tab nella cwd reale della tab attiva.
+    func currentDirectory() -> String?
     /// `true` se la shell ha processi figli (foreground, background o agente). Segnala che c'è
     /// lavoro vivo: la surface non va sfrattata dalla LRU (perderebbe quel processo). Più largo di
     /// `foregroundProcessName` (che vede solo il foreground).

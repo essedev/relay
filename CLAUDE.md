@@ -324,6 +324,17 @@ girano solo dal bundle (`make run-app`).
   implementa: query + encoding). Claude Code attiva il protocollo solo per terminali noti; **non**
   settare `TERM_PROGRAM` (lo prioritizza e maschererebbe il segnale, claude-code#27868). Cosi
   Shift+Invio/Ctrl+Invio arrivano distinti all'app, senza intercettare l'input nel path caldo.
+- Cwd di `Cmd+T`: non fidarti dell'OSC 7 da solo. Conseguenza del gotcha sopra: `/etc/zshrc` carica
+  l'integrazione da `/etc/zshrc_$TERM_PROGRAM`, e noi non settiamo `TERM_PROGRAM`, quindi **zsh in
+  Relay non emette OSC 7** (la shell senza integrazione è il caso di default, non un caso limite); e
+  quando arriva è comunque ferma all'ultimo prompt. La precedenza è **shell viva
+  (`TerminalSurfaceHandle.currentDirectory()`, `proc_pidinfo`) -> ultimo OSC 7 noto
+  (`Tab.currentDirectory`) -> root del workspace**, decisa dal puro `Core.CurrentDirectory` (testato)
+  e applicata in `WorkspaceAreaController.currentDirectory(for:)`. Non invertirla: col valore
+  memorizzato davanti, la lettura live non viene mai consultata (dopo il primo `Cmd+T` la tab ha
+  sempre una cwd nota) e l'ereditarietà torna cieca ai `cd`. E non memoizzare il risultato su
+  `Tab.currentDirectory`: quel campo è l'ultimo OSC 7 noto e alimenta anche titolo, sottotitolo e
+  snapshot, che si congelerebbero alla cwd dell'ultimo `Cmd+T`.
 - Testo da `Option`/AltGr: sui layout internazionali `Option` è anche composizione di testo
  (`Option+ò` = `@`, `Option+digit` = simboli). `Core.KeyboardTextInput` è la policy unica: se
  macOS produce testo stampabile da `Option` senza `Cmd/Ctrl`, quel testo vince sulle shortcut.

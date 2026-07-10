@@ -71,6 +71,20 @@ public final class WorkspaceAreaController: NSViewController {
         registry.foregroundCommandLine(for: tabID)
     }
 
+    /// Cwd migliore nota per la tab: shell viva, poi l'ultimo OSC 7 noto, poi la root del workspace
+    /// (precedenza in `Core.CurrentDirectory`). Serve a `Cmd+T`, che deve ereditare la cwd anche
+    /// dalle shell senza integrazione OSC 7 - cioè zsh di default, vedi il tipo.
+    public func currentDirectory(for tabID: UUID) -> String? {
+        guard let workspace = store.workspaces.first(where: { workspace in
+            workspace.tabs.contains { $0.id == tabID }
+        }), let tab = workspace.tabs.first(where: { $0.id == tabID }) else { return nil }
+        return CurrentDirectory.resolve(
+            live: registry.currentDirectory(for: tabID),
+            lastKnown: tab.currentDirectory,
+            workspaceRoot: workspace.rootPath
+        )
+    }
+
     /// Inietta testo nella surface della tab (resume dell'agente). Inoltra alla registry.
     public func sendText(to tabID: UUID, _ text: String) {
         registry.sendText(to: tabID, text)

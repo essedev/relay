@@ -79,6 +79,12 @@ public final class SurfaceRegistry {
         surfaces[tabID]?.foregroundCommandLine()
     }
 
+    /// Working directory della shell nella surface della tab, o `nil` se la tab non è realizzata.
+    /// Usata come fallback all'OSC 7 quando si crea una nuova tab.
+    public func currentDirectory(for tabID: UUID) -> String? {
+        surfaces[tabID]?.currentDirectory()
+    }
+
     /// Scrive testo nello stdin della surface della tab (resume dell'agente). No-op se la tab non è
     /// realizzata.
     public func sendText(to tabID: UUID, _ text: String) {

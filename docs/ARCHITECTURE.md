@@ -308,9 +308,15 @@ root:
   la sidebar come pannello glass flottante, in conflitto col design flat themed). Righe con
   selezione/hover dai colori del tema (niente highlight di sistema), sottotitolo per riga
   (`WindowTitle.workspaceSubtitle`: cosa succede nella tab selezionata) e badge aggregato.
-- OSC 7: la cwd riportata dalla shell (`Core.OSC7` -> `Tab.currentDirectory`) alimenta titolo,
-  sottotitolo e l'ereditarietà cwd di `Cmd+T` (la nuova tab parte dove stai lavorando, non alla
-  radice del workspace).
+- OSC 7: la cwd riportata dalla shell (`Core.OSC7` -> `Tab.currentDirectory`) alimenta titolo e
+  sottotitolo. L'ereditarietà cwd di `Cmd+T` **non** si fida solo di lei: la precedenza è
+  **shell viva -> ultimo OSC 7 noto -> root del workspace**, decisa dal puro `Core.CurrentDirectory`
+  e applicata in `WorkspaceAreaController.currentDirectory(for:)`. La shell viva
+  (`TerminalSurfaceHandle.currentDirectory()`, via `proc_pidinfo`) vince perché zsh in Relay non
+  emette OSC 7 (`/etc/zshrc` carica l'integrazione da `/etc/zshrc_$TERM_PROGRAM` e noi non settiamo
+  `TERM_PROGRAM`, vedi kitty keyboard) e perché, quando arriva, è ferma all'ultimo prompt. L'ultimo
+  valore noto serve alle tab non realizzate, dove la shell non esiste. Così la nuova tab parte dove
+  stai lavorando, non alla radice del workspace.
 
 ## Scorciatoie (keybinding rimappabili)
 

@@ -261,11 +261,17 @@ public final class WorkspaceStore {
 
     // MARK: - Tab
 
-    /// La nuova tab eredita la working directory corrente della tab selezionata (se nota via
-    /// OSC 7): `Cmd+T` apre dove stai lavorando, non alla radice del workspace.
+    /// La nuova tab eredita la working directory: `currentDirectory` se il chiamante l'ha risolta
+    /// dalla shell viva (precedenza in `Core.CurrentDirectory`), altrimenti l'ultima cwd nota della
+    /// tab selezionata. Così `Cmd+T` apre dove stai lavorando, non alla radice del workspace.
+    /// `nil` = nessuna cwd nota, e la tab non ne inventa una: la surface parte dalla root del
+    /// workspace (fallback a runtime, nell'area).
     @discardableResult
-    public func addTab(to workspace: Workspace, title: String = Tab.defaultTitle) -> Tab {
-        let inherited = workspace.selectedTab?.currentDirectory
+    public func addTab(
+        to workspace: Workspace,
+        title: String = Tab.defaultTitle, currentDirectory: String? = nil
+    ) -> Tab {
+        let inherited = currentDirectory ?? workspace.selectedTab?.currentDirectory
         return workspace.appendTab(Tab(title: title, currentDirectory: inherited), select: true)
     }
 

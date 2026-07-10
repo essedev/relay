@@ -13,6 +13,7 @@ final class RightPaneController: NSViewController {
     private let store: WorkspaceStore
     private let settings: AppSettings
     private let engine: TerminalEngine
+    private let onNewTab: () -> Void
     private let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
     private let onMoveTabToNewWorkspace: (WorkspaceModel.Tab, Workspace) -> Void
     private var resumeBarHost: NSView?
@@ -32,12 +33,14 @@ final class RightPaneController: NSViewController {
         store: WorkspaceStore,
         settings: AppSettings,
         engine: TerminalEngine,
+        onNewTab: @escaping () -> Void,
         onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
         onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
     ) {
         self.store = store
         self.settings = settings
         self.engine = engine
+        self.onNewTab = onNewTab
         self.onCloseTab = onCloseTab
         self.onMoveTabToNewWorkspace = onMoveTabToNewWorkspace
         super.init(nibName: nil, bundle: nil)
@@ -60,6 +63,11 @@ final class RightPaneController: NSViewController {
     /// Inoltra la query "argv in foreground" della tab all'area (nomina automatica del workspace).
     func foregroundCommandLine(for tabID: UUID) -> [String]? {
         area.foregroundCommandLine(for: tabID)
+    }
+
+    /// Cwd migliore nota della tab, includendo il fallback al processo shell quando OSC 7 manca.
+    func currentDirectory(for tabID: UUID) -> String? {
+        area.currentDirectory(for: tabID)
     }
 
     /// Pulisce il terminale della tab attiva (Cmd+K).
@@ -161,6 +169,7 @@ final class RightPaneController: NSViewController {
             rootView: TabBarView(
                 store: store,
                 settings: settings,
+                onNewTab: onNewTab,
                 onCloseTab: onCloseTab,
                 onMoveTabToNewWorkspace: onMoveTabToNewWorkspace
             )

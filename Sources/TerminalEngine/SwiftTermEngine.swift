@@ -170,6 +170,26 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         return Self.processArguments(pid: foreground)
     }
 
+    func currentDirectory() -> String? {
+        guard started, terminal.process.running else { return nil }
+        let pid = terminal.process.shellPid
+        guard pid > 0 else { return nil }
+        return Self.processCurrentDirectory(pid: pid)
+    }
+
+    private static func processCurrentDirectory(pid: pid_t) -> String? {
+        var info = proc_vnodepathinfo()
+        let size = Int32(MemoryLayout<proc_vnodepathinfo>.stride)
+        let result = proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &info, size)
+        guard result == size else { return nil }
+        return withUnsafePointer(to: &info.pvi_cdir.vip_path) { pointer in
+            pointer.withMemoryRebound(to: CChar.self, capacity: Int(MAXPATHLEN)) { chars in
+                let path = String(cString: chars)
+                return path.isEmpty ? nil : path
+            }
+        }
+    }
+
     /// Legge l'argv di un pid via `KERN_PROCARGS2`. Layout del buffer:
     /// `[int argc][exec_path\0][padding \0...][argv[0]\0][argv[1]\0]...`. Ritorna gli `argc`
     /// argomenti (senza l'`exec_path` iniziale, che è ridondante con argv[0]). `nil` se la sysctl

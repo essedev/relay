@@ -36,6 +36,18 @@ import Testing
     #expect(bareTab.currentDirectory == nil)
 }
 
+@Test func addTabPrefersTheResolvedCurrentDirectory() {
+    // La cwd risolta dal chiamante (shell viva, vedi `Core.CurrentDirectory`) batte l'ultimo OSC 7
+    // noto della tab selezionata, che può essere fermo a un prompt precedente.
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "api", rootPath: "/Users/doppia/dev")
+    ws.tabs[0].currentDirectory = "/Users/doppia/dev/relay"
+
+    let tab = store.addTab(to: ws, currentDirectory: "/Users/doppia/dev/relay/Sources")
+
+    #expect(tab.currentDirectory == "/Users/doppia/dev/relay/Sources")
+}
+
 @Test func closeSelectedTabSelectsNeighbor() {
     let store = WorkspaceStore()
     let ws = store.createWorkspace(name: "api")

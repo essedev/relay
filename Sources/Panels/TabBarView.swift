@@ -7,6 +7,7 @@ import WorkspaceModel
 public struct TabBarView: View {
     let store: WorkspaceStore
     let settings: AppSettings
+    let onNewTab: () -> Void
     let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
     /// Sposta la tab in un nuovo workspace (menu contestuale). Risale all'app perché il nuovo
     /// workspace prende un nome placeholder gestito lì (`Workspace N`); la surface resta viva.
@@ -22,11 +23,13 @@ public struct TabBarView: View {
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
+        onNewTab: @escaping () -> Void,
         onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
         onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
     ) {
         self.store = store
         self.settings = settings
+        self.onNewTab = onNewTab
         self.onCloseTab = onCloseTab
         self.onMoveTabToNewWorkspace = onMoveTabToNewWorkspace
     }
@@ -75,7 +78,7 @@ public struct TabBarView: View {
                         perform: { performMove(of: tab.id, to: $0, in: workspace) }
                     ))
                 }
-                Button { store.addTab(to: workspace) } label: {
+                Button(action: onNewTab) {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.borderless)

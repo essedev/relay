@@ -21,6 +21,7 @@ final class MainSplitViewController: NSSplitViewController {
         engine: TerminalEngine,
         updateConfig: SidebarUpdateConfig?,
         onNewWorkspace: @escaping () -> Void,
+        onNewTab: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
         onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
         onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
@@ -30,6 +31,7 @@ final class MainSplitViewController: NSSplitViewController {
             store: store,
             settings: settings,
             engine: engine,
+            onNewTab: onNewTab,
             onCloseTab: onCloseTab,
             onMoveTabToNewWorkspace: onMoveTabToNewWorkspace
         )
@@ -73,6 +75,11 @@ final class MainSplitViewController: NSSplitViewController {
     /// del workspace nell'AppController (poll di "cosa stai facendo").
     func foregroundCommandLine(for tabID: UUID) -> [String]? {
         right.foregroundCommandLine(for: tabID)
+    }
+
+    /// Cwd migliore nota della tab, includendo il fallback al processo shell quando OSC 7 manca.
+    func currentDirectory(for tabID: UUID) -> String? {
+        right.currentDirectory(for: tabID)
     }
 
     /// Surface vive nel right pane (strumentazione di performance, misure M3).
