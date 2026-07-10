@@ -3,6 +3,7 @@ import Observation
 import Panels
 import SwiftUI
 import TerminalEngine
+import TerminalHostUI
 import WorkspaceModel
 
 /// Split principale: sidebar (SwiftUI in NSHostingController) + area di lavoro a destra.
@@ -19,6 +20,8 @@ final class MainSplitViewController: NSSplitViewController {
         store: WorkspaceStore,
         settings: AppSettings,
         engine: TerminalEngine,
+        windowID: UUID,
+        registry: SurfaceRegistry,
         updateConfig: SidebarUpdateConfig?,
         onNewWorkspace: @escaping () -> Void,
         onNewTab: @escaping () -> Void,
@@ -31,6 +34,8 @@ final class MainSplitViewController: NSSplitViewController {
             store: store,
             settings: settings,
             engine: engine,
+            windowID: windowID,
+            registry: registry,
             onNewTab: onNewTab,
             onCloseTab: onCloseTab,
             onMoveTabToNewWorkspace: onMoveTabToNewWorkspace
@@ -41,6 +46,7 @@ final class MainSplitViewController: NSSplitViewController {
             rootView: SidebarView(
                 store: store,
                 settings: settings,
+                windowID: windowID,
                 onNewWorkspace: onNewWorkspace,
                 onCloseWorkspace: onCloseWorkspace,
                 updateConfig: updateConfig

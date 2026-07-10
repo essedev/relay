@@ -30,7 +30,7 @@ extension AppController {
         let command = UpdateController.upgradeCommand
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(500))
-            self?.splitVC.sendText(to: tabID, command + "\n")
+            self?.splitVC?.sendText(to: tabID, command + "\n")
         }
     }
 }

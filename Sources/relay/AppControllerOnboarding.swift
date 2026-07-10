@@ -7,7 +7,7 @@ import SwiftUI
 /// `RootOverlayController`); extension per tenere il corpo di `AppController` sul solo bootstrap.
 extension AppController {
     var isOnboardingOpen: Bool {
-        overlayPresenter.isPresenting(.onboarding)
+        overlayPresenter?.isPresenting(.onboarding) ?? false
     }
 
     /// Voce di menu Help > Welcome to Relay.
@@ -25,7 +25,7 @@ extension AppController {
     }
 
     func presentOnboarding() {
-        overlayPresenter.present(.onboarding) {
+        overlayPresenter?.present(.onboarding) {
             fullOverlayHost(OnboardingView(
                 settings: self.settings,
                 hooks: self.makeHookControls(),
@@ -35,6 +35,6 @@ extension AppController {
     }
 
     func closeOnboarding() {
-        overlayPresenter.dismiss(.onboarding)
+        overlayPresenter?.dismiss(.onboarding)
     }
 }

@@ -7,6 +7,7 @@ import LayoutStore
 import Panels
 import SwiftUI
 import TerminalEngine
+import TerminalHostUI
 import WorkspaceModel
 
 @MainActor
@@ -17,18 +18,43 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let engine: TerminalEngine = SwiftTermEngine()
     private lazy var agentCoordinator = AgentCoordinator(store: store)
     private lazy var layoutStore = LayoutStore(path: RelayRuntimePaths.layoutPath)
-    var window: NSWindow! // internal: usato dall'extension di chiusura (confirmClose sheet)
-    var splitVC: MainSplitViewController! // internal: usato dalle extension in altri file
-    var rootController: RootOverlayController! // internal: overlay dashboard (extension)
-    /// Presenter unico degli overlay full-window (dashboard/onboarding): un solo host, mutua
-    /// esclusione per costruzione. Assegnato in `applicationDidFinishLaunching`. Usato dalle
-    /// extension `AppControllerDashboard`/`AppControllerOnboarding`.
-    var overlayPresenter: FullOverlayPresenter!
+    /// **Una sola** registry per tutta l'app, condivisa fra le finestre: una tab ha una surface
+    /// sola ovunque sia montata, e il cap LRU ragiona sul totale vivo, non per finestra.
+    private lazy var registry = SurfaceRegistry(engine: engine)
+    /// Le finestre vive, per `RelayWindow.id`. Internal: le extension lavorano su quella key.
+    var windowControllers: [UUID: RelayWindowController] = [:]
+
+    /// La finestra col focus: menu, scorciatoie e overlay agiscono su di lei. Le extension che la
+    /// usano degradano a no-op quando non c'è (avvio, ultima chiusura).
+    var keyWindowController: RelayWindowController? {
+        windowControllers[store.keyWindowID] ?? windowControllers.values.first
+    }
+
+    var window: NSWindow? {
+        keyWindowController?.window
+    } // sheet di conferma chiusura
+    var splitVC: MainSplitViewController? {
+        keyWindowController?.splitVC
+    }
+
+    var rootController: RootOverlayController? {
+        keyWindowController?.rootController
+    }
+
+    /// Presenter degli overlay full-window (dashboard/onboarding) **della finestra key**: un host
+    /// per finestra, mutua esclusione per costruzione.
+    var overlayPresenter: FullOverlayPresenter? {
+        keyWindowController?.overlayPresenter
+    }
+
     var settingsWindow: NSWindow? // internal: aperto/chiuso dall'extension delle impostazioni
     var aboutWindow: NSWindow? // internal: pannello "About Relay" (extension impostazioni)
     var statsWindow: NSWindow? // internal: runtime stats panel
     var runtimeStatsSampler: RuntimeStatsSampler?
     private var untitledCount = 0
+    /// L'app sta chiudendo: le `windowWillClose` che seguono non devono rimpatriare i workspace
+    /// (collasserebbero il layout multi-window in una finestra sola prima del flush).
+    var isTerminating = false
     var keyMonitor: Any? // internal: installato dall'extension di navigazione
     /// Timer del "flash" di completamento sulla tab in vista, per tab: alla scadenza declassa il
     /// marker forte (`unseen`) a "in sospeso" (`pending`), un mark-read differito. Keyed per tab
@@ -59,44 +85,17 @@ final class AppController: NSObject, NSApplicationDelegate {
         agentCoordinator.start()
         seedIfNeeded()
 
-        let split = makeSplitViewController()
-        splitVC = split
+        // Una finestra per ogni `RelayWindow` del layout ripristinato (di solito una sola). La key
+        // per ultima, così resta davanti.
+        for relayWindow in store.windows {
+            let controller = makeWindowController(for: relayWindow)
+            windowControllers[relayWindow.id] = controller
+            controller.show()
+        }
+        keyWindowController?.activate()
 
-        window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 700),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Relay"
-        // Sotto questa soglia sidebar + terminale non hanno più spazio utile: la sidebar tiene la
-        // sua larghezza minima (200) e al terminale resta abbastanza per lavorare.
-        window.contentMinSize = NSSize(width: 700, height: 460)
-        // Il contenuto sale fino al bordo: il titolo visibile è la strip del right pane
-        // (ContextTitleBar), centrata sul body. Il title nativo resta per Mission Control/Cmd+Tab.
-        window.titleVisibility = .hidden
-        window.titlebarSeparatorStyle = .none
-        // Niente drag dal corpo: la finestra si sposta solo dalle strip in alto (title bar
-        // custom), rese trascinabili con `WindowDragArea`. Vedi ContextTitleBar/SidebarView.
-        window.isMovableByWindowBackground = false
-        let root = RootOverlayController(content: split, overlay: makeSidebarToggleOverlay())
-        rootController = root
-        overlayPresenter = FullOverlayPresenter(root: root, splitVC: split)
-        split.onSidebarWidthChange = { [weak root] width in
-            root?.sidebarWidthDidChange(width)
-        }
-        window.contentViewController = root
-        // Ripristina posizione+dimensione dell'ultima sessione; centra solo al primo avvio (nessun
-        // frame salvato). `center()` incondizionato riportava la finestra al centro dello schermo
-        // principale a ogni lancio, scartando un eventuale spostamento su un secondo monitor.
-        window.setFrameAutosaveName("RelayMainWindow")
-        if !window.setFrameUsingName("RelayMainWindow") {
-            window.center()
-        }
         observeWindowTheme()
         observeWindowTitle()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
 
         startPerfSamplerIfEnabled()
         setupNotificationsIfBundled()
@@ -105,13 +104,15 @@ final class AppController: NSObject, NSApplicationDelegate {
         if demoDriver == nil { showOnboardingIfFirstLaunch() }
     }
 
-    /// Costruisce lo split principale con le closure d'azione (create/close workspace e tab, move
-    /// tab in un nuovo workspace, config sidebar). Fuori dal launch per tenerlo corto.
-    private func makeSplitViewController() -> MainSplitViewController {
+    /// Costruisce lo split di una finestra con le closure d'azione (create/close workspace e tab,
+    /// move tab in un nuovo workspace, config sidebar). Fuori dal launch per tenerlo corto.
+    func makeSplitViewController(windowID: UUID) -> MainSplitViewController {
         MainSplitViewController(
             store: store,
             settings: settings,
             engine: engine,
+            windowID: windowID,
+            registry: registry,
             updateConfig: updateController.makeSidebarConfig(
                 onRunUpdate: { [weak self] in self?.runUpdateInTab() }
             ),
@@ -168,10 +169,11 @@ final class AppController: NSObject, NSApplicationDelegate {
     /// finestra
     /// in primo piano. Se un workspace archiviato genera una notifica lo ripristina, altrimenti la
     /// selezione punterebbe a una riga fuori dalla lista visibile.
+    /// Riporta in vista la tab: `reveal` seleziona workspace+tab e **attiva la finestra che li
+    /// possiede** (i workspace sono partizionati), poi la portiamo davanti.
     private func activateTab(workspaceID: UUID, tabID: UUID) {
         store.reveal(workspaceID: workspaceID, tabID: tabID)
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        keyWindowController?.activate()
     }
 
     /// Attiva la strumentazione di performance solo su richiesta (`RELAY_PERF=1`). Legge le surface
@@ -180,7 +182,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         guard PerfSampler.isEnabled else { return }
         let perf = PerfSampler(
             store: store,
-            liveSurfaceCount: { [weak splitVC] in splitVC?.liveSurfaceCount ?? 0 },
+            liveSurfaceCount: { [weak self] in self?.registry.liveSurfaceCount ?? 0 },
             inputHook: { [weak self] event in _ = self?.handleNavigationKey(event) }
         )
         perf.start()
@@ -189,7 +191,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     /// Toggle sidebar: overlay a posizione fissa accanto ai semafori, sopra il contenuto. Non si
     /// muove con l'animazione del collasso (un solo bottone per aprire e chiudere).
-    private func makeSidebarToggleOverlay() -> NSView {
+    func makeSidebarToggleOverlay() -> NSView {
         let hosting = NSHostingView(
             rootView: SidebarToggleButton(settings: settings) { [weak self] in
                 self?.settings.toggleSidebar()
@@ -199,12 +201,17 @@ final class AppController: NSObject, NSApplicationDelegate {
         return hosting
     }
 
-    /// Aggiorna il titolo nativo (nascosto in finestra, usato da Mission Control/Cmd+Tab).
-    /// La strip visibile (ContextTitleBar) legge la stessa logica via Observation.
+    /// Aggiorna il titolo nativo di **ogni** finestra (nascosto in finestra, usato da Mission
+    /// Control/Cmd+Tab): ognuna nomina il workspace che mostra. La strip visibile (ContextTitleBar)
+    /// legge la stessa logica via Observation.
     private func observeWindowTitle() {
         withObservationTracking {
-            let workspace = store.selectedWorkspace
-            window.title = WindowTitle.compose(workspace: workspace, tab: workspace?.selectedTab)
+            for (windowID, controller) in windowControllers {
+                let workspace = store.selectedWorkspace(in: windowID)
+                controller.window.title = WindowTitle.compose(
+                    workspace: workspace, tab: workspace?.selectedTab
+                )
+            }
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeWindowTitle() }
         }
@@ -226,7 +233,10 @@ final class AppController: NSObject, NSApplicationDelegate {
     func applyWindowChrome(_ theme: RelayTheme) {
         let appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         let background = NSColor(relay: theme.background)
-        for target in [window, settingsWindow, aboutWindow].compactMap(\.self) {
+        for controller in windowControllers.values {
+            controller.applyChrome(theme)
+        }
+        for target in [settingsWindow, aboutWindow].compactMap(\.self) {
             target.appearance = appearance
             target.titlebarAppearsTransparent = true
             target.backgroundColor = background
@@ -242,11 +252,16 @@ final class AppController: NSObject, NSApplicationDelegate {
     /// terminale. La decadenza dei sospesi (se attiva) si applica qui: momento naturale di
     /// rientro, senza bisogno di timer.
     func applicationDidBecomeActive(_: Notification) {
-        splitVC?.flashAttentionRing()
+        // Il flash richiama l'occhio sui completamenti in vista di **ogni** finestra, non solo la
+        // key.
+        for controller in windowControllers.values {
+            controller.splitVC.flashAttentionRing()
+        }
         applyPendingDecayIfEnabled()
     }
 
     func applicationWillTerminate(_: Notification) {
+        isTerminating = true
         // Stop del receiver PRIMA del flush: i SessionEnd delle sessioni morenti (chiusura con la
         // X: le surface muoiono prima del terminate) sono di questa run e passerebbero il fence,
         // azzerando i resume binding proprio nello snapshot finale.

@@ -11,7 +11,7 @@ extension AppController {
     /// arricchisce solo il messaggio. Chiudere l'ultima tab chiude il workspace (cascade nello
     /// store): quel caso è già coperto dalla conferma della tab, niente doppio prompt.
     func requestCloseTab(_ tab: WorkspaceModel.Tab, in workspace: Workspace) {
-        guard let process = splitVC.foregroundProcess(for: tab.id) else {
+        guard let process = splitVC?.foregroundProcess(for: tab.id) else {
             performCloseTab(tab, in: workspace)
             return
         }
@@ -26,7 +26,7 @@ extension AppController {
     /// Chiude un workspace, chiedendo conferma se una qualsiasi delle sue tab ha un comando in
     /// foreground.
     func requestCloseWorkspace(_ workspace: Workspace) {
-        let busy = workspace.tabs.filter { splitVC.foregroundProcess(for: $0.id) != nil }
+        let busy = workspace.tabs.filter { splitVC?.foregroundProcess(for: $0.id) != nil }
         guard !busy.isEmpty else {
             performCloseWorkspace(workspace)
             return

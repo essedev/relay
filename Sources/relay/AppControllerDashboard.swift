@@ -9,7 +9,7 @@ import WorkspaceModel
 /// apri/chiudi dell'overlay, il jump verso una sessione e l'applicazione della decadenza.
 extension AppController {
     var isDashboardOpen: Bool {
-        overlayPresenter.isPresenting(.dashboard)
+        overlayPresenter?.isPresenting(.dashboard) ?? false
     }
 
     func toggleDashboard() {
@@ -18,7 +18,7 @@ extension AppController {
 
     private func openDashboard() {
         applyPendingDecayIfEnabled() // le card nascono già decadute, se la preferenza è attiva
-        overlayPresenter.present(.dashboard) {
+        overlayPresenter?.present(.dashboard) {
             fullOverlayHost(DashboardView(
                 store: self.store,
                 settings: self.settings,
@@ -33,7 +33,7 @@ extension AppController {
     }
 
     func closeDashboard() {
-        overlayPresenter.dismiss(.dashboard)
+        overlayPresenter?.dismiss(.dashboard)
     }
 
     /// Decadenza opzionale dei sospesi (`pendingDecayHours` > 0): spegne i pending più vecchi

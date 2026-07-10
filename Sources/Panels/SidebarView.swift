@@ -12,6 +12,9 @@ import WorkspaceModel
 public struct SidebarView: View {
     let store: WorkspaceStore
     let settings: AppSettings
+    /// La finestra che ospita la sidebar: elenca solo **i suoi** workspace (le finestre li
+    /// partizionano), e la riga selezionata è quella che questa finestra mostra.
+    let windowID: UUID
     let onNewWorkspace: () -> Void
     let onCloseWorkspace: (Workspace) -> Void
     /// Config della pill di aggiornamento (sopra la sezione Archive). `nil` = niente pill (bundle
@@ -33,12 +36,14 @@ public struct SidebarView: View {
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
+        windowID: UUID,
         onNewWorkspace: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
         updateConfig: SidebarUpdateConfig? = nil
     ) {
         self.store = store
         self.settings = settings
+        self.windowID = windowID
         self.onNewWorkspace = onNewWorkspace
         self.onCloseWorkspace = onCloseWorkspace
         self.updateConfig = updateConfig
@@ -98,7 +103,7 @@ public struct SidebarView: View {
         // Ordine di visualizzazione (pinned in testa, poi il resto in ordine canonico). Durante un
         // drag vale lo snapshot congelato, così un evento agente (che può bumpare un workspace in
         // cima) non riordina le righe sotto il puntatore.
-        let ordered = frozenOrder ?? store.orderedWorkspaces
+        let ordered = frozenOrder ?? store.orderedWorkspaces(in: windowID)
         let space = "sidebar-reorder"
         return ScrollView {
             LazyVStack(spacing: 1) {
@@ -129,7 +134,7 @@ public struct SidebarView: View {
             .padding(.vertical, Theme.Spacing.xxs)
             .animation(.easeInOut(duration: 0.2), value: ordered.map(\.id))
             .onChange(of: drag.id) { _, id in
-                frozenOrder = id == nil ? nil : store.orderedWorkspaces
+                frozenOrder = id == nil ? nil : store.orderedWorkspaces(in: windowID)
             }
         }
         .scrollContentBackground(.hidden)
@@ -141,7 +146,7 @@ public struct SidebarView: View {
     private func makeRow(_ workspace: Workspace, colors: ChromeColors) -> WorkspaceRow {
         WorkspaceRow(
             workspace: workspace,
-            selected: workspace.id == store.selectedWorkspaceID,
+            selected: workspace.id == store.selectedWorkspace(in: windowID)?.id,
             colors: colors,
             onSelect: { store.selectWorkspace(workspace.id) },
             onTogglePin: { store.togglePin(workspace.id) },
@@ -161,7 +166,7 @@ public struct SidebarView: View {
     /// workspace archiviati in uno ScrollView che si adatta al contenuto fino a `maxListHeight`
     /// (~metà sidebar), poi scrolla dentro. A vuoto mostra un empty state se aperta.
     private func archiveSection(_ colors: ChromeColors, maxListHeight: CGFloat) -> some View {
-        let archived = store.archivedWorkspaces
+        let archived = store.archivedWorkspaces(in: windowID)
         return VStack(spacing: 0) {
             Divider()
             archiveHeader(

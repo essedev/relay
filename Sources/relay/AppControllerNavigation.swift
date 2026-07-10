@@ -68,8 +68,10 @@ extension AppController {
             // solo la ripresa vera (prompt -> running, via reducer), il dismiss o la chiusura:
             // "l'ho visto" non è "me ne sono occupato".
             // Con lo split si marca la tab del **pane colpito**, che può non essere la focused: un
-            // click in un pane accanto dice che hai visto quella conversazione, non l'altra.
-            if let tabID = splitVC?.owningTab(of: event) {
+            // click in un pane accanto dice che hai visto quella conversazione, non l'altra. E con
+            // più finestre l'evento va chiesto a **quella da cui arriva**, non alla key: un click
+            // in una finestra di sfondo la rende key solo dopo, e la key di adesso non lo possiede.
+            if let tabID = windowController(for: event)?.splitVC.owningTab(of: event) {
                 store.markSeen(tabID)
             }
             return event
@@ -95,6 +97,13 @@ extension AppController {
         DispatchQueue.main.asyncAfter(
             deadline: .now() + Self.completionFlashDuration, execute: work
         )
+    }
+
+    /// La finestra da cui arriva l'evento. Il monitor è uno per app, ma con più finestre l'evento
+    /// appartiene a quella sotto il puntatore o col focus di tastiera, che non è per forza la key.
+    func windowController(for event: NSEvent) -> RelayWindowController? {
+        guard let window = event.window else { return nil }
+        return windowControllers.values.first { $0.window === window }
     }
 
     /// L'azione rimappata sulla combinazione dell'evento, se qualcuna la usa.

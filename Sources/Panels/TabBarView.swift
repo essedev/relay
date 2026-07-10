@@ -7,6 +7,8 @@ import WorkspaceModel
 public struct TabBarView: View {
     let store: WorkspaceStore
     let settings: AppSettings
+    /// La finestra che ospita la tab bar: mostra le tab del workspace **di questa finestra**.
+    let windowID: UUID
     let onNewTab: () -> Void
     let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
     /// Sposta la tab in un nuovo workspace (menu contestuale). Risale all'app perché il nuovo
@@ -23,12 +25,14 @@ public struct TabBarView: View {
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
+        windowID: UUID,
         onNewTab: @escaping () -> Void,
         onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
         onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
     ) {
         self.store = store
         self.settings = settings
+        self.windowID = windowID
         self.onNewTab = onNewTab
         self.onCloseTab = onCloseTab
         self.onMoveTabToNewWorkspace = onMoveTabToNewWorkspace
@@ -37,7 +41,7 @@ public struct TabBarView: View {
     public var body: some View {
         let colors = ChromeColors(settings.theme)
         return Group {
-            if let workspace = store.selectedWorkspace {
+            if let workspace = store.selectedWorkspace(in: windowID) {
                 content(for: workspace, colors: colors)
             } else {
                 Color.clear

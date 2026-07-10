@@ -7,15 +7,19 @@ import WorkspaceModel
 public struct ContextTitleBar: View {
     let store: WorkspaceStore
     let settings: AppSettings
+    /// La finestra che ospita la strip: mostra il titolo del workspace **che questa finestra
+    /// mostra**, non di quello globale (due finestre hanno due titoli).
+    let windowID: UUID
 
-    public init(store: WorkspaceStore, settings: AppSettings) {
+    public init(store: WorkspaceStore, settings: AppSettings, windowID: UUID) {
         self.store = store
         self.settings = settings
+        self.windowID = windowID
     }
 
     public var body: some View {
         let colors = ChromeColors(settings.theme)
-        let workspace = store.selectedWorkspace
+        let workspace = store.selectedWorkspace(in: windowID)
         return Text(WindowTitle.compose(workspace: workspace, tab: workspace?.selectedTab))
             .font(Theme.Typography.windowTitle)
             .foregroundStyle(colors.secondary)

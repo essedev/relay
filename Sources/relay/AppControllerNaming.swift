@@ -15,7 +15,7 @@ extension AppController {
             settings: settings,
             credentials: namingCredentials,
             foregroundCommandLine: { [weak self] tabID in
-                self?.splitVC.foregroundCommandLine(for: tabID)
+                self?.splitVC?.foregroundCommandLine(for: tabID) ?? nil
             }
         )
         controller.start()

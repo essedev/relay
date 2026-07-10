@@ -74,14 +74,16 @@ private final class FakeEngine: TerminalEngine {
 @MainActor
 private func makeArea(
     store: WorkspaceStore,
-    liveDirectory: String?,
-    windowID: UUID = RelayWindow.mainID
+    liveDirectory: String? = nil,
+    windowID: UUID = RelayWindow.mainID,
+    registry: SurfaceRegistry? = nil
 ) -> WorkspaceAreaController {
     let area = WorkspaceAreaController(
         store: store,
         engine: FakeEngine(liveDirectory: liveDirectory),
         settings: AppSettings(),
-        windowID: windowID
+        windowID: windowID,
+        registry: registry
     )
     area.loadViewIfNeeded()
     return area
@@ -194,4 +196,24 @@ private func makeArea(
 
     #expect(store.keyWindowID == window.id)
     #expect(area.mountedTabIDs == Set(main.tabs.map(\.id))) // mostra il suo, non quello della key
+}
+
+@MainActor
+@Test func twoWindowsShareOneSurfacePerTab() throws {
+    // La registry è condivisa: una tab ha una surface sola, ovunque sia montata. Se ogni finestra
+    // avesse la sua, spostare un workspace di finestra ricreerebbe i pty e ucciderebbe le sessioni.
+    let store = WorkspaceStore()
+    let main = store.createWorkspace(name: "main")
+    let moved = store.createWorkspace(name: "moved")
+    let registry = SurfaceRegistry(engine: FakeEngine(liveDirectory: nil))
+    let window = try #require(store.moveWorkspaceToNewWindow(moved.id))
+
+    let mainArea = makeArea(store: store, windowID: RelayWindow.mainID, registry: registry)
+    let otherArea = makeArea(store: store, windowID: window.id, registry: registry)
+
+    #expect(mainArea.mountedTabIDs == Set(main.tabs.map(\.id)))
+    #expect(otherArea.mountedTabIDs == Set(moved.tabs.map(\.id)))
+    // Due aree, due tab, due surface: nessuna duplicazione, nessuna surface per finestra.
+    #expect(registry.liveSurfaceCount == 2)
+    #expect(mainArea.liveSurfaceCount == otherArea.liveSurfaceCount)
 }

@@ -13,6 +13,10 @@ final class RightPaneController: NSViewController {
     private let store: WorkspaceStore
     private let settings: AppSettings
     private let engine: TerminalEngine
+    /// La finestra che ospita il pane: tab bar, titolo e terminali seguono la selezione **di questa
+    /// finestra**, non quella globale.
+    private let windowID: UUID
+    private let registry: SurfaceRegistry
     private let onNewTab: () -> Void
     private let onCloseTab: (WorkspaceModel.Tab, Workspace) -> Void
     private let onMoveTabToNewWorkspace: (WorkspaceModel.Tab, Workspace) -> Void
@@ -26,13 +30,17 @@ final class RightPaneController: NSViewController {
     private lazy var area = WorkspaceAreaController(
         store: store,
         engine: engine,
-        settings: settings
+        settings: settings,
+        windowID: windowID,
+        registry: registry // condivisa fra le finestre: una tab ha una surface sola
     )
 
     init(
         store: WorkspaceStore,
         settings: AppSettings,
         engine: TerminalEngine,
+        windowID: UUID,
+        registry: SurfaceRegistry,
         onNewTab: @escaping () -> Void,
         onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
         onMoveTabToNewWorkspace: @escaping (WorkspaceModel.Tab, Workspace) -> Void
@@ -40,6 +48,8 @@ final class RightPaneController: NSViewController {
         self.store = store
         self.settings = settings
         self.engine = engine
+        self.windowID = windowID
+        self.registry = registry
         self.onNewTab = onNewTab
         self.onCloseTab = onCloseTab
         self.onMoveTabToNewWorkspace = onMoveTabToNewWorkspace
@@ -158,14 +168,14 @@ final class RightPaneController: NSViewController {
         // Il drag di un divider torna nello store, che persiste il rapporto: l'area mostra il
         // layout, non lo muta. Il reconcile non ricostruisce nulla (la struttura non è cambiata).
         area.onRatioChange = { [weak self] branchID, ratio in
-            guard let self, let workspace = store.selectedWorkspace else { return }
+            guard let self, let workspace = store.selectedWorkspace(in: windowID) else { return }
             store.setSplitRatio(ratio, forBranch: branchID, in: workspace)
         }
 
         // Strip del titolo in cima al right pane: stessa riga verticale dei semafori (full-size
         // content view), centrata sul body e non sull'intera finestra.
         let titleBar = NSHostingView(
-            rootView: ContextTitleBar(store: store, settings: settings)
+            rootView: ContextTitleBar(store: store, settings: settings, windowID: windowID)
         )
         titleBar.translatesAutoresizingMaskIntoConstraints = false
         // Il layout della chrome è esplicito (constraint dal top della finestra): senza questo,
@@ -176,6 +186,7 @@ final class RightPaneController: NSViewController {
             rootView: TabBarView(
                 store: store,
                 settings: settings,
+                windowID: windowID,
                 onNewTab: onNewTab,
                 onCloseTab: onCloseTab,
                 onMoveTabToNewWorkspace: onMoveTabToNewWorkspace
@@ -224,7 +235,7 @@ final class RightPaneController: NSViewController {
     }
 
     private func renderResumeBar() {
-        guard let tab = store.selectedWorkspace?.selectedTab,
+        guard let tab = store.selectedWorkspace(in: windowID)?.selectedTab,
               tab.pendingResume, let binding = tab.resume
         else {
             removeResumeBar()
