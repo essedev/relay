@@ -82,6 +82,7 @@ public final class WorkspaceStore {
                     pinned: workspace.pinned,
                     archived: workspace.archived,
                     selectedTabID: workspace.selectedTabID,
+                    splitLayout: workspace.splitLayout,
                     tabs: workspace.tabs.map { tab in
                         TabSnapshot(
                             id: tab.id,
@@ -129,7 +130,10 @@ public final class WorkspaceStore {
             let selectedTabID = tabs.contains { $0.id == workspace.selectedTabID }
                 ? workspace.selectedTabID
                 : nil
-            return Workspace(
+            // Stesso trattamento per il layout: un pane che punta a una tab sparita non è
+            // renderizzabile, quindi le foglie orfane (e le duplicate) cadono e il ramo collassa.
+            let layout = workspace.splitLayout?.sanitized(keeping: Set(tabs.map(\.id)))
+            let restored = Workspace(
                 id: workspace.id,
                 name: workspace.name,
                 nameOrigin: workspace.nameOrigin,
@@ -137,8 +141,13 @@ public final class WorkspaceStore {
                 pinned: workspace.pinned,
                 archived: workspace.archived,
                 tabs: tabs,
-                selectedTabID: selectedTabID
+                selectedTabID: selectedTabID,
+                splitLayout: layout
             )
+            // Riporta il layout alla forma canonica (una foglia sola = pane singolo) e riaggancia
+            // la focused a un pane montato, se la selezione salvata è caduta fuori dall'albero.
+            restored.normalizeLayout()
+            return restored
         }
         // La selezione deve puntare a un workspace VISIBILE (non archiviato): setArchived la sposta
         // via dagli archiviati, ma un file editato a mano potrebbe averla lasciata su uno. Ricade
@@ -275,9 +284,12 @@ public final class WorkspaceStore {
         return workspace.appendTab(Tab(title: title, currentDirectory: inherited), select: true)
     }
 
+    /// Seleziona una tab: **monta o metti a fuoco** (vedi `Workspace.mount`). Con uno split aperto,
+    /// una tab già in un pane riceve solo il focus; una non montata prende il posto di quella nel
+    /// pane focused. Tutta la navigazione passa di qui, quindi la eredita gratis.
     public func selectTab(_ tabID: UUID, in workspace: Workspace) {
         guard workspace.tabs.contains(where: { $0.id == tabID }) else { return }
-        workspace.selectedTabID = tabID
+        workspace.mount(tabID)
     }
 
     /// Chiude una tab. Ritorna l'id rimosso (per il teardown della surface).

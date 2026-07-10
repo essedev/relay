@@ -37,6 +37,10 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     public var archived: Bool
     public var selectedTabID: UUID?
     public var tabs: [TabSnapshot]
+    /// Disposizione dei pane (`nil` = pane singolo). Campo additivo (assente nei layout salvati
+    /// prima dello split -> `nil`), quindi non richiede un bump di versione. Al restore viene
+    /// sanitizzato contro le tab davvero ricostruite: un pane senza tab non è renderizzabile.
+    public var splitLayout: SplitNode?
 
     public init(
         id: UUID,
@@ -46,6 +50,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         pinned: Bool,
         archived: Bool = false,
         selectedTabID: UUID?,
+        splitLayout: SplitNode? = nil,
         tabs: [TabSnapshot]
     ) {
         self.id = id
@@ -56,6 +61,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         self.archived = archived
         self.selectedTabID = selectedTabID
         self.tabs = tabs
+        self.splitLayout = splitLayout
     }
 
     /// Decode tollerante: `archived` e `nameOrigin` sono additivi, assenti nei layout salvati prima
@@ -75,6 +81,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false
         selectedTabID = try c.decodeIfPresent(UUID.self, forKey: .selectedTabID)
         tabs = try c.decode([TabSnapshot].self, forKey: .tabs)
+        splitLayout = try c.decodeIfPresent(SplitNode.self, forKey: .splitLayout)
     }
 }
 

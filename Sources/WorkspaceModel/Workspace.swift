@@ -18,7 +18,13 @@ public final class Workspace: Identifiable {
     /// per attenzione (gli archiviati non galleggiano).
     public var archived: Bool
     public private(set) var tabs: [Tab]
+    /// La tab **focused**: quella che riceve tastiera e comandi. Con uno split è una delle montate;
+    /// senza, è semplicemente l'unica mostrata.
     public var selectedTabID: UUID?
+    /// Disposizione dei pane. `nil` = pane singolo (solo `selectedTab` a schermo), la forma
+    /// canonica: un albero ridotto a una foglia viene sempre normalizzato a `nil`, così lo stesso
+    /// stato non ha due rappresentazioni. Le foglie sono `Tab.id` di questo workspace.
+    public var splitLayout: SplitNode?
 
     public init(
         id: UUID = UUID(),
@@ -28,7 +34,8 @@ public final class Workspace: Identifiable {
         pinned: Bool = false,
         archived: Bool = false,
         tabs: [Tab] = [],
-        selectedTabID: UUID? = nil
+        selectedTabID: UUID? = nil,
+        splitLayout: SplitNode? = nil
     ) {
         self.id = id
         self.name = name
@@ -38,10 +45,38 @@ public final class Workspace: Identifiable {
         self.archived = archived
         self.tabs = tabs
         self.selectedTabID = selectedTabID ?? tabs.first?.id
+        self.splitLayout = splitLayout
     }
 
     public var selectedTab: Tab? {
         tabs.first { $0.id == selectedTabID }
+    }
+
+    /// Le tab **a schermo** in questo workspace, in ordine visivo dei pane. Senza split è solo la
+    /// focused. È il rimpiazzo di "la tab selezionata" ovunque conti l'essere *visibile* (ring,
+    /// mark-read, protezione dalla LRU, soppressione di notifica e bump), distinto dall'essere
+    /// *focused* (input da tastiera, `Cmd+K`, find).
+    public var mountedTabIDs: [UUID] {
+        if let splitLayout { return splitLayout.leaves }
+        return selectedTabID.map { [$0] } ?? []
+    }
+
+    /// La tab è montata in un pane di questo workspace.
+    public func isMounted(_ tabID: UUID) -> Bool {
+        splitLayout?.contains(tabID) ?? (selectedTabID == tabID)
+    }
+
+    /// Riduce il layout alla forma canonica: un albero con una foglia sola è un pane singolo
+    /// (`nil`), e la foglia rimasta diventa la focused. Da chiamare dopo ogni mutazione del layout.
+    func normalizeLayout() {
+        guard let layout = splitLayout else { return }
+        if let single = layout.collapsedToSingleLeaf {
+            splitLayout = nil
+            selectedTabID = single
+        } else if selectedTabID.map({ !layout.contains($0) }) ?? true {
+            // La focused deve sempre essere un pane montato: se è caduta, prendi la prima foglia.
+            selectedTabID = layout.leaves.first
+        }
     }
 
     /// Il workspace ha almeno una tab che richiede attenzione: aspetta input (`needs_input`) o ha
@@ -58,19 +93,57 @@ public final class Workspace: Identifiable {
     @discardableResult
     func appendTab(_ tab: Tab, select: Bool) -> Tab {
         tabs.append(tab)
-        if select || selectedTabID == nil { selectedTabID = tab.id }
+        if select || selectedTabID == nil { mount(tab.id) }
         return tab
     }
 
+    /// **Monta o metti a fuoco**: se la tab è già in un pane le dà solo il focus, altrimenti prende
+    /// il posto di quella nel pane focused. È la semantica di ogni "seleziona questa tab" (tab bar,
+    /// `Cmd+T`, notifica, dashboard): con uno split aperto, scegliere una tab non deve mai
+    /// smontare il layout né mostrare una tab fuori dai pane.
+    func mount(_ tabID: UUID) {
+        if let layout = splitLayout, let focused = selectedTabID, !layout.contains(tabID) {
+            splitLayout = layout.replacing(focused, with: tabID)
+        }
+        selectedTabID = tabID
+        normalizeLayout()
+    }
+
+    /// Divide il pane focused e ci mette accanto (o sotto) `newTabID`, che prende il focus.
+    func split(axis: SplitAxis, with newTabID: UUID) {
+        guard let focused = selectedTabID else { return }
+        let base = splitLayout ?? .leaf(focused) // senza split, il pane singolo è la focused
+        splitLayout = base.splitting(focused, axis: axis, with: newTabID)
+        selectedTabID = newTabID
+        normalizeLayout()
+    }
+
+    /// Smonta il pane: la tab **resta viva** nella tab bar (e la sua sessione col lei), sparisce
+    /// solo dallo schermo. No-op senza split: l'ultimo pane non si chiude, si chiude la tab.
+    func unmount(_ tabID: UUID) {
+        guard let layout = splitLayout, layout.contains(tabID) else { return }
+        let next = layout.adjacentLeaf(to: tabID, forward: true)
+        splitLayout = layout.removing(tabID)
+        if selectedTabID == tabID { selectedTabID = next }
+        normalizeLayout()
+    }
+
     /// Rimuove la tab e seleziona un vicino. Ritorna l'id rimosso (per il teardown della surface).
+    /// La tab esce anche dal layout: il suo pane collassa nel fratello, e se era la focused il
+    /// focus passa al pane successivo (non a una tab qualunque della tab bar).
     @discardableResult
     func removeTab(_ tabID: UUID) -> UUID? {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return nil }
+        let nextPane = selectedTabID == tabID
+            ? splitLayout?.adjacentLeaf(to: tabID, forward: true)
+            : nil
         tabs.remove(at: index)
+        splitLayout = splitLayout?.removing(tabID)
         if selectedTabID == tabID {
             let neighbor = tabs[safe: index] ?? tabs[safe: index - 1] ?? tabs.last
-            selectedTabID = neighbor?.id
+            selectedTabID = nextPane ?? neighbor?.id
         }
+        normalizeLayout()
         return tabID
     }
 
