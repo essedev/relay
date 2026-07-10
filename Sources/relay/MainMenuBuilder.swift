@@ -11,6 +11,7 @@ enum MainMenuBuilder {
         let mainMenu = NSMenu()
         mainMenu.addItem(appMenu(target))
         mainMenu.addItem(fileMenu(target, settings))
+        mainMenu.addItem(paneMenu(target, settings))
         mainMenu.addItem(goMenu(target, settings))
         mainMenu.addItem(viewMenu(target, settings))
         mainMenu.addItem(editMenu(target, settings))
@@ -87,6 +88,22 @@ enum MainMenuBuilder {
             .separator(),
             actionItem(.closeTab, settings, target),
             actionItem(.closeWorkspace, settings, target),
+        ])
+    }
+
+    /// Pane: dividere l'area, muovere il focus fra i pane, smontarne uno. Voci di solo testo, come
+    /// il resto dei menu: la combo sta nel titolo (`actionItem`), non come `keyEquivalent`, perché
+    /// tutte le azioni rimappabili passano dallo stesso local monitor.
+    private static func paneMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
+        submenu("Pane", [
+            actionItem(.splitRight, settings, target),
+            actionItem(.splitDown, settings, target),
+            .separator(),
+            actionItem(.focusNextPane, settings, target),
+            actionItem(.focusPrevPane, settings, target),
+            .separator(),
+            // Smonta il pane ma lascia viva la tab e la sua sessione: `Close tab` invece la uccide.
+            actionItem(.closePane, settings, target),
         ])
     }
 

@@ -117,6 +117,9 @@ final class AppController: NSObject, NSApplicationDelegate {
                 onRunUpdate: { [weak self] in self?.runUpdateInTab() }
             ),
             onNewWorkspace: { [weak self] in self?.newWorkspace(nil) },
+            onMoveWorkspaceToNewWindow: { [weak self] workspace in
+                self?.moveWorkspaceToNewWindow(workspace)
+            },
             onNewTab: { [weak self] in self?.newTab(nil) },
             onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
             onCloseTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) },

@@ -221,3 +221,27 @@ import Testing
 
     #expect(decoded.splitLayout == nil)
 }
+
+@Test func openInSplitMountsAnExistingTabBesideTheFocusedOne() {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay")
+    let first = ws.tabs[0]
+    let second = store.addTab(to: ws) // focused, pane singolo
+    store.selectTab(first.id, in: ws) // torna sulla prima
+
+    #expect(store.openInSplit(second.id, axis: .horizontal))
+
+    #expect(ws.mountedTabIDs == [first.id, second.id])
+    #expect(ws.tabs.count == 2) // nessuna tab nuova: ha montato quella che c'era
+    #expect(ws.selectedTabID == second.id)
+}
+
+@Test func openInSplitRefusesAnAlreadyMountedTab() throws {
+    let store = WorkspaceStore()
+    let ws = store.createWorkspace(name: "relay")
+    let second = try #require(store.splitFocusedPane(axis: .horizontal))
+
+    // Montarla di nuovo la duplicherebbe: una tab ha una surface e una view sole.
+    #expect(!store.openInSplit(second.id, axis: .vertical))
+    #expect(ws.mountedTabIDs.count == 2)
+}

@@ -19,6 +19,19 @@ public extension WorkspaceStore {
         return tab
     }
 
+    /// Apre una tab **già esistente** in un pane accanto (o sotto) a quello focused, senza crearne
+    /// una nuova: il "Open in Split" del menu contestuale della tab bar. Ci si sposta con la sua
+    /// sessione viva, perché il layout non tocca l'identità della Tab.
+    /// No-op se la tab non è in questo workspace o è già montata (sarebbe un duplicato).
+    @discardableResult
+    func openInSplit(_ tabID: UUID, axis: SplitAxis) -> Bool {
+        guard let workspace = selectedWorkspace,
+              workspace.tabs.contains(where: { $0.id == tabID }),
+              !workspace.isMounted(tabID) else { return false }
+        workspace.split(axis: axis, with: tabID)
+        return true
+    }
+
     /// Chiude il **pane** focused: la tab resta viva nella tab bar (sessione agente compresa),
     /// sparisce solo dallo schermo, e il fratello prende il suo spazio. Distinto da `closeTab`, che
     /// uccide la sessione. No-op senza split (l'unico pane non si smonta). Ritorna `true` se ha

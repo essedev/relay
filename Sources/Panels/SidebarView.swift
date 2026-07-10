@@ -17,6 +17,8 @@ public struct SidebarView: View {
     let windowID: UUID
     let onNewWorkspace: () -> Void
     let onCloseWorkspace: (Workspace) -> Void
+    /// Sposta un workspace in una finestra nuova: la `NSWindow` la crea il composition root.
+    let onMoveWorkspaceToNewWindow: (Workspace) -> Void
     /// Config della pill di aggiornamento (sopra la sezione Archive). `nil` = niente pill (bundle
     /// assente / test): la sidebar non dipende dalla rete né dal composition root.
     let updateConfig: SidebarUpdateConfig?
@@ -39,6 +41,7 @@ public struct SidebarView: View {
         windowID: UUID,
         onNewWorkspace: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
+        onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
         updateConfig: SidebarUpdateConfig? = nil
     ) {
         self.store = store
@@ -46,6 +49,7 @@ public struct SidebarView: View {
         self.windowID = windowID
         self.onNewWorkspace = onNewWorkspace
         self.onCloseWorkspace = onCloseWorkspace
+        self.onMoveWorkspaceToNewWindow = onMoveWorkspaceToNewWindow
         self.updateConfig = updateConfig
     }
 
@@ -157,6 +161,10 @@ public struct SidebarView: View {
             onRegenerateName: { store.markNameRegenerable(workspace.id) },
             onToggleUnread: { toggleUnread(workspace) },
             onToggleArchive: { store.toggleArchive(workspace.id) },
+            // Solo se la finestra ha altro da mostrare dopo: altrimenti resterebbe vuota.
+            onMoveToNewWindow: store.workspaces(in: windowID).count > 1
+                ? { onMoveWorkspaceToNewWindow(workspace) }
+                : nil,
             onClose: { onCloseWorkspace(workspace) }
         )
     }

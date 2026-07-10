@@ -59,7 +59,11 @@ public struct TabBarView: View {
                 ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
                     TabItemView(
                         tab: tab,
-                        selected: tab.id == workspace.selectedTabID,
+                        // Focused = riceve la tastiera; montata = è a schermo in un pane. Con uno
+                        // split più tab sono a schermo insieme, e la barra deve dirlo.
+                        focused: tab.id == workspace.selectedTabID,
+                        mounted: workspace.isMounted(tab.id),
+                        isSplit: workspace.splitLayout != nil,
                         // Spostare l'unica tab svuoterebbe il workspace: la voce compare solo con
                         // almeno due tab (coerente col no-op dello store).
                         canMoveToNewWorkspace: tabs.count > 1,
@@ -67,6 +71,8 @@ public struct TabBarView: View {
                         onSelect: { store.selectTab(tab.id, in: workspace) },
                         onRename: { store.renameTab(tab.id, in: workspace, to: $0) },
                         onToggleUnread: { store.toggleUnread(tab.id) },
+                        onOpenInSplit: { store.openInSplit(tab.id, axis: $0) },
+                        onClosePane: { store.closeFocusedPane() },
                         onMoveToNewWorkspace: { onMoveTabToNewWorkspace(tab, workspace) },
                         onClose: { onCloseTab(tab, workspace) }
                     )
@@ -116,12 +122,18 @@ public struct TabBarView: View {
 /// il rename dal menu contestuale scambia il titolo con un `TextField` inline.
 private struct TabItemView: View {
     let tab: WorkspaceModel.Tab
-    let selected: Bool
+    /// Riceve la tastiera. Con uno split è una delle montate.
+    let focused: Bool
+    /// È a schermo in un pane (con uno split più tab lo sono insieme).
+    let mounted: Bool
+    let isSplit: Bool
     let canMoveToNewWorkspace: Bool
     let colors: ChromeColors
     let onSelect: () -> Void
     let onRename: (String) -> Void
     let onToggleUnread: () -> Void
+    let onOpenInSplit: (SplitAxis) -> Void
+    let onClosePane: () -> Void
     let onMoveToNewWorkspace: () -> Void
     let onClose: () -> Void
 
@@ -155,17 +167,28 @@ private struct TabItemView: View {
                     .frame(maxWidth: Theme.Metrics.maxTabWidth, alignment: .leading)
             }
             CloseButton(color: colors.secondary, size: 8, help: "Close tab", action: onClose)
-                .opacity(hovered || selected ? 1 : 0)
+                .opacity(hovered || focused ? 1 : 0)
         }
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, Theme.Spacing.xs)
-        .background(selected ? colors.selection : Color.clear)
+        // Niente icone: lo stato è il riempimento. La focused è piena, una montata non focused è
+        // tenue, le altre trasparenti. (Un pallino qui confliggerebbe col badge di stato agente.)
+        .background(backgroundFill)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.sm))
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover { hovered = $0 }
         .contextMenu {
             Button("Rename", action: beginRename)
+            if !mounted {
+                // Porta una tab esistente in un pane accanto, con la sua sessione viva. Nascosta se
+                // è già a schermo: sarebbe un duplicato, e lo store lo rifiuterebbe.
+                Button("Open in Split Right") { onOpenInSplit(.horizontal) }
+                Button("Open in Split Down") { onOpenInSplit(.vertical) }
+            } else if isSplit, focused {
+                // Smonta il pane: la tab resta qui, viva, solo non più a schermo.
+                Button("Close Pane", action: onClosePane)
+            }
             // Toggle manuale del marker di attenzione (metafora unread), per-tab. Solo `unseen`
             // (segnale forte, non visto) è "unread": lì offro "Mark as Read". Un `pending` è già
             // visto (quieto), quindi lo si può solo ri-alzare a forte ("Mark as Unread").
@@ -178,6 +201,12 @@ private struct TabItemView: View {
             }
             Button("Close", role: .destructive, action: onClose)
         }
+    }
+
+    /// Riempimento della pill: pieno per la focused, tenue per una montata non focused.
+    private var backgroundFill: Color {
+        if focused { return colors.selection }
+        return mounted ? colors.selection.opacity(0.4) : .clear
     }
 
     private func beginRename() {

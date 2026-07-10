@@ -17,6 +17,11 @@ extension AppController {
         case .closeTab: closeCurrentTab(nil)
         case .cycleTabForward: store.selectAdjacentTab(forward: true)
         case .cycleTabBackward: store.selectAdjacentTab(forward: false)
+        case .splitRight: splitFocusedPane(axis: .horizontal)
+        case .splitDown: splitFocusedPane(axis: .vertical)
+        case .closePane: store.closeFocusedPane()
+        case .focusNextPane: store.focusAdjacentPane(forward: true)
+        case .focusPrevPane: store.focusAdjacentPane(forward: false)
         case .nextAttention: store.focusNextAttention()
         case .prevAttention: store.focusPrevAttention()
         case .toggleDashboard: toggleDashboard()
@@ -40,5 +45,13 @@ extension AppController {
     func closeCurrentWorkspace() {
         guard let workspace = store.selectedWorkspace else { return }
         requestCloseWorkspace(workspace)
+    }
+
+    /// Divide il pane focused e ci apre accanto (o sotto) una nuova tab, **dove stai lavorando**:
+    /// la cwd la risolve l'area dalla shell viva del pane diviso, come fa `Cmd+T`.
+    func splitFocusedPane(axis: SplitAxis) {
+        guard let tab = store.selectedWorkspace?.selectedTab else { return }
+        let cwd = splitVC?.currentDirectory(for: tab.id)
+        store.splitFocusedPane(axis: axis, currentDirectory: cwd)
     }
 }

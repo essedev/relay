@@ -24,6 +24,7 @@ final class MainSplitViewController: NSSplitViewController {
         registry: SurfaceRegistry,
         updateConfig: SidebarUpdateConfig?,
         onNewWorkspace: @escaping () -> Void,
+        onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
         onNewTab: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
         onCloseTab: @escaping (WorkspaceModel.Tab, Workspace) -> Void,
@@ -49,6 +50,7 @@ final class MainSplitViewController: NSSplitViewController {
                 windowID: windowID,
                 onNewWorkspace: onNewWorkspace,
                 onCloseWorkspace: onCloseWorkspace,
+                onMoveWorkspaceToNewWindow: onMoveWorkspaceToNewWindow,
                 updateConfig: updateConfig
             )
         )

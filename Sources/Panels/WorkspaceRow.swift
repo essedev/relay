@@ -14,6 +14,9 @@ struct WorkspaceRow: View {
     let onRegenerateName: () -> Void
     let onToggleUnread: () -> Void
     let onToggleArchive: () -> Void
+    /// Sposta il workspace in una finestra nuova. `nil` = non mostrare la voce (è l'unico della sua
+    /// finestra: la lascerebbe vuota, e lo store lo rifiuterebbe).
+    let onMoveToNewWindow: (() -> Void)?
     let onClose: () -> Void
 
     @State private var hovered = false
@@ -85,6 +88,11 @@ struct WorkspaceRow: View {
             // a mano (metafora unread). Il label riflette lo stato corrente della tab selezionata.
             Button(isUnseen ? "Mark as Read" : "Mark as Unread", action: onToggleUnread)
             Button(workspace.archived ? "Unarchive" : "Archive", action: onToggleArchive)
+            if let onMoveToNewWindow {
+                // Ci va con le sue tab e le sue sessioni vive: le finestre partizionano i
+                // workspace, non li duplicano.
+                Button("Move to New Window", action: onMoveToNewWindow)
+            }
             Button("Close", role: .destructive, action: onClose)
         }
     }

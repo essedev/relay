@@ -130,3 +130,24 @@ import Testing
     settings.resetBinding(for: .newTab)
     #expect(settings.binding(for: .newTab) == ShortcutAction.newTab.defaultCombo)
 }
+
+@Test func defaultCombosAreUnique() {
+    // Due azioni con la stessa combo di default: una non scatterebbe mai (il monitor prende la
+    // prima che trova). Vale la pena scoprirlo qui e non usando l'app.
+    var seen: [KeyCombo: ShortcutAction] = [:]
+    for action in ShortcutAction.allCases {
+        let combo = action.defaultCombo
+        #expect(seen[combo] == nil, "\(action) collide con \(seen[combo]?.rawValue ?? "")")
+        seen[combo] = action
+    }
+}
+
+@Test func paneActionsDefaultToTheirCombos() {
+    #expect(ShortcutAction.splitRight.defaultCombo == KeyCombo(key: "\\", modifiers: [.command]))
+    #expect(
+        ShortcutAction.splitDown.defaultCombo == KeyCombo(key: "\\", modifiers: [.command, .shift])
+    )
+    // `Cmd+W` chiude la tab e uccide la sessione: smontare un pane deve costare un tasto diverso.
+    #expect(ShortcutAction.closePane.defaultCombo != ShortcutAction.closeTab.defaultCombo)
+    #expect(ShortcutAction.splitRight.group == .pane)
+}

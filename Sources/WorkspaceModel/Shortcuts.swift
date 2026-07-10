@@ -96,7 +96,7 @@ public enum ShortcutRejection: Equatable, Sendable {
 
 /// Gruppo di azioni, per raggruppare la lista shortcut nel pannello impostazioni.
 public enum ShortcutGroup: String, CaseIterable, Identifiable, Sendable {
-    case workspace, tab, agent, terminal, view
+    case workspace, tab, pane, agent, terminal, view
 
     public var id: String {
         rawValue
@@ -106,6 +106,7 @@ public enum ShortcutGroup: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .workspace: "Workspace"
         case .tab: "Tab"
+        case .pane: "Pane"
         case .agent: "Agent"
         case .terminal: "Terminal"
         case .view: "View"
@@ -119,6 +120,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
     case newWorkspace, openFolder, closeWorkspace
     case cycleWorkspaceForward, cycleWorkspaceBackward
     case newTab, closeTab, cycleTabForward, cycleTabBackward
+    case splitRight, splitDown, closePane, focusNextPane, focusPrevPane
     case nextAttention, prevAttention, toggleDashboard
     case find, findNext, findPrevious, clear
     case toggleSidebar, zoomIn, zoomOut, actualSize
@@ -138,6 +140,11 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         case .closeTab: "Close tab"
         case .cycleTabForward: "Next tab"
         case .cycleTabBackward: "Previous tab"
+        case .splitRight: "Split right"
+        case .splitDown: "Split down"
+        case .closePane: "Close pane"
+        case .focusNextPane: "Next pane"
+        case .focusPrevPane: "Previous pane"
         case .nextAttention: "Next attention"
         case .prevAttention: "Previous attention"
         case .toggleDashboard: "Agent dashboard"
@@ -159,6 +166,8 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
             .workspace
         case .newTab, .closeTab, .cycleTabForward, .cycleTabBackward:
             .tab
+        case .splitRight, .splitDown, .closePane, .focusNextPane, .focusPrevPane:
+            .pane
         case .nextAttention, .prevAttention, .toggleDashboard:
             .agent
         case .find, .findNext, .findPrevious, .clear:
@@ -179,6 +188,13 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         case .closeTab: KeyCombo(key: "w", modifiers: [.command])
         case .cycleTabForward: KeyCombo(key: "tab", modifiers: [.control])
         case .cycleTabBackward: KeyCombo(key: "tab", modifiers: [.control, .shift])
+        // Le combo di iTerm/tmux: dividere condivide il tasto, l'asse lo sceglie lo Shift.
+        case .splitRight: KeyCombo(key: "\\", modifiers: [.command])
+        case .splitDown: KeyCombo(key: "\\", modifiers: [.command, .shift])
+        // `Cmd+W` chiude la tab (uccide la sessione): smontare un pane è un gesto più leggero.
+        case .closePane: KeyCombo(key: "w", modifiers: [.command, .option])
+        case .focusNextPane: KeyCombo(key: "]", modifiers: [.command])
+        case .focusPrevPane: KeyCombo(key: "[", modifiers: [.command])
         case .nextAttention: KeyCombo(key: "j", modifiers: [.command])
         case .prevAttention: KeyCombo(key: "j", modifiers: [.command, .shift])
         case .toggleDashboard: KeyCombo(key: "d", modifiers: [.command])
