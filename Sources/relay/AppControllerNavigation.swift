@@ -117,11 +117,13 @@ extension AppController {
         return windowControllers.values.first { $0.window === window }
     }
 
-    /// L'azione rimappata sulla combinazione dell'evento, se qualcuna la usa.
+    /// L'azione rimappata sulla combinazione dell'evento, se qualcuna la usa. La risoluzione è
+    /// deterministica e privilegia gli override utente (`AppSettings.action(for:)`): un nuovo
+    /// default shippato non deve rubare una combo scelta dall'utente, né cambiare esito a caso.
     private func shortcutAction(for event: NSEvent) -> ShortcutAction? {
         if event.optionGeneratedText != nil { return nil }
         guard let combo = KeyEventBridge.combo(from: event) else { return nil }
-        return settings.keybindings.first { $0.value == combo }?.key
+        return settings.action(for: combo)
     }
 
     func handleNavigationKey(_ event: NSEvent) -> Bool {

@@ -71,11 +71,11 @@ extension AppController {
     }
 
     /// File > New Window (`⇧⌘N`): una finestra nuova con dentro un workspace fresco. Riusa il
-    /// percorso di "Move to New Window": il workspace nasce nella finestra corrente e migra
-    /// subito, nello stesso giro sincrono (l'osservazione coalizza: nessun flash).
+    /// percorso di "Move to New Window": il workspace nasce nella finestra corrente **senza
+    /// diventarne la selezione** (`select: false`, o la finestra d'origine perderebbe la riga su
+    /// cui stavi lavorando) e migra subito, nello stesso giro sincrono.
     @objc func newWindow(_: Any?) {
-        createUntitledWorkspace()
-        guard let workspace = store.selectedWorkspace else { return }
+        let workspace = createUntitledWorkspace(select: false)
         moveWorkspaceToNewWindow(workspace)
     }
 

@@ -274,6 +274,17 @@ public final class AppSettings {
         keybindings.first { $0.key != excluding && $0.value == combo }?.key
     }
 
+    /// L'azione da eseguire per una combo (il dispatch del monitor). Deterministico anche quando
+    /// due azioni condividono la combo - il recorder previene i conflitti, ma un **nuovo default**
+    /// shippato può franare su un override salvato in una versione precedente (es. `⇧⌘N` diventata
+    /// New Window): lì vince l'**override esplicito dell'utente**, non l'azione rimasta sul
+    /// default, e `allCases` fa da tiebreak stabile (niente ordine di Dictionary, che cambierebbe
+    /// l'azione eseguita da un avvio all'altro).
+    public func action(for combo: KeyCombo) -> ShortcutAction? {
+        let matches = ShortcutAction.allCases.filter { binding(for: $0) == combo }
+        return matches.first { binding(for: $0) != $0.defaultCombo } ?? matches.first
+    }
+
     private func persistKeybindings() {
         // Persisti solo i binding diversi dal default: `loadKeybindings` parte dai default e
         // sovrappone i salvati, quindi le azioni non rimappate continuano a seguire il default

@@ -281,3 +281,21 @@ private func makeArea(
     #expect(!splitView.isVertical) // impilati: divider orizzontale
     #expect(splitView.arrangedSubviews.count == 2)
 }
+
+@MainActor
+@Test func lruProtectsHiddenStripTabsOfOtherWindowsActiveWorkspaces() throws {
+    // Il workspace a schermo in OGNI finestra è attivo: anche le sue tab nascoste nelle strip
+    // sono a un click di distanza e non vanno sfrattate (prima erano protette solo le visibili).
+    let store = WorkspaceStore()
+    store.createWorkspace(name: "main")
+    let moved = store.createWorkspace(name: "moved")
+    let hidden = moved.tabs[0]
+    store.addTab(to: moved) // stessa strip: `hidden` esce dallo schermo, resta nella pill
+    #expect(!moved.isVisible(hidden.id))
+    try #require(store.moveWorkspaceToNewWindow(moved.id) != nil)
+
+    let mainArea = makeArea(store: store, windowID: RelayWindow.mainID)
+    let mainWorkspace = try #require(store.selectedWorkspace(in: RelayWindow.mainID))
+
+    #expect(mainArea.protectedTabIDs(activeWorkspace: mainWorkspace).contains(hidden.id))
+}

@@ -303,10 +303,15 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     /// Workspace senza cartella: parte da home, l'utente ci naviga con `cd`. Internal: usato
-    /// dall'extension di chiusura (ripristino dell'invariante "almeno un workspace").
-    func createUntitledWorkspace() {
+    /// dall'extension di chiusura (invariante "la finestra non resta vuota") e da `newWindow`
+    /// (`select: false`: il workspace migra subito, selezionarlo nella finestra d'origine le
+    /// farebbe perdere la riga su cui stavi lavorando).
+    @discardableResult
+    func createUntitledWorkspace(select: Bool = true) -> Workspace {
         untitledCount += 1
-        store.createWorkspace(name: "Workspace \(untitledCount)", rootPath: NSHomeDirectory())
+        return store.createWorkspace(
+            name: "Workspace \(untitledCount)", rootPath: NSHomeDirectory(), select: select
+        )
     }
 
     /// Sposta una tab in un nuovo workspace placeholder ("Workspace N", eleggibile alla nomina

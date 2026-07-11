@@ -221,7 +221,7 @@ public final class WorkspaceAreaController: NSViewController {
         }
     }
 
-    private func updateRings() {
+    func updateRings() { // internal: render() la richiama dopo ogni rebuild (vedi +PaneTree)
         guard let workspace = store.selectedWorkspace(in: windowID) else { return }
         let theme = settings.theme
         // Col pane singolo non c'è un focus da indicare: il bordo resta spento.

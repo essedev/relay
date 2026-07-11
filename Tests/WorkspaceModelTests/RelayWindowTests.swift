@@ -249,3 +249,22 @@ import Testing
     #expect(restored.workspaces[0].windowID == restored.windows[0].id)
     #expect(restored.selectedWorkspace?.id == ws.id)
 }
+
+@Test func createWorkspaceWithoutSelectKeepsTheOriginSelection() {
+    // Il percorso di New Window: il workspace transitorio nasce nella finestra corrente senza
+    // diventarne la selezione, così dopo la migrazione la finestra d'origine resta sulla riga
+    // su cui stavi lavorando (prima ripiegava sul primo della sidebar).
+    let store = WorkspaceStore()
+    store.createWorkspace(name: "A")
+    let current = store.createWorkspace(name: "B") // selezionato
+    let transient = store.createWorkspace(name: "C", select: false)
+
+    #expect(store.selectedWorkspaceID == current.id) // la selezione non si è mossa
+
+    let window = store.moveWorkspaceToNewWindow(transient.id)
+    #expect(window != nil)
+    #expect(window?.selectedWorkspaceID == transient.id) // la nuova finestra lo mostra
+    // La finestra d'origine è rimasta dov'era.
+    let origin = store.windows.first { $0.id == RelayWindow.mainID }
+    #expect(origin?.selectedWorkspaceID == current.id)
+}

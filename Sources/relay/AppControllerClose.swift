@@ -2,9 +2,9 @@ import AgentProtocol
 import AppKit
 import WorkspaceModel
 
-/// Chiusura di tab e workspace con conferma quando c'è lavoro in corso (Cmd+W e le x dei pannelli).
-/// Estratto dal corpo di `AppController` per tenerlo sul solo wiring: la policy (quando chiedere) e
-/// la presentazione (l'alert) stanno qui.
+/// Chiusura di tab, pane e workspace con conferma quando c'è lavoro in corso (Cmd+W e le x dei
+/// pannelli). Estratto dal corpo di `AppController` per tenerlo sul solo wiring: la policy (quando
+/// chiedere) e la presentazione (l'alert) stanno qui.
 extension AppController {
     /// Chiude una tab, chiedendo conferma se nel suo pty gira un comando in foreground (build,
     /// ssh, Claude...). Shell al prompt o tab mai realizzata -> chiude subito. Lo stato agente
@@ -17,17 +17,20 @@ extension AppController {
         }
         confirmClose(
             title: "Close tab \u{201C}\(tab.title)\u{201D}?",
-            info: closeInfo(process: process, agentState: tab.agentState)
+            info: closeInfo(process: process, agentState: tab.agentState),
+            in: workspace
         ) { [weak self] in
             self?.performCloseTab(tab, in: workspace)
         }
     }
 
     /// Chiude un pane **con le sue tab** (le sessioni muoiono, come chiudere quelle tab una per
-    /// una), chiedendo conferma se qualcuna ha un comando in foreground. No-op sull'ultimo pane
-    /// (lo garantisce lo store). Il `workspace` arriva dal chiamante (strip o shortcut), non dalla
-    /// proiezione della key window.
+    /// una), chiedendo conferma se qualcuna ha un comando in foreground. Il `workspace` arriva dal
+    /// chiamante (strip o shortcut), non dalla proiezione della key window.
+    /// No-op **prima dell'alert** sull'ultimo pane: lo store lo rifiuterebbe comunque, ma
+    /// promettere "will be terminated" e poi non fare niente sarebbe peggio di un no-op.
     func requestClosePane(_ paneID: UUID, in workspace: Workspace) {
+        guard workspace.layout.paneIDs.count > 1 else { return }
         let tabs = workspace.layout.pane(paneID)?.tabIDs ?? []
         let busy = tabs.filter { splitVC?.foregroundProcess(for: $0) != nil }
         guard !busy.isEmpty else {
@@ -37,7 +40,7 @@ extension AppController {
         let info = busy.count == 1
             ? "1 tab in this pane has a running process that will be terminated."
             : "\(busy.count) tabs in this pane have running processes that will be terminated."
-        confirmClose(title: "Close this pane?", info: info) { [weak self] in
+        confirmClose(title: "Close this pane?", info: info, in: workspace) { [weak self] in
             self?.store.closePane(paneID, in: workspace)
         }
     }
@@ -55,27 +58,40 @@ extension AppController {
             : "\(busy.count) tabs have running processes that will be terminated."
         confirmClose(
             title: "Close workspace \u{201C}\(workspace.name)\u{201D}?",
-            info: info
+            info: info,
+            in: workspace
         ) { [weak self] in
             self?.performCloseWorkspace(workspace)
         }
     }
 
-    /// Esegue la chiusura effettiva, poi ripristina l'invariante "almeno un workspace": chiudere
-    /// l'ultima tab (cascade sul workspace) o l'ultimo workspace ne apre subito uno default, così
-    /// la finestra non resta mai vuota.
+    /// Esegue la chiusura effettiva, poi ripristina l'invariante "**la finestra** non resta mai
+    /// vuota" (per-finestra, non globale: con più finestre il controllo globale non scatterebbe e
+    /// una secondaria svuotata resterebbe aperta, key e inerte - ogni comando su
+    /// `selectedWorkspace` diventerebbe un no-op silenzioso).
     private func performCloseTab(_ tab: WorkspaceModel.Tab, in workspace: Workspace) {
+        let windowID = workspace.windowID
         store.closeTab(tab.id, in: workspace)
-        ensureAtLeastOneWorkspace()
+        ensureWindowNotEmpty(windowID)
     }
 
     private func performCloseWorkspace(_ workspace: Workspace) {
+        let windowID = workspace.windowID
         store.closeWorkspace(workspace.id)
-        ensureAtLeastOneWorkspace()
+        ensureWindowNotEmpty(windowID)
     }
 
-    private func ensureAtLeastOneWorkspace() {
-        if store.workspaces.isEmpty { createUntitledWorkspace() }
+    /// La finestra è rimasta senza workspace: se è l'ultima se ne ricrea uno default (una finestra
+    /// non resta mai vuota); se ce ne sono altre, la finestra svuotata **si chiude** - coerente col
+    /// design "una finestra senza workspace non ha niente da mostrare" (`windowDidClose` rimuove
+    /// anche la `RelayWindow` dallo store).
+    private func ensureWindowNotEmpty(_ windowID: UUID) {
+        guard store.workspaces(in: windowID).isEmpty else { return }
+        if store.windows.count > 1 {
+            windowControllers[windowID]?.window.performClose(nil)
+        } else {
+            createUntitledWorkspace()
+        }
     }
 
     /// Messaggio della conferma: privilegia Claude per ogni stato di sessione viva - anche ferma
@@ -98,9 +114,17 @@ extension AppController {
         }
     }
 
-    /// Alert di conferma come sheet sulla finestra. Default sicuro: Invio annulla (non chiude).
-    private func confirmClose(title: String, info: String, onConfirm: @escaping () -> Void) {
-        guard let window else { onConfirm(); return }
+    /// Alert di conferma come sheet **sulla finestra del workspace bersaglio**, non sulla key: il
+    /// menu contestuale di una strip si apre anche su una finestra di sfondo senza attivarla, e
+    /// uno sheet sulla finestra sbagliata farebbe confermare una chiusura che sembra riferirsi ad
+    /// altro. Default sicuro: Invio annulla (non chiude).
+    private func confirmClose(
+        title: String, info: String, in workspace: Workspace, onConfirm: @escaping () -> Void
+    ) {
+        guard let target = windowControllers[workspace.windowID]?.window ?? window else {
+            onConfirm()
+            return
+        }
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = title
@@ -109,7 +133,7 @@ extension AppController {
         let cancelButton = alert.addButton(withTitle: "Cancel")
         closeButton.keyEquivalent = "" // Invio non deve chiudere per errore
         cancelButton.keyEquivalent = "\r"
-        alert.beginSheetModal(for: window) { response in
+        alert.beginSheetModal(for: target) { response in
             if response == .alertFirstButtonReturn { onConfirm() }
         }
     }

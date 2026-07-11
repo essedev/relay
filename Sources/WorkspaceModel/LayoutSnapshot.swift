@@ -131,8 +131,11 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false
         selectedTabID = try c.decodeIfPresent(UUID.self, forKey: .selectedTabID)
         tabs = try c.decode([TabSnapshot].self, forKey: .tabs)
-        splitLayout = try c.decodeIfPresent(SplitNode.self, forKey: .splitLayout)
-        focusedPaneID = try c.decodeIfPresent(UUID.self, forKey: .focusedPaneID)
+        // Tolleranti anche al **valore**, non solo alla chiave: un nodo corrotto (file toccato a
+        // mano) o di un formato futuro degrada a `nil` - pane radice con tutte le tab al restore -
+        // invece di far fallire l'intero decode e buttare il layout dell'utente.
+        splitLayout = try? c.decodeIfPresent(SplitNode.self, forKey: .splitLayout)
+        focusedPaneID = try? c.decodeIfPresent(UUID.self, forKey: .focusedPaneID)
     }
 }
 

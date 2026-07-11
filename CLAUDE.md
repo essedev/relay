@@ -531,7 +531,9 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   quindi sintomo di una race) invece di scrivere sopra il buono, tiene un backup `layout.json.bak`
   del primario prima di sovrascrivere, e `load` ricade sul `.bak` se il primario è
   mancante/corrotto/degradato. Non allentare la guardia: è ciò che ha fixato le tab sparite dopo un
-  upgrade. La validità è pura (`isValidForPersistence`, testata).
+  upgrade. La validità è pura (`isValidForPersistence`, testata). **Downgrade**: la compat del
+  layout è solo all'indietro - dal primo save post-split-v2 il file è in formato pane e un binario
+  <= 0.8.2 non lo decodifica (dal secondo save nemmeno il `.bak`): un downgrade riparte dal seed.
 - Single-instance: **due Relay condividono `~/.relay`** (layout + socket) e i loro autosave si
   pesterebbero -> layout corrotto. `LSMultipleInstancesProhibited=true` (bundle/Info.plist) lo
   previene lato LaunchServices; `Relay.main` ha anche un guard runtime (se un'altra istanza dello

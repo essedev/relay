@@ -35,6 +35,13 @@ extension WorkspaceAreaController: NSSplitViewDelegate {
         let rebuilt = mount(tree, in: workspace)
         attachTerminals(tree, in: workspace)
         assertFocus(in: workspace, force: rebuilt)
+        // Ridipinge ring e bordo di focus sui pane appena costruiti: `observeRing` è un tracking
+        // separato e il suo Task può girare **prima** del rebuild (ordine non garantito), leggendo
+        // pane che ancora non esistono - senza questo, dopo uno switch verso un workspace
+        // splittato un completamento `unseen` resterebbe senza ring. Nessun conflitto col gotcha
+        // della separazione (riguarda lo *scrivere* `attention`, che qui non avviene);
+        // `lastRingStates` deduplica i flash.
+        updateRings()
 
         registry.enforceLRU(
             cap: liveSurfaceCap,
@@ -247,10 +254,12 @@ extension WorkspaceAreaController: NSSplitViewDelegate {
 
     func protectedTabIDs(activeWorkspace workspace: Workspace) -> Set<UUID> {
         var ids = Set(workspace.tabs.map(\.id))
-        // Anche i pane a schermo nelle **altre** finestre sono visibili: sfrattarli spegnerebbe un
-        // terminale che l'utente sta guardando.
+        // Il workspace **a schermo in ogni finestra** è attivo: tutte le sue tab sono a un click
+        // di distanza (anche quelle nascoste nelle strip), stesso criterio della finestra
+        // corrente. Sfrattare la selezionata di un pane spegnerebbe un terminale che l'utente sta
+        // guardando; sfrattare una in strip gli brucerebbe il contesto appena dietro la pill.
         for window in store.windows {
-            store.selectedWorkspace(in: window.id).map { ids.formUnion($0.visibleTabIDs) }
+            store.selectedWorkspace(in: window.id).map { ids.formUnion($0.tabs.map(\.id)) }
         }
         for candidateWorkspace in store.workspaces {
             for tab in candidateWorkspace.tabs where hasFreshAttention(tab) {

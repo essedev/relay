@@ -69,7 +69,7 @@ final class PaneView: NSView {
     /// No-op se è già la tab attaccata.
     func attachTerminal(_ view: NSView, for tabID: UUID) {
         guard currentTabID != tabID || terminal !== view else { return }
-        terminal?.removeFromSuperview()
+        removeCurrentTerminalIfStillOurs()
         terminal = view
         currentTabID = tabID
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -117,8 +117,17 @@ final class PaneView: NSView {
     /// Stacca il terminale prima di buttare via il pane: la surface resta viva nella registry (il
     /// pty non si tocca) e può essere rimontata in un altro pane.
     func detachTerminal() {
-        terminal?.removeFromSuperview()
+        removeCurrentTerminalIfStillOurs()
         terminal = nil
         currentTabID = nil
+    }
+
+    /// Rimuove la view del terminale **solo se è ancora nostra**. Con più aree sulla stessa
+    /// registry (multi-window) la view può essere già stata riparentata da un'altra area (es.
+    /// "Move to New Window": la nuova finestra attacca prima che il render della vecchia scatti):
+    /// un `removeFromSuperview` cieco la strapperebbe dal pane nuovo, lasciandolo bianco.
+    private func removeCurrentTerminalIfStillOurs() {
+        guard let terminal, terminal.superview === terminalArea else { return }
+        terminal.removeFromSuperview()
     }
 }

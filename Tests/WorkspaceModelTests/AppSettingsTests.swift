@@ -125,3 +125,21 @@ private func freshDefaults() -> UserDefaults {
     #expect(second.cursorBlink)
     #expect(second.fontName == "Menlo")
 }
+
+// MARK: - Dispatch deterministico delle combo (upgrade dei default)
+
+@MainActor @Test func actionForComboPrefersUserOverrideOverShippedDefault() {
+    // Un override salvato in una versione vecchia può collidere con un default nuovo (es. l'utente
+    // aveva Clear su ⇧⌘N e poi ⇧⌘N diventa il default di New Window): deve vincere l'override
+    // esplicito, non l'azione rimasta sul default, e l'esito non deve dipendere dall'ordine di
+    // iterazione di un Dictionary.
+    let settings = AppSettings(defaults: freshDefaults())
+    let combo = ShortcutAction.newWindow.defaultCombo
+    settings.setBinding(combo, for: .clear) // l'override dell'utente
+
+    #expect(settings.action(for: combo) == .clear)
+    // Le combo senza conflitto risolvono normalmente.
+    #expect(settings.action(for: ShortcutAction.newTab.defaultCombo) == .newTab)
+    // Una combo ignota non risolve niente.
+    #expect(settings.action(for: KeyCombo(key: "9", modifiers: [.control])) == nil)
+}

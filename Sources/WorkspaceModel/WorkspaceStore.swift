@@ -131,18 +131,25 @@ public final class WorkspaceStore {
     /// può
     /// migliorare). Passa `.user` per i nomi intenzionali che non vanno rigenerati (es. "Relay
     /// Update").
-    /// Il workspace nasce nella finestra key (quella su cui stai lavorando) e la sua selezione.
+    /// Nasce nella finestra indicata (`nil` = la key) e ne diventa la selezione, salvo
+    /// `select: false`: il workspace transitorio di `newWindow` migra subito, e selezionarlo
+    /// farebbe perdere alla finestra d'origine la riga su cui stavi lavorando.
     @discardableResult
     public func createWorkspace(
         name: String,
         nameOrigin: NameOrigin = .default,
-        rootPath: String? = nil
+        rootPath: String? = nil,
+        in windowID: UUID? = nil,
+        select: Bool = true
     ) -> Workspace {
+        let target = windowID.flatMap { id in windows.first { $0.id == id }?.id } ?? keyWindowID
         let workspace = Workspace(
-            windowID: keyWindowID, name: name, nameOrigin: nameOrigin, rootPath: rootPath
+            windowID: target, name: name, nameOrigin: nameOrigin, rootPath: rootPath
         )
         workspaces.append(workspace)
-        selectedWorkspaceID = workspace.id
+        if select {
+            windows.first { $0.id == target }?.selectedWorkspaceID = workspace.id
+        }
         addTab(to: workspace) // ogni workspace nasce con una tab
         return workspace
     }

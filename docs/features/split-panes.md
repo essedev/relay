@@ -57,6 +57,10 @@ Workspace { tabs: [Tab], layout: SplitNode, focusedPaneID }
 
 - `SplitNode` ha un `Codable` **compatibile all'indietro**: il vecchio caso `leaf(UUID)` decodifica
   come pane con quella sola tab. Nessun bump di `LayoutSnapshot.currentVersion`.
+- La compat è **solo all'indietro** (come per il wire degli hook): dal primo save post-upgrade
+  `layout.json` è in formato pane (version invariata) e un binario <= 0.8.2 non lo decodifica; dal
+  secondo save anche il `.bak`. Un downgrade riparte dal seed default, e il primo autosave del
+  binario vecchio rende la perdita irreversibile.
 - `WorkspaceSnapshot` guadagna `focusedPaneID` (additivo). Restore:
   - layout assente (vecchio pane singolo) -> pane radice con tutte le tab nell'ordine snapshot,
     selezione = `selectedTabID`;
