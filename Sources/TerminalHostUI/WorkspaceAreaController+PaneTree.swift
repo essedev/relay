@@ -110,10 +110,17 @@ extension WorkspaceAreaController: NSSplitViewDelegate {
     }
 
     /// La `PaneView` del pane, riusata se già montata. La strip arriva dalla factory del
-    /// composition root; senza (test senza chrome) una NSView vuota d'altezza zero.
+    /// composition root; senza (test senza chrome) una NSView vuota d'altezza **zero esplicita**:
+    /// una view nuda non ha altezza intrinseca e lascerebbe il layout ambiguo.
     private func paneView(for paneID: UUID) -> PaneView {
         if let existing = panes[paneID] { return existing }
-        let strip = makePaneStrip?(paneID) ?? NSView()
+        let strip: NSView
+        if let made = makePaneStrip?(paneID) {
+            strip = made
+        } else {
+            strip = NSView()
+            strip.heightAnchor.constraint(equalToConstant: 0).isActive = true
+        }
         let pane = PaneView(paneID: paneID, strip: strip)
         panes[paneID] = pane
         return pane
