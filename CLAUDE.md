@@ -610,6 +610,16 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   write-back nello store **solo con mouse premuto** (i layout pass programmatici del boot
   stomperebbero il ratio persistito con un 50/50) e riapplicazione in `viewDidLayout` al primo
   layout con dimensioni vere.
+- **Ciclo di vita di una finestra (due trappole, pagate con un crash)**: (1) `isReleasedWhenClosed`
+  è **`true` di default** sulle `NSWindow` costruite a mano, e la finestra è già posseduta dal suo
+  `RelayWindowController` (`let window`): il release extra di AppKit alla chiusura la manda sotto
+  zero e il pop dell'autorelease pool fa `objc_release` su memoria morta (SIGSEGV). Va spento in
+  `RelayWindowController.init`, come già in `PanelWindow`. Sulla finestra **principale** non si
+  vedeva (chiuderla termina l'app): il crash arrivava solo chiudendo una **secondaria**.
+  (2) Il teardown del controller è **differito di un giro di runloop** (`windowDidClose`): siamo
+  dentro `windowWillClose`, e il controller *è* il delegate della finestra oltre a possederla -
+  rilasciarlo lì dealloca finestra e delegate mentre AppKit li sta ancora usando. Il delegate si
+  stacca subito, il rilascio va su `DispatchQueue.main.async`.
 - **Multi-window**: le finestre **partizionano** i workspace (`Workspace.windowID` + `RelayWindow`
   con la **sua** `selectedWorkspaceID`); lo store, il `layout.json`, il receiver e la
   **`SurfaceRegistry` restano unici** (una tab ha una surface sola ovunque sia montata). Nessuna

@@ -52,7 +52,14 @@ extension AppController {
     func windowDidClose(_ windowID: UUID) {
         guard !isTerminating else { return }
         let repatriated = store.closeWindow(windowID)
-        windowControllers.removeValue(forKey: windowID)
+        // Il teardown del controller è **differito al giro successivo del runloop**: siamo dentro
+        // `windowWillClose`, cioè dentro un callback del delegate, e il controller *è* il delegate
+        // (e possiede la NSWindow). Rilasciarlo qui li deallocherebbe entrambi mentre AppKit sta
+        // ancora usando la finestra che si sta chiudendo: use-after-free. Il delegate si stacca
+        // subito, così nessun evento in coda rientra su un controller in via di smontaggio.
+        let controller = windowControllers.removeValue(forKey: windowID)
+        controller?.window.delegate = nil
+        DispatchQueue.main.async { _ = controller }
         if !repatriated.isEmpty {
             RelayLog.logger("app")
                 .info("window closed: \(repatriated.count) workspaces repatriated")

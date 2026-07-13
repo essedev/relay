@@ -50,6 +50,12 @@ final class RelayWindowController: NSObject, NSWindowDelegate {
         super.init()
 
         window.title = "Relay"
+        // **Non si rilascia da sola alla chiusura**: la finestra è già posseduta da questo
+        // controller (`let window`), e il release extra di AppKit (il flag è `true` di default per
+        // le NSWindow costruite a mano) la manderebbe sotto zero -> `objc_release` su memoria
+        // morta al pop dell'autorelease pool. Sulla finestra principale non si vedeva (chiuderla
+        // termina l'app), su una secondaria era un crash secco. Stessa ragione di `PanelWindow`.
+        window.isReleasedWhenClosed = false
         // Sotto questa soglia sidebar + terminale non hanno più spazio utile.
         window.contentMinSize = NSSize(width: 700, height: 460)
         // Il contenuto sale fino al bordo: il titolo visibile è la strip del right pane.
