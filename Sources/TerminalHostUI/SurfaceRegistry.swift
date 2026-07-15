@@ -96,10 +96,16 @@ public final class SurfaceRegistry {
         surfaces[tabID]?.clear()
     }
 
-    /// Cerca nel buffer della tab e ritorna posizione/totale per il contatore. `(0, 0)` se la tab
-    /// non è realizzata.
-    public func search(_ tabID: UUID, term: String, forward: Bool) -> (current: Int, total: Int) {
-        surfaces[tabID]?.search(term, forward: forward) ?? (0, 0)
+    /// Cerca nel buffer della tab (con le opzioni date) e ritorna posizione/totale per il
+    /// contatore.
+    /// `(0, 0)` se la tab non è realizzata.
+    public func search(
+        _ tabID: UUID,
+        term: String,
+        options: TerminalSearchOptions,
+        forward: Bool
+    ) -> (current: Int, total: Int) {
+        surfaces[tabID]?.search(term, options: options, forward: forward) ?? (0, 0)
     }
 
     /// Termina la ricerca nella tab (pulisce selezione e stato). No-op se non realizzata.

@@ -310,7 +310,13 @@ root:
   `mouseDownCanMoveWindow` non si propaga in modo affidabile sotto hosting SwiftUI, mentre
   `performDrag` è deterministico.
 - Find bar (`Cmd+F`): overlay flottante in alto a destra sul terminale (`FindBar` + `FindModel`
-  osservabile), motore di ricerca di SwiftTerm esposto via `TerminalSurfaceHandle.search`. `Cmd+K`
+  osservabile), con toggle case/word/regex. Navigazione, contatore e match corrente vengono dal
+  motore di SwiftTerm (`TerminalSurfaceHandle.search`, autorevole su tutto il buffer); tutti i match
+  visibili sono evidenziati da un overlay che Relay disegna da sé perché SwiftTerm non espone le
+  posizioni dei match (`RelayTerminalView+Search` + `Core.TerminalSearchMatcher` puro). Scrollback
+  esteso a 10k perché la ricerca veda lo storico; a ricerca attiva il mouse reporting è forzato
+  spento così la posizione sopravvive all'output in streaming; lo stato è legato alla tab su cui la
+  barra è aperta. Dettagli e limiti nel gotcha "Ricerca" del CLAUDE.md di progetto. `Cmd+K`
   pulisce il terminale (`clear`), `Cmd+J` salta alla prossima tab in attenzione
   (`WorkspaceStore.focusNextAttention`). Sono azioni rimappabili (vedi sotto), gestite dal monitor
   così scattano anche col terminale in focus.

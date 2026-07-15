@@ -12,6 +12,14 @@ final class RelayTerminalView: LocalProcessTerminalView {
     /// Chiamato al drop con gli URL dei file; la surface costruisce la stringa e la scrive nel PTY.
     var onFilesDropped: (([URL]) -> Void)?
 
+    /// Termine e opzioni dell'evidenziazione ricerca (Cmd+F). Vuoto = nessuna ricerca attiva. La
+    /// logica di disegno vive in `RelayTerminalView+Search`.
+    var searchState: (term: String, options: TerminalSearchOptions) = ("", TerminalSearchOptions())
+    /// Colore di riempimento dei match evidenziati; impostato dal tema in `apply(theme:)`.
+    var searchHighlightColor: NSColor = .systemYellow.withAlphaComponent(0.3)
+    /// Subview che disegna l'evidenziazione dei match; viva solo a ricerca attiva.
+    var searchOverlay: SearchHighlightOverlay?
+
     private var scrollAccumulator = PreciseScrollAccumulator()
 
     /// Righe per scatto di rotella fisica (senza delta precisi): passo classico dei terminali.
@@ -123,11 +131,20 @@ final class RelayTerminalView: LocalProcessTerminalView {
     /// righe mai evidenziate. Meglio perderla che copiarne una sbagliata in silenzio.
     override func dataReceived(slice: ArraySlice<UInt8>) {
         let terminal = getTerminal()
-        allowMouseReporting = terminal.mouseMode != .off
+        // Durante una ricerca attiva il mouse reporting è forzato spento: SwiftTerm azzera la
+        // selezione a ogni feed solo quando è acceso (`feedPrepare`), e il match corrente **è** una
+        // selezione (l'ancora da cui `findNext` riparte). Senza questa forzatura, con un agente che
+        // streamma (mouse mode acceso) ogni riga di output resetterebbe la posizione e Invio
+        // riporterebbe sempre al primo match. Fuori dalla ricerca vale la regola normale.
+        allowMouseReporting = isSearchActive ? false : (terminal.mouseMode != .off)
         let trimmedBefore = terminal.buffer.totalLinesTrimmed
         super.dataReceived(slice: slice)
         if selectionActive, terminal.buffer.totalLinesTrimmed != trimmedBefore {
             selectNone()
+        }
+        // L'output ha cambiato le righe visibili: ricalcola e ridisegna l'evidenziazione.
+        if isSearchActive {
+            refreshSearchOverlay()
         }
     }
 
@@ -136,6 +153,20 @@ final class RelayTerminalView: LocalProcessTerminalView {
         if selectionActive {
             selectNone()
         }
+    }
+
+    /// Lo scroll (utente o scroll-to del match corrente) cambia le righe visibili: riallinea
+    /// l'evidenziazione. Override nel corpo della classe (non in extension). No-op se non in
+    /// ricerca.
+    override func scrolled(source terminal: Terminal, yDisp: Int) {
+        super.scrolled(source: terminal, yDisp: yDisp)
+        refreshSearchOverlay()
+    }
+
+    /// Un resize cambia colonne, righe e dimensione cella: ricalcola i match e i loro rettangoli.
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        refreshSearchOverlay()
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {

@@ -23,6 +23,10 @@ final class RightPaneController: NSViewController {
     private var resumeBarHost: NSView?
     private let findModel = FindModel()
     private var findBarHost: NSView?
+    /// La tab su cui la find bar è aperta. La ricerca resta legata a **questa** tab anche se il
+    /// focus si sposta, così alla chiusura pulisce quella giusta e i tasti non colpiscono un'altra
+    /// tab. `nil` = find bar chiusa.
+    private var findTabID: UUID?
     /// Top dell'area terminale: pinnato alla title bar senza resume bar, alla barra quando c'è
     /// (così la barra spinge giù i pane invece di coprirli). Riferimenti stabili per lo swap.
     private var titleBar: NSView!
@@ -103,9 +107,14 @@ final class RightPaneController: NSViewController {
 
     // MARK: - Ricerca (Cmd+F)
 
-    /// Mostra o chiude la find bar (overlay flottante sul terminale).
+    /// Mostra la find bar, o - se già aperta - le rimette il focus e ne seleziona il testo (Cmd+F a
+    /// barra aperta rifocalizza, come Safari: non chiude). La chiusura è Esc o la x.
     func toggleFind() {
-        if findBarHost == nil { showFindBar() } else { closeFind() }
+        if findBarHost == nil {
+            showFindBar()
+        } else {
+            findModel.requestFocus()
+        }
     }
 
     /// Find next/prev: apre la find bar se chiusa (poi cerchi digitando), altrimenti scorre.
@@ -114,6 +123,8 @@ final class RightPaneController: NSViewController {
     }
 
     private func showFindBar() {
+        guard let tabID = store.selectedWorkspace(in: windowID)?.selectedTab?.id else { return }
+        findTabID = tabID
         let bar = FindBar(
             model: findModel,
             theme: settings.theme,
@@ -137,20 +148,48 @@ final class RightPaneController: NSViewController {
     }
 
     private func runSearch(forward: Bool) {
-        guard findBarHost != nil else { return }
-        let result = area.searchActive(findModel.query, forward: forward)
+        guard let findTabID else { return }
+        let result = area.search(
+            inTab: findTabID,
+            term: findModel.query,
+            options: findModel.options,
+            forward: forward
+        )
         findModel.current = result.current
         findModel.total = result.total
     }
 
     private func closeFind() {
         guard let host = findBarHost else { return }
-        area.endSearchActive()
+        if let findTabID { area.endSearch(inTab: findTabID) }
         host.removeFromSuperview()
         findBarHost = nil
+        findTabID = nil
         findModel.query = ""
         findModel.resetCounts()
         area.focusTerminal() // il focus torna al terminale
+    }
+
+    /// Bridge Observation -> AppKit: se la tab (o il pane) focused cambia mentre la find bar è
+    /// aperta su un'altra tab, chiude la ricerca (pulendo la tab su cui era aperta). Evita una find
+    /// bar orfana con contatore stantio che colpisce la tab sbagliata. Si ri-arma.
+    private func observeFindTarget() {
+        withObservationTracking {
+            _ = store.selectedWorkspace(in: windowID)?.focusedPaneID
+            _ = store.selectedWorkspace(in: windowID)?.selectedTab?.id
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.closeFindIfTargetChanged()
+                self?.observeFindTarget()
+            }
+        }
+    }
+
+    private func closeFindIfTargetChanged() {
+        guard findBarHost != nil, let findTabID else { return }
+        if store.selectedWorkspace(in: windowID)?.selectedTab?.id != findTabID {
+            closeFind()
+        }
     }
 
     /// Surface vive nell'area (strumentazione di performance, misure M3).
@@ -213,6 +252,7 @@ final class RightPaneController: NSViewController {
         ])
 
         observeResume()
+        observeFindTarget()
     }
 
     // MARK: - Barra di resume

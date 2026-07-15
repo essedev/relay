@@ -128,13 +128,19 @@ public final class WorkspaceAreaController: NSViewController {
         registry.clear(tabID)
     }
 
-    public func searchActive(_ term: String, forward: Bool) -> (current: Int, total: Int) {
-        guard let tabID = focusedTab?.id else { return (0, 0) }
-        return registry.search(tabID, term: term, forward: forward)
+    /// Cerca nella tab **data** (non necessariamente la focused): la find bar resta legata alla tab
+    /// su cui è stata aperta anche se il focus si sposta, così alla chiusura pulisce quella giusta.
+    public func search(
+        inTab tabID: UUID,
+        term: String,
+        options: TerminalSearchOptions,
+        forward: Bool
+    ) -> (current: Int, total: Int) {
+        registry.search(tabID, term: term, options: options, forward: forward)
     }
 
-    public func endSearchActive() {
-        guard let tabID = focusedTab?.id else { return }
+    /// Termina la ricerca nella tab data (pulisce selezione, stato ed evidenziazione).
+    public func endSearch(inTab tabID: UUID) {
         registry.endSearch(tabID)
     }
 

@@ -45,7 +45,11 @@ private final class FakeSurface: TerminalSurfaceHandle {
 
     func sendText(_: String) {}
     func clear() {}
-    func search(_: String, forward _: Bool) -> (current: Int, total: Int) {
+    func search(
+        _: String,
+        options _: TerminalSearchOptions,
+        forward _: Bool
+    ) -> (current: Int, total: Int) {
         (0, 0)
     }
 

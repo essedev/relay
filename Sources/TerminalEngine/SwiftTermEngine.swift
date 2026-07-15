@@ -66,6 +66,10 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal.nativeForegroundColor = NSColor(relay: theme.foreground)
         terminal.caretColor = NSColor(relay: theme.cursor)
         terminal.selectedTextBackgroundColor = NSColor(relay: theme.selection)
+        // Evidenziazione ricerca: giallo ANSI del tema, traslucido (coerente con badge/ring che
+        // derivano i colori dagli ANSI). Il match corrente resta la selezione nativa sotto
+        // l'overlay.
+        terminal.searchHighlightColor = NSColor(relay: theme.ansiColor(3)).withAlphaComponent(0.32)
         // Blink del caret: SwiftTerm parte con `.blinkBlock`. `setCursorStyle` notifica la view e
         // (dis)attiva l'animazione. Un'app interna può comunque richiederlo via DECSCUSR.
         terminal.getTerminal().setCursorStyle(theme.cursorBlink ? .blinkBlock : .steadyBlock)
@@ -88,6 +92,11 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
     func start() {
         guard !started else { return }
         started = true
+        // Scrollback ampio: il default di SwiftTerm è 500 righe, troppo poche perché la ricerca
+        // (Cmd+F) e lo scroll vedano lo storico di una sessione agente (Claude sputa migliaia di
+        // righe). `changeHistorySize` muta il buffer primary esistente senza ricrearlo; all'avvio
+        // il buffer corrente è il primary (l'alt non ha scrollback), quindi colpisce quello giusto.
+        terminal.getTerminal().buffer.changeHistorySize(Self.scrollbackLines)
         var env = Terminal.getEnvironmentVariables(termName: "xterm-256color")
         // Dichiara il supporto al kitty keyboard protocol (SwiftTerm lo implementa).
         // Claude Code lo attiva solo per terminali noti: KITTY_WINDOW_ID lo segnala
@@ -120,21 +129,41 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal.process.send(data: ArraySlice([0x0C])) // Ctrl+L
     }
 
-    /// Cerca nel buffer via l'engine (findNext/findPrevious di SwiftTerm) e ritorna il riepilogo
-    /// posizione/totale per il contatore. I tipi SwiftTerm (SearchService) restano confinati qui.
-    func search(_ term: String, forward: Bool) -> (current: Int, total: Int) {
-        guard started, !term.isEmpty else { return (0, 0) }
-        if forward {
-            terminal.findNext(term, scrollToResult: true)
-        } else {
-            terminal.findPrevious(term, scrollToResult: true)
+    /// Cerca nel buffer via l'engine (findNext/findPrevious di SwiftTerm, sorgente autorevole di
+    /// contatore e match corrente su tutto il buffer) e, in più, aggiorna l'evidenziazione di tutti
+    /// i match visibili (`setSearchState`, disegnata dalla view). I tipi SwiftTerm (SearchService,
+    /// SearchOptions) restano confinati qui. `term` vuoto azzera tutto.
+    func search(
+        _ term: String,
+        options: TerminalSearchOptions,
+        forward: Bool
+    ) -> (current: Int, total: Int) {
+        guard started else { return (0, 0) }
+        guard !term.isEmpty else {
+            terminal.clearSearch()
+            terminal.clearSearchState()
+            return (0, 0)
         }
-        let summary = terminal.searchMatchSummary(term)
+        terminal.setSearchState(term: term, options: options)
+        let swiftOptions = SwiftTerm.SearchOptions(
+            caseSensitive: options.caseSensitive,
+            regex: options.regex,
+            wholeWord: options.wholeWord
+        )
+        if forward {
+            terminal.findNext(term, options: swiftOptions, scrollToResult: true)
+        } else {
+            terminal.findPrevious(term, options: swiftOptions, scrollToResult: true)
+        }
+        // La navigazione ha spostato la selezione/lo scroll: riallinea subito l'evidenziazione.
+        terminal.refreshSearchOverlay()
+        let summary = terminal.searchMatchSummary(term, options: swiftOptions)
         return (current: summary.index, total: summary.total)
     }
 
     func endSearch() {
         terminal.clearSearch()
+        terminal.clearSearchState()
     }
 
     /// Nome del comando in foreground del pty, `nil` se la shell è al prompt (safe da chiudere).
@@ -240,6 +269,10 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
             return args.isEmpty ? nil : args
         }
     }
+
+    /// Righe di scrollback della surface. 10k come Terminal.app: abbastanza da coprire lo storico
+    /// di una sessione agente per scroll e ricerca, senza pesare (righe vuote, allocate lazy).
+    private static let scrollbackLines = 10000
 
     /// Shell che, se in foreground, non fanno scattare la conferma di chiusura (sono "al prompt").
     private static let safeForegroundNames: Set<String> = [

@@ -9,8 +9,27 @@ public final class FindModel {
     public var query: String = ""
     public var current: Int = 0
     public var total: Int = 0
+    /// Opzioni: distinzione maiuscole, parola intera, regex. Il cambio di una di queste ri-lancia
+    /// la
+    /// ricerca (la find bar richiama `onSearch`).
+    public var caseSensitive: Bool = false
+    public var wholeWord: Bool = false
+    public var regex: Bool = false
+    /// Incrementato per chiedere alla find bar di riprendere il focus sul campo (Cmd+F a barra già
+    /// aperta, o dopo un click nel terminale). La view osserva il cambio e rifocalizza.
+    public var focusRequest: Int = 0
 
     public init() {}
+
+    /// Chiede alla find bar di rimettere il focus sul campo di ricerca.
+    public func requestFocus() {
+        focusRequest += 1
+    }
+
+    /// Le opzioni correnti nel tipo condiviso dell'engine.
+    public var options: TerminalSearchOptions {
+        TerminalSearchOptions(caseSensitive: caseSensitive, wholeWord: wholeWord, regex: regex)
+    }
 
     /// Azzera i contatori (query lasciata invariata: la view la ripulisce alla chiusura).
     public func resetCounts() {
@@ -52,6 +71,7 @@ public struct FindBar: View {
                 .font(Theme.Typography.sectionHeader)
                 .foregroundStyle(colors.secondary)
             field
+            options
             counter
             stepper(up: false)
             stepper(up: true)
@@ -79,8 +99,41 @@ public struct FindBar: View {
             .focused($focused)
             .onAppear { focused = true }
             .onChange(of: model.query) { _, _ in onSearch(true) }
+            .onChange(of: model.focusRequest) { _, _ in focused = true }
             .onSubmit { onSearch(true) }
             .onExitCommand(perform: onClose)
+    }
+
+    /// Toggle delle opzioni: case-sensitive, parola intera, regex. Cambiarne uno ri-lancia la
+    /// ricerca in avanti dal match corrente.
+    private var options: some View {
+        HStack(spacing: 2) {
+            optionToggle("Aa", isOn: $model.caseSensitive, help: "Match case")
+            optionToggle("W", isOn: $model.wholeWord, help: "Whole word")
+            optionToggle(".*", isOn: $model.regex, help: "Regular expression")
+        }
+    }
+
+    private func optionToggle(
+        _ label: String,
+        isOn: Binding<Bool>,
+        help: String
+    ) -> some View {
+        Button {
+            isOn.wrappedValue.toggle()
+            onSearch(true)
+        } label: {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(isOn.wrappedValue ? colors.background : colors.secondary)
+                .frame(width: 20, height: 16)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                        .fill(isOn.wrappedValue ? colors.accent : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 
     @ViewBuilder private var counter: some View {

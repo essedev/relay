@@ -46,11 +46,13 @@ public protocol TerminalSurfaceHandle: AnyObject {
     /// Pulisce il terminale: svuota lo scrollback e ripulisce lo schermo riportando il prompt in
     /// cima (come Cmd+K). No-op se non avviata.
     func clear()
-    /// Cerca `term` nel buffer, seleziona e scorre alla prossima (`forward`) o precedente
-    /// occorrenza. Ritorna posizione corrente (1-based, 0 se nessun match) e totale, per un
-    /// contatore "3/12". `term` vuoto azzera. Confina i tipi dell'engine: solo `Int` in uscita.
-    func search(_ term: String, forward: Bool) -> (current: Int, total: Int)
-    /// Termina la ricerca: azzera stato e selezione.
+    /// Cerca `term` nel buffer con le `options` date (case/word/regex), seleziona e scorre alla
+    /// prossima (`forward`) o precedente occorrenza, ed evidenzia tutti i match visibili. Ritorna
+    /// posizione corrente (1-based, 0 se nessun match) e totale, per un contatore "3/12". `term`
+    /// vuoto azzera stato ed evidenziazione. Confina i tipi dell'engine: solo `Int` in uscita.
+    func search(_ term: String, options: TerminalSearchOptions, forward: Bool)
+        -> (current: Int, total: Int)
+    /// Termina la ricerca: azzera stato, selezione ed evidenziazione.
     func endSearch()
 }
 

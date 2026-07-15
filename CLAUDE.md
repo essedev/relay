@@ -411,12 +411,38 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   `WindowDragArea` (NSView pura con `performDrag` + doppio click = zoom secondo la preferenza
   macOS). NSView pura, non un gesture SwiftUI: `mouseDownCanMoveWindow` non si propaga in modo
   affidabile sotto hosting SwiftUI.
-- Find/Clear/Jump: `Cmd+F` (find bar flottante sul terminale, motore search di SwiftTerm),
-  `Cmd+K` (clear = `ESC[3J` + Ctrl+L al pty), `Cmd+J` (`WorkspaceStore.focusNextAttention`, ciclico
-  sull'ordine visivo). Sono **azioni rimappabili** (`ShortcutAction.find/findNext/findPrevious/
-  clear/nextAttention`), quindi passano dallo **stesso local monitor** delle altre, non da
-  keyEquivalent di menu; il monitor consuma l'evento anche col terminale in focus. Search/clear
-  passano dal protocollo `TerminalSurfaceHandle` (niente tipi SwiftTerm fuori dall'engine).
+- Find/Clear/Jump: `Cmd+F` (find bar flottante sul terminale), `Cmd+K` (clear = `ESC[3J` + Ctrl+L
+  al pty), `Cmd+J` (`WorkspaceStore.focusNextAttention`, ciclico sull'ordine visivo). Sono **azioni
+  rimappabili** (`ShortcutAction.find/findNext/findPrevious/clear/nextAttention`), quindi passano
+  dallo **stesso local monitor** delle altre, non da keyEquivalent di menu; il monitor consuma
+  l'evento anche col terminale in focus. Search/clear passano dal protocollo `TerminalSurfaceHandle`
+  (niente tipi SwiftTerm fuori dall'engine).
+- Ricerca (Cmd+F) - due metà **coerenti per opzioni ma con sorgenti diverse**: (1) **navigazione,
+  contatore e match corrente** li fa il motore di SwiftTerm (`findNext`/`findPrevious`/
+  `searchMatchSummary`), autorevole su **tutto** il buffer, col match corrente evidenziato dalla
+  **selezione nativa** (colore selezione del tema); (2) **l'evidenziazione di tutti i match** la
+  disegna Relay perché SwiftTerm **non espone le posizioni dei match** (`findAll` è internal). È una
+  **subview** (`SearchHighlightOverlay`, in `RelayTerminalView+Search`), non un override di `draw`
+  (SwiftTerm dichiara `draw` `public`, non `open`); legge la sola **viewport** (`getLine`), cerca col
+  matcher puro `Core.TerminalSearchMatcher` (case/word/regex, testato) e mappa gli indici di
+  carattere alle **colonne-cella** (celle wide comprese). Geometria allineata al `draw` nativo: view
+  non flipped, righe ancorate a `bounds.maxY`, **cella esatta da `caretFrame.size`** (non
+  `cellSizeInPixels`, arrotondato). Si riallinea su output (`dataReceived`), scroll (`scrolled`) e
+  resize (`setFrameSize`) - questi tre override stanno nel **corpo** della classe, non in extension.
+  **Limite noto**: `isWrapped` è internal in SwiftTerm, quindi l'overlay cerca riga fisica per riga
+  (niente unione dei blocchi wrapped): un match esattamente a cavallo di un a-capo automatico non
+  viene evidenziato (il contatore/navigazione, che vedono il wrap, lo trovano comunque). Cercare per
+  riga fisica evita i falsi positivi da righe concatenate. **Scrollback 10k** (`changeHistorySize` in
+  `SwiftTermSurface.start`, non 500 di default: la ricerca deve vedere lo storico di una sessione
+  agente). **Robustezza streaming**: a ricerca attiva `allowMouseReporting` è forzato **spento**
+  (`setSearchState` + `dataReceived`), così `feedPrepare` non azzera la selezione a ogni feed e la
+  posizione da cui `findNext` riparte sopravvive all'output (senza, con un agente che streamma Invio
+  tornava sempre al primo match). **Stato legato alla tab**: la find bar ricorda la tab su cui è
+  aperta (`RightPaneController.findTabID`) e opera su **quella** anche se il focus si sposta;
+  `observeFindTarget` la chiude se la tab focused cambia (niente find bar orfana col contatore
+  stantio). `Cmd+F` a barra aperta **rifocalizza** il campo (`FindModel.requestFocus`), non chiude
+  (chiude Esc/x). Colore evidenziazione dal giallo ANSI del tema (`ansiColor(3)`, coerente con
+  badge/ring).
 - Ring di attenzione (`AttentionRingView`): bordo colorato attorno al terminale della tab in vista
   che ne segnala lo stato (verde = completato non visto, statico + flash; giallo/rosso pulsante =
   aspetta input/errore). Il ring risponde solo a `unseen`: un sospeso (`pending`) non accende il

@@ -100,8 +100,9 @@ dentro una tab, e `relay --demo NxM` per popolare l'app con sessioni concorrenti
 
 Fatto in seguito (vedi Milestone 4): scelta del font family e altri temi. Altre rifiniture:
 `Cmd+1..9` segue l'ordine visivo della sidebar (`orderedWorkspaces`), drag & drop di file nel
-terminale (inserisce i path escaped, come Terminal.app), ricerca nello scrollback (`Cmd+F`, motore
-SwiftTerm, find bar flottante), clear del terminale (`Cmd+K`), jump alla prossima tab che richiede
+terminale (inserisce i path escaped, come Terminal.app), ricerca nello scrollback (`Cmd+F`, find bar
+flottante con opzioni case/word/regex, evidenziazione di tutti i match, scrollback 10k), clear del
+terminale (`Cmd+K`), jump alla prossima tab che richiede
 attenzione (`Cmd+J`, ciclico), trascinamento finestra solo dalle strip del titolo (`WindowDragArea`,
 non `isMovableByWindowBackground`), ring di attenzione colorato attorno al terminale con mark-read su
 interazione (modello ispirato a cmux, vedi `docs/research/CYCLES.md`) e scorciatoie rimappabili
