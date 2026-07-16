@@ -255,14 +255,21 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   dei workspace `.default`. Tre trigger, dal più forte: agente attivo (`running`/`needs_input`) ->
   subito; comando in foreground stabile per 2 tick (argv via `TerminalSurfaceHandle
   .foregroundCommandLine`, letta con `KERN_PROCARGS2`) -> es. "Homebrew Update"; cwd stabile fuori
-  dalla home per ~10s -> es. "Yellow Hub". **Single-flight per workspace**, max 2 tentativi poi si
+  dalla home per ~10s -> es. "Yellow Hub". **La cwd è quella della shell viva**
+  (`WorkspaceAreaController.currentDirectory`, precedenza `Core.CurrentDirectory` = viva -> OSC 7 ->
+  root, iniettata nel controller), **non** `tab.currentDirectory`: quello è il solo OSC 7, che zsh
+  in Relay non emette (vedi gotcha OSC 7), quindi il segnale cwd sarebbe sempre nil e la nomina da
+  directory non scatterebbe (era la causa del "Regenerate name" muto su un workspace fermo).
+  **Single-flight per workspace**, max 2 tentativi poi si
   arrende in silenzio (mai un alert per un nome). Il poll gira **solo** finché c'è un `.default`
   (osservazione su `nameOrigin`): quando tutti sono nominati il timer si ferma. Alla risposta,
   `store.applyGeneratedName` applica **solo** se il workspace è ancora `.default` (l'utente può aver
   rinominato nel frattempo: `renameWorkspace` marca `.user`, intoccabile). `NameOrigin`: `.default`
   (eleggibile) -> `.generated` (one-shot) / `.user` (a mano). Snapshot **additivo** (assente ->
   `.user`: i nomi pre-feature sono conosciuti dall'utente, non rigenerare). "Regenerate name" dal
-  menu contestuale (`store.markNameRegenerable` -> torna `.default`, l'observer lo ripesca). La
+  menu contestuale (`store.markNameRegenerable` -> torna `.default`) prova a nominare **subito** col
+  contesto corrente (`NamingController.nameImmediately`: salta la soglia di stabilità della policy),
+  con l'observer/poll come rete di sicurezza se il contesto non basta ancora. La
   API key è un segreto: **file 0600** `~/.relay/naming-credentials.json` (`NamingCredentialStore`),
   **non** UserDefaults; base URL + model in `AppSettings`. Config in Settings > Agents > Workspace
   naming. Gira anche da `swift run` (non è bundle-gated come notifiche/update), ma è inerte senza

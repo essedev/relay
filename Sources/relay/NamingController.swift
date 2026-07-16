@@ -14,7 +14,11 @@ import WorkspaceModel
 /// (`applyGeneratedName`, che degrada a no-op se nel frattempo l'utente ha rinominato a mano). Tre
 /// segnali, dal più forte: agente attivo (Claude in `running`/`needs_input`) -> subito; comando in
 /// foreground stabile (es. `brew update`) -> dopo qualche tick; cwd stabilizzata fuori dalla home
-/// -> dopo ~10s. Single-flight per workspace, max 2 tentativi poi si arrende in silenzio.
+/// -> dopo ~10s. La cwd viene dalla shell **viva** (closure iniettata, precedenza in
+/// `Core.CurrentDirectory`), non da `tab.currentDirectory` (solo OSC 7, che zsh in Relay non
+/// emette). Single-flight per workspace, max 2 tentativi poi si arrende in silenzio. "Regenerate
+/// name" nomina **subito** col contesto corrente (`nameImmediately`), col poll come rete di
+/// sicurezza.
 ///
 /// Lazy: il timer di poll esiste **solo** quando la feature è configurata (abilitata + API key) e
 /// c'è almeno un workspace `.default` da nominare (osservazione su `nameOrigin`); quando tutti sono
@@ -29,6 +33,11 @@ final class NamingController {
     private let homePath: String
     /// Argv del processo in foreground di una tab (iniettata: raggiunge lo split -> registry).
     private let foregroundCommandLine: (UUID) -> [String]?
+    /// Cwd migliore nota per una tab (iniettata: `WorkspaceAreaController.currentDirectory`, con la
+    /// precedenza shell viva -> ultimo OSC 7 -> root). **Non** `tab.currentDirectory`: quello è il
+    /// solo OSC 7, che zsh in Relay non emette (vedi gotcha OSC 7), quindi il segnale cwd sarebbe
+    /// sempre nil e la nomina da directory non scatterebbe mai.
+    private let currentDirectory: (UUID) -> String?
     private let log = RelayLog.logger("naming")
 
     /// Intervallo del poll. Un compromesso: abbastanza reattivo per cogliere un `brew update` senza
@@ -54,6 +63,7 @@ final class NamingController {
         settings: AppSettings,
         credentials: NamingCredentialStore,
         foregroundCommandLine: @escaping (UUID) -> [String]?,
+        currentDirectory: @escaping (UUID) -> String?,
         session: URLSession = .shared,
         homePath: String = NSHomeDirectory()
     ) {
@@ -61,6 +71,7 @@ final class NamingController {
         self.settings = settings
         self.credentials = credentials
         self.foregroundCommandLine = foregroundCommandLine
+        self.currentDirectory = currentDirectory
         self.session = session
         self.homePath = homePath
     }
@@ -84,14 +95,35 @@ final class NamingController {
     }
 
     /// "Regenerate name" dal menu contestuale: riporta il workspace a `.default`, azzera lo stato
-    /// di
-    /// abbandono/tentativi e riavvia il poll così viene rinominato al prossimo segnale.
+    /// di abbandono/tentativi, prova a nominare **subito** col contesto corrente e riarma il poll
+    /// come rete di sicurezza per il prossimo segnale.
     func regenerate(_ id: UUID) {
         abandoned.remove(id)
         attempts[id] = nil
         cleanupTracking(id)
         store.markNameRegenerable(id)
+        nameImmediately(id)
         armEligibilityObserver()
+    }
+
+    /// Nomina immediata per l'azione manuale: salta la soglia di stabilità della policy e chiede
+    /// subito un nome dal contesto corrente della tab selezionata (agente / comando in foreground /
+    /// cwd viva). Se il contesto non basta (`WorkspaceNaming.prompt` -> nil, es. shell nuda in
+    /// home)
+    /// non fa nulla: ci pensa il poll passivo al prossimo segnale utile. Senza questo, "Regenerate
+    /// name" su un workspace fermo restava muto ~10s (la soglia cwd) o per sempre (nessun segnale).
+    private func nameImmediately(_ id: UUID) {
+        guard settings.workspaceNamingEnabled, let apiKey = credentials.loadKey(),
+              let workspace = store.workspaces.first(where: { $0.id == id }),
+              isEligible(workspace),
+              let tab = workspace.selectedTab else { return }
+        let agentActive = tab.agentState == .running || tab.agentState == .needsInput
+        let signals = WorkspaceNameSignals(
+            directory: currentDirectory(tab.id),
+            command: WorkspaceNaming.command(fromArgv: foregroundCommandLine(tab.id)),
+            agent: agentActive ? "claude" : nil
+        )
+        fire(id, signals: signals, apiKey: apiKey)
     }
 
     // MARK: - Eleggibilità e timer
@@ -159,7 +191,7 @@ final class NamingController {
         let decision = policy.observe(
             agent: agentActive ? "claude" : nil,
             command: command,
-            cwd: tab.currentDirectory,
+            cwd: currentDirectory(tab.id),
             now: now
         )
         policies[workspace.id] = policy

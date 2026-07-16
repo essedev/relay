@@ -7,8 +7,9 @@ import WorkspaceModel
 /// foreground) e si espongono le azioni di configurazione e "Regenerate name".
 extension AppController {
     /// Costruisce e avvia il controller (il chiamante lo salta in demo mode). Inerte senza API key
-    /// (il controller osserva l'eleggibilità e non fa partire nessun timer). Legge l'argv in
-    /// foreground dallo split per il segnale "comando in corso".
+    /// (il controller osserva l'eleggibilità e non fa partire nessun timer). Legge dallo split
+    /// l'argv in foreground (segnale "comando in corso") e la cwd viva (segnale "directory": la
+    /// shell reale via `CurrentDirectory.resolve`, non l'OSC 7 che zsh in Relay non emette).
     func setupWorkspaceNaming() {
         let controller = NamingController(
             store: store,
@@ -16,6 +17,9 @@ extension AppController {
             credentials: namingCredentials,
             foregroundCommandLine: { [weak self] tabID in
                 self?.splitVC?.foregroundCommandLine(for: tabID) ?? nil
+            },
+            currentDirectory: { [weak self] tabID in
+                self?.splitVC?.currentDirectory(for: tabID) ?? nil
             }
         )
         controller.start()
