@@ -594,21 +594,31 @@ da `swift run` le notifiche sono disattivate, non è un errore.
 ### Dashboard delle sessioni
 
 La control tower del triage: un **overlay effimero** a livello finestra (hotkey rimappabile,
-default `Cmd+D`) con la griglia flat di tutte le sessioni agente, ordinata per urgenza
-(`needs_input` > `error` > `unseen` > `pending` > `running` > idle/resume; a pari rango l'evento
-più recente). L'unità è la sessione, non il workspace: col pattern d'uso reale (~1 tab agente per
+default `Cmd+D`) con tutte le sessioni agente in **due viste** scambiabili da un toggle in header
+(preferenza persistita `AppSettings.dashboardLayout`, default **kanban**). Il **kanban** raggruppa
+per stato su quattro **corsie di triage** (**Needs You** = needs_input/error, **Running**, **Done**
+= completati non visti, **Idle** = pending/idle/resume): le corsie sono sempre tutte presenti (una
+colonna vuota è informazione, non un buco) e ordinate come il ciclo di vita, quanto reclama *te* da
+sinistra. La **griglia flat** storica è la seconda vista, ordinata per urgenza (`needs_input` >
+`error` > `unseen` > `pending` > `running` > idle/resume; a pari rango l'evento più recente). Il
+pannello è **identico nelle due viste** (stessa dimensione fissa, stessa barra di ricerca): il
+toggle scambia solo il contenuto interno, le colonne del kanban sono flessibili e si dividono la
+larghezza. L'unità è la sessione, non il workspace: col pattern d'uso reale (~1 tab agente per
 workspace) le sezioni sarebbero solo overhead - l'appartenenza è un **chip colorato** sulla card
 (colore stabile per workspace dai colori ANSI del tema). Ogni card: stato, titolo, chip, **età
 dell'ultimo evento** ("aspetta input da 4m" pesa diverso da "lavora da 20s"), dismiss su hover per
-i marker. Type-to-filter (titolo/workspace/cwd), frecce + Invio per saltare, Esc chiude.
+i marker. Type-to-filter (titolo/workspace/cwd), frecce + Invio per saltare, Esc chiude; le frecce
+navigano l'ordine flat nella griglia e in 2D nel kanban (su/giù dentro la corsia, sinistra/destra
+alla corsia adiacente).
 
-Struttura: logica pura in `Panels/DashboardModel` (filtri, rank, età: testata), vista SwiftUI
-(`DashboardView`), wiring nel composition root (`AppControllerDashboard` + overlay full-window in
-`RootOverlayController`). Mentre l'overlay è aperto il monitor locale si fa da parte (i tasti vanno
-al filtro; niente nav 1..9 né mark-read). Solo dati del model: la dashboard funziona anche per tab
-sfrattate dal cap LRU o mai realizzate - una preview del terminale nelle card richiederebbe surface
-vive ed è fuori scope. `Cmd+J` è il fratello cieco della dashboard: cicla prima l'attenzione fresca,
-esauriti quelli i sospesi.
+Struttura: logica pura in `Panels/DashboardModel` (filtri, rank, età, corsie
+`Lane`/`Column`/`columns`: testata), vista SwiftUI (`DashboardView`, col rendering board + card in
+`Dashboard+Board.swift`), wiring nel composition root (`AppControllerDashboard` + overlay
+full-window in `RootOverlayController`). Mentre l'overlay è aperto il monitor locale si fa da parte
+(i tasti vanno al filtro; niente nav 1..9 né mark-read). Solo dati del model: la dashboard funziona
+anche per tab sfrattate dal cap LRU o mai realizzate - una preview del terminale nelle card
+richiederebbe surface vive ed è fuori scope. `Cmd+J` è il fratello cieco della dashboard: cicla
+prima l'attenzione fresca, esauriti quelli i sospesi.
 
 ## Data Model
 

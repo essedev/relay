@@ -79,7 +79,7 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   finestre (`WorkspaceStore+Windows`) + persistence (`WorkspaceStore+Persistence`) +
   `AttentionLevel` (marker post-completamento a tre livelli: unseen/pending, vedi gotcha) +
   `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
-  sidebar/notifiche/**keybindings**/decadenza sospesi, UserDefaults) + `WindowTitle` +
+  sidebar/notifiche/**keybindings**/decadenza sospesi/vista dashboard, UserDefaults) + `WindowTitle` +
   `LayoutSnapshot` (Codable) + `AgentNotification` + `ShortcutAction`/`KeyCombo` (azioni
   rimappabili + combinazione pura) + `NameOrigin` (origine del nome workspace:
   `.default`/`.generated`/`.user`, guida la nomina automatica). Lookup e navigazione in
@@ -101,8 +101,9 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
 - `Panels` - SwiftUI isolata: `Theme` (spacing/typography), `ThemeColors` (colori dal tema corrente),
   `SidebarView`, `PaneTabBar` (la strip di tab di un pane + action lane; `PaneTabBarActions` =
   closure verso il composition root), `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
-  `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `Dashboard` (`DashboardModel` puro +
-  `DashboardView`: griglia di triage delle sessioni), `Reorderable` (riordino drag & drop di
+  `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `Dashboard`/`Dashboard+Board` (`DashboardModel`
+  puro + `DashboardView`: triage delle sessioni in kanban per stato o griglia, con toggle),
+  `Reorderable` (riordino drag & drop di
   workspace e tab: `DragGesture` + `.offset` + linea di inserimento), `WindowDragArea` (drag
   finestra dalla title strip), `SettingsView` (+ `SettingsComponents`), `AboutView` (pannello
   "About Relay" a tema), `Onboarding` (`OnboardingModel` puro + `OnboardingView` +
@@ -592,13 +593,22 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   TerminalHostUI**: il path caldo non dipende da Panels. Il resume è **lazy** (al focus), mai in
   massa al boot.
 - Dashboard (`Cmd+D`, azione rimappabile `toggleDashboard`): overlay full-window
-  (`RootOverlayController.presentFullOverlay`, wiring in `AppControllerDashboard`). Griglia flat
-  delle sessioni agente per urgenza, card con età e dismiss, filtro e navigazione da tastiera.
-  Logica pura in `Panels/DashboardModel` (testata); solo dati del model, funziona anche per tab
+  (`RootOverlayController.presentFullOverlay`, wiring in `AppControllerDashboard`). **Due viste**
+  scambiabili da un toggle in header (preferenza persistita `AppSettings.dashboardLayout`, default
+  **kanban**): kanban per stato su quattro corsie di triage (Needs You = needs_input/error, Running,
+  Done = completati non visti, Idle = pending/idle/resume) e la **griglia flat** storica per
+  urgenza. **Il pannello è identico nelle due viste** (stessa barra di ricerca, stessa dimensione
+  fissa; le colonne kanban sono flessibili, il toggle scambia solo il contenuto - non ridimensiona).
+  Card con età e dismiss, filtro type-to-search, frecce + Invio (nav flat nella griglia, 2D nel
+  kanban), Esc chiude. Logica pura in `Panels/DashboardModel` (raggruppamento `Lane`/`Column`/
+  `columns` testato); rendering board + `SessionCard` in `Dashboard+Board.swift` (estratti dal
+  corpo di `DashboardView` per i limiti file/tipo). Solo dati del model, funziona anche per tab
   sfrattate dal cap LRU (niente preview del terminale: richiederebbe surface vive). **Mentre è
   aperta il monitor si fa da parte**: i tasti vanno al filtro (niente nav 1..9, niente mark-read),
   resta attivo solo il toggle per chiuderla; Esc lo gestisce la vista (`onExitCommand`). La
-  decadenza dei sospesi si applica a boot/foreground/apertura dashboard (niente timer).
+  decadenza dei sospesi si applica a boot/foreground/apertura dashboard (niente timer). Il set
+  differito del first responder in `FullOverlayPresenter` **non ruba** il focus al campo che l'ha
+  già preso via `@FocusState` (salta se il first responder è già un discendente dell'host).
 - Sposta tab in nuovo workspace ("Move to New Workspace", menu contestuale della tab, visibile
   solo con **>=2 tab**): `WorkspaceStore.moveTabToNewWorkspace` sposta lo **stesso** oggetto `Tab`
   (stesso `Tab.id`), così la surface legata per id resta **viva** - niente teardown del pty, il

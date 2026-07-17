@@ -376,8 +376,8 @@ creare split trascinando), drag di workspace fra finestre, zoom del pane, equali
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
   homebrew-cask ufficiale). Il tap brew non firmato c'è gia (vedi Fatto sopra).
-- Dashboard: evoluzioni oltre l'MVP (azioni inline resume/chiudi, contatori in header, toggle
-  raggruppa-per-workspace, preview ultime righe - richiede surface vive).
+- Dashboard: evoluzioni oltre le due viste attuali (azioni inline resume/chiudi, contatori in
+  header, preview ultime righe - richiede surface vive).
 - **Generalizzazione multi-agente (Codex / opencode)** - vedi sotto.
 - Export timeline; import da config Ghostty.
 
@@ -434,6 +434,20 @@ limite: era il default, e `Cmd+T` apriva alla radice del workspace.
   alimenta anche titolo, sottotitolo e snapshot, che si congelerebbero alla cwd dell'ultimo `Cmd+T`.
 - Coperto fino al pty vero: un test avvia una shell reale, le manda un `cd` e verifica che la
   surface segua; un altro copre la precedenza nell'area (invertendo la cascata, fallisce).
+
+## Fatto - Dashboard kanban per stato (post-multi-window)
+
+- **Vista kanban** della dashboard (`Cmd+D`): sessioni raggruppate per stato su quattro corsie di
+  triage (**Needs You** = needs_input/error, **Running**, **Done** = completati non visti, **Idle**
+  = pending/idle/resume), sempre tutte presenti. La **griglia flat** storica resta come seconda
+  vista, con un **toggle** in header (preferenza persistita `AppSettings.dashboardLayout`, default
+  kanban). Pannello identico nelle due viste (stessa barra di ricerca, stessa dimensione fissa,
+  colonne kanban flessibili): il toggle scambia solo il contenuto. Navigazione da tastiera 2D nel
+  kanban. Raggruppamento puro e testato (`DashboardModel.Lane`/`Column`/`columns`), rendering board
+  in `Dashboard+Board.swift`.
+- **Fix focus overlay** (`FullOverlayPresenter`): il set differito del first responder non ruba più
+  il focus al campo di ricerca che l'ha già preso via `@FocusState` (prima toccava cliccare la
+  finestra per digitare all'apertura).
 
 ## Prossima azione
 

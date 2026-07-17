@@ -87,3 +87,35 @@ private func workspace(_ name: String, tabs: [Tab]) -> Workspace {
     #expect(first == DashboardModel.chipColorIndex(id)) // stabile
     #expect((1 ... 6).contains(first)) // red..cyan della palette ANSI
 }
+
+/// La corsia aggrega gli stati per triage: needs input/error -> waiting, running -> running,
+/// unseen -> done, pending/idle/solo-resume -> idle.
+@Test func laneMapsStatesToTriageColumns() {
+    #expect(DashboardModel.lane(for: Tab(agentState: .needsInput)) == .waiting)
+    #expect(DashboardModel.lane(for: Tab(agentState: .error)) == .waiting)
+    #expect(DashboardModel.lane(for: Tab(agentState: .running)) == .running)
+    #expect(DashboardModel.lane(for: Tab(agentState: .idle, attention: .unseen)) == .done)
+    #expect(DashboardModel.lane(for: Tab(agentState: .idle, attention: .pending)) == .idle)
+    #expect(DashboardModel.lane(for: Tab(agentState: .idle)) == .idle)
+    let resumable = Tab(resume: ResumeBinding(agent: "claude", sessionId: "s1", label: "x"))
+    #expect(DashboardModel.lane(for: resumable) == .idle)
+}
+
+/// Le colonne coprono sempre tutte le corsie (anche vuote) e partizionano le sessioni; l'ordine
+/// interno è quello di `items` (a pari corsia, evento più recente prima).
+@Test func columnsPartitionAllLanes() {
+    let needsInput = Tab(agentState: .needsInput)
+    let running = Tab(agentState: .running)
+    let olderRunning = Tab(agentState: .running, lastEventAt: Date(timeIntervalSince1970: 5))
+    let newerRunning = Tab(agentState: .running, lastEventAt: Date(timeIntervalSince1970: 50))
+    let pending = Tab(agentState: .idle, attention: .pending)
+    let tabs = [needsInput, running, olderRunning, newerRunning, pending]
+    let columns = DashboardModel.columns(workspaces: [workspace("w", tabs: tabs)])
+    #expect(columns.map(\.lane) == DashboardModel.Lane.allCases)
+    let byLane = Dictionary(uniqueKeysWithValues: columns.map { ($0.lane, $0.items) })
+    #expect(byLane[.waiting]?.map(\.tab.id) == [needsInput.id])
+    #expect(byLane[.done]?.isEmpty == true) // colonna vuota, ma presente
+    #expect(byLane[.idle]?.map(\.tab.id) == [pending.id])
+    // Nella corsia running l'ordine è per evento recente (dateless in fondo, tiebreak stabile).
+    #expect(byLane[.running]?.map(\.tab.id) == [newerRunning.id, olderRunning.id, running.id])
+}

@@ -88,22 +88,88 @@ public enum DashboardModel {
         let sum = id.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
         return (sum % 6) + 1
     }
+
+    // MARK: - Kanban
+
+    /// Colonna del kanban: una corsia di triage, non un singolo stato. Ordine = ciclo di vita di
+    /// una sessione (quanto reclama *te*, da sinistra): aspetta te -> lavora -> fatto -> quieto.
+    /// La card porta comunque lo stato preciso (pallino + label), la corsia è il raggruppamento.
+    public enum Lane: Int, CaseIterable, Identifiable, Sendable {
+        case waiting // needs input + error: bloccata, serve un tuo intervento
+        case running // sta lavorando da sola
+        case done // completata e non ancora vista (unseen)
+        case idle // pending (visto ma non ripreso) + idle + solo resume: segnale quieto
+
+        public var id: Int {
+            rawValue
+        }
+
+        public var title: String {
+            switch self {
+            case .waiting: "Needs You"
+            case .running: "Running"
+            case .done: "Done"
+            case .idle: "Idle"
+            }
+        }
+    }
+
+    /// Corsia di una tab, dal suo badge (stessa mappatura di `BadgeKind`, aggregata per triage).
+    static func lane(for tab: WorkspaceModel.Tab) -> Lane {
+        switch BadgeKind.forTab(tab) {
+        case .needsInput, .error: .waiting
+        case .running: .running
+        case .completed: .done
+        case .pending, .none: .idle
+        }
+    }
+
+    /// Una colonna renderizzabile: la corsia e le sue sessioni (già filtrate e ordinate).
+    public struct Column: Identifiable {
+        public let lane: Lane
+        public let items: [Item]
+        public var id: Int {
+            lane.rawValue
+        }
+    }
+
+    /// Sessioni partizionate per corsia, **tutte** le corsie sempre presenti (una colonna vuota è
+    /// informazione, non un buco). L'ordine dentro ogni colonna è quello di `items` (urgenza desc,
+    /// poi evento recente): la stessa fonte del grid, così le due viste concordano.
+    public static func columns(
+        workspaces: [Workspace],
+        query: String = ""
+    ) -> [Column] {
+        let all = items(workspaces: workspaces, query: query)
+        return Lane.allCases.map { lane in
+            Column(lane: lane, items: all.filter { self.lane(for: $0.tab) == lane })
+        }
+    }
 }
 
-/// Overlay effimero della dashboard: griglia flat di sessioni agente ordinate per urgenza, filtro
-/// type-to-search, navigazione da tastiera (frecce + Invio), dismiss dei sospesi. Aperta e chiusa
-/// da hotkey (azione rimappabile); il wiring vive nel composition root.
+/// Overlay effimero della dashboard: sessioni agente in kanban per stato (`board`) o griglia flat
+/// per urgenza (`grid`, la vista storica), con toggle. Filtro type-to-search, navigazione da
+/// tastiera (frecce + Invio), dismiss dei sospesi. Aperta e chiusa da hotkey (azione rimappabile);
+/// il wiring vive nel composition root.
 public struct DashboardView: View {
     let store: WorkspaceStore
     let settings: AppSettings
     let onJump: (Workspace, WorkspaceModel.Tab) -> Void
     let onClose: () -> Void
 
-    @State private var query = ""
-    @State private var selection = 0
+    /// `query`/`selectedID` sono internal (non `private`): il rendering delle due viste e la
+    /// navigazione vivono in `Dashboard+Board.swift` e vi accedono. `selectedID` è la selezione
+    /// per *id* (non per indice): sopravvive a reorder e riclassificazioni mentre l'overlay è
+    /// aperto, e vale identica in griglia e kanban.
+    @State var query = ""
+    @State var selectedID: UUID?
     @FocusState private var searchFocused: Bool
 
-    private static let columns = 3
+    static let gridColumns = 3
+    /// Dimensione unica del pannello: identica in griglia e kanban (cambia solo il contenuto
+    /// interno). Leggermente più grande dell'originale (720x520).
+    private static let panelWidth: CGFloat = 820
+    private static let panelHeight: CGFloat = 580
 
     public init(
         store: WorkspaceStore,
@@ -117,6 +183,10 @@ public struct DashboardView: View {
         self.onClose = onClose
     }
 
+    var layout: DashboardLayout {
+        settings.dashboardLayout
+    }
+
     public var body: some View {
         let colors = ChromeColors(settings.theme)
         let items = DashboardModel.items(workspaces: store.workspaces, query: query)
@@ -128,27 +198,30 @@ public struct DashboardView: View {
             panel(items, colors)
                 .padding(.horizontal, Theme.Spacing.lg)
         }
-        .onChange(of: query) { _, _ in selection = 0 }
-        .onChange(of: items.count) { _, count in
-            selection = min(selection, max(0, count - 1))
+        .onAppear { if selectedID == nil { selectedID = items.first?.id } }
+        .onChange(of: query) { _, q in
+            selectedID = DashboardModel.items(workspaces: store.workspaces, query: q).first?.id
+        }
+        .onChange(of: items.count) { _, _ in
+            if selectedID == nil || !items.contains(where: { $0.id == selectedID }) {
+                selectedID = items.first?.id
+            }
         }
     }
 
+    // MARK: - Panel
+
     private func panel(_ items: [DashboardModel.Item], _ colors: ChromeColors) -> some View {
+        // Pannello identico nelle due viste: stessa barra di ricerca, stessa dimensione fissa;
+        // il toggle scambia solo il contenuto interno (griglia <-> kanban), niente resize.
         VStack(spacing: 0) {
-            searchField(items, colors)
+            header(items, colors)
             Divider()
-            if items.isEmpty {
-                emptyState(colors)
-            } else {
-                grid(items, colors)
-            }
+            content(items, colors)
             Divider()
             hints(colors)
         }
-        .frame(maxWidth: 720)
-        .frame(maxHeight: 520)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: Self.panelWidth, height: Self.panelHeight)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.md)
                 .fill(colors.background)
@@ -161,10 +234,23 @@ public struct DashboardView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
     }
 
-    private func searchField(
-        _ items: [DashboardModel.Item],
-        _ colors: ChromeColors
-    ) -> some View {
+    private func content(_ items: [DashboardModel.Item], _ colors: ChromeColors) -> some View {
+        // Ogni 30s le età si aggiornano ("2m" -> "3m") anche a overlay fermo.
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            if items.isEmpty {
+                emptyState(colors)
+            } else if layout == .board {
+                board(colors, now: context.date)
+            } else {
+                grid(items, colors, now: context.date)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Header (search + toggle)
+
+    private func header(_ items: [DashboardModel.Item], _ colors: ChromeColors) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12, weight: .semibold))
@@ -177,55 +263,57 @@ public struct DashboardView: View {
                 .onAppear { searchFocused = true }
                 .onSubmit { jump(items) }
                 .onExitCommand(perform: onClose)
-                .onKeyPress(.leftArrow) { move(-1, in: items) }
-                .onKeyPress(.rightArrow) { move(1, in: items) }
-                .onKeyPress(.upArrow) { move(-Self.columns, in: items) }
-                .onKeyPress(.downArrow) { move(Self.columns, in: items) }
+                .onKeyPress(.leftArrow) { moveSelection(dx: -1, dy: 0, items: items) }
+                .onKeyPress(.rightArrow) { moveSelection(dx: 1, dy: 0, items: items) }
+                .onKeyPress(.upArrow) { moveSelection(dx: 0, dy: -1, items: items) }
+                .onKeyPress(.downArrow) { moveSelection(dx: 0, dy: 1, items: items) }
+            layoutToggle(colors)
         }
         .padding(.horizontal, Theme.Spacing.md)
         .frame(height: 44)
     }
 
-    private func grid(_ items: [DashboardModel.Item], _ colors: ChromeColors) -> some View {
-        // Ogni 30s le età si aggiornano ("2m" -> "3m") anche a overlay fermo.
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVGrid(
-                        columns: Array(
-                            repeating: GridItem(.flexible(), spacing: Theme.Spacing.sm),
-                            count: Self.columns
-                        ),
-                        spacing: Theme.Spacing.sm
-                    ) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                            SessionCard(
-                                item: item,
-                                selected: index == selection,
-                                now: context.date,
-                                colors: colors,
-                                onJump: { onJump(item.workspace, item.tab) },
-                                onDismiss: { store.dismissAttention(item.tab.id) }
-                            )
-                            .id(item.id)
-                        }
-                    }
-                    .padding(Theme.Spacing.md)
-                }
-                // Le frecce spostano la selezione: tienila in vista se esce dall'area scrollabile.
-                .onChange(of: selection) { _, sel in
-                    guard items.indices.contains(sel) else { return }
-                    withAnimation { proxy.scrollTo(items[sel].id, anchor: .center) }
-                }
-            }
+    private func layoutToggle(_ colors: ChromeColors) -> some View {
+        HStack(spacing: 2) {
+            toggleButton(.board, systemImage: "rectangle.split.3x1", help: "Board view", colors)
+            toggleButton(.grid, systemImage: "square.grid.2x2", help: "Grid view", colors)
         }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.sm).fill(colors.surface))
     }
+
+    private func toggleButton(
+        _ mode: DashboardLayout,
+        systemImage: String,
+        help: String,
+        _ colors: ChromeColors
+    ) -> some View {
+        let active = layout == mode
+        return Button {
+            settings.setDashboardLayout(mode)
+            searchFocused = true // il toggle è un click: riporta il focus al campo per la tastiera
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(active ? colors.background : colors.secondary)
+                .frame(width: 26, height: 18)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sm - 2)
+                        .fill(active ? colors.accent : Color.clear)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    // MARK: - Empty state + hints
 
     private func emptyState(_ colors: ChromeColors) -> some View {
         Text(query.isEmpty ? "No agent sessions" : "No sessions match \u{201C}\(query)\u{201D}")
             .font(Theme.Typography.item)
             .foregroundStyle(colors.secondary)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.vertical, Theme.Spacing.lg * 2)
     }
 
@@ -249,117 +337,5 @@ public struct DashboardView: View {
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
         }
-    }
-
-    private func move(_ delta: Int, in items: [DashboardModel.Item]) -> KeyPress.Result {
-        guard !items.isEmpty else { return .handled }
-        selection = min(max(selection + delta, 0), items.count - 1)
-        return .handled
-    }
-
-    private func jump(_ items: [DashboardModel.Item]) {
-        guard items.indices.contains(selection) else { return }
-        let item = items[selection]
-        onJump(item.workspace, item.tab)
-    }
-}
-
-/// Card di una sessione: stato (pallino + label), titolo, chip del workspace, età dell'ultimo
-/// evento. Su hover, x di dismiss per spegnere un completamento (unseen o in sospeso).
-private struct SessionCard: View {
-    let item: DashboardModel.Item
-    let selected: Bool
-    let now: Date
-    let colors: ChromeColors
-    let onJump: () -> Void
-    let onDismiss: () -> Void
-
-    @State private var hovered = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            statusRow
-            Text(item.tab.title)
-                .font(Theme.Typography.item)
-                .foregroundStyle(colors.foreground)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            chipRow
-        }
-        .padding(Theme.Spacing.sm)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(hovered ? colors.hover : colors.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .stroke(selected ? colors.accent : Color.clear, lineWidth: 1.5)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onJump)
-        .onHover { hovered = $0 }
-    }
-
-    private var statusRow: some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            statusDot
-            Text(statusLabel)
-                .font(Theme.Typography.caption)
-                .foregroundStyle(colors.secondary)
-            Spacer()
-            if hovered, item.tab.attention != .none {
-                CloseButton(color: colors.secondary, size: 8, help: "Dismiss", action: onDismiss)
-            } else if let age = DashboardModel.age(
-                of: DashboardModel.ageDate(for: item.tab),
-                now: now
-            ) {
-                Text(age)
-                    .font(Theme.Typography.caption.monospacedDigit())
-                    .foregroundStyle(colors.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder private var statusDot: some View {
-        let kind = BadgeKind.forTab(item.tab)
-        let compact = Theme.Metrics.statusDotCompact
-        switch kind {
-        case .pending:
-            StatusDot(color: colors.completed.opacity(0.55), style: .ring, size: compact)
-        case .none:
-            StatusDot(color: colors.secondary.opacity(0.5), style: .ring, size: compact)
-        default:
-            StatusDot(color: kind.tint(colors), size: compact)
-        }
-    }
-
-    private var statusLabel: String {
-        switch BadgeKind.forTab(item.tab) {
-        case .needsInput: "needs input"
-        case .error: "error"
-        case .running: "running"
-        case .completed: "done"
-        case .pending: "pending"
-        case .none: item.tab.pendingResume ? "resumable" : "idle"
-        }
-    }
-
-    private var chipRow: some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            Circle()
-                .fill(chipColor)
-                .frame(width: 6, height: 6)
-            Text(item.workspace.name)
-                .font(Theme.Typography.caption)
-                .foregroundStyle(colors.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-    }
-
-    /// Colore del chip dai colori ANSI del tema, stabile per workspace (vedi `chipColorIndex`).
-    private var chipColor: Color {
-        Color(colors.theme.ansiColor(DashboardModel.chipColorIndex(item.workspace.id)))
     }
 }

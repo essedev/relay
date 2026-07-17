@@ -1,6 +1,13 @@
 import Core
 import Foundation
 
+/// Vista della dashboard (Cmd+D): `board` = kanban per stato (colonne needs input/running/done/
+/// idle), `grid` = griglia flat storica ordinata per urgenza. Preferenza UI, persistita.
+public enum DashboardLayout: String, CaseIterable, Sendable {
+    case board
+    case grid
+}
+
 /// Preferenze estetiche dell'app (tema, dimensione font), osservabili e persistite in
 /// `UserDefaults`. Distinte dallo snapshot del layout (Milestone 2): qui vivono le *preferenze*,
 /// il posto giusto per UserDefaults. Sia il terminale sia la chrome derivano da `theme`.
@@ -54,6 +61,9 @@ public final class AppSettings {
     /// Onboarding (Welcome to Relay) già mostrato: al primo avvio l'overlay parte da solo, poi si
     /// riapre solo da Help > Welcome to Relay. One-shot, non torna `false`.
     public private(set) var onboardingSeen: Bool
+
+    /// Vista della dashboard: `board` (kanban) di default, `grid` come seconda opzione. Persistita.
+    public private(set) var dashboardLayout: DashboardLayout
 
     /// Nomina automatica dei workspace via LLM (endpoint OpenAI-compatible). `enabled` di default
     /// on, ma la feature resta **inerte senza una API key** (salvata a parte, file 0600): serve
@@ -113,6 +123,8 @@ public final class AppSettings {
         checkForUpdatesAutomatically = Self.boolDefaultingTrue(defaults, Keys.checkForUpdates)
         skippedUpdateVersion = defaults.string(forKey: Keys.skippedUpdateVersion)
         onboardingSeen = defaults.bool(forKey: Keys.onboardingSeen)
+        dashboardLayout = defaults.string(forKey: Keys.dashboardLayout)
+            .flatMap(DashboardLayout.init(rawValue:)) ?? .board
         workspaceNamingEnabled = Self.boolDefaultingTrue(defaults, Keys.workspaceNamingEnabled)
         workspaceNamingBaseURL = defaults.string(forKey: Keys.workspaceNamingBaseURL)
             ?? Self.defaultNamingBaseURL
@@ -218,6 +230,13 @@ public final class AppSettings {
     /// Timbra l'onboarding come visto (alla prima presentazione): non ripartirà da solo.
     public func markOnboardingSeen() {
         update(\.onboardingSeen, true, key: Keys.onboardingSeen)
+    }
+
+    /// Sceglie la vista della dashboard (kanban / griglia). Persiste il `rawValue`.
+    public func setDashboardLayout(_ layout: DashboardLayout) {
+        guard dashboardLayout != layout else { return }
+        dashboardLayout = layout
+        defaults.set(layout.rawValue, forKey: Keys.dashboardLayout)
     }
 
     /// Mette in "skip" una versione: non verrà più proposta finché non ne esce una più nuova.
@@ -336,6 +355,7 @@ public final class AppSettings {
         static let checkForUpdates = "relay.updates.checkAutomatically"
         static let skippedUpdateVersion = "relay.updates.skippedVersion"
         static let onboardingSeen = "relay.onboarding.seen"
+        static let dashboardLayout = "relay.dashboard.layout"
         static let workspaceNamingEnabled = "relay.naming.enabled"
         static let workspaceNamingBaseURL = "relay.naming.baseURL"
         static let workspaceNamingModel = "relay.naming.model"
