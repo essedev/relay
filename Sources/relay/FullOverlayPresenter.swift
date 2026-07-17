@@ -40,9 +40,16 @@ final class FullOverlayPresenter {
         presented = kind
         // First responder all'overlay sul runloop successivo: sincrono la hosting view non ha
         // ancora montato i suoi campi (TextField della dashboard, vista `.focusable`
-        // dell'onboarding) e frecce/Esc cadrebbero nel vuoto.
+        // dell'onboarding) e frecce/Esc cadrebbero nel vuoto. Ma se il contenuto ha già preso il
+        // focus da sé (il TextField della dashboard via `@FocusState` in `onAppear`), non
+        // glielo rubiamo: forzare `host` come first responder qui defocalizzerebbe il campo di
+        // ricerca (l'utente doveva cliccare la finestra per digitare - il bug del "no focus").
         DispatchQueue.main.async { [weak self, weak host] in
-            self?.splitVC.view.window?.makeFirstResponder(host)
+            guard let host, let window = self?.splitVC.view.window else { return }
+            if let current = window.firstResponder as? NSView, current.isDescendant(of: host) {
+                return
+            }
+            window.makeFirstResponder(host)
         }
     }
 
