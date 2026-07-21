@@ -121,6 +121,9 @@ final class AppController: NSObject, NSApplicationDelegate {
                 self?.moveWorkspaceToNewWindow(workspace)
             },
             onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
+            onRegenerateWorkspaceName: { [weak self] workspace in
+                self?.regenerateWorkspaceName(workspace.id)
+            },
             paneActions: makePaneActions()
         )
     }

@@ -15,6 +15,29 @@ public struct WorkspaceNameSignals: Equatable, Sendable {
     }
 }
 
+/// Quel che si osserva di **una** tab ai fini della nomina: lo stato agente (dal model) più ciò che
+/// si riesce a leggere dalla sua surface (comando in foreground, cwd viva). Tutto opzionale: una
+/// tab mai realizzata - restore dal layout, sfratto della LRU - non ha surface da interrogare.
+public struct TabNamingSignal: Equatable, Sendable {
+    /// La tab è a schermo nel suo pane: a parità di forza del segnale è quella che stai guardando.
+    public var isVisible: Bool
+    public var agent: String?
+    public var command: String?
+    public var directory: String?
+
+    public init(
+        isVisible: Bool = false,
+        agent: String? = nil,
+        command: String? = nil,
+        directory: String? = nil
+    ) {
+        self.isVisible = isVisible
+        self.agent = agent
+        self.command = command
+        self.directory = directory
+    }
+}
+
 /// Logica pura per la nomina automatica dei workspace via LLM (endpoint OpenAI-compatible):
 /// estrazione del comando dall'argv, costruzione del prompt e sanitizzazione della risposta.
 /// Niente I/O: la rete vive nel composition root (`NamingController`), qui solo trasformazioni
@@ -55,12 +78,53 @@ public enum WorkspaceNaming {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Fonde le osservazioni delle tab di un workspace in un solo set di segnali. Sceglie **una**
+    /// tab - la più informativa - e ne prende i segnali interi: mescolare il comando di una tab con
+    /// la cwd di un'altra descriverebbe un'attività che non esiste. Guardare tutte le tab e non
+    /// solo la selezionata è il punto: la tab in vista è spesso una shell ferma mentre l'agente
+    /// gira in quella accanto, ed è il workspace che stiamo nominando, non la tab.
+    ///
+    /// Forza del segnale: agente attivo > comando in foreground > cwd nota > niente; a parità vince
+    /// la tab a schermo, poi l'ordine. La cwd ricade su `workspaceRoot` quando la tab scelta non ne
+    /// ha (nessuna surface da interrogare): la cartella del workspace è il contesto minimo che
+    /// conosciamo sempre.
+    public static func signals(
+        from tabs: [TabNamingSignal],
+        workspaceRoot: String? = nil
+    ) -> WorkspaceNameSignals {
+        let best = tabs.enumerated().max { lhs, rhs in
+            // L'indice negato tiene l'ordine deterministico: a parità vince la tab che viene prima.
+            (strength(lhs.element), lhs.element.isVisible ? 1 : 0, -lhs.offset)
+                < (strength(rhs.element), rhs.element.isVisible ? 1 : 0, -rhs.offset)
+        }?.element
+        return WorkspaceNameSignals(
+            directory: best?.directory ?? workspaceRoot,
+            command: best?.command,
+            agent: best?.agent
+        )
+    }
+
+    /// Quanto una tab è informativa per la nomina. Ordine fisso, non pesi da tarare: un agente
+    /// attivo dice di cosa ti stai occupando, un comando dice cosa stai facendo, la cwd solo dove
+    /// sei.
+    private static func strength(_ tab: TabNamingSignal) -> Int {
+        if tab.agent != nil { return 3 }
+        if tab.command != nil { return 2 }
+        if tab.directory != nil { return 1 }
+        return 0
+    }
+
     /// Costruisce i messaggi (system + user) per la chat completion. `nil` se i segnali non bastano
     /// a nominare qualcosa: nessun comando **e** directory assente o coincidente con la home (un
     /// workspace fermo in home senza attività non ha un "argomento" da cui derivare un nome).
+    ///
+    /// `avoiding` è il nome corrente da non ripetere, e lo passa solo il "Regenerate name" manuale:
+    /// il prompt è deterministico (`temperature: 0`), quindi a contesto invariato il modello
+    /// ridarebbe lo stesso identico nome e l'azione sembrerebbe non aver fatto nulla.
     public static func prompt(
         for signals: WorkspaceNameSignals,
-        homePath: String
+        homePath: String,
+        avoiding currentName: String? = nil
     ) -> (system: String, user: String)? {
         let directoryLabel = directoryHint(signals.directory, homePath: homePath)
         let command = signals.command?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -78,6 +142,10 @@ public enum WorkspaceNaming {
         if hasCommand, let command { lines.append("Command: \(command)") }
         let agent = signals.agent?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let agent, !agent.isEmpty { lines.append("Agent: \(agent)") }
+        let avoid = currentName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let avoid, !avoid.isEmpty {
+            lines.append("Already named \"\(avoid)\": propose a different name for the same thing.")
+        }
         return (system: system, user: lines.joined(separator: "\n"))
     }
 

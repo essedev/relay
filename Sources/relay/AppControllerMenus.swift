@@ -10,7 +10,7 @@ extension AppController {
 
     @objc func regenerateSelectedWorkspaceName(_: Any?) {
         guard let workspace = store.selectedWorkspace else { return }
-        store.markNameRegenerable(workspace.id)
+        regenerateWorkspaceName(workspace.id)
     }
 
     @objc func toggleSelectedWorkspacePin(_: Any?) {

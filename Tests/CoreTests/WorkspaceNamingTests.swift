@@ -32,6 +32,62 @@ private let home = "/Users/dev"
     #expect(try #require(result?.count) <= 80)
 }
 
+// MARK: - signals(from:workspaceRoot:)
+
+@Test func signalsPreferTheTabWithAnActiveAgent() {
+    let tabs = [
+        TabNamingSignal(isVisible: true, directory: "/Users/dev"),
+        TabNamingSignal(agent: "claude", directory: "/Users/dev/relay"),
+    ]
+    let result = WorkspaceNaming.signals(from: tabs)
+    #expect(result.agent == "claude")
+    // I segnali vengono tutti dalla stessa tab: la cwd è quella dell'agente, non della visibile.
+    #expect(result.directory == "/Users/dev/relay")
+}
+
+@Test func signalsPreferACommandOverABareDirectory() {
+    let tabs = [
+        TabNamingSignal(isVisible: true, directory: "/Users/dev"),
+        TabNamingSignal(command: "brew update", directory: "/Users/dev/tools"),
+    ]
+    let result = WorkspaceNaming.signals(from: tabs)
+    #expect(result.command == "brew update")
+    #expect(result.directory == "/Users/dev/tools")
+}
+
+@Test func signalsPreferTheVisibleTabAtEqualStrength() {
+    let tabs = [
+        TabNamingSignal(command: "vim", directory: "/Users/dev/a"),
+        TabNamingSignal(isVisible: true, command: "vim", directory: "/Users/dev/b"),
+    ]
+    #expect(WorkspaceNaming.signals(from: tabs).directory == "/Users/dev/b")
+}
+
+@Test func signalsAreStableWhenNothingDistinguishesTheTabs() {
+    let tabs = [
+        TabNamingSignal(directory: "/Users/dev/first"),
+        TabNamingSignal(directory: "/Users/dev/second"),
+    ]
+    #expect(WorkspaceNaming.signals(from: tabs).directory == "/Users/dev/first")
+}
+
+@Test func signalsFallBackToTheWorkspaceRootWithoutLiveTabs() {
+    // Nessuna surface realizzata (restore dal layout, sfratto LRU): resta la cartella nota.
+    let tabs = [TabNamingSignal(isVisible: true)]
+    let result = WorkspaceNaming.signals(from: tabs, workspaceRoot: "/Users/dev/relay")
+    #expect(result.directory == "/Users/dev/relay")
+    #expect(result.command == nil)
+}
+
+@Test func signalsFallBackToTheWorkspaceRootWithoutTabs() {
+    #expect(WorkspaceNaming.signals(from: [], workspaceRoot: "/Users/dev/relay")
+        .directory == "/Users/dev/relay")
+}
+
+@Test func signalsAreEmptyWithoutAnySource() {
+    #expect(WorkspaceNaming.signals(from: [TabNamingSignal()]) == WorkspaceNameSignals())
+}
+
 // MARK: - prompt(for:)
 
 @Test func promptNilWhenNoSignal() {
@@ -69,6 +125,27 @@ private let home = "/Users/dev"
     let signals = WorkspaceNameSignals(directory: "/Users/dev/relay", agent: "claude")
     let result = WorkspaceNaming.prompt(for: signals, homePath: home)
     #expect(try #require(result?.user.contains("Agent: claude")))
+}
+
+@Test func promptAsksForADifferentNameWhenAvoiding() throws {
+    // Rigenerazione manuale: senza il vincolo, `temperature: 0` ridarebbe lo stesso nome.
+    let signals = WorkspaceNameSignals(directory: "/Users/dev/relay")
+    let result = WorkspaceNaming.prompt(for: signals, homePath: home, avoiding: "Relay")
+    #expect(try #require(result?.user.contains("Already named \"Relay\"")))
+}
+
+@Test func promptIgnoresAnEmptyAvoidedName() throws {
+    let signals = WorkspaceNameSignals(directory: "/Users/dev/relay")
+    let result = WorkspaceNaming.prompt(for: signals, homePath: home, avoiding: "   ")
+    #expect(try !#require(result?.user.contains("Already named")))
+}
+
+@Test func promptStaysNilWhenOnlyAvoidingIsKnown() {
+    // "Dammene un altro" non è contesto: senza segnali non c'è niente da nominare.
+    let result = WorkspaceNaming.prompt(
+        for: WorkspaceNameSignals(), homePath: home, avoiding: "Relay"
+    )
+    #expect(result == nil)
 }
 
 // MARK: - sanitize

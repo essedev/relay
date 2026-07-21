@@ -19,6 +19,11 @@ public struct SidebarView: View {
     let onCloseWorkspace: (Workspace) -> Void
     /// Sposta un workspace in una finestra nuova: la `NSWindow` la crea il composition root.
     let onMoveWorkspaceToNewWindow: (Workspace) -> Void
+    /// Rigenera il nome del workspace. Non è `store.markNameRegenerable`: quello lo rimette solo in
+    /// coda al poll passivo della nomina automatica, che su un workspace fermo non scatta mai. Il
+    /// composition root ha il `NamingController`, che nomina subito e riporta l'eventuale
+    /// fallimento.
+    let onRegenerateName: (Workspace) -> Void
     /// Config della pill di aggiornamento (sopra la sezione Archive). `nil` = niente pill (bundle
     /// assente / test): la sidebar non dipende dalla rete né dal composition root.
     let updateConfig: SidebarUpdateConfig?
@@ -42,6 +47,7 @@ public struct SidebarView: View {
         onNewWorkspace: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
         onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
+        onRegenerateName: @escaping (Workspace) -> Void,
         updateConfig: SidebarUpdateConfig? = nil
     ) {
         self.store = store
@@ -50,6 +56,7 @@ public struct SidebarView: View {
         self.onNewWorkspace = onNewWorkspace
         self.onCloseWorkspace = onCloseWorkspace
         self.onMoveWorkspaceToNewWindow = onMoveWorkspaceToNewWindow
+        self.onRegenerateName = onRegenerateName
         self.updateConfig = updateConfig
     }
 
@@ -155,10 +162,7 @@ public struct SidebarView: View {
             onSelect: { store.selectWorkspace(workspace.id) },
             onTogglePin: { store.togglePin(workspace.id) },
             onRename: { store.renameWorkspace(workspace.id, to: $0) },
-            // Rende il workspace di nuovo eleggibile alla nomina automatica: l'observer del
-            // NamingController reagisce al ritorno di `nameOrigin` a `.default` e lo rinomina al
-            // prossimo segnale. Solo store: nessun cablaggio verso il composition root.
-            onRegenerateName: { store.markNameRegenerable(workspace.id) },
+            onRegenerateName: { onRegenerateName(workspace) },
             onToggleUnread: { toggleUnread(workspace) },
             onToggleArchive: { store.toggleArchive(workspace.id) },
             // Solo se la finestra ha altro da mostrare dopo: altrimenti resterebbe vuota.

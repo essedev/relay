@@ -252,8 +252,14 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   segnale è abbastanza forte: streak del comando + stabilizzazione cwd, con soglie; testata). Il
   `NamingController` (RelayApp, **unico punto che tocca la rete** per questa
   feature) osserva l'eleggibilità (`settings.workspaceNamingEnabled` + esiste un `.default` +
-  `credentials.hasKey()`) e, quando serve, fa girare un **poll** (timer ~3s) sulla tab selezionata
-  dei workspace `.default`. Tre trigger, dal più forte: agente attivo (`running`/`needs_input`) ->
+  `credentials.hasKey()`) e, quando serve, fa girare un **poll** (timer ~3s) sui workspace
+  `.default`. Il contesto si raccoglie su **tutte le tab** del workspace, non sulla selezionata: la
+  tab in vista è spesso una shell ferma mentre l'agente gira in quella accanto, ed è il workspace
+  che si nomina. `Core.WorkspaceNaming.signals` (puro, testato) sceglie **una** tab - la più
+  informativa (agente > comando > cwd, a parità vince quella a schermo) - e ne prende i segnali
+  **interi**: mescolare il comando di una tab con la cwd di un'altra descriverebbe un'attività che
+  non esiste. Se la tab scelta non ha cwd (mai realizzata: restore, sfratto LRU) si ricade sul
+  `rootPath` del workspace. Tre trigger, dal più forte: agente attivo (`running`/`needs_input`) ->
   subito; comando in foreground stabile per 2 tick (argv via `TerminalSurfaceHandle
   .foregroundCommandLine`, letta con `KERN_PROCARGS2`) -> es. "Homebrew Update"; cwd stabile fuori
   dalla home per ~10s -> es. "Yellow Hub". **La cwd è quella della shell viva**
@@ -261,20 +267,42 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   root, iniettata nel controller), **non** `tab.currentDirectory`: quello è il solo OSC 7, che zsh
   in Relay non emette (vedi gotcha OSC 7), quindi il segnale cwd sarebbe sempre nil e la nomina da
   directory non scatterebbe (era la causa del "Regenerate name" muto su un workspace fermo).
-  **Single-flight per workspace**, max 2 tentativi poi si
-  arrende in silenzio (mai un alert per un nome). Il poll gira **solo** finché c'è un `.default`
+  **Single-flight per workspace**, max 2 tentativi **distanziati da un cooldown di 60s** poi si
+  arrende in silenzio (senza il cooldown la policy, che ha già deciso "nomina", ridecideva a ogni
+  tick: un blip di rete bruciava i due tentativi in sei secondi e spegneva la nomina per sempre).
+  La nomina **automatica** resta silenziosa (mai un alert per un nome che non hai chiesto); quella
+  **manuale** no, vedi sotto. Il poll gira **solo** finché c'è un `.default`
   (osservazione su `nameOrigin`): quando tutti sono nominati il timer si ferma. Alla risposta,
   `store.applyGeneratedName` applica **solo** se il workspace è ancora `.default` (l'utente può aver
   rinominato nel frattempo: `renameWorkspace` marca `.user`, intoccabile). `NameOrigin`: `.default`
   (eleggibile) -> `.generated` (one-shot) / `.user` (a mano). Snapshot **additivo** (assente ->
-  `.user`: i nomi pre-feature sono conosciuti dall'utente, non rigenerare). "Regenerate name" dal
-  menu contestuale (`store.markNameRegenerable` -> torna `.default`) prova a nominare **subito** col
-  contesto corrente (`NamingController.nameImmediately`: salta la soglia di stabilità della policy),
-  con l'observer/poll come rete di sicurezza se il contesto non basta ancora. La
+  `.user`: i nomi pre-feature sono conosciuti dall'utente, non rigenerare). **"Regenerate name"**
+  (menu contestuale della sidebar **e** menu Workspace) passa da
+  `AppController.regenerateWorkspaceName` -> `NamingController.regenerate`: torna `.default`, azzera
+  abbandono/tentativi/cooldown, nomina **subito** col contesto corrente (salta le soglie della
+  policy) e chiede un nome **diverso** da quello attuale (`prompt(avoiding:)`, solo se l'attuale
+  l'ha generato il modello: `temperature` è 0, quindi a contesto invariato ridarebbe lo stesso
+  identico nome e sembrerebbe non aver fatto niente). **Non cablarlo su `store.markNameRegenerable`
+  da solo**: quello rimette solo il workspace in coda al poll passivo, che su un workspace fermo
+  resta muto - era il bug del "Regenerate name che non fa niente" (`regenerate` era codice morto,
+  mai chiamato da nessuna delle due voci). A differenza del poll, l'azione manuale **non tace mai**:
+  ogni ramo che non produce un nome torna un `NamingFailure` (`notConfigured`/`noContext`/
+  `requestFailed`) che il composition root mostra come sheet (`presentNamingFailure`, con "Open
+  Settings…" sul primo). La
   API key è un segreto: **file 0600** `~/.relay/naming-credentials.json` (`NamingCredentialStore`),
   **non** UserDefaults; base URL + model in `AppSettings`. Config in Settings > Agents > Workspace
   naming. Gira anche da `swift run` (non è bundle-gated come notifiche/update), ma è inerte senza
   chiave. Mai in demo mode (nomi fissi).
+- **Modelli di reasoning nella nomina** (`ChatCompletionClient`, il client HTTP estratto dal
+  `NamingController`): il tetto `max_tokens` deve coprire anche il *pensiero*, non solo il nome.
+  Con 16 token un modello di reasoning (es. `deepseek/deepseek-v4-flash` su OpenRouter) torna
+  `finish_reason: length` e **`content: null`**, quindi non nomina **mai** - e con `content: String`
+  non opzionale il decode dell'intera risposta falliva, mascherando tutto come generico "richiesta
+  fallita". Ora il tetto è **512** (è un massimale, non una spesa: i modelli normali si fermano al
+  nome) e `content` è opzionale, con log dedicato che cita il `finish_reason`. I messaggi d'errore
+  del client sono `privacy: .public` (sono stringhe di URLSession/JSONDecoder, non payload utente):
+  con la redazione di default in console si leggeva `<private>` e la diagnosi andava fatta a mano
+  con `curl`.
 - Misure di performance: `RELAY_PERF=1` accende `PerfSampler` (RSS + surface vive + latenza input,
   categoria log `perf`, livello `.notice`); `RELAY_PERF_CYCLE=1` cicla il focus; `RELAY_SURFACE_CAP=N`
   override del cap LRU. Vedi `docs/research/PERF.md` per numeri e metodo. Spento a regime.

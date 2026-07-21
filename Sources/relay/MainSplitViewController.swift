@@ -26,6 +26,7 @@ final class MainSplitViewController: NSSplitViewController {
         onNewWorkspace: @escaping () -> Void,
         onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
+        onRegenerateWorkspaceName: @escaping (Workspace) -> Void,
         paneActions: PaneTabBarActions
     ) {
         self.settings = settings
@@ -47,6 +48,7 @@ final class MainSplitViewController: NSSplitViewController {
                 onNewWorkspace: onNewWorkspace,
                 onCloseWorkspace: onCloseWorkspace,
                 onMoveWorkspaceToNewWindow: onMoveWorkspaceToNewWindow,
+                onRegenerateName: onRegenerateWorkspaceName,
                 updateConfig: updateConfig
             )
         )
