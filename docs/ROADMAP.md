@@ -449,6 +449,44 @@ limite: era il default, e `Cmd+T` apriva alla radice del workspace.
   il focus al campo di ricerca che l'ha già preso via `@FocusState` (prima toccava cliccare la
   finestra per digitare all'apertura).
 
+## Fatto - "Regenerate name" che nomina davvero (0.11.1)
+
+L'azione non rinominava mai e non diceva niente. Tre cause distinte sullo stesso sintomo, ognuna
+sufficiente da sola a lasciarla muta - la prima rendeva inefficace anche il fix precedente (0.10.1).
+
+- **Non arrivava al controller.** Entrambe le voci ("Regenerate name" nel menu contestuale della
+  sidebar e nel menu Workspace) chiamavano `store.markNameRegenerable`, che si limita a rimettere il
+  workspace in coda al **poll passivo** - muto su un workspace fermo. `NamingController.regenerate`
+  (con la nomina immediata introdotta in 0.10.1) non era chiamato da nessuno: **codice morto**. Ora
+  entrambe passano da `AppController.regenerateWorkspaceName`, e la closure della sidebar è iniettata
+  dal composition root come le altre azioni (`onCloseWorkspace`, `onMoveWorkspaceToNewWindow`).
+- **Guardava una tab sola.** Il contesto veniva dalla sola tab selezionata, che è spesso una shell
+  ferma mentre l'agente gira in quella accanto: si nomina il *workspace*, non la tab. Ora si osserva
+  ogni tab e `Core.WorkspaceNaming.signals` (puro, testato) sceglie **una** tab - la più informativa
+  (agente > comando > cwd, a parità quella a schermo) - e ne prende i segnali **interi**: mescolare
+  il comando di una tab con la cwd di un'altra descriverebbe un'attività che non esiste. Fallback al
+  `rootPath` quando la tab scelta non ha cwd (mai realizzata: restore, sfratto LRU).
+- **La richiesta non tornava mai un nome.** Con `max_tokens: 16` un modello di **reasoning**
+  (`deepseek/deepseek-v4-flash`) spende il budget pensando e risponde `finish_reason: length` con
+  `content: null`; con `content: String` non opzionale il decode dell'intera risposta falliva, e ogni
+  nomina si presentava come un generico "richiesta fallita". Tetto a **512** (è un massimale, non una
+  spesa), `content` opzionale, log che cita il `finish_reason`. La chiamata HTTP esce dal controller
+  in `ChatCompletionClient`, che resta sulla sola policy.
+
+Contorno, tutto nato dalla stessa diagnosi:
+
+- **La rigenerazione manuale chiede un nome diverso** (`prompt(avoiding:)`): `temperature` è 0,
+  quindi a contesto invariato il modello ridava lo stesso identico nome e l'azione sembrava non aver
+  fatto niente. Vincolo applicato solo se il nome attuale l'ha generato il modello.
+- **L'azione manuale non tace mai**: ogni ramo che non produce un nome torna un `NamingFailure`
+  (`notConfigured`/`noContext`/`requestFailed`) che il composition root mostra come sheet, con "Open
+  Settings…" quando manca la configurazione. La nomina **automatica** resta silenziosa per design.
+- **Cooldown 60s** dopo un tentativo fallito: la policy che ha già deciso "nomina" ridecideva a ogni
+  tick, quindi un blip di rete bruciava i due tentativi in sei secondi e spegneva la nomina del
+  workspace per sempre.
+- **Errori del client `privacy: .public`**: in console si leggeva `<private>` e la diagnosi ha
+  richiesto un `curl` a mano. Sono stringhe di URLSession/JSONDecoder, non payload utente.
+
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),

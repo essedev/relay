@@ -127,8 +127,10 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   `UpdateController` (unico punto che tocca rete/clipboard per il check aggiornamenti),
   `RelayWindowController` (una `NSWindow` col suo split e i suoi overlay, legata a `RelayWindow` per
   id; `AppControllerWindows` le crea e le chiude),
-  `NamingController` (unico punto che tocca la rete per la nomina automatica dei workspace) +
-  `NamingCredentialStore` (API key su file 0600 in `~/.relay`), `LayoutAutosave`, `PerfSampler`
+  `NamingController` (unico punto che tocca la rete per la nomina automatica dei workspace: decide
+  *quando* nominare) + `ChatCompletionClient` (la chiamata all'endpoint OpenAI-compatible: *come* si
+  chiede) + `NamingCredentialStore` (API key su file 0600 in `~/.relay`), `LayoutAutosave`,
+  `PerfSampler`
   (misure `RELAY_PERF`), `RuntimeStatsSampler` (campionamento utente on-demand per il pannello
   Runtime Stats), `ShortcutRuntime` (`perform(action)` + `KeyEventBridge`),
   `AppControllerDashboard` (apri/chiudi dashboard + decadenza sospesi), `FullOverlayPresenter`
