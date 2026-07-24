@@ -93,11 +93,21 @@ public struct FindBar: View {
     private var field: some View {
         TextField("Search", text: $model.query)
             .textFieldStyle(.plain)
-            .font(Theme.Typography.caption)
+            .font(Theme.Typography.tab)
             .foregroundStyle(colors.foreground)
-            .frame(width: 180)
+            .frame(width: 240)
             .focused($focused)
             .onAppear { focused = true }
+            .task {
+                // Il set in `onAppear` può cadere se il campo non è ancora agganciato alla
+                // finestra (la barra è montata via NSHostingView): ritenta finché il focus non
+                // attacca, poche decine di ms al massimo.
+                for _ in 0 ..< 5 {
+                    if focused { break }
+                    focused = true
+                    try? await Task.sleep(for: .milliseconds(40))
+                }
+            }
             .onChange(of: model.query) { _, _ in onSearch(true) }
             .onChange(of: model.focusRequest) { _, _ in focused = true }
             .onSubmit { onSearch(true) }

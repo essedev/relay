@@ -105,93 +105,6 @@ final class RightPaneController: NSViewController {
         area.owningPane(of: event)
     }
 
-    // MARK: - Ricerca (Cmd+F)
-
-    /// Mostra la find bar, o - se già aperta - le rimette il focus e ne seleziona il testo (Cmd+F a
-    /// barra aperta rifocalizza, come Safari: non chiude). La chiusura è Esc o la x.
-    func toggleFind() {
-        if findBarHost == nil {
-            showFindBar()
-        } else {
-            findModel.requestFocus()
-        }
-    }
-
-    /// Find next/prev: apre la find bar se chiusa (poi cerchi digitando), altrimenti scorre.
-    func findStep(forward: Bool) {
-        if findBarHost == nil { showFindBar() } else { runSearch(forward: forward) }
-    }
-
-    private func showFindBar() {
-        guard let tabID = store.selectedWorkspace(in: windowID)?.selectedTab?.id else { return }
-        findTabID = tabID
-        let bar = FindBar(
-            model: findModel,
-            theme: settings.theme,
-            onSearch: { [weak self] forward in self?.runSearch(forward: forward) },
-            onClose: { [weak self] in self?.closeFind() }
-        )
-        let host = NSHostingView(rootView: bar)
-        host.translatesAutoresizingMaskIntoConstraints = false
-        host.safeAreaRegions = []
-        view.addSubview(host)
-        // Flotta in alto a destra dell'area terminale, senza spostare il layout.
-        NSLayoutConstraint.activate([
-            host.topAnchor.constraint(equalTo: area.view.topAnchor, constant: Theme.Spacing.sm),
-            host.trailingAnchor.constraint(
-                equalTo: area.view.trailingAnchor,
-                constant: -Theme.Spacing.md
-            ),
-        ])
-        findBarHost = host
-        view.window?.makeFirstResponder(host)
-    }
-
-    private func runSearch(forward: Bool) {
-        guard let findTabID else { return }
-        let result = area.search(
-            inTab: findTabID,
-            term: findModel.query,
-            options: findModel.options,
-            forward: forward
-        )
-        findModel.current = result.current
-        findModel.total = result.total
-    }
-
-    private func closeFind() {
-        guard let host = findBarHost else { return }
-        if let findTabID { area.endSearch(inTab: findTabID) }
-        host.removeFromSuperview()
-        findBarHost = nil
-        findTabID = nil
-        findModel.query = ""
-        findModel.resetCounts()
-        area.focusTerminal() // il focus torna al terminale
-    }
-
-    /// Bridge Observation -> AppKit: se la tab (o il pane) focused cambia mentre la find bar è
-    /// aperta su un'altra tab, chiude la ricerca (pulendo la tab su cui era aperta). Evita una find
-    /// bar orfana con contatore stantio che colpisce la tab sbagliata. Si ri-arma.
-    private func observeFindTarget() {
-        withObservationTracking {
-            _ = store.selectedWorkspace(in: windowID)?.focusedPaneID
-            _ = store.selectedWorkspace(in: windowID)?.selectedTab?.id
-        } onChange: { [weak self] in
-            Task { @MainActor in
-                self?.closeFindIfTargetChanged()
-                self?.observeFindTarget()
-            }
-        }
-    }
-
-    private func closeFindIfTargetChanged() {
-        guard findBarHost != nil, let findTabID else { return }
-        if store.selectedWorkspace(in: windowID)?.selectedTab?.id != findTabID {
-            closeFind()
-        }
-    }
-
     /// Surface vive nell'area (strumentazione di performance, misure M3).
     var liveSurfaceCount: Int {
         area.liveSurfaceCount
@@ -327,5 +240,114 @@ final class RightPaneController: NSViewController {
         areaTopConstraint.isActive = false
         areaTopConstraint = area.view.topAnchor.constraint(equalTo: titleBar.bottomAnchor)
         areaTopConstraint.isActive = true
+    }
+}
+
+// MARK: - Ricerca (Cmd+F)
+
+extension RightPaneController {
+    /// Mostra la find bar, o - se già aperta - le rimette il focus (Cmd+F a barra aperta
+    /// rifocalizza, come Safari: non chiude). La chiusura è Esc o la x.
+    func toggleFind() {
+        if findBarHost == nil {
+            showFindBar()
+        } else {
+            // Il solo @FocusState non basta se il first responder è tornato al terminale (click
+            // nel pty): prima la finestra torna sull'host, poi la view rifocalizza il campo.
+            focusFindBarHost()
+            findModel.requestFocus()
+        }
+    }
+
+    /// Find next/prev: apre la find bar se chiusa (poi cerchi digitando), altrimenti scorre.
+    func findStep(forward: Bool) {
+        if findBarHost == nil { showFindBar() } else { runSearch(forward: forward) }
+    }
+
+    private func showFindBar() {
+        guard let tabID = store.selectedWorkspace(in: windowID)?.selectedTab?.id else { return }
+        findTabID = tabID
+        let bar = FindBar(
+            model: findModel,
+            theme: settings.theme,
+            onSearch: { [weak self] forward in self?.runSearch(forward: forward) },
+            onClose: { [weak self] in self?.closeFind() }
+        )
+        let host = NSHostingView(rootView: bar)
+        host.translatesAutoresizingMaskIntoConstraints = false
+        host.safeAreaRegions = []
+        view.addSubview(host)
+        // Flotta in alto a destra dell'area terminale, senza spostare il layout.
+        NSLayoutConstraint.activate([
+            host.topAnchor.constraint(equalTo: area.view.topAnchor, constant: Theme.Spacing.sm),
+            host.trailingAnchor.constraint(
+                equalTo: area.view.trailingAnchor,
+                constant: -Theme.Spacing.md
+            ),
+        ])
+        findBarHost = host
+        // First responder deferito sul runloop successivo (stesso pattern di
+        // FullOverlayPresenter): sincrono la hosting view non ha ancora montato il TextField e la
+        // makeFirstResponder fallisce in silenzio - i tasti restavano al terminale (il bug del
+        // "Cmd+F senza focus"). Se nel frattempo il campo ha già preso il focus da sé
+        // (@FocusState in onAppear), non glielo rubiamo.
+        DispatchQueue.main.async { [weak self] in
+            self?.focusFindBarHost()
+        }
+    }
+
+    /// Porta il first responder sull'host della find bar, senza rubarlo al campo se un suo
+    /// discendente (il field editor del TextField) lo possiede già.
+    private func focusFindBarHost() {
+        guard let host = findBarHost, let window = view.window else { return }
+        if let current = window.firstResponder as? NSView, current.isDescendant(of: host) {
+            return
+        }
+        window.makeFirstResponder(host)
+    }
+
+    private func runSearch(forward: Bool) {
+        guard let findTabID else { return }
+        let result = area.search(
+            inTab: findTabID,
+            term: findModel.query,
+            options: findModel.options,
+            forward: forward
+        )
+        findModel.current = result.current
+        findModel.total = result.total
+    }
+
+    private func closeFind() {
+        guard let host = findBarHost else { return }
+        if let findTabID { area.endSearch(inTab: findTabID) }
+        host.removeFromSuperview()
+        findBarHost = nil
+        findTabID = nil
+        findModel.query = ""
+        findModel.resetCounts()
+        area.focusTerminal() // il focus torna al terminale
+    }
+
+    /// Bridge Observation -> AppKit: se la tab (o il pane) focused cambia mentre la find bar è
+    /// aperta su un'altra tab, chiude la ricerca (pulendo la tab su cui era aperta). Evita una find
+    /// bar orfana con contatore stantio che colpisce la tab sbagliata. Si ri-arma.
+    func observeFindTarget() {
+        withObservationTracking {
+            _ = store.selectedWorkspace(in: windowID)?.focusedPaneID
+            _ = store.selectedWorkspace(in: windowID)?.selectedTab?.id
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.closeFindIfTargetChanged()
+                self?.observeFindTarget()
+            }
+        }
+    }
+
+    private func closeFindIfTargetChanged() {
+        guard findBarHost != nil, let findTabID else { return }
+        if store.selectedWorkspace(in: windowID)?.selectedTab?.id != findTabID {
+            closeFind()
+        }
     }
 }
