@@ -487,6 +487,23 @@ Contorno, tutto nato dalla stessa diagnosi:
 - **Errori del client `privacy: .public`**: in console si leggeva `<private>` e la diagnosi ha
   richiesto un `curl` a mano. Sono stringhe di URLSession/JSONDecoder, non payload utente.
 
+## Fatto - Focus affidabile di find bar e dashboard (0.11.2)
+
+Giro di fix sui due overlay con campo di testo: aprirli non garantiva il focus, quindi si
+digitava nel terminale sotto (find bar) o Esc/frecce restavano mute (dashboard).
+
+- **Find bar (`Cmd+F`)**: il `makeFirstResponder(host)` sincrono dopo l'`addSubview` girava prima
+  che la hosting view montasse il TextField e falliva in silenzio. Ora è deferito sul runloop
+  successivo col pattern di `FullOverlayPresenter` (guardia: non ruba il focus a un discendente),
+  più un retry del `@FocusState` nella view; `Cmd+F` a barra aperta riporta anche il first
+  responder, non solo lo stato SwiftUI. Campo più leggibile: 240pt a font 12 (era 180pt a font 10).
+- **Dashboard (`Cmd+D`)**: il set del focus in `onAppear` era una race col primo layout (pesante
+  col kanban): quando perdeva, il presenter parcheggiava il first responder sull'host e il campo
+  restava sordo - Esc e frecce appese a un campo mai focused. Ora retry del focus (`.task`), Esc
+  gestito anche dal contenitore, e il pannello fisso 820x580 è **clampato alla finestra**
+  (`panelSize(in:)`: il frame fisso del giro kanban aveva annullato il fix "keep the dashboard on
+  screen", minimo finestra 700x460).
+
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),
