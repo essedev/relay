@@ -478,8 +478,13 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   tornava sempre al primo match). **Stato legato alla tab**: la find bar ricorda la tab su cui è
   aperta (`RightPaneController.findTabID`) e opera su **quella** anche se il focus si sposta;
   `observeFindTarget` la chiude se la tab focused cambia (niente find bar orfana col contatore
-  stantio). `Cmd+F` a barra aperta **rifocalizza** il campo (`FindModel.requestFocus`), non chiude
-  (chiude Esc/x). Colore evidenziazione dal giallo ANSI del tema (`ansiColor(3)`, coerente con
+  stantio). `Cmd+F` a barra aperta **rifocalizza** il campo (`FindModel.requestFocus` +
+  `makeFirstResponder` sull'host se il first responder è altrove), non chiude (chiude Esc/x).
+  **Focus all'apertura**: mai `makeFirstResponder(host)` sincrono dopo l'`addSubview` - la hosting
+  view non ha ancora montato il TextField e fallisce in silenzio (tasti al terminale). Il pattern
+  è quello di `FullOverlayPresenter`: deferral sul runloop successivo + guardia "non rubare se un
+  discendente ha già il focus", più un retry del `@FocusState` nella view (`.task`, il set in
+  `onAppear` può cadere). Colore evidenziazione dal giallo ANSI del tema (`ansiColor(3)`, coerente con
   badge/ring).
 - Ring di attenzione (`AttentionRingView`): bordo colorato attorno al terminale della tab in vista
   che ne segnala lo stato (verde = completato non visto, statico + flash; giallo/rosso pulsante =
@@ -628,7 +633,12 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   **kanban**): kanban per stato su quattro corsie di triage (Needs You = needs_input/error, Running,
   Done = completati non visti, Idle = pending/idle/resume) e la **griglia flat** storica per
   urgenza. **Il pannello è identico nelle due viste** (stessa barra di ricerca, stessa dimensione
-  fissa; le colonne kanban sono flessibili, il toggle scambia solo il contenuto - non ridimensiona).
+  fissa 820x580 ma **clampata alla finestra** via `panelSize(in:)` - il minimo finestra è 700x460,
+  un frame fisso puro verrebbe tagliato; le colonne kanban sono flessibili, il toggle scambia solo
+  il contenuto - non ridimensiona). Il focus del filtro all'apertura ha un retry (`.task`): il set
+  in `onAppear` è una race col primo layout e, se cade, il presenter mette il first responder
+  sull'host e il campo resta sordo (Esc/frecce mute). Esc chiude anche dal contenitore
+  (`onExitCommand` sulla root oltre che sul campo).
   Card con età e dismiss, filtro type-to-search, frecce + Invio (nav flat nella griglia, 2D nel
   kanban), Esc chiude. Logica pura in `Panels/DashboardModel` (raggruppamento `Lane`/`Column`/
   `columns` testato); rendering board + `SessionCard` in `Dashboard+Board.swift` (estratti dal
