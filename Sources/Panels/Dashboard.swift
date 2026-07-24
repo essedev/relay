@@ -190,14 +190,18 @@ public struct DashboardView: View {
     public var body: some View {
         let colors = ChromeColors(settings.theme)
         let items = DashboardModel.items(workspaces: store.workspaces, query: query)
-        ZStack {
-            // Backdrop: attenua il resto e chiude al click fuori dal pannello.
-            Color.black.opacity(0.35)
-                .contentShape(Rectangle())
-                .onTapGesture(perform: onClose)
-            panel(items, colors)
-                .padding(.horizontal, Theme.Spacing.lg)
+        GeometryReader { geo in
+            ZStack {
+                // Backdrop: attenua il resto e chiude al click fuori dal pannello.
+                Color.black.opacity(0.35)
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: onClose)
+                panel(items, colors, size: Self.panelSize(in: geo.size))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        // Esc chiude anche se il focus non è sul campo (belt oltre all'onExitCommand del field).
+        .onExitCommand(perform: onClose)
         .onAppear { if selectedID == nil { selectedID = items.first?.id } }
         .onChange(of: query) { _, q in
             selectedID = DashboardModel.items(workspaces: store.workspaces, query: q).first?.id
@@ -211,8 +215,23 @@ public struct DashboardView: View {
 
     // MARK: - Panel
 
-    private func panel(_ items: [DashboardModel.Item], _ colors: ChromeColors) -> some View {
-        // Pannello identico nelle due viste: stessa barra di ricerca, stessa dimensione fissa;
+    /// Dimensione del pannello: fissa (820x580, identica in griglia e kanban), ma clampata allo
+    /// spazio della finestra - il minimo finestra è 700x460, un frame fisso puro verrebbe tagliato
+    /// (era il fix "keep the dashboard on screen" che il passaggio a width/height aveva perso).
+    static func panelSize(in available: CGSize) -> CGSize {
+        let inset = Theme.Spacing.lg * 2
+        return CGSize(
+            width: min(panelWidth, max(0, available.width - inset)),
+            height: min(panelHeight, max(0, available.height - inset))
+        )
+    }
+
+    private func panel(
+        _ items: [DashboardModel.Item],
+        _ colors: ChromeColors,
+        size: CGSize
+    ) -> some View {
+        // Pannello identico nelle due viste: stessa barra di ricerca, stessa dimensione;
         // il toggle scambia solo il contenuto interno (griglia <-> kanban), niente resize.
         VStack(spacing: 0) {
             header(items, colors)
@@ -221,7 +240,7 @@ public struct DashboardView: View {
             Divider()
             hints(colors)
         }
-        .frame(width: Self.panelWidth, height: Self.panelHeight)
+        .frame(width: size.width, height: size.height)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.md)
                 .fill(colors.background)
@@ -261,6 +280,17 @@ public struct DashboardView: View {
                 .foregroundStyle(colors.foreground)
                 .focused($searchFocused)
                 .onAppear { searchFocused = true }
+                .task {
+                    // Il set in `onAppear` è una race col primo layout della hosting view (col
+                    // kanban il primo render è pesante): se cade, il presenter mette il first
+                    // responder sull'host e il campo resta sordo - Esc e frecce mute, si doveva
+                    // cliccare per digitare. Ritenta finché il focus non attacca.
+                    for _ in 0 ..< 5 {
+                        if searchFocused { break }
+                        searchFocused = true
+                        try? await Task.sleep(for: .milliseconds(40))
+                    }
+                }
                 .onSubmit { jump(items) }
                 .onExitCommand(perform: onClose)
                 .onKeyPress(.leftArrow) { moveSelection(dx: -1, dy: 0, items: items) }
