@@ -101,7 +101,10 @@ dentro una tab, e `relay --demo NxM` per popolare l'app con sessioni concorrenti
 Fatto in seguito (vedi Milestone 4): scelta del font family e altri temi. Altre rifiniture:
 `Cmd+1..9` segue l'ordine visivo della sidebar (`orderedWorkspaces`), drag & drop di file nel
 terminale (inserisce i path escaped, come Terminal.app), ricerca nello scrollback (`Cmd+F`, find bar
-flottante con opzioni case/word/regex, evidenziazione di tutti i match, scrollback 10k), clear del
+flottante con opzioni case/word/regex, evidenziazione di tutti i match, scrollback 10k), **scroll
+fluido** (i delta precisi del trackpad convertiti in righe 1:1 col gesto invece dei salti quantizzati
+di SwiftTerm, residuo sub-riga accumulato in `PreciseScrollAccumulator`; con mouse reporting attivo
+diventano eventi rotella SGR verso l'app), clear del
 terminale (`Cmd+K`), jump alla prossima tab che richiede
 attenzione (`Cmd+J`, ciclico), trascinamento finestra solo dalle strip del titolo (`WindowDragArea`,
 non `isMovableByWindowBackground`), ring di attenzione colorato attorno al terminale con mark-read su
@@ -290,20 +293,29 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 
 ## Fatto - Split panes + multi-window (0.8.0)
 
+> **Voce storica: la metà "split" è superata.** Descrive lo split **v1** (foglie = `Tab.id`, tab bar
+> globale), sostituito poche versioni dopo dal modello cmux - vedi "Split v2" più sotto e
+> `docs/features/split-panes.md`, che sono la descrizione valida. Le frasi al presente in questa
+> sezione valgono per com'era allora, non per com'è oggi. La metà **multi-window** invece è ancora
+> accurata.
+
 Fatti **insieme** perché toccano gli stessi punti (cosa vuol dire "visibile", chi possiede le
 surface, come si instrada il monitor): in sequenza li avremmo rifattorizzati due volte.
 
-**Split = split di tab.** L'albero (`SplitNode`, puro e testato) vive sul **Workspace** e le sue
-foglie sono `Tab.id`. Non c'è un'entità `Pane` sotto la Tab, come prevedeva il design originale: la
-Tab *è* quel pane (il wire la chiama `paneId`), e abbassare l'attention model sarebbe costato il
-doppio togliendo i badge per-sessione dalla tab bar. Prezzo accettato: un layout per workspace.
+**Split = split di tab** (v1, poi superato). L'albero (`SplitNode`, puro e testato) viveva sul
+**Workspace** con foglie `Tab.id`. Non c'era un'entità `Pane` sotto la Tab, come prevedeva il design
+originale: la Tab *era* quel pane (il wire la chiama `paneId`), e abbassare l'attention model sarebbe
+costato il doppio togliendo i badge per-sessione dalla tab bar. Prezzo accettato: un layout per
+workspace.
 
 Da qui nascono due nozioni prima coincidenti: **montata** (a schermo in un pane) e **focused**
 (riceve la tastiera). `isVisible` - che sopprime notifica e bump - segue la prima, non la seconda:
 con due pane a schermo, un completamento su quello non focused non è arrivato mentre non guardavi.
 `selectTab` diventa **monta o metti a fuoco**, e tutta la navigazione (tab bar, `Cmd+T`, click su
-notifica, dashboard, `Cmd+J`) lo eredita senza casi speciali. `closePane` (⌥⌘W) smonta il pane ma
-lascia viva la tab e la sua sessione; `Cmd+W` la uccide: due gesti, due tasti.
+notifica, dashboard, `Cmd+J`) lo eredita senza casi speciali. `closePane` (⌥⌘W) smontava il pane
+lasciando viva la tab e la sua sessione; `Cmd+W` la uccideva: due gesti, due tasti. (In v2 non è più
+così: fuori dai pane non c'è un posto dove tenere una tab, quindi `closePane` chiude il pane **con le
+sue tab**.)
 
 **Multi-window = partizione.** Uno store, un `layout.json`, un receiver, **una** `SurfaceRegistry`
 (una tab ha una surface sola ovunque sia montata): spostare un workspace di finestra non ricrea i
@@ -316,9 +328,9 @@ due monitor la finestra che fissi spesso non ha il focus, e notificarla sarebbe 
 d'uso che motiva la feature.
 
 Rendering: `WorkspaceAreaController` riconcilia l'albero in `NSSplitView` annidate riusando le
-`PaneView` per `Tab.id`, e ricostruisce **solo** se cambia la struttura (`hasSameStructure`) -
-durante il drag di un divider cambiano solo i rapporti. Il first responder si prende solo quando
-cambia il pane focused (un render scatta a ogni OSC 7 dello shell).
+`PaneView` (in v1 chiavate per `Tab.id`, in v2 per `SplitPane.id`), e ricostruisce **solo** se cambia
+la struttura (`hasSameStructure`) - durante il drag di un divider cambiano solo i rapporti. Il first
+responder si prende quando cambia il pane focused (un render scatta a ogni OSC 7 dello shell).
 
 Persistenza **additiva**, nessun bump di `LayoutSnapshot.currentVersion`: `splitLayout`, `windowID`
 e `windows` assenti nei layout vecchi ricadono su pane singolo e finestra unica. Al restore l'albero
@@ -326,7 +338,8 @@ e `windows` assenti nei layout vecchi ricadono su pane singolo e finestra unica.
 senza workspace cadono.
 
 Chrome **senza icone nuove** (i menu qui sono di solo testo; un pallino nella tab bar confliggerebbe
-col badge di stato agente): la tab bar distingue focused (pill piena) da montata (pill tenue), il
+col badge di stato agente): la tab bar globale di allora distingueva focused (pill piena) da montata
+(pill tenue) - in v2 la tab bar globale non esiste più, ogni pane ha la sua strip -, il
 menu contestuale della tab offre "Open in Split Right/Down" (porta una tab esistente in un pane
 accanto, con la sua sessione viva) e quello del workspace "Move to New Window". Nuovo gruppo "Pane"
 fra le scorciatoie rimappabili: ⌘\, ⌘⇧\, ⌘], ⌘[, ⌥⌘W.
@@ -376,8 +389,9 @@ creare split trascinando), drag di workspace fra finestre, zoom del pane, equali
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a
   homebrew-cask ufficiale). Il tap brew non firmato c'è gia (vedi Fatto sopra).
-- Dashboard: evoluzioni oltre le due viste attuali (azioni inline resume/chiudi, contatori in
-  header, preview ultime righe - richiede surface vive).
+- Dashboard: evoluzioni oltre le due viste attuali (azioni inline resume/chiudi, contatore
+  aggregato nell'header del pannello - quelli per corsia nel kanban ci sono già -, preview ultime
+  righe: richiede surface vive).
 - **Generalizzazione multi-agente (Codex / opencode)** - vedi sotto.
 - Export timeline; import da config Ghostty.
 

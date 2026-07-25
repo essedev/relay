@@ -5,14 +5,19 @@ Regole di stile, qualità, test e processo. Struttura moduli e regole di dipende
 
 ## Lingua
 
-- Codice, identificatori, commit: inglese.
-- Commenti e documentazione tecnica (`docs/`, README, CLAUDE.md): italiano.
+- Codice, identificatori, commit: inglese (vedi "Commit E Branch" per lo stato reale della storia).
+- Commenti e documentazione interna (`docs/`, `CLAUDE.md`): italiano.
+- **README: `README.md` è in inglese**, è la vetrina pubblica linkata dal cask; `README.it.md` è la
+  traduzione italiana. I due si aggiornano insieme: una modifica a uno solo è un bug.
 - UI dell'app: inglese (prodotto per sviluppatori, non solo mercato italiano).
 
 ## Stile E Lint
 
 - **SwiftFormat** per la formattazione, **SwiftLint** per le regole. Config committate nel
-  repo, attive dal primo commit. Zero warning tollerati in CI. Le versioni degli strumenti sono
+  repo, attive dal primo commit. Cosa impone davvero il gate: `make lint` gira
+  `swiftformat --lint` + `swiftlint --strict`, quindi **ogni warning di SwiftLint è un errore**; i
+  warning del **compilatore** invece non fanno fallire la build (nessun `-warnings-as-errors`), sono
+  una regola di igiene che teniamo a zero a mano. Le versioni degli strumenti sono
   **pinnate** (binari dai release GitHub scaricati da `make tools` in `.build/tools`, versioni nel
   Makefile): CI e locale usano la stessa, così un upgrade upstream non rompe il lint su codice
   invariato. Bumpare la versione = aggiornare il Makefile e riformattare in un commit dedicato.
@@ -23,7 +28,16 @@ Regole di stile, qualità, test e processo. Struttura moduli e regole di dipende
   lungo.
 - Vietato il pattern `AppDelegate+Feature.swift` come contenitore di logica: le extension
   servono per conformance e helper locali, non per spalmare un god object su 30 file.
-- No force unwrap / force try nel codice di produzione (ok nei test).
+  **Un'eccezione, esplicita e sotto tetto**: il composition root (`AppController`) è per natura
+  wiring, e le sue `AppController+*.swift` (navigazione, menu, dashboard, onboarding, finestre,
+  stats) sono ammesse purché ognuna resti *cablaggio* di un'area - se una di quelle extension inizia
+  a contenere decisioni di dominio, quella logica va in un tipo suo (è così che sono nati
+  `ShortcutRuntime`, `FullOverlayPresenter`, `NamingController`). Il tetto vale comunque: nessun file
+  oltre i limiti, e la regola non si estende ad altri tipi.
+- No force unwrap / force try. `force_unwrapping` è opt-in in `.swiftlint.yml` e **non esclude i
+  test**: la regola vale anche lì (`XCTUnwrap` e `#require` fanno lo stesso lavoro dando un
+  messaggio migliore). Se in futuro servisse allentarla nei test, va aggiunta un'esclusione nel
+  config, non lasciata implicita nel doc.
 - No `print`: logging solo via `os.Logger` (`Core.RelayLog`), subsystem unico dell'app, category =
   modulo. Mai segreti o payload utente nei log. Unica eccezione: `relay-cli`, dove `print` è
   l'output utente della CLI.
@@ -79,14 +93,26 @@ fallisce.
 Una feature è finita quando:
 
 1. `make check` verde (format, lint, build, test);
-2. doc aggiornata nello stesso commit se cambia comportamento, schema o protocollo;
+2. doc di **comportamento** aggiornata nello stesso commit (vedi sotto);
 3. per feature performance-sensibili: misura contro i budget, non impressioni;
 4. nessun file oltre i limiti, nessun warning nuovo.
+
+La regola "doc e codice nello stesso commit" non vale allo stesso modo per tutta la doc, e vale la
+pena dirlo invece di violarla in silenzio:
+
+- **doc di comportamento e di formato** - `STATE_SCHEMA.md` (schema di persistence e protocollo
+  eventi), i gotcha di `CLAUDE.md`, `ARCHITECTURE.md` dove descrive invarianti: **stesso commit del
+  codice**, senza eccezioni. Sono ciò su cui si basa chi legge per scrivere codice nuovo: disallineate
+  fanno danno attivo, e uno schema in ritardo di un commit è già sbagliato.
+- **narrativa di release** - il racconto del giro di lavoro (l'aggiornamento dello stato in cima a
+  `CLAUDE.md`, le voci di `ROADMAP.md`): può arrivare in un commit `docs:` dedicato subito dopo, come
+  di fatto succede. È cronaca, non contratto.
 
 ## Commit E Branch
 
 - Conventional Commits in inglese (`feat`, `fix`, `refactor`, `docs`, `chore`, `test`,
-  `perf`).
+  `perf`). Nota onesta: il tipo/scope è sempre inglese, ma dai dintorni di 0.8.0 molti *subject*
+  sono in italiano. La regola resta l'inglese e vale da qui in avanti; la storia non si riscrive.
 - Un commit = un'unità logica. Mai refactor + feature insieme.
 - Trunk-based su `main` finché il progetto è single-person; feature branch + PR se entra
   altra gente.

@@ -48,10 +48,12 @@ Workspace { tabs: [Tab], layout: SplitNode, focusedPaneID }
 | `Cmd+\` / `Cmd+Shift+\` | split del pane focused con una **nuova tab** (cwd ereditata), focus al nuovo pane |
 | "Open in Split Right/Down" (menu tab) | **sposta** la tab esistente in un nuovo pane accanto al focused (sessione viva). No-op se è l'unica tab del suo pane e il target è quel pane |
 | `Cmd+W` | chiude la tab selezionata del pane focused; il pane collassa se resta vuoto; l'ultima tab dell'ultimo pane chiude il workspace (cascade) |
-| `Opt+Cmd+W` (close pane) | chiude il pane **e le sue tab** (conferma se hanno processi in foreground). Prima "smontava" lasciando la tab viva: nel nuovo modello non esiste un posto fuori dai pane |
+| `Opt+Cmd+W` (close pane) | chiude il pane **e le sue tab** (conferma se hanno processi in foreground). Prima "smontava" lasciando la tab viva: nel nuovo modello non esiste un posto fuori dai pane. **No-op con un pane solo**: chiuderlo svuoterebbe il workspace, per quello c'è `Close Workspace` |
 | `Cmd+]` / `Cmd+[` | focus al pane successivo/precedente (ordine visivo, ciclico) |
 | `Opt+1..9` | seleziona la N-esima tab **del pane focused** |
 | Click su tab | seleziona nel suo pane + focus al pane |
+| Click sull'area vuota della strip | focus al pane, **senza** cambiare la sua selezione |
+| Doppio click sull'area vuota della strip | nuova tab in **quel** pane (come il doppio click nella tab bar di Safari/Terminal) |
 
 ## Persistence e migrazione
 
@@ -79,7 +81,9 @@ Workspace { tabs: [Tab], layout: SplitNode, focusedPaneID }
 - `hasSameStructure` confronta id di pane e branch + assi: cambiare selezione o tab dentro un pane
   **non** ricostruisce le view; il reconcile del contenuto (quale surface è attaccata a quale pane)
   gira a ogni render ed è un confronto + swap.
-- First responder: si prende solo quando cambia la coppia (pane focused, sua tab selezionata).
+- First responder: si prende quando cambia la coppia (pane focused, sua tab selezionata) **e dopo
+  ogni rebuild** dell'albero - staccare le view dalla gerarchia resetta il responder, quindi senza
+  la seconda condizione uno split appena creato nasceva senza tastiera.
 - La tab bar globale (`TabBarView` in cima al right pane) **sparisce**: la rimpiazzano le strip
   per pane. `ContextTitleBar` resta (drag della finestra, titolo workspace).
 

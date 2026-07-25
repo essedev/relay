@@ -24,10 +24,12 @@ Native macOS terminal for working with many coding agents in parallel: reliable 
 (via Claude Code hooks), workspace organization (sidebar with pinning and reordering, overview
 dashboard), fast and lightweight.
 
-Status: baseline complete and distributed via a Homebrew tap. Workspace -> Tab -> terminal, agent
-runtime with badges/notifications, layout persistence, assisted resume, triage dashboard, twelve
-themes. Engine v1 is SwiftTerm behind the `TerminalEngine` abstraction (libghostty a future
-backend). Decisions, benchmarks and research logs live in `docs/research/` (`CYCLES.md`).
+Status: baseline complete and distributed via a Homebrew tap. Workspace -> pane -> Tab -> terminal,
+agent runtime with badges/notifications, split panes and multiple windows, layout persistence,
+assisted resume, kanban triage dashboard, workspace archive, automatic workspace naming via an
+LLM, onboarding, twelve themes. Engine v1 is SwiftTerm behind the `TerminalEngine` abstraction
+(libghostty a future backend). Decisions, benchmarks and research logs live in `docs/research/`
+(`CYCLES.md`).
 
 ## Installation
 
@@ -44,10 +46,13 @@ Settings > Privacy & Security** and click **Open Anyway** (once per version).
 
 ## Development
 
-Requirements: Xcode/Swift 6, macOS 14+. For linting: `brew install swiftlint swiftformat`.
+Requirements: Xcode/Swift 6, macOS 14+. The linters are **pinned**: `make tools` downloads the exact
+SwiftFormat/SwiftLint releases into `.build/tools`, so CI and local runs use the same version. Do not
+install them via brew for the quality gate (you would get a different version).
 
 ```bash
 make build     # build
+make tools     # download the pinned SwiftFormat/SwiftLint into .build/tools
 make run       # launch the app (Relay window, no notifications)
 make test      # test
 make check     # full quality gate (lint + build + test)
@@ -70,9 +75,13 @@ notarization is not set up yet.
 
 - `Cmd+N` new workspace (no folder, starts from home).
 - `Cmd+O` open a folder as a workspace.
-- `Cmd+T` new tab, `Cmd+W` close tab, `Cmd+Shift+W` close workspace.
-- `Cmd+1..9` select workspace, `Option+1..9` select tab (the two axes, fixed).
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` cycle tabs, `Cmd+Option+Down` / `Cmd+Option+Up` cycle workspaces.
+- `Cmd+T` new tab, `Cmd+W` close tab (the selected one in the focused pane).
+- `Cmd+Shift+N` new window, `Cmd+Shift+W` close window, `Cmd+Option+Shift+W` close workspace.
+- `Cmd+\` split right, `Cmd+Shift+\` split down, `Cmd+Option+W` close pane (with all its tabs),
+  `Cmd+]` / `Cmd+[` focus next/previous pane.
+- `Cmd+1..9` select workspace, `Option+1..9` select tab in the focused pane (the two axes, fixed).
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` cycle tabs in the focused pane, `Cmd+Option+Down` /
+  `Cmd+Option+Up` cycle workspaces.
 - `Cmd+J` / `Cmd+Shift+J` jump to the next/previous tab that needs attention.
 - `Cmd+D` open the triage dashboard of agent sessions.
 - `Cmd+F` search in the terminal, `Cmd+G` / `Cmd+Shift+G` next/previous match,
@@ -139,4 +148,5 @@ The internal docs are in Italian (English-facing surface is this README).
 - `docs/ROADMAP.md` - what is done and what is missing (baseline complete; next step TBD).
 - `docs/CONVENTIONS.md` - code, test and process rules.
 - `docs/STATE_SCHEMA.md` - persistence schema and agent event protocol.
+- `docs/features/split-panes.md` - the "a pane hosts tabs" model (cmux style).
 - `CLAUDE.md` - operational guide for the agent.

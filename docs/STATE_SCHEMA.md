@@ -47,14 +47,22 @@ stdin dell'hook): quei tool non passano da `PermissionRequest` (non sono permess
 `Stop` finché l'utente non risponde; il `PostToolUse`, che arriva solo dopo la risposta, riporta
 `running`.
 
-**Ri-presa attiva (`resetsAttention`)**: `SessionStart` porta un `source` (`startup`/`resume`/
-`clear`/`compact`). Su `clear` (= `/clear`, `/new`) e `resume` il CLI lo legge dallo stdin e marca
-l'evento `resetsAttention: true`: lo `state` resta `idle` (l'agente è fermo in attesa) ma il marker
-di attenzione in sospeso si spegne, come farebbe il primo prompt. `startup`/`compact` restano `idle`
-neutro. Il campo `source` esiste solo sul SessionStart, quindi discrimina da uno `Stop` idle.
+**Attenzione, due `source` diversi con lo stesso nome**. Sul filo `source` è
+l'`AgentStateSource` - **quanto è autorevole** lo stato: `hook`, `osc`, `shell_integration`,
+`heuristic` (v1 manda sempre `hook`). Il `source` di cui parla il paragrafo qui sotto
+(`startup`/`resume`/`clear`/`compact`) è un campo dello **stdin dell'hook** `SessionStart` di Claude:
+il CLI lo legge e lo traduce in `resetsAttention`, ma non finisce mai sul filo.
+
+**Ri-presa attiva (`resetsAttention`)**: sullo stdin di `SessionStart` Claude passa un `source`
+(`startup`/`resume`/`clear`/`compact`). Su `clear` (= `/clear`, `/new`) e `resume` il CLI lo legge e
+marca l'evento `resetsAttention: true`: lo `state` resta `idle` (l'agente è fermo in attesa) ma il
+marker di attenzione in sospeso si spegne, come farebbe il primo prompt. `startup` resta `idle`
+neutro; `compact` non viene inviato affatto (vedi sotto).
 
 **Binding sessione -> pane**: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'ambiente della surface;
-lo ereditano shell -> agent -> hook, e il CLI lo rimanda come `paneId`. Nessun parsing dell'output.
+lo ereditano shell -> agent -> hook, e il CLI lo rimanda come `paneId`. Accanto viaggia
+`RELAY_RUN_ID` (`Core.RelayRunID`, nonce per processo dell'app), che torna come `runId`. Nessun
+parsing dell'output.
 
 Esempio `agent.state` (`AgentStateEvent`, esattamente ciò che passa sul socket):
 
@@ -63,6 +71,7 @@ Esempio `agent.state` (`AgentStateEvent`, esattamente ciò che passa sul socket)
   "agent": "claude",
   "sessionId": "abc",
   "paneId": "11111111-2222-3333-4444-555555555555",
+  "runId": "A1B2C3D4",
   "state": "needs_input",
   "source": "hook",
   "confidence": 1,
@@ -70,6 +79,15 @@ Esempio `agent.state` (`AgentStateEvent`, esattamente ciò che passa sul socket)
   "resetsAttention": false
 }
 ```
+
+**`runId` non è opzionale in pratica**: lo store applica un **fence di run**
+(`WorkspaceStore.runID`, `WorkspaceStore+AgentState.swift`) e scarta ogni evento il cui `runId` non
+è quello della run corrente, **`nil` compreso**. Sul tipo il campo è opzionale solo per far
+decodificare gli eventi di un CLI vecchio, che poi vengono comunque scartati: un `RELAY_TAB_ID` è
+stabile tra i riavvii, quindi uno `Stop` o un `SessionEnd` di una sessione orfana sopravvissuta a un
+restart azzererebbe un resume binding appena ripristinato. Chi produce eventi deve mandare il
+`runId` che ha trovato nell'env della surface. Complementare al fence c'è `eventFloor` (soglia
+anti-stantio timbrata all'avvio), che scarta gli eventi con timestamp anteriore al boot.
 
 `resetsAttention` (default `false`, di solito omesso dai CLI vecchi) è `true` solo sui `SessionStart`
 di `clear`/`resume`: ri-prese attive che spengono il marker in sospeso. `sessionId` è vuoto quando
@@ -99,18 +117,50 @@ Robustezza (il layout è dato utente non ricreabile a mano). Tre difese in `Layo
 Questo chiude il caso in cui il layout perdeva le tab: una singola scrittura degradata (o una race
 di due istanze - vedi single-instance sotto) non cancella più l'ultimo layout buono.
 
-Entità (`LayoutSnapshot` in `Sources/WorkspaceModel/`, `Codable`, versionato - bump di
-`currentVersion` **solo per cambi breaking**: la load scarta le versioni diverse; un campo nuovo
-opzionale è additivo e non bumpa):
+Entità (`LayoutSnapshot` in `Sources/WorkspaceModel/`, `Codable`, versionato - `currentVersion` è
+**1** dal primo giorno; bump **solo per cambi breaking**: la load scarta le versioni diverse; un
+campo nuovo opzionale è additivo e non bumpa, ed è per questo che split, multi-window, archivio e
+nomina automatica sono arrivati senza toccarla):
 
 ```text
-LayoutSnapshot    { version, selectedWorkspaceID?, workspaces: [WorkspaceSnapshot] }
-WorkspaceSnapshot { id, name, rootPath?, pinned, selectedTabID?, tabs: [TabSnapshot] }
+LayoutSnapshot    { version, selectedWorkspaceID?, workspaces: [WorkspaceSnapshot],
+                    windows: [WindowSnapshot] }
+WindowSnapshot    { id, selectedWorkspaceID?, frame?: WindowFrame, isKey }
+WindowFrame       { x, y, width, height }
+WorkspaceSnapshot { id, windowID, name, nameOrigin, rootPath?, pinned, archived,
+                    selectedTabID?, tabs: [TabSnapshot], splitLayout?: SplitNode,
+                    focusedPaneID? }
 TabSnapshot       { id, title, hasCustomTitle, currentDirectory?, resume?, pendingSince? }
 ResumeBinding     { agent, sessionId, label }
+SplitNode         = { pane: SplitPane } | { split: { id, axis, ratio, first, second } }
+SplitPane         { id, tabIDs: [UUID], selectedTabID? }
 ```
 
-L'ordine dei workspace è l'ordine dell'array (riordinabile). `Tab.currentDirectory` è la cwd
+Campi additivi e loro default all'assenza (tutti letti con `decodeIfPresent`, mai sintetizzati: una
+chiave mancante farebbe fallire il decode, cioè butterebbe il layout dell'utente):
+
+| Campo | Assente -> | Perché |
+| --- | --- | --- |
+| `windows` | `[]` (una finestra sola, `RelayWindow.mainID`) | layout pre multi-window |
+| `windowID` | `RelayWindow.mainID` | idem |
+| `nameOrigin` | `.user` | i nomi pre-feature sono dell'utente, non si rigenerano |
+| `archived` | `false` | layout pre archivio |
+| `splitLayout` | `nil` -> pane radice con tutte le tab | layout pre split |
+| `focusedPaneID` | `nil` -> il pane della selezione | layout pre modello cmux |
+| `pendingSince` | `nil` (nessun sospeso) | layout pre attenzione a tre livelli |
+
+`splitLayout` e `focusedPaneID` sono tolleranti anche al **valore**, non solo alla chiave: un nodo
+corrotto o di un formato futuro degrada a `nil` invece di far fallire il decode. Il `Codable` di
+`SplitNode` accetta ancora le **foglie-tab del formato v1** (`{ "leaf": { "_0": <uuid> } }`, che
+diventa un pane con quella sola tab); in scrittura esiste solo il formato a pane, quindi dal primo
+save post-split-v2 il file **non è più leggibile** da un binario <= 0.8.2 (compat solo all'indietro:
+un downgrade riparte dal seed). Al restore l'albero viene sanitizzato contro le tab davvero
+ricostruite (`SplitNode.sanitized`): tab sparite o duplicate escono, i pane vuoti collassano, e le
+tab fuori dall'albero vengono adottate dal pane radice. Invariante: una tab in **un pane solo**, ogni
+pane con almeno una tab.
+
+L'ordine dei workspace è l'ordine dell'array (riordinabile: lo muta il drag in sidebar **e** il bump
+di attività, `bumpWorkspaceToTop`). `Tab.currentDirectory` è la cwd
 riportata dalla shell via OSC 7 (alimenta titolo, sottotitolo e l'ereditarietà cwd di `Cmd+T`). Lo
 stato agente (`agentState`/`lastEventAt`/`attentionSince`) è runtime e non si persiste, con due
 eccezioni mirate: `resume` (la sessione ripristinabile: alimenta la ResumeBar al primo focus
@@ -141,16 +191,31 @@ Distinte dallo snapshot del layout: `AppSettings` (`Sources/WorkspaceModel/`) pe
 `UserDefaults` (chiavi `relay.*`) tema, font family/size, cursore, sidebar
 (collapsed + width + archivio espanso), preferenze notifiche, keybindings rimappati,
 `autoResumeAgents`, la decadenza dei sospesi (`pendingDecayHours`), il check aggiornamenti
-(`checkForUpdatesAutomatically` + `skippedUpdateVersion`) e il flag one-shot dell'onboarding
+(`checkForUpdatesAutomatically` + `skippedUpdateVersion`), la vista della dashboard
+(`dashboardLayout`: kanban o griglia), la configurazione **non segreta** della nomina automatica
+(`workspaceNamingEnabled` + base URL + model) e il flag one-shot dell'onboarding
 (`onboardingSeen`, timbrato alla prima presentazione del "Welcome to Relay"). Sono *preferenze*
 utente, non stato di sessione - per
 quello UserDefaults è il posto giusto. Font e cursore sono sovrapposti al tema base
 (`RelayTheme.withFontSize` / `withCursorBlink`), così il terminale li applica insieme al resto
 della palette. L'elenco canonico è `AppSettings` stesso: questo paragrafo dice solo dove vivono.
 
+## Credenziali (file 0600)
+
+Il terzo formato su disco, tenuto **fuori** da UserDefaults perché è un segreto:
+`~/.relay/naming-credentials.json` (`NamingCredentialStore` nel composition root), JSON con la sola
+API key dell'endpoint OpenAI-compatible della nomina automatica, scritto con permessi `0o600`. Base
+URL e model, che non sono segreti, stanno in `AppSettings`. Mai loggata, mai nello snapshot del
+layout, mai in un payload evento.
+
 ## Stato
 
-In codice: `AgentState`, `AgentEventType`, `AgentStateEvent`, `WorkspaceStore`, `Workspace`, `Tab`,
-`AppSettings`, agent runtime completo (receiver/client/coordinator/reducer), persistence layout
-(`LayoutSnapshot` + `LayoutStore` + `LayoutAutosave`) e resume (`ResumeBinding` + ResumeBar).
-Da aggiungere quando serve: split (pane tree in `Tab`).
+In codice: `AgentState`, `AgentEventType`, `AgentStateEvent` (con fence di run), `WorkspaceStore`,
+`Workspace`, `Tab`, `SplitNode`/`SplitPane`, `RelayWindow`, `AppSettings`, agent runtime completo
+(receiver/client/coordinator/reducer), persistence layout (`LayoutSnapshot` + `LayoutStore` +
+`LayoutAutosave`) con split, finestre, archivio, `nameOrigin` e sospesi, e resume (`ResumeBinding` +
+ResumeBar).
+
+Non ancora nello snapshot: nulla di strutturale in sospeso. Le evoluzioni note (drag di tab fra
+pane, drag di workspace fra finestre) muovono id dentro i formati già descritti qui e non ne
+introducono di nuovi.

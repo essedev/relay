@@ -1,7 +1,7 @@
 # Architecture
 
 Progetto: **Relay**.
-Ultimo aggiornamento: 2026-07-10.
+Ultimo aggiornamento: 2026-07-25.
 
 Documento vivo: budget, moduli e confini si rivedono quando misure o sviluppo portano evidenze
 nuove. La storia decisionale completa (cicli 0-8: analisi engine, diagnosi lag cmux, benchmark
@@ -67,9 +67,11 @@ verificata contro questa lista.
 
 I numeri erano target iniziali; le misure di Milestone 3 (`docs/research/PERF.md`) confermano il
 budget di latenza input (max 2.4µs, ~4 ordini di grandezza di margine) e tarano il cap LRU sulla
-memoria per surface. **Cap dello scrollback per surface**: previsto ma non ancora implementato -
-oggi la leva di memoria è solo il cap LRU (surface idle sfrattate), non un limite di righe per
-surface; lo scrollback usa il default di SwiftTerm.
+memoria per surface. Gli switch di workspace (< 50ms / < 300ms) restano target non misurati.
+**Cap dello scrollback per surface**: implementato, **10.000 righe** (`changeHistorySize` in
+`SwiftTermSurface.start`, contro le 500 di default: la ricerca deve vedere lo storico di una
+sessione agente). Le due leve di memoria sono quindi il cap di righe per surface e il cap LRU sulle
+surface vive.
 
 ## Modello Di Prodotto
 
@@ -146,6 +148,10 @@ macOS App
     Dashboard
     Settings
 
+  Servizi di rete (solo nel composition root)
+    NamingController + ChatCompletionClient   nomina workspace via LLM
+    UpdateController                          check della GitHub Release
+
   CLI (relay-cli)
     hooks setup/uninstall/status
     claude-hook <state>, simulate
@@ -153,6 +159,15 @@ macOS App
 
 Nota: non c'è (ancora) una timeline degli eventi né un session store persistente: `AgentRuntime`
 fa solo trasporto, il binding evento -> tab e l'aggregazione vivono in `WorkspaceModel`.
+
+**Uscite verso la rete, due e solo due**, entrambe confinate nel composition root perché nessun
+modulo di dominio deve poter fare I/O di rete: la **nomina automatica dei workspace**
+(`NamingController` decide *quando*, `ChatCompletionClient` fa la chiamata all'endpoint
+OpenAI-compatible, `NamingCredentialStore` tiene la API key in un file `0600` fuori da UserDefaults;
+la logica pura di prompt/parse/trigger sta in `Core.WorkspaceNaming` e `Core.NamingTriggerPolicy`) e
+il **check aggiornamenti** (`UpdateController` interroga la GitHub Release, con confronto versioni e
+parsing puri in `Core.SemanticVersion`/`ReleaseCheck`; non scarica nulla, propone il comando brew).
+Entrambe sono opt-out dalle impostazioni, e la nomina è inerte senza API key.
 
 ## Struttura Repo E Moduli
 
@@ -163,7 +178,8 @@ contromisura strutturale ai file da 12-16k righe e agli `AppDelegate+X` di cmux.
 ```text
 repo/
   Sources/
-    Core/               primitivi condivisi: logging, tema, OSC7, escaping; nessuna dipendenza
+    Core/               primitivi condivisi e logica pura: logging, tema, OSC7, escaping, matcher
+                        di ricerca, versioni, prompt/policy della nomina; nessuna dipendenza
     AgentProtocol/      tipi evento e stati (AgentStateEvent); puro, niente I/O
     AgentRuntime/       socket receiver + client, runtime paths; puro, niente AppKit
     WorkspaceModel/     store workspace/tab, reducer stati, attention, persistence, settings
@@ -206,33 +222,38 @@ nel repo app).
 
 ### Lifecycle Della Surface
 
-Il cuore anti-lag. Tre stati per pane:
+Il cuore anti-lag. Due stati per tab, più la distinzione fra a schermo e fuori schermo:
 
 ```text
-unrealized --primo focus--> live-visible <--switch--> live-hidden
+unrealized --primo focus--> live (a schermo o fuori) --sfratto LRU--> unrealized
 ```
 
 - `unrealized`: nessun PTY, nessun emulatore, nessuna view. Solo metadata (cwd, titolo, resume
-  binding). È lo stato di ogni pane al restore e di ogni workspace mai visitato.
-- `live-visible`: PTY + emulatore + view attivi. Solo i pane effettivamente a schermo.
-- `live-hidden`: PTY + emulatore attivi, view di rendering rilasciata o sospesa oltre il budget
-  LRU.
+  binding). È lo stato di ogni tab al restore e di ogni workspace mai visitato.
+- `live`: PTY + emulatore + view attivi. Nasce al primo focus e **resta viva anche fuori schermo**
+  (la tab non selezionata nella strip del suo pane, il workspace di sfondo): in SwiftTerm la view
+  *è* l'emulatore, quindi non esiste uno stato intermedio "emulatore vivo, view rilasciata".
+
+Non esiste un terzo stato: l'uscita da `live` è lo **sfratto LRU**, che è un teardown vero (view,
+emulatore e PTY), non una sospensione. Lo scrollback di quella tab si perde e la shell viene
+ricreata alla sua cwd al focus successivo. Per questo lo sfratto è **conservativo**: colpisce solo
+le surface idle (`hasRunningChildren == false`) e non protette (mai la visibile, le tab del
+workspace attivo, quelle con attenzione fresca, quelle usate negli ultimi ~30 minuti).
 
 Regole:
 
-- PTY ed emulatore restano vivi finché il processo figlio vive: mai bloccare la pipe di un
-  agente che lavora in background. Ciò che si toglie ai pane nascosti è la view di rendering,
-  non il processo.
+- PTY ed emulatore restano vivi finché il processo figlio vive: mai uccidere un agente che lavora
+  perché la sua tab è fuori schermo. È l'invariante che rende il cap un *soft* cap.
 - La creazione è sempre lazy: al restore nessuna view nasce; nasce al primo focus.
-- Un cap di scrollback per surface è previsto (i transcript lunghi di Claude non devono gonfiare la
-  memoria di ogni pane vivo), ma **non ancora implementato**: oggi la memoria è tenuta bassa solo
-  dallo sfratto LRU delle surface idle.
+- Il cap di scrollback per surface è **10.000 righe** (i transcript lunghi di Claude non devono
+  gonfiare la memoria di ogni tab viva, ma la ricerca deve vedere lo storico della sessione).
 - La chiusura dell'app termina i PTY: il restore riparte da `unrealized` + resume command.
 
-Con SwiftTerm l'unità viva è `LocalProcessTerminalView` (NSView + PTY). Il lifecycle lazy/LRU
-si applica creando/distruggendo quella view; per i pane `live-hidden` si valuta se SwiftTerm
-permette di scollegare la view mantenendo l'emulatore, altrimenti si distrugge la view e si
-ricrea al focus (la policy resta la stessa, cambia solo il meccanismo).
+Con SwiftTerm l'unità viva è `LocalProcessTerminalView` (NSView + PTY): view, emulatore e processo
+sono lo stesso oggetto, e la libreria non permette di scollegare la view tenendo l'emulatore. È il
+motivo per cui il lifecycle ha due stati e non tre: il lazy/LRU si applica creando e distruggendo
+quella view. Una view fuori schermo resta comunque **attaccata** (fuori dalla gerarchia visibile ma
+viva); il rendering la scambia nel pane (`attachTerminal`), non la ricrea.
 
 ### Engine: Decisione E Astrazione
 
@@ -359,10 +380,14 @@ AppKit). `AppSettings` tiene il dizionario `[ShortcutAction: KeyCombo]`, persist
 composition root, **non** dai `keyEquivalent` di menu (che non gestiscono ogni combinazione, es.
 Option-only o `Ctrl+Tab`). Il monitor converte l'evento in `KeyCombo` (`KeyEventBridge`, in Panels
 così lo usa anche il recorder), cerca l'azione nei binding e chiama `perform(action)`
-(`ShortcutRuntime`). I menu mostrano la combo nel **titolo** con `keyEquivalent` vuoto (niente doppio
-trigger) e si ricostruiscono al cambio binding (`observeKeybindings`). Restano fissi con
-`keyEquivalent` vero solo i comandi di sistema (Copy/Paste/Select All via responder, Quit, Settings)
-e i select-by-number.
+(`ShortcutRuntime`). Le voci di menu portano la combo come **`keyEquivalent` vero** (la colonna
+nativa delle scorciatoie, come ogni app macOS: mostrarla nel titolo era una resa estetica), e il
+doppio trigger non c'è perché il monitor **consuma** l'evento prima che arrivi al menu. Quando il
+monitor si fa da parte (dashboard o onboarding aperti) i keyEquivalent tornerebbero vivi: lì
+`validateMenuItem` disabilita le voci dell'AppController tranne il toggle della dashboard. I menu si
+ricostruiscono al cambio binding (`observeKeybindings`). Restano fissi i comandi di sistema
+(Copy/Paste/Select All via responder, Quit, Settings, Hide/Minimize/Full Screen) e i
+select-by-number.
 
 Il **recorder** (impostazioni) installa un monitor locale temporaneo e alza
 `settings.isCapturingShortcut`: il monitor globale si fa da parte, così l'evento arriva al recorder
@@ -503,8 +528,9 @@ Regole (verificate a test):
 - validazione JSON prima e dopo, backup sempre (`.relay-backup-<epoch>`), scrittura atomica;
 - override path via `RELAY_CLAUDE_SETTINGS` (test/automazioni: non tocca il vero `~/.claude`);
 - il CLI dell'hook fallisce in silenzio (exit 0) per non rompere Claude;
-- il path del CLI finisce nei comandi: pre-bundle è `.build/.../relay-cli`, col `.app` sarà nel
-  bundle (Milestone 4).
+- il path del CLI finisce nei comandi: da build di sviluppo è `.build/.../relay-cli`, dal `.app` è
+  il `relay-cli` accanto all'eseguibile nel bundle (per gli utenti brew: Impostazioni > Agents
+  installa gli hook senza chiedere di trovarlo nel PATH).
 
 ## Aggregazione Stati E Badge
 
@@ -535,8 +561,11 @@ Regole:
     (bump in cima alla sidebar, ring, notifica);
   - `pending` - "in sospeso", visto ma mai ripreso: segnale quieto e persistente (punto dimesso in
     sidebar, strato dedicato in dashboard). L'interazione col terminale **declassa** unseen ->
-    pending, non spegne. Un completamento sulla tab in vista nasce direttamente `pending` (la
-    percezione è già avvenuta). Sopravvive alla fine della sessione (`unknown`) e al riavvio
+    pending, non spegne. Un completamento nasce **sempre** `unseen`, anche sulla tab in vista: il
+    reducer non guarda la visibilità. Sulla tab in vista è il composition root che, dopo un
+    **flash** di qualche secondo, lo declassa a `pending` (`onVisibleCompletion` ->
+    `scheduleCompletionFlashDecay` -> `markSeen`): senza il flash un completamento sotto gli occhi
+    non si vedeva mai. Sopravvive alla fine della sessione (`unknown`) e al riavvio
     (persistito come `pendingSince` nel `TabSnapshot`);
   - risoluzione: la **ripresa vera** della conversazione (prompt -> `running`, o `needs_input`/
     `error`: la sessione si è mossa) spegne il marker a qualunque livello; in alternativa il
@@ -628,14 +657,22 @@ Stato V0 (in codice, `WorkspaceModel`), `@Observable`:
 WorkspaceStore { workspaces: [Workspace], windows: [RelayWindow], keyWindowID,
                  occludedWindowIDs, selectedWorkspaceID }   // proiezione della finestra key
 RelayWindow    { id, selectedWorkspaceID, frame? }          // ogni finestra ha la SUA selezione
-Workspace      { id, windowID, name, rootPath?, pinned, archived, tabs: [Tab],
-                 selectedTabID,        // il pane focused
-                 splitLayout: SplitNode? }  // nil = pane singolo (forma canonica)
-SplitNode      { .leaf(Tab.id) | .split(id, axis, ratio, first, second) }   // foglie = tab
+Workspace      { id, windowID, name, nameOrigin, rootPath?, pinned, archived,
+                 tabs: [Tab],          // il sacco degli oggetti Tab: identità e sessione
+                 layout: SplitNode,    // SEMPRE presente: l'ordine visivo sta qui
+                 focusedPaneID }       // selectedTabID è derivato: la selezione del pane focused
+SplitNode      { .pane(SplitPane) | .split(id, axis, ratio, first, second) }  // foglie = pane
+SplitPane      { id, tabIDs: [Tab.id], selectedTabID }   // il pane ospita le tab (modello cmux)
 Tab            { id, title, hasCustomTitle, currentDirectory?, resume?,
-                 agentState, attention (AttentionLevel), lastEventAt }   // runtime; il sospeso
-                                                       // persiste come pendingSince nel TabSnapshot
+                 agentState, attention (AttentionLevel), lastEventAt,
+                 attentionSince }   // runtime; il sospeso persiste come pendingSince nel
+                                    // TabSnapshot, attentionSince è il clock del marker
 ```
+
+Due punti che il codice rende espliciti e che vale rileggere qui: `layout` non è opzionale (il pane
+singolo è un `.pane` con tutte le tab, non un caso speciale), e `selectedTabID` sul workspace è una
+**computed** - la selezione vera vive nel pane. Invariante: l'unione dei `tabIDs` dei pane = gli id
+di `tabs`, ogni tab in un pane solo, ogni pane con almeno una tab.
 
 Futuro (quando servono):
 
@@ -762,7 +799,7 @@ App launch
   -> WorkspaceStore.restore(from:) (tutti i pane unrealized)
   -> LayoutAutosave.start() (salvataggio debounced sui cambi successivi)
   -> al primo focus di un pane: realizza surface, ripristina cwd
-  -> resume agente opzionale con comando sanitizzato (fuori scope M2)
+  -> resume agente: ResumeBar al primo focus (o iniezione diretta con autoResumeAgents)
   -> rebind degli stati in arrivo per sessionId/paneId
 ```
 
@@ -963,7 +1000,16 @@ Costruito dopo (dashboard + distribuzione + hardening):
 - giro di hardening (self-heal socket, fail-safe SIGPIPE, robustezza persistence, validazione
   input resume, pruning backup, recovery della release).
 
+Costruito dopo ancora (split, finestre, nomina):
+
+- split panes al modello cmux (i pane ospitano le tab) e multi-window come partizione dei workspace
+  su un solo store (`docs/features/split-panes.md`);
+- archivio dei workspace, onboarding, nomina automatica dei workspace via LLM, check aggiornamenti,
+  pannello Runtime Stats, ricerca nel terminale con evidenziazione, scroll fluido.
+
 Da fare dopo:
 
 - distribuzione firmata Developer ID + notarizzazione (toglie l'"Apri comunque");
-- split (pane tree dentro una tab), deprioritizzato; generalizzazione multi-agente (Codex/opencode).
+- generalizzazione multi-agente (Codex/opencode);
+- drag di tab **fra** pane e di workspace **fra** finestre (incluso l'edge-drop per creare split
+  trascinando), zoom del pane.

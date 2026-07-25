@@ -4,7 +4,7 @@ Terminale macOS nativo agent-aware. Leggi `docs/ARCHITECTURE.md` prima di toccar
 e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `docs/ROADMAP.md`.
 
 Stato: V0 + **M1 (agent runtime + badge)** + giro UI/UX (temi, chrome, chiusura con conferma +
-cascade, float per stato) + **M2 (persistence layout + rename inline)** + **resume assistito Claude**
+cascade, ordine della sidebar guidato dallo stato) + **M2 (persistence layout + rename inline)** + **resume assistito Claude**
 + **M3 (cap LRU + misure performance chiuse, `docs/research/PERF.md`)** + **M4 (bundle `.app` +
 notifiche macOS con impostazioni e suono + icona + installer locale `make dmg`/`install-app`)** +
 dodici temi curati e scelta font family + **giro terminale (find `Cmd+F`, clear `Cmd+K`,
@@ -119,7 +119,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
   scrittura atomica. Trasformazioni pure (`merge`/`remove`) separate dall'I/O per i test.
 - `LayoutStore` - persistence del layout: `load()`/`save(snapshot)` di `LayoutSnapshot` su disco
-  (JSON atomico, versionato, path iniettato). Dipende solo da `WorkspaceModel`, niente AppKit.
+  (JSON atomico, versionato, path iniettato). Dipende da `WorkspaceModel` (i tipi dello snapshot) e
+  `Core` (solo `RelayLog`), niente AppKit.
 - `RelayApp` (`Sources/relay`) - composition root: `AppController`, `MainSplitViewController`,
   `RightPaneController`, `RootOverlayController` (overlay toggle + overlay full-window della
   dashboard), `MainMenuBuilder`, `AgentCoordinator` (unico punto che lega `AgentRuntime` a
@@ -147,7 +148,14 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
 - Mai `print` per logging (usa `RelayLog`); nel CLI il print è output utente, ok.
 - Mai committare `.env*`, segreti, file di auth. Mai hardcodare valori estetici nei pannelli:
   usa il design system (principio UI 6 in ARCHITECTURE).
-- Swift 6 strict concurrency: store osservati `@MainActor`, runtime come actor.
+- Swift 6 strict concurrency, come è fatto davvero: la UI e il path caldo sono `@MainActor`
+  (`SurfaceRegistry`, `WorkspaceAreaController`, `AppSettings`, le view); `WorkspaceStore` è
+  `@Observable` **non isolato**, mutato solo dal main thread per convenzione (isolarlo è una
+  decisione aperta, non darlo per fatto). Il runtime **non** è un actor: `AgentEventReceiver` è una
+  classe `@unchecked Sendable` con tutto lo stato del socket su una `DispatchQueue` seriale, e
+  l'ordine di consegna lo ristabiliscono il pump FIFO del coordinatore e la guardia di
+  monotonicità. Non introdurre `actor` nuovi senza una decisione esplicita: il confine oggi è
+  "main thread + queue seriale".
 
 ## Gotcha noti
 
@@ -168,10 +176,14 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   check working tree pulito + branch main + account gh `essedev`; blocca se il tag `vX` esiste già
   (idempotente per versione); `make dmg` -> sha256 -> `git tag vX` + push -> `gh release create` con
   l'asset -> clona il tap, aggiorna `version`+`sha256` nel cask (l'URL li interpola) e pusha. Per
-  rilasciare: bumpa `./VERSION`, commit, **poi** `make release`. Firma: ad-hoc cambia identità a
-  ogni build (il collega rifà "Apri comunque" a ogni upgrade e le notifiche possono decadere); per
-  un self-signed stabile crea un cert di code signing e passa `SIGN_IDENTITY="<nome cert>"`. Developer
-  ID + notarizzazione non ancora in piedi (toglierebbe l'"Apri comunque").
+  rilasciare: bumpa `./VERSION`, commit, **poi** `make release`. **Firma**: `make release` usa il
+  **self-signed stabile** `Relay Self-Signed` (default in `scripts/release.sh`, preparato in modo
+  idempotente da `scripts/setup-signing.sh`: cert + keychain + trust, esce non-zero con le istruzioni
+  se il trust manca), così l'identità non cambia a ogni build. L'ad-hoc (`-`) è l'opt-out esplicito
+  (`SIGN_IDENTITY=- make release`) ed è invece il **default di `make bundle`/`make dmg`** lanciati a
+  mano: con l'ad-hoc l'identità cambia a ogni build, quindi "Apri comunque" si ripete a ogni upgrade
+  e il permesso notifiche può decadere. Developer ID + notarizzazione non ancora in piedi
+  (toglierebbe l'"Apri comunque" del tutto).
 - Icona: `bundle/make-icon.swift` (Core Graphics puro, headless) la disegna; `make icon` rigenera
   `bundle/AppIcon.icns` (committato). Cambi al disegno -> `make icon` poi `make bundle`.
 - Notifiche: il trigger è puro (`AgentStateReducer.notification`), lo store emette via
@@ -205,7 +217,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   accesa". Solo `unseen` è "unread": lì il menu mostra **"Mark as Read"** e spegne a `none`. Un
   `pending` è **già visto** (segnale quieto), quindi non lo si "legge": come da `none` il menu mostra
   **"Mark as Unread"** -> `Tab.markUnread` che lo ri-alza a `unseen` (riusa il segnale forte
-  esistente: float, ring, badge; niente notifica, che nasce solo da eventi reali). Il pending si
+  esistente: ring e badge; **non** bumpa la riga in sidebar - il bump nasce da un evento agente, non
+  da un flag manuale - e niente notifica, che nasce solo da eventi reali). Il pending si
   spegne altrove (resume, dismiss, decadenza), non da questo toggle. Al riavvio degrada a pending
   come ogni `unseen`. Il clock del marker è `Tab.attentionSince` (timbrato alla nascita e al
   declassamento), **distinto** da `lastEventAt` (che avanza a ogni evento per la monotonicità): il
@@ -322,7 +335,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   reali** di workspace e tab, ripopolate all'apertura (`menuNeedsUpdate` in `AppControllerMenus`:
   il menu si ricostruisce solo al cambio keybinding, quindi non possono essere statiche).
   **Cmd+N segue l'ordine visivo della sidebar** (`orderedWorkspaces`), non quello canonico:
-  Cmd+1 apre sempre la riga in cima anche col float dei completati; Option+N naviga la strip del
+  Cmd+1 apre sempre la riga in cima, anche dopo un bump da attività non vista; Option+N naviga la
+  strip del
   pane focused.
 - Shortcut rimappabili: **tutte** le azioni rimappabili passano dallo **stesso** local monitor.
   Il monitor converte l'evento in `KeyCombo` (`KeyEventBridge`) e cerca l'azione in
@@ -542,8 +556,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   non realizzerebbe le righe e la misura resterebbe 0.
   L'header è ancorato, non nel flusso scrollabile, perché su macOS
   lo `ScrollView` non fa drag-scroll: sotto la piega non ci potresti trascinare sopra. `archived`
-  è mutuamente esclusivo con `pinned` (archiviare de-pinna) e col float (gli archiviati non
-  galleggiano). `setArchived`/`toggleArchive`: non archivia l'ultimo visibile e sposta la selezione
+  è mutuamente esclusivo con `pinned` (archiviare de-pinna) e col bump (un archiviato esce da
+  `orderedWorkspaces`, quindi l'attività non lo riporta in cima). `setArchived`/`toggleArchive`: non archivia l'ultimo visibile e sposta la selezione
   fuori dall'archiviato; un archiviato con attenzione fresca accende un pallino discreto
   sull'header (non un buco nero). Archivia/ripristina dal menu contestuale (`Archive`/`Unarchive`).
 - Riordino drag & drop (sidebar e strip dei pane): meccanismo in `Panels/Reorderable` (`reorderableRow` +
@@ -715,7 +729,10 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   terminazione il rimpatrio è **sospeso** (`isTerminating`): macOS chiude le finestre una per una, e
   rimpatriare a ogni passaggio collasserebbe il layout multi-window prima del flush. I frame stanno
   nel `LayoutSnapshot` per id (`setFrameAutosaveName` ne gestirebbe una sola).
-- Non ancora fatto: distribuzione firmata Developer ID, generalizzazione multi-agente
-  (Codex/opencode), drag di workspace **fra** finestre, drag di tab **fra** pane (incluso
-  l'edge-drop stile bonsplit per creare split trascinando), zoom del pane, rename del workspace
-  dalla menu bar (resta nel contestuale della sidebar).
+- Non ancora fatto: distribuzione firmata Developer ID + notarizzazione, generalizzazione
+  multi-agente (Codex/opencode), drag di workspace **fra** finestre, drag di tab **fra** pane
+  (incluso l'edge-drop stile bonsplit per creare split trascinando) e drag dentro/fuori
+  l'**archivio**, zoom del pane, equalize dei divider, rename del workspace dalla menu bar (resta
+  nel contestuale della sidebar), evoluzioni della dashboard (azioni inline sulle card, preview del
+  terminale - richiederebbe surface vive), timeline degli eventi agente, import di temi da config
+  Ghostty.
