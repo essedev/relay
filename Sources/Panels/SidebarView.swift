@@ -30,8 +30,8 @@ public struct SidebarView: View {
 
     // Stato del riordino via drag & drop (vedi Reorderable). Il gesto vive in un @GestureState:
     // si azzera da solo (animato) anche se il drag viene annullato. L'ordine visivo è congelato
-    // per la durata del gesto (`frozenOrder`): il float è derivato dallo stato agente e senza
-    // snapshot un cambio di stato rimescolerebbe righe e frame sotto il puntatore.
+    // per la durata del gesto (`frozenOrder`): un evento agente può bumpare un workspace in cima,
+    // e senza snapshot rimescolerebbe righe e frame sotto il puntatore.
     @GestureState(resetTransaction: Transaction(animation: .easeInOut(duration: 0.2)))
     private var drag = ReorderDragState()
     @State private var rowFrames: [Int: CGRect] = [:]

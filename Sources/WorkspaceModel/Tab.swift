@@ -91,7 +91,8 @@ public final class Tab: Identifiable {
     }
 
     /// Override manuale "segna da vedere" (menu contestuale): riaccende il segnale forte come un
-    /// completamento appena arrivato (float in sidebar, ring alla riapertura, badge pieno). Timbra
+    /// completamento appena arrivato (ring alla riapertura, badge pieno). Non muove la riga in
+    /// sidebar: il bump nasce da un evento agente, non da un flag manuale. Timbra
     /// `attentionSince` col momento del flag - clock di decadenza ed età, coerente con `apply` e
     /// `markSeen`. Non emette notifiche (quelle nascono solo da eventi reali). No-op se già
     /// `unseen`.

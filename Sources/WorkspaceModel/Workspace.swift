@@ -21,8 +21,8 @@ public final class Workspace: Identifiable {
     public var rootPath: String?
     public var pinned: Bool
     /// Messo via: fuori dalla lista principale, raccolto nella sezione Archive in fondo alla
-    /// sidebar. Mutuamente esclusivo con `pinned` (tenere in cima vs mettere via) e con il float
-    /// per attenzione (gli archiviati non galleggiano).
+    /// sidebar. Mutuamente esclusivo con `pinned` (tenere in cima vs mettere via); un archiviato
+    /// non viene nemmeno bumpato in cima dall'attività (esce da `orderedWorkspaces`).
     public var archived: Bool
     public private(set) var tabs: [Tab]
     /// Disposizione dei pane, **sempre presente**: il pane singolo è un `.pane` con tutte le tab,

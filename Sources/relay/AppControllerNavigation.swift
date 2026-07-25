@@ -8,9 +8,10 @@ import WorkspaceModel
 /// keyEquivalent (gli shortcut con solo Option non fanno match in AppKit). Find/Clear/Jump non
 /// stanno più qui: sono azioni rimappabili, eseguite via `ShortcutRuntime.perform(_:)`.
 extension AppController {
-    /// Cmd+1..9: seleziona il workspace all'indice nell'ordine della sidebar (`orderedWorkspaces`:
-    /// pinned, poi con attenzione, poi il resto), non quello canonico. Così Cmd+1 apre sempre la
-    /// riga in cima, anche quando un completamento la fa galleggiare su.
+    /// Cmd+1..9: seleziona il workspace all'indice nell'ordine **visivo** della sidebar
+    /// (`orderedWorkspaces`: i pinned in testa, poi l'ordine canonico), non in quello canonico.
+    /// Così Cmd+1 apre sempre la riga in cima, anche dopo che un'attività non vista ha bumpato un
+    /// workspace lassù.
     @objc func selectWorkspaceByShortcut(_ sender: NSMenuItem) {
         let ordered = store.orderedWorkspaces
         guard sender.tag < ordered.count else { return }
@@ -134,8 +135,8 @@ extension AppController {
         let index = digit - 1
 
         if flags == .command {
-            // Ordine della sidebar (con float dei completati/attenzione), non quello canonico:
-            // Cmd+N segue la posizione visiva della riga.
+            // Ordine visivo della sidebar (pinned in testa), non quello canonico: Cmd+N segue la
+            // posizione della riga come la vedi.
             let ordered = store.orderedWorkspaces
             if index < ordered.count {
                 store.selectWorkspace(ordered[index].id)
