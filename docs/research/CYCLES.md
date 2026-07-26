@@ -1088,6 +1088,9 @@ voluto: la lista principale non è più `LazyVStack` - una riga smontata non mis
 
 ### Esito
 
-`make check` verde (430 test, di cui ~25 nuovi fra piano/slot, resolver e store dei gruppi).
-Verificato dal vivo con `relay --demo`, che ora semina una card di esempio. Restano fuori: drag di
-una card fra finestre, archiviazione di un gruppo in blocco, annidamento.
+`make check` verde (430 test, di cui ~25 nuovi fra piano/slot, resolver e store dei gruppi). Il
+resolver è coperto dai test puri; il **gesto** no (nessun test copre un `DragGesture` reale), quindi
+la parte a mano è stata provata dal vivo con `relay --demo`, che ora semina una card di esempio:
+riga dentro e fuori da una card, riga dentro e fuori dall'archivio, card intera trascinata e
+pinnata, collasso col contatore. Restano fuori: drag di una card fra finestre, archiviazione di un
+gruppo in blocco, annidamento.
