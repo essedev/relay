@@ -30,8 +30,17 @@ enum DemoSeeder {
             }
             allTabIDs.append(contentsOf: workspace.tabs.map(\.id))
         }
+        seedGroup(into: store)
         store.selectWorkspace(store.workspaces[0].id)
         return allTabIDs
+    }
+
+    /// Una card di esempio attorno ai primi due workspace: la demo serve a vedere l'app "piena",
+    /// e i gruppi sono parte di come si presenta la sidebar. Con meno di tre workspace si salta
+    /// (una card che contiene tutto non mostra il confronto con le righe libere).
+    private static func seedGroup(into store: WorkspaceStore) {
+        guard store.workspaces.count >= 3 else { return }
+        store.createGroup(name: "Demo Group", with: store.workspaces.prefix(2).map(\.id))
     }
 }
 

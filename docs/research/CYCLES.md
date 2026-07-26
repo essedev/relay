@@ -1023,3 +1023,71 @@ pubblicate senza toccare tag, asset o cask.
 `make check` verde (291 test, inclusi i casi della policy: cifre riservate, `Option+Shift+cifra` e
 `Option+0` restano testo). Su tastiera italiana funzionano **entrambi**: `Option+1..9` cambia tab e
 `Option+ò` scrive `@`.
+
+## Cycle 16 - Gruppi nella sidebar e drag cross-container
+
+### Il problema
+
+Con qualche decina di workspace la sidebar è un elenco piatto: pin e archivio bastano per gli
+estremi (quello che uso sempre, quello che non uso più), non per il mezzo - i cinque workspace dello
+stesso cliente, i tre di un progetto. Modello di riferimento: i tab group di Brave/Chrome.
+
+### La forma decisa (prima di scrivere codice)
+
+Il giro è partito da una discussione, non da un'implementazione. I punti che hanno cambiato il
+disegno:
+
+- **Un gruppo fisso affonda.** Se il bump di un workspace libero inserisce sempre in cima ai
+  non-pinned, ogni completamento scavalca la card: dopo un giorno i gruppi sono in fondo. Da qui il
+  **pin del blocco** (`WorkspaceGroup.pinned`), che è il modo di dire "questa resta in alto".
+- **Un gruppo collassato è un buco nero.** Un membro che chiede attenzione dentro una card chiusa
+  sparirebbe: la card chiusa porta il **conteggio dei membri da vedere** nella sua tinta.
+- **Tre assi di stato sono troppi.** `pinned`, `archived` e `groupID` si escludono a vicenda:
+  entrare in una card azzera pin e archivio, e dentro una card a pinnare è il gruppo. Senza questa
+  regola il resolver del drop avrebbe tre dimensioni e nessuno saprebbe più dire cosa fa un drop.
+- **Il drag dentro/fuori l'archivio mancava** (in sospeso da M4), e sarebbe stato incoerente avere
+  il drag verso i gruppi ma non verso l'archivio: sono la stessa primitiva - un drop che, oltre a
+  riordinare, cambia un campo del workspace. Decisione dell'utente: farli insieme.
+
+### Modello: l'appartenenza sta sul workspace
+
+`WorkspaceGroup` porta **solo l'aspetto** (nome, colore, collasso, pin); i membri sono
+`Workspace.groupID`. È la scelta che tiene semplice tutto il resto: nessun secondo ordinamento da
+tenere in sync col riordino, col bump, col restore o col rimpatrio alla chiusura di una finestra; la
+posizione della card è quella del suo primo membro; la contiguità è una comodità (`compact`,
+`place`) e non un invariante da cui dipende la correttezza. Corollario accettato volentieri: **un
+gruppo senza membri non esiste**, come l'ultima tab chiude il workspace.
+
+Il bump diventa **per contenitore**: un membro sale in cima alla sua card, un libero in cima alla
+lista (quindi sopra la card). La card si muove solo con pin o drag.
+
+### Righe e slot: il confine che nessuna euristica scioglie
+
+Il drop non può dedurre il contenitore dai vicini, perché "in fondo alla card" e "sotto la card"
+sono **lo stesso pixel** con due significati. La soluzione non è un'euristica migliore ma più
+informazione: la sidebar viene srotolata in un piano di righe e **slot** (`SidebarLayout`), dove
+ogni slot porta scritto il proprio contenitore, deciso alla costruzione; e la card ha una **riga di
+coda** (`groupTail`) che è insieme il suo padding inferiore e lo slot con un solo significato. Da lì
+`SidebarDrop` fa solo lavoro posizionale, resta puro e si testa senza UI.
+
+### Il costo vero: la meccanica del drag
+
+Il drag esistente (`Reorderable`) funziona **dentro una sola ScrollView**: frame via `PreferenceKey`
+e riga vera spostata con `.offset`. Nessuna delle due cose regge il cross-container:
+
+- le preference **non attraversano** il bridge `NSScrollView` (stessa trappola che teneva la sezione
+  Archive alta 1px), quindi i frame delle righe archiviate non arriverebbero mai al registro comune
+  -> coordinate space unico a livello sidebar + `onGeometryChange`;
+- la riga in volo dentro la sua ScrollView viene **clippata al bordo**, cioè sparisce esattamente
+  quando esci dal contenitore -> copia disegnata in overlay sopra tutta la sidebar, originale
+  sbiadito al suo posto.
+
+Da cui `SidebarReorder`, separato da `Reorderable` (che resta per la strip dei pane, contenitore
+unico): due meccaniche per due problemi diversi, con in comune le parti pure. Effetto collaterale
+voluto: la lista principale non è più `LazyVStack` - una riga smontata non misura il frame.
+
+### Esito
+
+`make check` verde (430 test, di cui ~25 nuovi fra piano/slot, resolver e store dei gruppi).
+Verificato dal vivo con `relay --demo`, che ora semina una card di esempio. Restano fuori: drag di
+una card fra finestre, archiviazione di un gruppo in blocco, annidamento.

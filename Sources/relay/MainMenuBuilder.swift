@@ -185,9 +185,10 @@ enum MainMenuBuilder {
 
     /// Workspace: le azioni sul workspace selezionato che prima vivevano solo nel menu
     /// contestuale della sidebar (scopribilità zero). I titoli dei toggle (Pin/Unpin,
-    /// Archive/Unarchive, Read/Unread) si aggiornano all'apertura (`menuNeedsUpdate` in
+    /// Archive/Unarchive, Read/Unread, New Group/Ungroup) si aggiornano all'apertura
+    /// (`menuNeedsUpdate` in
     /// `AppControllerMenus`, riconosciuto dal titolo del menu).
-    private static func workspaceMenu(_ target: AnyObject, _: AppSettings) -> NSMenuItem {
+    private static func workspaceMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
         submenu("Workspace", [
             item(
                 "Regenerate Name",
@@ -197,6 +198,12 @@ enum MainMenuBuilder {
             item("Pin", #selector(AppController.toggleSelectedWorkspacePin(_:)), target),
             item("Archive", #selector(AppController.toggleSelectedWorkspaceArchive(_:)), target),
             item("Mark as Read", #selector(AppController.toggleSelectedTabUnread(_:)), target),
+            .separator(),
+            actionItem(.toggleGroup, settings, target),
+            item(
+                "Remove from Group",
+                #selector(AppController.removeSelectedWorkspaceFromGroup(_:)), target
+            ),
             .separator(),
             item(
                 "Move Tab to New Workspace",

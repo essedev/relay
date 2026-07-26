@@ -24,6 +24,10 @@ public final class Workspace: Identifiable {
     /// sidebar. Mutuamente esclusivo con `pinned` (tenere in cima vs mettere via); un archiviato
     /// non viene nemmeno bumpato in cima dall'attività (esce da `orderedWorkspaces`).
     public var archived: Bool
+    /// Il gruppo che lo contiene (`nil` = workspace libero). L'appartenenza vive qui e non nel
+    /// gruppo: vedi `WorkspaceGroup`. Mutuamente esclusivo con `pinned` (dentro un gruppo pinna la
+    /// card, non la riga) e con `archived` (archiviare tira fuori dal gruppo).
+    public var groupID: UUID?
     public private(set) var tabs: [Tab]
     /// Disposizione dei pane, **sempre presente**: il pane singolo è un `.pane` con tutte le tab,
     /// non un caso speciale. Le foglie sono `SplitPane` (tab ordinate + selezione per pane).
@@ -39,6 +43,7 @@ public final class Workspace: Identifiable {
         rootPath: String? = nil,
         pinned: Bool = false,
         archived: Bool = false,
+        groupID: UUID? = nil,
         tabs: [Tab] = [],
         selectedTabID: UUID? = nil,
         layout: SplitNode? = nil,
@@ -51,6 +56,7 @@ public final class Workspace: Identifiable {
         self.rootPath = rootPath
         self.pinned = pinned
         self.archived = archived
+        self.groupID = groupID
         self.tabs = tabs
         // Il layout passato (restore) viene sanitizzato contro le tab reali; le tab rimaste fuori
         // vengono adottate. Senza layout: un pane radice con tutte le tab.

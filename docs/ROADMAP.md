@@ -223,9 +223,30 @@ risposta ricadeva nel mucchio anonimo. Design in `ARCHITECTURE.md` #Aggregazione
 - **Archive dei workspace**: `Workspace.archived` (persistito, additivo) sposta un workspace in una
   sezione collassabile ancorata in fondo alla sidebar (tetto ~metà + scroll interno, stato espanso
   in `AppSettings`). Fuori da `orderedWorkspaces`, mutuamente esclusivo con pin (e non bumpabile);
-  `setArchived` non archivia l'ultimo visibile e sposta la selezione. Archivia/ripristina dal menu contestuale.
-  **Ancora da fare**: drag dentro/fuori l'archivio (richiede coordinate space unificato in
-  `Reorderable`, giro dedicato).
+  `setArchived` non archivia l'ultimo visibile e sposta la selezione. Archivia/ripristina dal menu
+  contestuale **o trascinando dentro/fuori la sezione** (vedi "Gruppi nella sidebar").
+- **Gruppi nella sidebar** (modello tab group di Brave/Chrome): `WorkspaceGroup` + `Workspace.groupID`
+  (entrambi additivi nello snapshot). Una card colorata (tinta dai colori ANSI del tema) con header
+  a una riga - titolo, rename inline, menu, contatore - e i membri rientrati; collassata è alta come
+  una riga normale e mostra quanti membri chiedono attenzione. La card **sta dove la metti**: solo
+  pin, drag o un altro bump la spostano. Un membro con attività non vista bumpa **dentro** la card;
+  un workspace libero bumpa in cima alla lista, quindi passa **sopra** la card. Il pin è del blocco
+  (`WorkspaceGroup.pinned`): senza, il primo bump di una riga libera farebbe affondare i gruppi per
+  sempre. Un gruppo senza membri non esiste (uscita, archiviazione o chiusura dell'ultimo lo
+  cancellano), pin/archivio/finestra sono mutuamente esclusivi con l'appartenenza.
+  La sidebar è srotolata in un piano piatto di **righe e slot** (`SidebarLayout`): ogni slot porta
+  scritto in quale contenitore si rilascia, deciso alla costruzione e non da euristiche sui vicini -
+  "in fondo alla card" e "sotto la card" sono lo stesso pixel per due significati diversi, e li
+  separa una riga di coda (`groupTail`, il padding inferiore della card). `SidebarDrop` traduce lo
+  slot in contenitore + ancora canonica; puro e testato.
+  **Drag cross-container**: la meccanica della sidebar è ora in `SidebarReorder`, separata da
+  `Reorderable` (che resta per la strip dei pane, contenitore unico). Due differenze necessarie: un
+  **coordinate space solo** a livello sidebar coi frame raccolti da `onGeometryChange` (le
+  preference non attraversano il bridge `NSScrollView`, quindi dall'archivio non arriverebbero mai)
+  e la **riga in volo disegnata in overlay fuori dalle ScrollView** (dentro verrebbe clippata al
+  bordo, sparendo proprio mentre esci dal contenitore). Con questo il drag copre finalmente anche
+  dentro/fuori l'archivio, che era in sospeso da M4.
+  **Ancora da fare**: drag di un gruppo fra finestre, gruppi dentro l'archivio.
 - **Ordine sidebar "lista chat"**: la posizione non è più un float derivato dall'attenzione ma un
   ordine **reale e persistente**. Un'attività **non vista** (completamento o `needs_input`) bumpa il
   workspace in cima ai non-pinned (`bumpWorkspaceToTop`); ci resta finché non la scavalca un altro

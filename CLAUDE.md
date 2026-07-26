@@ -17,8 +17,9 @@ drop (`DragGesture` + `.offset`, linea di inserimento, resolver puro `SidebarDro
 + override unread manuale dal menu contestuale (`toggleUnread`)** + **resume affidabile al riavvio
 (soglia anti-stantio `eventFloor`)** + **ordine sidebar "lista chat" (un'attività non vista bumpa
 il workspace in cima con un riordino reale e persistente; la ripresa non muove nulla)** + **archivio
-dei workspace (sezione
-collassabile in fondo alla sidebar, menu `Archive`/`Unarchive`; drag dentro/fuori ancora da fare)**
+dei workspace (sezione collassabile in fondo alla sidebar, menu `Archive`/`Unarchive`)**
++ **gruppi di workspace nella sidebar (card colorate collassabili, pin del blocco, drag dentro/fuori
+gruppi e archivio, `docs/features/workspace-groups.md`)**
 + **pannello "About Relay" (menu Relay > About Relay, stile "About This Mac": icona + nome +
 versione dal bundle) - vedi gotcha** + **onboarding "Welcome to Relay" (overlay al primo avvio,
 riapribile da Help > Welcome to Relay: 5 pagine coi componenti veri al posto di screenshot,
@@ -77,6 +78,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   `SplitNode`/`SplitPane` (albero di split puro, foglie = pane con le loro tab, modello cmux;
   operazioni in `WorkspaceStore+Split`, vedi gotcha split) +
   finestre (`WorkspaceStore+Windows`) + persistence (`WorkspaceStore+Persistence`) +
+  `WorkspaceGroup` + `SidebarItem` (gruppi della sidebar: l'appartenenza vive su
+  `Workspace.groupID`, il gruppo porta solo l'aspetto; operazioni in `WorkspaceStore+Groups`) +
   `AttentionLevel` (marker post-completamento a tre livelli: unseen/pending, vedi gotcha) +
   `AgentStateReducer` (incl. classificatore notifiche) + `AppSettings` (tema/font family/cursore/
   sidebar/notifiche/**keybindings**/decadenza sospesi/vista dashboard, UserDefaults) + `WindowTitle` +
@@ -103,9 +106,10 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   closure verso il composition root), `ContextTitleBar`, `SidebarToggleButton`, `AgentBadge`/`WorkspaceBadge`,
   `ResumeBar`, `FindBar`/`FindModel` (ricerca terminale), `Dashboard`/`Dashboard+Board` (`DashboardModel`
   puro + `DashboardView`: triage delle sessioni in kanban per stato o griglia, con toggle),
-  `Reorderable` (riordino drag & drop di
-  workspace e tab: `DragGesture` + `.offset` + linea di inserimento), `WindowDragArea` (drag
-  finestra dalla title strip), `SettingsView` (+ `SettingsComponents`), `AboutView` (pannello
+  `Reorderable` (riordino drag & drop della strip dei pane: `DragGesture` + `.offset` + linea di
+  inserimento), `SidebarLayout`/`SidebarDrop`/`SidebarReorder` (righe e slot della sidebar, resolver
+  puro del drop e meccanica del drag cross-container), `GroupRow` (header e card di un gruppo),
+  `WindowDragArea` (drag finestra dalla title strip), `SettingsView` (+ `SettingsComponents`), `AboutView` (pannello
   "About Relay" a tema), `Onboarding` (`OnboardingModel` puro + `OnboardingView` +
   `OnboardingPages`/`OnboardingAttention` + `RelayMarkView`, icona procedurale), `ShortcutsList`
   (recorder shortcut), `NamingControls` (closure per la API key della nomina automatica +
@@ -196,7 +200,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   visto ma mai ripreso), non spegne. **Posizione e segnale sono scollegati** (modello "lista chat"):
   la posizione in sidebar è un ordine **reale e persistente**, non un float derivato. A muoverla è
   solo un **bump** (`WorkspaceStore.bumpWorkspaceToTop`, da `applyAgentState`), che porta il
-  workspace in cima ai non-pinned quando un'attività arriva **non vista** - completamento o entrata
+  workspace in cima al **proprio contenitore** (la lista, o la sua card di gruppo) quando
+  un'attività arriva **non vista** - completamento o entrata
   in `needs_input` con `!isVisible` (simmetrico al segnale forte e alla notifica: un completamento
   sulla tab **in vista** **non** bumpa, così la riga non salta sotto le mani). La
   ripresa (`running`) non muove niente: la riga su cui lavori resta ferma, la scavalca solo un altro
@@ -334,7 +339,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   carattere è trasformato, es. Option+1 = "¡"). Le voci numerate del menu "Go" mostrano i **nomi
   reali** di workspace e tab, ripopolate all'apertura (`menuNeedsUpdate` in `AppControllerMenus`:
   il menu si ricostruisce solo al cambio keybinding, quindi non possono essere statiche).
-  **Cmd+N segue l'ordine visivo della sidebar** (`orderedWorkspaces`), non quello canonico:
+  **Cmd+N segue l'ordine visivo della sidebar** (`navigableWorkspaces`: pinned in testa, membri
+  delle card chiuse esclusi), non quello canonico:
   Cmd+1 apre sempre la riga in cima, anche dopo un bump da attività non vista; Option+N naviga la
   strip del
   pane focused.
@@ -559,7 +565,44 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   è mutuamente esclusivo con `pinned` (archiviare de-pinna) e col bump (un archiviato esce da
   `orderedWorkspaces`, quindi l'attività non lo riporta in cima). `setArchived`/`toggleArchive`: non archivia l'ultimo visibile e sposta la selezione
   fuori dall'archiviato; un archiviato con attenzione fresca accende un pallino discreto
-  sull'header (non un buco nero). Archivia/ripristina dal menu contestuale (`Archive`/`Unarchive`).
+  sull'header (non un buco nero). Archivia/ripristina dal menu contestuale (`Archive`/`Unarchive`) o **trascinando** dentro/fuori
+  la sezione.
+- **Gruppi nella sidebar** (dettagli in `docs/features/workspace-groups.md`): card colorate attorno
+  a dei workspace. **L'appartenenza vive sul workspace** (`Workspace.groupID`), il `WorkspaceGroup`
+  porta solo l'aspetto (nome, colore ANSI del tema, collasso, pin del blocco): così non esiste una
+  lista di membri che diverga dall'ordine canonico, la posizione della card è quella del suo primo
+  membro e **un gruppo senza membri non esiste** (`pruneEmptyGroups` dopo ogni operazione che può
+  svuotarlo: uscita, archiviazione, cambio finestra, chiusura). Non introdurre una lista di membri
+  sul gruppo né un ordinamento separato dei gruppi: la contiguità dei membri è una comodità che
+  `compact`/`place` mantengono, non un invariante da cui dipende la correttezza (`sidebarItems`
+  raccoglie i membri sparsi in una card sola). `pinned`/`archived`/`groupID` sono mutuamente
+  esclusivi: `togglePin` è **no-op** dentro una card (lì pinna il gruppo, `setGroupPinned`) e la
+  voce di menu sparisce. Il **bump** è per contenitore (vedi gotcha delle notifiche): un membro sale
+  in cima alla **sua card**, un libero sale in cima alla lista e finisce **sopra** la card; la card
+  si muove solo con pin o drag - senza il pin di gruppo il primo bump di una riga libera la farebbe
+  affondare per sempre. `Cmd+1..9` e il menu Go usano `navigableWorkspaces` (esclude i membri delle
+  card **chiuse**: una scorciatoia su una riga invisibile non è una scorciatoia), mentre `Cmd+J`,
+  gli eredi di selezione e il restore usano `orderedWorkspaces` (ordine logico, li include);
+  `reveal` **apre** la card come già de-archiviava. Snapshot additivo (`groups` +
+  `WorkspaceSnapshot.groupID`, nessun bump di versione).
+- **Righe e slot della sidebar** (`SidebarLayout`): la sidebar è srotolata in un piano piatto di
+  righe (cosa si vede) e **slot** (gli spazi fra le righe, `rows+1`), e ogni slot porta scritto **in
+  quale contenitore** si rilascia (`.root(pinned:)`/`.group`/`.archive`). Deciso alla costruzione,
+  **mai** da euristiche sui vicini al drop: "in fondo alla card" e "sotto la card" sono lo stesso
+  pixel con due significati, e li separa la riga di coda della card (`groupTail`, che è insieme il
+  padding inferiore e uno slot con un solo significato). Da chiusa la card non ha coda: il padding
+  inferiore lo mette il contenitore (`GroupCard(collapsed:)`), altrimenti l'header resta appoggiato
+  al bordo. `SidebarDrop` fa il solo lavoro posizionale (slot -> contenitore + ancora canonica) ed è
+  puro e testato; una card si posa solo nella lista (`normalized` la riporta al più vicino slot di
+  primo livello: niente card annidate né archiviate in blocco).
+- **Drag della sidebar** (`SidebarReorder`, separato da `Reorderable` che resta per la strip dei
+  pane): il gesto attraversa due `ScrollView`, quindi (1) **un solo coordinate space** a livello
+  sidebar coi frame raccolti da `onGeometryChange` e **non** da un `PreferenceKey` (le preference
+  non attraversano il bridge `NSScrollView`: dall'archivio non arriverebbero mai, stessa trappola
+  della sezione alta 1px) e (2) la **riga in volo disegnata in overlay fuori dalle ScrollView**, non
+  la riga vera con `.offset` (dentro verrebbe clippata al bordo e sparirebbe a metà gesto, proprio
+  mentre esci dal contenitore). Per lo stesso motivo la lista principale non è più `LazyVStack`: una
+  riga smontata non misura il frame, e il calcolo degli slot li vuole tutti.
 - Riordino drag & drop (sidebar e strip dei pane): meccanismo in `Panels/Reorderable` (`reorderableRow` +
   `reorderableContainer` + `ReorderInsertionLine`). **Non** `onDrag`/`onDrop` di sistema (generano
   una preview con snap-back al rilascio): la riga *vera* si solleva con un `DragGesture` + `.offset`
@@ -578,12 +621,10 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   `resetTransaction` animata: si azzera da solo anche a gesto annullato (menu contestuale, perdita
   focus) - con `@State` manuale un drag interrotto lasciava la riga sollevata e rompeva i drag
   successivi. Store puro e posizionale: `WorkspaceStore.moveWorkspace(_:before:/after:)` e
-  `moveTab(_:before:in:)` (inserisce prima/dopo il target, `nil` = in fondo). **Sidebar**: la linea
-  è libera (niente clamp: col vecchio vincolo di segmento un blocco da 1 elemento inchiodava
-  l'inserimento = drag morto); il drag edita direttamente l'ordine canonico e il drop lo risolve il
-  resolver puro `SidebarDrop` (testato, due segmenti pinned/resto): attraversare il blocco pinned
-  pinna/spinna (il bordo esatto non cambia lo stato), l'ancora preferisce il vicino dello stesso
-  segmento e ripiega sul vicino grezzo. Durante il gesto l'ordine visivo è **congelato**
+  `moveTab(_:before:in:)` (inserisce prima/dopo il target, `nil` = in fondo). **Sidebar**: meccanica e resolver
+  suoi (vedi i due gotcha sopra); il drag edita direttamente l'ordine canonico, attraversare il
+  blocco pinned pinna/spinna, e l'ancora preferisce il vicino dello stesso contenitore ripiegando
+  sul vicino grezzo. Durante il gesto l'ordine visivo è **congelato**
   (`frozenOrder`): senza, un evento agente che bumpa un workspace riordinerebbe le righe sotto il
   puntatore. **Strip dei pane**: nessun segmento, ordine unico, il riordino resta **dentro** la
   strip (`Workspace.moveTab` è no-op cross-pane: il drag di tab fra pane è lavoro futuro). Su
@@ -730,9 +771,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   rimpatriare a ogni passaggio collasserebbe il layout multi-window prima del flush. I frame stanno
   nel `LayoutSnapshot` per id (`setFrameAutosaveName` ne gestirebbe una sola).
 - Non ancora fatto: distribuzione firmata Developer ID + notarizzazione, generalizzazione
-  multi-agente (Codex/opencode), drag di workspace **fra** finestre, drag di tab **fra** pane
-  (incluso l'edge-drop stile bonsplit per creare split trascinando) e drag dentro/fuori
-  l'**archivio**, zoom del pane, equalize dei divider, rename del workspace dalla menu bar (resta
+  multi-agente (Codex/opencode), drag di workspace (e gruppi) **fra** finestre, drag di tab **fra**
+  pane (incluso l'edge-drop stile bonsplit per creare split trascinando), zoom del pane, equalize dei divider, rename del workspace dalla menu bar (resta
   nel contestuale della sidebar), evoluzioni della dashboard (azioni inline sulle card, preview del
   terminale - richiederebbe surface vive), timeline degli eventi agente, import di temi da config
   Ghostty.

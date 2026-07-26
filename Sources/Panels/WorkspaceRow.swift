@@ -4,10 +4,22 @@ import WorkspaceModel
 /// Riga workspace con selezione/hover dal tema. View separata per lo stato locale (hover +
 /// editing): su hover il badge di severità lascia il posto alla x di chiusura; il rename dal
 /// menu contestuale scambia il nome con un `TextField` inline.
+/// Voci di gruppo del menu contestuale di una riga. `nil` sulle righe che non possono stare in una
+/// card (gli archiviati).
+struct WorkspaceGroupMenu {
+    let inGroup: Bool
+    /// Gruppi in cui si può entrare (esclusa la card in cui si è già), nome per la voce di menu.
+    let available: [(id: UUID, name: String)]
+    let onNewGroup: () -> Void
+    let onAddToGroup: (UUID) -> Void
+    let onRemoveFromGroup: () -> Void
+}
+
 struct WorkspaceRow: View {
     let workspace: Workspace
     let selected: Bool
     let colors: ChromeColors
+    let groupMenu: WorkspaceGroupMenu?
     let onSelect: () -> Void
     let onTogglePin: () -> Void
     let onRename: (String) -> Void
@@ -81,9 +93,11 @@ struct WorkspaceRow: View {
             // o per rinominare un nome scelto a mano tramite AI.
             Button("Regenerate name", action: onRegenerateName)
             // Pin e Archive sono opposti: un archiviato non si pinna (lo mostro solo se in lista).
-            if !workspace.archived {
+            // Dentro una card nemmeno: lì a salire in testa è il gruppo intero.
+            if !workspace.archived, workspace.groupID == nil {
                 Button(workspace.pinned ? "Unpin" : "Pin", action: onTogglePin)
             }
+            groupSection
             // Toggle del marker sulla tab selezionata: riaccende o spegne il segnale di attenzione
             // a mano (metafora unread). Il label riflette lo stato corrente della tab selezionata.
             Button(isUnseen ? "Mark as Read" : "Mark as Unread", action: onToggleUnread)
@@ -94,6 +108,27 @@ struct WorkspaceRow: View {
                 Button("Move to New Window", action: onMoveToNewWindow)
             }
             Button("Close", role: .destructive, action: onClose)
+        }
+    }
+
+    /// Voci di raggruppamento: creare una card attorno a questa riga, spostarla in una esistente,
+    /// tirarla fuori. Il drag fa lo stesso lavoro, ma il menu resta la via precisa (e l'unica su
+    /// una sidebar lunga, dove la card di destinazione può essere fuori vista).
+    @ViewBuilder private var groupSection: some View {
+        if let groupMenu {
+            Divider()
+            Button("New Group with This", action: groupMenu.onNewGroup)
+            if !groupMenu.available.isEmpty {
+                Menu("Move to Group") {
+                    ForEach(groupMenu.available, id: \.id) { group in
+                        Button(group.name) { groupMenu.onAddToGroup(group.id) }
+                    }
+                }
+            }
+            if groupMenu.inGroup {
+                Button("Remove from Group", action: groupMenu.onRemoveFromGroup)
+            }
+            Divider()
         }
     }
 

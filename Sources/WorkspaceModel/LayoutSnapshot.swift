@@ -19,27 +19,51 @@ public struct LayoutSnapshot: Codable, Equatable {
     /// al
     /// restore ricadono su una finestra sola (`RelayWindow.mainID`) con tutti i workspace dentro.
     public var windows: [WindowSnapshot]
+    /// I gruppi della sidebar (solo aspetto: i membri stanno su `WorkspaceSnapshot.groupID`). Campo
+    /// additivo, assente nei layout salvati prima dei gruppi -> nessun gruppo, righe tutte libere.
+    public var groups: [GroupSnapshot]
 
     public init(
         version: Int = LayoutSnapshot.currentVersion,
         selectedWorkspaceID: UUID?,
         workspaces: [WorkspaceSnapshot],
-        windows: [WindowSnapshot] = []
+        windows: [WindowSnapshot] = [],
+        groups: [GroupSnapshot] = []
     ) {
         self.version = version
         self.selectedWorkspaceID = selectedWorkspaceID
         self.workspaces = workspaces
         self.windows = windows
+        self.groups = groups
     }
 
-    /// Decode tollerante: `windows` è additivo (vedi sopra), la sintesi lo esigerebbe come chiave e
-    /// farebbe fallire l'intero decode, cioè butterebbe il layout dell'utente.
+    /// Decode tollerante: `windows` e `groups` sono additivi (vedi sopra), la sintesi li esigerebbe
+    /// come chiave e farebbe fallire l'intero decode, cioè butterebbe il layout dell'utente.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         version = try c.decode(Int.self, forKey: .version)
         selectedWorkspaceID = try c.decodeIfPresent(UUID.self, forKey: .selectedWorkspaceID)
         workspaces = try c.decode([WorkspaceSnapshot].self, forKey: .workspaces)
         windows = try c.decodeIfPresent([WindowSnapshot].self, forKey: .windows) ?? []
+        groups = try c.decodeIfPresent([GroupSnapshot].self, forKey: .groups) ?? []
+    }
+}
+
+/// Un gruppo salvato: solo identità e aspetto. L'appartenenza vive sui workspace, quindi qui non
+/// c'è una lista di membri che il restore debba validare.
+public struct GroupSnapshot: Codable, Equatable {
+    public var id: UUID
+    public var name: String
+    public var colorIndex: Int
+    public var collapsed: Bool
+    public var pinned: Bool
+
+    public init(id: UUID, name: String, colorIndex: Int, collapsed: Bool, pinned: Bool) {
+        self.id = id
+        self.name = name
+        self.colorIndex = colorIndex
+        self.collapsed = collapsed
+        self.pinned = pinned
     }
 }
 
@@ -78,6 +102,9 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     /// Nella sezione Archive. Campo additivo (assente nei layout vecchi -> `false`), quindi non
     /// richiede un bump di versione.
     public var archived: Bool
+    /// Il gruppo che lo contiene. Campo additivo (assente -> `nil`, riga libera). Un id che non
+    /// trova il suo gruppo degrada a riga libera, non fa fallire il restore.
+    public var groupID: UUID?
     public var selectedTabID: UUID?
     public var tabs: [TabSnapshot]
     /// Disposizione dei pane. Campo additivo (assente nei layout pre-split -> `nil`, ricostruito
@@ -95,6 +122,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         rootPath: String?,
         pinned: Bool,
         archived: Bool = false,
+        groupID: UUID? = nil,
         selectedTabID: UUID?,
         splitLayout: SplitNode? = nil,
         focusedPaneID: UUID? = nil,
@@ -107,6 +135,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         self.rootPath = rootPath
         self.pinned = pinned
         self.archived = archived
+        self.groupID = groupID
         self.selectedTabID = selectedTabID
         self.tabs = tabs
         self.splitLayout = splitLayout
@@ -129,6 +158,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         rootPath = try c.decodeIfPresent(String.self, forKey: .rootPath)
         pinned = try c.decode(Bool.self, forKey: .pinned)
         archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false
+        groupID = try c.decodeIfPresent(UUID.self, forKey: .groupID)
         selectedTabID = try c.decodeIfPresent(UUID.self, forKey: .selectedTabID)
         tabs = try c.decode([TabSnapshot].self, forKey: .tabs)
         // Tolleranti anche al **valore**, non solo alla chiave: un nodo corrotto (file toccato a

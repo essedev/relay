@@ -19,6 +19,9 @@ public extension WorkspaceStore {
     func reveal(workspaceID: UUID, tabID: UUID) {
         guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
         if workspace.archived { setArchived(workspaceID, false) }
+        // Stessa ragione dell'archivio: un membro di una card chiusa è invisibile, quindi
+        // selezionarlo senza aprirla lascerebbe la sidebar a indicare il nulla.
+        if let groupID = workspace.groupID { group(groupID)?.collapsed = false }
         selectWorkspace(workspaceID)
         selectTab(tabID, in: workspace)
     }

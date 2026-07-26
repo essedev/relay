@@ -67,4 +67,11 @@ struct ChromeColors {
     var completed: Color {
         Color(theme.ansiColor(2))
     } // verde
+
+    /// Tinta di un gruppo della sidebar: un colore ANSI del tema (vedi
+    /// `WorkspaceGroup.colorIndices`), non una palette a parte, così le card seguono il tema come
+    /// badge e ring.
+    func group(_ colorIndex: Int) -> Color {
+        Color(theme.ansiColor(colorIndex))
+    }
 }

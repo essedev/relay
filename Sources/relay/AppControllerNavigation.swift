@@ -9,11 +9,11 @@ import WorkspaceModel
 /// stanno più qui: sono azioni rimappabili, eseguite via `ShortcutRuntime.perform(_:)`.
 extension AppController {
     /// Cmd+1..9: seleziona il workspace all'indice nell'ordine **visivo** della sidebar
-    /// (`orderedWorkspaces`: i pinned in testa, poi l'ordine canonico), non in quello canonico.
-    /// Così Cmd+1 apre sempre la riga in cima, anche dopo che un'attività non vista ha bumpato un
-    /// workspace lassù.
+    /// (`navigableWorkspaces`: pinned in testa, gruppi al loro posto, membri delle card collassate
+    /// esclusi perché non si vedono), non in quello canonico. Così Cmd+1 apre sempre la riga in
+    /// cima, anche dopo che un'attività non vista ha bumpato un workspace lassù.
     @objc func selectWorkspaceByShortcut(_ sender: NSMenuItem) {
-        let ordered = store.orderedWorkspaces
+        let ordered = store.navigableWorkspaces
         guard sender.tag < ordered.count else { return }
         store.selectWorkspace(ordered[sender.tag].id)
     }
@@ -135,9 +135,9 @@ extension AppController {
         let index = digit - 1
 
         if flags == .command {
-            // Ordine visivo della sidebar (pinned in testa), non quello canonico: Cmd+N segue la
-            // posizione della riga come la vedi.
-            let ordered = store.orderedWorkspaces
+            // Ordine visivo della sidebar (pinned in testa, membri nascosti esclusi), non quello
+            // canonico: Cmd+N segue la posizione della riga come la vedi.
+            let ordered = store.navigableWorkspaces
             if index < ordered.count {
                 store.selectWorkspace(ordered[index].id)
             }

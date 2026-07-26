@@ -1,14 +1,20 @@
 import SwiftUI
 import WorkspaceModel
 
-/// Sidebar: elenco dei workspace con selezione, pin, riordino. Pannello SwiftUI isolato,
-/// disaccoppiato dal view tree del terminale. La creazione di un workspace è delegata all'app
-/// (`onNewWorkspace`), che sceglie la cartella progetto; la chiusura a `onCloseWorkspace`, che può
-/// chiedere conferma se una tab è occupata. Colori derivati dal tema corrente.
+/// Sidebar: elenco dei workspace con selezione, pin, gruppi, archivio e riordino. Pannello SwiftUI
+/// isolato, disaccoppiato dal view tree del terminale. La creazione di un workspace è delegata
+/// all'app (`onNewWorkspace`), che sceglie la cartella progetto; la chiusura a `onCloseWorkspace`,
+/// che può chiedere conferma se una tab è occupata. Colori derivati dal tema corrente.
 ///
-/// Lista custom (`LazyVStack`, non `List`): la `List` di macOS disegna un highlight full-size di
+/// Liste custom (`VStack`, non `List`): la `List` di macOS disegna un highlight full-size di
 /// sistema sotto la riga bersaglio del menu contestuale, fuori dal design flat a tema. Con la
-/// VStack controlliamo noi selezione, hover e menu; il riordino è drag & drop esplicito.
+/// VStack controlliamo noi selezione, hover e menu; il riordino è drag & drop esplicito. Niente
+/// `LazyVStack` nemmeno nella lista principale: le righe smontate non misurano il proprio frame, e
+/// il drag ha bisogno del frame di **tutte** le righe, comprese quelle fuori vista.
+///
+/// La struttura a schermo (righe di primo livello, card dei gruppi, sezione Archive) è srotolata in
+/// un piano piatto di righe e slot (`SidebarLayout`), che è ciò su cui il drag calcola; il
+/// rendering resta annidato, così le card possono disegnarsi attorno ai loro membri.
 public struct SidebarView: View {
     let store: WorkspaceStore
     let settings: AppSettings
@@ -28,17 +34,22 @@ public struct SidebarView: View {
     /// assente / test): la sidebar non dipende dalla rete né dal composition root.
     let updateConfig: SidebarUpdateConfig?
 
-    // Stato del riordino via drag & drop (vedi Reorderable). Il gesto vive in un @GestureState:
-    // si azzera da solo (animato) anche se il drag viene annullato. L'ordine visivo è congelato
-    // per la durata del gesto (`frozenOrder`): un evento agente può bumpare un workspace in cima,
-    // e senza snapshot rimescolerebbe righe e frame sotto il puntatore.
+    /// Coordinate space unico della sidebar: lista principale e archivio ci misurano dentro le
+    /// proprie righe, così il drag può attraversarli (vedi `SidebarReorder`).
+    static let space = "sidebar"
+
+    // Stato del riordino. Il gesto vive in un @GestureState: si azzera da solo (animato) anche se
+    // il drag viene annullato. La struttura visiva è congelata per la durata del gesto
+    // (`frozenItems`/`frozenArchived`): un evento agente può bumpare un workspace, e senza
+    // snapshot rimescolerebbe righe e frame sotto il puntatore.
     @GestureState(resetTransaction: Transaction(animation: .easeInOut(duration: 0.2)))
-    private var drag = ReorderDragState()
-    @State private var rowFrames: [Int: CGRect] = [:]
-    @State private var frozenOrder: [Workspace]?
+    var drag = SidebarDragState()
+    @State var frames: [Int: CGRect] = [:]
+    @State var frozenItems: [SidebarItem]?
+    @State var frozenArchived: [Workspace]?
     /// Altezza del contenuto archiviato: la sezione Archive si dimensiona su questa, cappata a metà
     /// sidebar (poi scroll interno).
-    @State private var archivedHeight: CGFloat = 0
+    @State var archivedHeight: CGFloat = 0
 
     public init(
         store: WorkspaceStore,
@@ -62,6 +73,13 @@ public struct SidebarView: View {
 
     public var body: some View {
         let colors = ChromeColors(settings.theme)
+        let items = frozenItems ?? store.sidebarItems(in: windowID)
+        let archived = frozenArchived ?? store.archivedWorkspaces(in: windowID)
+        let plan = SidebarLayout.plan(
+            items: items.map(descriptor),
+            archived: archived.map(\.id),
+            archiveExpanded: settings.archiveExpanded
+        )
         // GeometryReader per il tetto della sezione Archive (~metà sidebar): la lista principale
         // prende il resto. Split verticale, non overlay: le due aree coesistono a vista, così il
         // drag tra loro è possibile e nulla resta nascosto dietro.
@@ -69,16 +87,50 @@ public struct SidebarView: View {
             VStack(spacing: 0) {
                 trafficLightsStrip
                 workspacesHeader(colors)
-                list(colors)
+                list(items, plan: plan, colors: colors)
                 if let updateConfig {
                     UpdateBanner(config: updateConfig, colors: colors)
                 }
-                archiveSection(colors, maxListHeight: proxy.size.height * 0.5)
+                archiveSection(
+                    archived, plan: plan, colors: colors, maxListHeight: proxy.size.height * 0.5
+                )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(minWidth: 200)
         .background(colors.background)
+        .coordinateSpace(.named(Self.space))
+        // Riga in volo e linea di inserimento vivono qui, sopra **tutta** la sidebar: dentro una
+        // ScrollView verrebbero clippate al bordo proprio mentre esci dal contenitore.
+        .overlay(alignment: .topLeading) {
+            SidebarInsertionLine(
+                insertion: drag.dragged == nil ? nil : drag.insertion,
+                frames: frames,
+                count: plan.count,
+                color: colors.accent,
+                indent: insertionIndent(plan: plan)
+            )
+        }
+        .overlay(alignment: .topLeading) { flyingRow(colors: colors) }
+        .onChange(of: drag.dragged == nil) { _, idle in
+            frozenItems = idle ? nil : store.sidebarItems(in: windowID)
+            frozenArchived = idle ? nil : store.archivedWorkspaces(in: windowID)
+        }
+    }
+
+    /// Descrittore puro di un elemento per il piano delle righe (`SidebarLayout` non conosce i tipi
+    /// osservabili del model).
+    func descriptor(_ item: SidebarItem) -> SidebarLayout.Item {
+        switch item {
+        case let .workspace(workspace):
+            SidebarLayout.Item(id: workspace.id, kind: .workspace, pinned: workspace.pinned)
+        case let .group(group, members):
+            SidebarLayout.Item(
+                id: group.id,
+                kind: .group(members: members.map(\.id), collapsed: group.collapsed),
+                pinned: group.pinned
+            )
+        }
     }
 
     /// Riga dei semafori (full-size content view): vuota e pulita, zona di drag e doppio click
@@ -106,59 +158,74 @@ public struct SidebarView: View {
         .padding(.bottom, Theme.Spacing.xs)
     }
 
-    /// Righe custom coi colori del tema: selezione/hover disegnati da noi, menu contestuale senza
-    /// highlight di sistema, riordino via drag & drop. Il padding orizzontale della VStack insetta
-    /// la pill di selezione dai bordi (`sm`); il contenuto della riga aggiunge `xs` così allinea
-    /// con l'header (`sm + xs = md`).
-    private func list(_ colors: ChromeColors) -> some View {
-        // Ordine di visualizzazione (pinned in testa, poi il resto in ordine canonico). Durante un
-        // drag vale lo snapshot congelato, così un evento agente (che può bumpare un workspace in
-        // cima) non riordina le righe sotto il puntatore.
-        let ordered = frozenOrder ?? store.orderedWorkspaces(in: windowID)
-        let space = "sidebar-reorder"
-        return ScrollView {
-            LazyVStack(spacing: 1) {
-                ForEach(Array(ordered.enumerated()), id: \.element.id) { index, workspace in
-                    makeRow(workspace, colors: colors)
-                        .reorderableRow(ReorderRowConfig(
-                            id: workspace.id,
-                            index: index,
-                            axis: .vertical,
-                            space: space,
-                            count: ordered.count,
-                            frames: rowFrames,
-                            drag: $drag,
-                            state: drag,
-                            perform: { performMove(of: workspace.id, to: $0, ordered: ordered) }
-                        ))
+    /// Lista principale: righe libere e card dei gruppi. Il padding orizzontale insetta la pill di
+    /// selezione dai bordi (`sm`); il contenuto della riga aggiunge `xs` così allinea con l'header
+    /// (`sm + xs = md`).
+    private func list(
+        _ items: [SidebarItem], plan: SidebarLayout.Plan, colors: ChromeColors
+    ) -> some View {
+        ScrollView {
+            VStack(spacing: 1) {
+                ForEach(items) { item in
+                    switch item {
+                    case let .workspace(workspace):
+                        draggable(.workspace(workspace.id), plan: plan) {
+                            makeRow(workspace, colors: colors)
+                        }
+                    case let .group(group, members):
+                        groupCard(group, members: members, plan: plan, colors: colors)
+                    }
                 }
             }
-            .reorderableContainer(ReorderContainerConfig(
-                space: space,
-                axis: .vertical,
-                count: ordered.count,
-                frames: $rowFrames,
-                insertion: drag.insertion,
-                lineColor: colors.accent
-            ))
             .padding(.horizontal, Theme.Spacing.sm)
             .padding(.vertical, Theme.Spacing.xxs)
-            .animation(.easeInOut(duration: 0.2), value: ordered.map(\.id))
-            .onChange(of: drag.id) { _, id in
-                frozenOrder = id == nil ? nil : store.orderedWorkspaces(in: windowID)
-            }
+            .animation(.easeInOut(duration: 0.2), value: plan.rows)
         }
         .scrollContentBackground(.hidden)
         .layoutPriority(1) // la lista principale tiene il flex; l'archivio prende il resto
     }
 
-    /// Riga workspace completa (callback allo store), condivisa da lista principale e sezione
-    /// Archive. I chiamanti aggiungono i modifier di riordino solo dove serve.
-    private func makeRow(_ workspace: Workspace, colors: ChromeColors) -> WorkspaceRow {
+    /// Avvolge una riga nella meccanica di drag: indice nel piano, misura del frame nel coordinate
+    /// space condiviso, gesto e drop. `row` esplicito quando la riga non è di primo livello (membro
+    /// di una card, header di gruppo, archiviato).
+    @ViewBuilder
+    func draggable(
+        _ dragged: SidebarDrop.Dragged,
+        plan: SidebarLayout.Plan,
+        row: SidebarLayout.Row? = nil,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        let target = row ?? defaultRow(for: dragged)
+        let index = plan.index(of: target)
+        content()
+            .sidebarReorderRow(SidebarRowConfig(
+                dragged: dragged,
+                index: index,
+                space: Self.space,
+                frames: frames,
+                plan: plan,
+                drag: $drag,
+                state: drag,
+                onFrame: { frames[$0] = $1 },
+                perform: { performDrop(dragged, at: $0, plan: plan) }
+            ))
+    }
+
+    func defaultRow(for dragged: SidebarDrop.Dragged) -> SidebarLayout.Row {
+        switch dragged {
+        case let .workspace(id): .workspace(id)
+        case let .group(id): .groupHeader(id)
+        }
+    }
+
+    /// Riga workspace completa (callback allo store), condivisa da lista principale, card dei
+    /// gruppi e sezione Archive.
+    func makeRow(_ workspace: Workspace, colors: ChromeColors) -> WorkspaceRow {
         WorkspaceRow(
             workspace: workspace,
             selected: workspace.id == store.selectedWorkspace(in: windowID)?.id,
             colors: colors,
+            groupMenu: groupMenu(for: workspace),
             onSelect: { store.selectWorkspace(workspace.id) },
             onTogglePin: { store.togglePin(workspace.id) },
             onRename: { store.renameWorkspace(workspace.id, to: $0) },
@@ -173,134 +240,10 @@ public struct SidebarView: View {
         )
     }
 
-    /// Sezione Archive: header ancorato in fondo alla sidebar (sempre visibile come drop zone del
-    /// drag e affordance dell'archivio, anche a vuoto), collassabile; quando espansa mostra i
-    /// workspace archiviati in uno ScrollView che si adatta al contenuto fino a `maxListHeight`
-    /// (~metà sidebar), poi scrolla dentro. A vuoto mostra un empty state se aperta.
-    private func archiveSection(_ colors: ChromeColors, maxListHeight: CGFloat) -> some View {
-        let archived = store.archivedWorkspaces(in: windowID)
-        return VStack(spacing: 0) {
-            Divider()
-            archiveHeader(
-                colors,
-                count: archived.count,
-                attention: hasArchivedAttention(archived)
-            )
-            // Sempre nel tree, mai `if expanded` (inserire/rimuovere la view faceva un pop:
-            // apriva a 1px, saltava all'altezza misurata senza animazione, e chiudeva con un
-            // fade). Ad animare è solo il frame: expanded <-> 0 è una slide continua.
-            // VStack, non LazyVStack: dentro uno ScrollView basso (0/1px) il lazy non
-            // realizzerebbe le righe e la misura resterebbe 0 per sempre. Gli archiviati sono
-            // pochi: realizzarli tutti va bene.
-            // La misura passa da `onGeometryChange` sul contenuto, NON da una preference:
-            // su macOS le preference non attraversano il confine dello ScrollView (bridge
-            // NSScrollView), a `onPreferenceChange` fuori arrivava solo lo 0 iniziale e la
-            // lista restava a 1px (la causa dell'archivio che non si apriva). La write della
-            // misura è animata: copre la primissima apertura (altezza ancora ignota, 1px ->
-            // misura) e i cambi di contenuto a lista aperta.
-            ScrollView {
-                VStack(spacing: 1) {
-                    if archived.isEmpty {
-                        archiveEmptyState(colors)
-                    } else {
-                        ForEach(archived) { workspace in
-                            makeRow(workspace, colors: colors)
-                        }
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.sm)
-                .padding(.vertical, Theme.Spacing.xxs)
-                .onGeometryChange(
-                    for: CGFloat.self,
-                    of: { $0.size.height },
-                    action: { height in
-                        withAnimation(.easeInOut(duration: 0.2)) { archivedHeight = height }
-                    }
-                )
-            }
-            .frame(
-                height: settings.archiveExpanded
-                    ? min(max(archivedHeight, 1), maxListHeight)
-                    : 0
-            )
-            .scrollContentBackground(.hidden)
-        }
-    }
-
-    /// Empty state dell'archivio aperto e vuoto: una riga discreta, non un box vistoso.
-    private func archiveEmptyState(_ colors: ChromeColors) -> some View {
-        Text("No archived workspaces")
-            .font(Theme.Typography.subtitle)
-            .foregroundStyle(colors.secondary)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, Theme.Spacing.sm)
-    }
-
-    /// Header cliccabile della sezione Archive: chevron, conteggio, e un pallino discreto se un
-    /// archiviato ha attenzione fresca (così l'archivio non è un buco nero, senza galleggiare).
-    private func archiveHeader(_ colors: ChromeColors, count: Int, attention: Bool) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) { settings.toggleArchiveExpanded() }
-        } label: {
-            HStack(spacing: Theme.Spacing.xs) {
-                // Un solo glifo ruotato, non uno swap chevron.right/down: il cambio di simbolo
-                // non interpola (crossfade sfasato rispetto alla slide), la rotazione anima in
-                // sync con l'altezza della lista nella stessa transaction.
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(colors.secondary)
-                    .rotationEffect(.degrees(settings.archiveExpanded ? 90 : 0))
-                    .frame(width: 10)
-                Image(systemName: "archivebox")
-                    .font(Theme.Typography.rowIcon)
-                    .foregroundStyle(colors.secondary)
-                Text("Archive")
-                    .font(Theme.Typography.item)
-                    .foregroundStyle(colors.foreground)
-                if count > 0 {
-                    Text("\(count)")
-                        .font(Theme.Typography.subtitle)
-                        .foregroundStyle(colors.secondary)
-                }
-                Spacer()
-                if attention {
-                    StatusDot(color: colors.accent, size: Theme.Metrics.presenceDot)
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, Theme.Spacing.sm)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(settings.archiveExpanded ? "Collapse archive" : "Expand archive")
-    }
-
-    private func hasArchivedAttention(_ archived: [Workspace]) -> Bool {
-        archived.contains { $0.needsAttention }
-    }
-
     /// Toggle manuale del marker di attenzione dal menu contestuale: agisce sulla tab selezionata
-    /// del workspace (il marker vive per-tab). Estratto dal `ForEach` per non appesantire
-    /// l'inferenza di tipo della riga.
+    /// del workspace (il marker vive per-tab).
     private func toggleUnread(_ workspace: Workspace) {
         guard let tabID = workspace.selectedTab?.id else { return }
         store.toggleUnread(tabID)
-    }
-
-    /// Esegue lo spostamento deciso dal resolver puro (`SidebarDrop`): eventuale pin/unpin per
-    /// attraversamento del blocco pinned + inserimento canonico ancorato a un vicino. Il reset
-    /// dello stato di drag lo fa la resetTransaction del @GestureState.
-    private func performMove(of dragID: UUID, to insertion: Int, ordered: [Workspace]) {
-        let rows = ordered.map {
-            SidebarDrop.Row(id: $0.id, pinned: $0.pinned)
-        }
-        guard let drop = SidebarDrop.resolve(rows: rows, dragID: dragID, insertion: insertion)
-        else { return }
-        if drop.pinned != nil { store.togglePin(dragID) }
-        switch drop.move {
-        case let .before(target): store.moveWorkspace(dragID, before: target)
-        case let .after(target): store.moveWorkspace(dragID, after: target)
-        case nil: break
-        }
     }
 }

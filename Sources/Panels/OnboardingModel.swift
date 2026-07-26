@@ -2,9 +2,9 @@ import Foundation
 
 /// Pagine dell'onboarding, nell'ordine di presentazione: prima il valore, poi l'unico passo
 /// azionabile (gli hook, senza cui Relay è un terminale muto), poi il cuore concettuale
-/// (attenzione), la navigazione e la personalizzazione.
+/// (attenzione), come si tiene in ordine la sidebar, la navigazione e la personalizzazione.
 public enum OnboardingPage: Int, CaseIterable, Identifiable, Sendable {
-    case welcome, hooks, attention, navigation, customize
+    case welcome, hooks, attention, organize, navigation, customize
 
     public var id: Int {
         rawValue

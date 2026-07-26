@@ -21,13 +21,13 @@
 </p>
 
 Native macOS terminal for working with many coding agents in parallel: reliable agent state
-(via Claude Code hooks), workspace organization (sidebar with pinning and reordering, overview
-dashboard), fast and lightweight.
+(via Claude Code hooks), workspace organization (sidebar with groups, pinning, archive and drag
+reordering, overview dashboard), fast and lightweight.
 
 Status: baseline complete and distributed via a Homebrew tap. Workspace -> pane -> Tab -> terminal,
 agent runtime with badges/notifications, split panes and multiple windows, layout persistence,
-assisted resume, kanban triage dashboard, workspace archive, automatic workspace naming via an
-LLM, onboarding, twelve themes. Engine v1 is SwiftTerm behind the `TerminalEngine` abstraction
+assisted resume, kanban triage dashboard, workspace groups and archive, automatic workspace naming
+via an LLM, onboarding, twelve themes. Engine v1 is SwiftTerm behind the `TerminalEngine` abstraction
 (libghostty a future backend). Decisions, benchmarks and research logs live in `docs/research/`
 (`CYCLES.md`).
 
@@ -87,6 +87,7 @@ notarization is not set up yet.
 - `Cmd+F` search in the terminal, `Cmd+G` / `Cmd+Shift+G` next/previous match,
   `Cmd+K` clear the terminal.
 - `Cmd +/-` terminal zoom, `Cmd+0` reset size.
+- `Ctrl+Cmd+G` group the selected workspace in a new card (or ungroup it).
 - `Cmd+B` show/hide the sidebar, `Cmd+,` settings.
 
 Shortcuts (except select-by-number and system commands) are **remappable** from
@@ -109,6 +110,18 @@ in `Core` (`RelayTheme`), the single source for terminal and chrome.
 The title bar shows the active tab's context: the title set by the program (Claude Code sends the
 chat name, zsh `user@host:path`), otherwise the current cwd (OSC 7) abbreviated with `~`, otherwise
 the workspace folder.
+
+## Organizing the sidebar
+
+Workspaces can live in **groups**: a colored card with a one-line header, collapsible, that keeps
+related projects together. Make one from a row's context menu (`New Group with This`), from the
+Workspace menu (`Ctrl+Cmd+G`), or by dragging rows in and out of a card. A collapsed card is as tall
+as a normal row and tells you how many of its members are still waiting for you.
+
+Pin a row - or a whole group - to keep it at the top; drag anything onto the **Archive** section at
+the bottom to put it away, and drag it back out when the project wakes up. When a workspace finishes
+work while you are looking elsewhere it moves to the top of wherever it lives (the list, or its own
+group); a group stays where you put it. Details in `docs/features/workspace-groups.md`.
 
 ## Agent state (Claude Code hooks)
 

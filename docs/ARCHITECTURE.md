@@ -79,8 +79,9 @@ surface vive.
 App (uno store, un receiver, una SurfaceRegistry)
   Window 1..N (partizione dei workspace)
     Sidebar (sinistra)
-      Sezione pinned
+      Sezione pinned (workspace e gruppi pinnati)
       Lista workspace di QUESTA finestra (drag per riordinare)
+        Gruppo (card colorata: header + i suoi workspace, collassabile)
       Sezione Archive
     Content
       Workspace selezionato da QUESTA finestra
@@ -90,8 +91,12 @@ App (uno store, un receiver, una SurfaceRegistry)
 ```
 
 - **Workspace**: un progetto (tipicamente una cartella/repo). Raggruppa tab. Ha nome, cwd di
-  default, pin, archiviazione, posizione in sidebar, stato agente aggregato, **finestra**
-  (`windowID`) e **layout dei pane** (`layout`, sempre presente).
+  default, pin, archiviazione, **gruppo** (`groupID`), posizione in sidebar, stato agente aggregato,
+  **finestra** (`windowID`) e **layout dei pane** (`layout`, sempre presente).
+- **Gruppo** (`WorkspaceGroup`): una card colorata della sidebar attorno a dei workspace. Porta solo
+  identità e aspetto (nome, colore, collasso, pin del blocco): **l'appartenenza vive sul workspace**,
+  quindi non c'è una lista di membri da tenere in sync con l'ordine canonico e la posizione della
+  card è quella del suo primo membro. Un gruppo senza membri non esiste.
 - **Tab**: una sessione terminale. È **l'unità a cui si lega una sessione agente** (`RELAY_TAB_ID`
   = `Tab.id` = surface = badge = attention = resume = card della dashboard).
 - **Pane** (`SplitPane`): una porzione di schermo che **ospita** una lista ordinata di tab con la
@@ -347,7 +352,7 @@ root:
   preferenza), con RSS, CPU del processo, conteggi workspace/tab e surface vive/cap. Campiona solo
   mentre la finestra è aperta; a regime non aggiunge polling.
 - Onboarding ("Welcome to Relay"): overlay full-window al primo avvio (flag
-  `AppSettings.onboardingSeen`, mai in demo mode), riapribile da Help > Welcome to Relay. Cinque
+  `AppSettings.onboardingSeen`, mai in demo mode), riapribile da Help > Welcome to Relay. Sei
   pagine coi componenti veri del design system al posto di screenshot (badge live, keycap dai
   binding correnti, temi selezionabili dal vivo, icona procedurale `RelayMarkView`); la pagina
   hook riusa `ClaudeHooksBlock` (stato + install). Logica di navigazione pura
@@ -359,6 +364,13 @@ root:
   la sidebar come pannello glass flottante, in conflitto col design flat themed). Righe con
   selezione/hover dai colori del tema (niente highlight di sistema), sottotitolo per riga
   (`WindowTitle.workspaceSubtitle`: cosa succede nella tab selezionata) e badge aggregato.
+- Struttura della sidebar: righe libere, **card dei gruppi** (header + membri rientrati, vedi
+  `docs/features/workspace-groups.md`) e la sezione Archive ancorata in fondo. Il rendering è
+  annidato (la card si disegna attorno ai suoi membri) ma il drag lavora su un **piano piatto** di
+  righe e slot (`SidebarLayout`): ogni slot porta scritto in quale contenitore si rilascia, deciso
+  alla costruzione e non da euristiche sui vicini. Il drop è risolto dal puro `SidebarDrop`
+  (contenitore + ancora canonica) e la meccanica del gesto vive in `SidebarReorder`, separata da
+  `Reorderable` (che resta per la strip dei pane) perché qui il gesto attraversa due `ScrollView`.
 - OSC 7: la cwd riportata dalla shell (`Core.OSC7` -> `Tab.currentDirectory`) alimenta titolo e
   sottotitolo. L'ereditarietà cwd di `Cmd+T` **non** si fida solo di lei: la precedenza è
   **shell viva -> ultimo OSC 7 noto -> root del workspace**, decisa dal puro `Core.CurrentDirectory`
@@ -654,10 +666,12 @@ prima l'attenzione fresca, esauriti quelli i sospesi.
 Stato V0 (in codice, `WorkspaceModel`), `@Observable`:
 
 ```text
-WorkspaceStore { workspaces: [Workspace], windows: [RelayWindow], keyWindowID,
-                 occludedWindowIDs, selectedWorkspaceID }   // proiezione della finestra key
+WorkspaceStore { workspaces: [Workspace], windows: [RelayWindow], groups: [WorkspaceGroup],
+                 keyWindowID, occludedWindowIDs, selectedWorkspaceID }  // proiezione della key
 RelayWindow    { id, selectedWorkspaceID, frame? }          // ogni finestra ha la SUA selezione
-Workspace      { id, windowID, name, nameOrigin, rootPath?, pinned, archived,
+WorkspaceGroup { id, name, colorIndex, collapsed, pinned }  // solo aspetto: i membri stanno
+                                                            // su Workspace.groupID
+Workspace      { id, windowID, name, nameOrigin, rootPath?, pinned, archived, groupID?,
                  tabs: [Tab],          // il sacco degli oggetti Tab: identità e sessione
                  layout: SplitNode,    // SEMPRE presente: l'ordine visivo sta qui
                  focusedPaneID }       // selectedTabID è derivato: la selezione del pane focused
@@ -691,6 +705,16 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
 - `SplitNode` mantiene due invarianti: **una tab sta in un pane solo** (una surface, una view) e
   **ogni pane ha almeno una tab**. Le operazioni li preservano invece di fidarsi, e `sanitized`
   (+ l'adozione in `Workspace.init`) li ripristina su un albero arrivato dal disco.
+- **Gruppi**: l'appartenenza è un campo del workspace (`groupID`), non una lista di membri sul
+  gruppo. Conseguenze volute: nessun secondo ordinamento da tenere in sync (la posizione della card
+  è quella del suo primo membro nell'ordine canonico), la contiguità dei membri è una comodità che
+  le operazioni mantengono ma da cui la correttezza non dipende, e un gruppo senza membri non è
+  rappresentabile - esce l'ultimo membro, la card sparisce. `pinned`, `archived` e `groupID` sono
+  mutuamente esclusivi: dentro una card pinna la card (`WorkspaceGroup.pinned`), archiviare o
+  cambiare finestra tira fuori dal gruppo. La proiezione per la sidebar è `sidebarItems`
+  (`SidebarItem`: riga libera o gruppo coi membri), da cui derivano `orderedWorkspaces` (ordine
+  logico, membri nascosti compresi) e `navigableWorkspaces` (solo le righe **visibili**: i membri di
+  una card chiusa non entrano in `Cmd+1..9` né nel menu Go).
 - Le finestre **partizionano** i workspace: uno store, un `layout.json`, un receiver di eventi, una
   `SurfaceRegistry` (una tab ha una surface sola ovunque sia montata). Chiudere una finestra
   **rimpatria** i suoi workspace in quella attivata più di recente: è un gesto sul contenitore, non
@@ -944,7 +968,8 @@ Costruito (UI/UX e tooling, fuori milestone):
   sidebar** "lista chat": un'attività **non vista** (`needs_input`/completato) **bumpa** il workspace
   in cima ai non-pinned (`WorkspaceStore.bumpWorkspaceToTop` da `applyAgentState`) - riordino reale e
   persistente, non un float derivato; la posizione resta finché non la scavalca un altro bump o non
-  la sposti a mano (la ripresa non la muove); archivio dei workspace (`Workspace.archived`)
+  la sposti a mano (la ripresa non la muove; un membro di un gruppo bumpa **dentro la sua card**, che
+  non si muove); archivio dei workspace (`Workspace.archived`)
   in una sezione collassabile in fondo alla sidebar (menu `Archive`/`Unarchive`); conferma di
   chiusura se nel pty gira un comando in foreground; ultima tab
   chiude il workspace, ultimo workspace ne riapre uno default;

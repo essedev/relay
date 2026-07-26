@@ -77,6 +77,7 @@ public struct OnboardingView: View {
             case .welcome: WelcomePage(colors: colors)
             case .hooks: HooksPage(colors: colors, hooks: hooks)
             case .attention: AttentionPage(colors: colors)
+            case .organize: OrganizePage(colors: colors)
             case .navigation: NavigationPage(colors: colors, settings: settings)
             case .customize: CustomizePage(colors: colors, settings: settings)
             }

@@ -37,6 +37,7 @@ public extension WorkspaceStore {
               workspaces(in: workspace.windowID).count > 1 else { return false }
         let origin = workspace.windowID
         workspace.windowID = target
+        leaveGroupOnWindowChange(workspace)
         reselectAfterLeaving(origin, movedAway: id)
         return true
     }
@@ -62,9 +63,19 @@ public extension WorkspaceStore {
         windows.append(window)
         workspace.windowID = window.id
         workspace.archived = false // una finestra che mostra un archiviato sarebbe vuota
+        leaveGroupOnWindowChange(workspace)
         reselectAfterLeaving(origin, movedAway: id)
         activateWindow(window.id)
         return window
+    }
+
+    /// Un workspace che cambia finestra lascia il suo gruppo: la card vive in una sidebar sola, e
+    /// portarsi dietro l'appartenenza la farebbe comparire in due finestre (o peggio, pescare una
+    /// riga che l'altra sidebar non elenca). Se era l'ultimo membro, la card muore con lui.
+    private func leaveGroupOnWindowChange(_ workspace: Workspace) {
+        guard workspace.groupID != nil else { return }
+        workspace.groupID = nil
+        pruneEmptyGroups()
     }
 
     /// Chiude una finestra **rimpatriando** i suoi workspace in quella attivata più di recente:

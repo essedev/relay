@@ -19,6 +19,7 @@ public extension WorkspaceStore {
                     rootPath: workspace.rootPath,
                     pinned: workspace.pinned,
                     archived: workspace.archived,
+                    groupID: workspace.groupID,
                     selectedTabID: workspace.selectedTabID,
                     splitLayout: workspace.layout,
                     focusedPaneID: workspace.focusedPaneID,
@@ -47,6 +48,15 @@ public extension WorkspaceStore {
                     frame: window.frame,
                     isKey: window.id == keyWindowID
                 )
+            },
+            groups: groups.map { group in
+                GroupSnapshot(
+                    id: group.id,
+                    name: group.name,
+                    colorIndex: group.colorIndex,
+                    collapsed: group.collapsed,
+                    pinned: group.pinned
+                )
             }
         )
     }
@@ -58,6 +68,15 @@ public extension WorkspaceStore {
     /// decadenza (`attentionSince`) riparte da qui, così un completamento mai visto non viene
     /// spazzato subito al primo boot (il decay misurerebbe dall'età dell'evento, non da ora).
     func restore(from snapshot: LayoutSnapshot, now: Date = Date()) {
+        groups = snapshot.groups.map { group in
+            WorkspaceGroup(
+                id: group.id,
+                name: group.name,
+                colorIndex: group.colorIndex,
+                collapsed: group.collapsed,
+                pinned: group.pinned
+            )
+        }
         workspaces = snapshot.workspaces.map { workspace in
             let tabs = workspace.tabs.map { tab in
                 Tab(
@@ -87,6 +106,10 @@ public extension WorkspaceStore {
                 rootPath: workspace.rootPath,
                 pinned: workspace.pinned,
                 archived: workspace.archived,
+                // Un archiviato non sta in una card: l'appartenenza salvata su un archiviato
+                // (file toccato a mano) viene lasciata cadere invece di produrre una card che
+                // pesca righe dall'archivio.
+                groupID: workspace.archived ? nil : workspace.groupID,
                 tabs: tabs,
                 selectedTabID: selectedTabID,
                 layout: workspace.splitLayout,
@@ -94,6 +117,9 @@ public extension WorkspaceStore {
             )
         }
         restoreWindows(from: snapshot)
+        // Gruppi rimasti senza membri (snapshot parziale, file editato a mano): non hanno una
+        // posizione in sidebar, quindi non esistono.
+        pruneEmptyGroups()
         // La selezione deve puntare a un workspace VISIBILE (non archiviato): setArchived la sposta
         // via dagli archiviati, ma un file editato a mano potrebbe averla lasciata su uno. Ricade
         // sul primo visibile, e solo se tutti sono archiviati (degenere) sul primo assoluto.

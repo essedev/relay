@@ -28,6 +28,24 @@ extension AppController {
         store.toggleUnread(tab.id)
     }
 
+    /// Raggruppa il workspace selezionato: se è già in una card la scioglie (`Ungroup`, il
+    /// gesto opposto e quello che serve dalla menu bar), altrimenti ne apre una nuova attorno a
+    /// lui. Il nome è un placeholder: si rinomina dall'header della card.
+    @objc func toggleSelectedWorkspaceGroup(_: Any?) {
+        guard let workspace = store.selectedWorkspace else { return }
+        if let groupID = workspace.groupID {
+            store.ungroup(groupID)
+        } else {
+            store.createGroup(name: "New Group", with: [workspace.id])
+        }
+    }
+
+    /// Tira il workspace selezionato fuori dalla sua card, lasciando la card agli altri membri.
+    @objc func removeSelectedWorkspaceFromGroup(_: Any?) {
+        guard let workspace = store.selectedWorkspace else { return }
+        store.removeFromGroup(workspace.id)
+    }
+
     @objc func moveSelectedTabToNewWorkspace(_: Any?) {
         guard let workspace = store.selectedWorkspace,
               let tab = workspace.selectedTab else { return }
@@ -65,7 +83,7 @@ extension AppController: NSMenuDelegate {
             menu.removeItem(item)
         }
 
-        let workspaces = store.orderedWorkspaces.prefix(9)
+        let workspaces = store.navigableWorkspaces.prefix(9)
         if !workspaces.isEmpty {
             menu.addItem(markedSeparator())
             for (index, workspace) in workspaces.enumerated() {
@@ -103,6 +121,11 @@ extension AppController: NSMenuDelegate {
         let isUnseen = workspace.selectedTab?.attention == .unseen
         menu.item(withSelector: #selector(AppController.toggleSelectedTabUnread(_:)))?
             .title = isUnseen ? "Mark as Read" : "Mark as Unread"
+        // Una riga libera apre una card, un membro la scioglie: una voce sola, come Pin/Unpin.
+        // È un'azione rimappabile, quindi si cerca per `representedObject`, non per selector (il
+        // suo action è `performShortcut`), e porta il keyEquivalent del binding corrente.
+        menu.item(withAction: ShortcutAction.toggleGroup)?
+            .title = workspace.groupID == nil ? "New Group with This" : "Ungroup"
     }
 
     private func markedSeparator() -> NSMenuItem {
@@ -137,16 +160,28 @@ extension AppController: NSMenuItemValidation {
         if let action = menuItem.representedObject as? ShortcutAction {
             return isEnabled(action)
         }
-        switch menuItem.action {
+        return isEnabled(selector: menuItem.action)
+    }
+
+    /// Voci del menu Workspace (selector diretti, non azioni rimappabili): abilitate solo dove
+    /// l'azione farebbe davvero qualcosa.
+    private func isEnabled(selector: Selector?) -> Bool {
+        switch selector {
         case #selector(AppController.moveSelectedTabToNewWorkspace(_:)):
             return (store.selectedWorkspace?.tabs.count ?? 0) > 1
         case #selector(AppController.moveSelectedWorkspaceToNewWindow(_:)):
             guard let workspace = store.selectedWorkspace else { return false }
             return store.workspaces(in: workspace.windowID).count > 1
         case #selector(AppController.regenerateSelectedWorkspaceName(_:)),
-             #selector(AppController.toggleSelectedWorkspacePin(_:)),
-             #selector(AppController.toggleSelectedWorkspaceArchive(_:)):
+             #selector(AppController.toggleSelectedWorkspaceArchive(_:)),
+             #selector(AppController.toggleSelectedWorkspaceGroup(_:)):
             return store.selectedWorkspace != nil
+        case #selector(AppController.toggleSelectedWorkspacePin(_:)):
+            // Dentro una card il pin è del gruppo, non della riga: la voce sarebbe un no-op.
+            guard let workspace = store.selectedWorkspace else { return false }
+            return workspace.groupID == nil
+        case #selector(AppController.removeSelectedWorkspaceFromGroup(_:)):
+            return store.selectedWorkspace?.groupID != nil
         case #selector(AppController.toggleSelectedTabUnread(_:)):
             return store.selectedWorkspace?.selectedTab != nil
         default:
@@ -167,5 +202,9 @@ extension AppController: NSMenuItemValidation {
 private extension NSMenu {
     func item(withSelector selector: Selector) -> NSMenuItem? {
         items.first { $0.action == selector }
+    }
+
+    func item(withAction action: ShortcutAction) -> NSMenuItem? {
+        items.first { ($0.representedObject as? ShortcutAction) == action }
     }
 }

@@ -14,6 +14,11 @@ public final class WorkspaceStore {
     /// Le finestre aperte. Ce n'è sempre almeno una; partizionano i workspace
     /// (`Workspace.windowID`).
     public internal(set) var windows: [RelayWindow]
+    /// I gruppi della sidebar. Solo identità e aspetto (nome, colore, collasso, pin): i **membri**
+    /// stanno sul workspace (`Workspace.groupID`), quindi non c'è una seconda lista d'ordine da
+    /// tenere in sync. Un gruppo senza membri non esiste: le operazioni lo cancellano (vedi
+    /// `WorkspaceStore+Groups`).
+    public internal(set) var groups: [WorkspaceGroup]
     /// La finestra che ha il focus. I comandi globali (menu, scorciatoie) agiscono su di lei.
     public var keyWindowID: UUID
 
@@ -69,8 +74,9 @@ public final class WorkspaceStore {
     /// fresco farebbe passare. `nil` = fence spento (test, chiamate dirette).
     @ObservationIgnored public var runID: String?
 
-    public init(workspaces: [Workspace] = []) {
+    public init(workspaces: [Workspace] = [], groups: [WorkspaceGroup] = []) {
         self.workspaces = workspaces
+        self.groups = groups
         let main = RelayWindow(id: RelayWindow.mainID, selectedWorkspaceID: workspaces.first?.id)
         windows = [main]
         keyWindowID = main.id
@@ -97,10 +103,13 @@ public final class WorkspaceStore {
     }
 
     /// Ordine di visualizzazione della sidebar **di una finestra**: solo i suoi workspace, non
-    /// archiviati, pinned in testa. Vedi `orderedWorkspaces` per la finestra key.
+    /// archiviati, pinned in testa. I membri di un gruppo stanno insieme, alla posizione del
+    /// gruppo (vedi `sidebarItems`); ci sono anche quelli dei gruppi **collassati**, che a schermo
+    /// non si vedono ma restano nell'ordine logico (`Cmd+J`, eredi di selezione). Per le
+    /// scorciatoie numeriche serve invece `navigableWorkspaces`. Vedi `orderedWorkspaces` per la
+    /// finestra key.
     public func orderedWorkspaces(in windowID: UUID) -> [Workspace] {
-        let visible = workspaces.filter { $0.windowID == windowID && !$0.archived }
-        return visible.filter(\.pinned) + visible.filter { !$0.pinned }
+        sidebarItems(in: windowID).flatMap(\.workspaces)
     }
 
     /// Gli archiviati di una finestra (la sua sezione Archive).
@@ -162,8 +171,12 @@ public final class WorkspaceStore {
         keyWindow?.selectedWorkspaceID = id
     }
 
+    /// Pin di una riga libera. **No-op dentro un gruppo**: lì a salire in testa è la card intera
+    /// (`setGroupPinned`), non il singolo membro - due pin sovrapposti darebbero una riga pinned
+    /// che la card tiene comunque in mezzo agli altri.
     public func togglePin(_ id: UUID) {
-        guard let workspace = workspaces.first(where: { $0.id == id }) else { return }
+        guard let workspace = workspaces.first(where: { $0.id == id }),
+              workspace.groupID == nil else { return }
         workspace.pinned.toggle()
     }
 
@@ -186,6 +199,10 @@ public final class WorkspaceStore {
             guard hasVisibleSibling else { return }
             workspace.archived = true
             workspace.pinned = false
+            // Archiviare è mettere via: esce anche dal gruppo (l'archivio non ha card dentro), e
+            // se era l'ultimo membro il gruppo muore con lui.
+            workspace.groupID = nil
+            pruneEmptyGroups()
             let owner = windows.first { $0.id == window }
             if owner?.selectedWorkspaceID == id {
                 owner?.selectedWorkspaceID = orderedWorkspaces(in: window).first?.id
@@ -219,6 +236,7 @@ public final class WorkspaceStore {
         let window = workspaces[index].windowID
         let removedTabIDs = workspaces[index].tabs.map(\.id)
         workspaces.remove(at: index)
+        pruneEmptyGroups() // era l'ultimo membro della sua card: la card se ne va con lui
         // La selezione della finestra che lo mostrava cade su un vicino **della stessa finestra**:
         // una finestra non può mostrare un workspace che non le appartiene.
         if let owner = windows.first(where: { $0.id == window }), owner.selectedWorkspaceID == id {
@@ -245,20 +263,32 @@ public final class WorkspaceStore {
         workspaces.move(id, after: targetID)
     }
 
-    /// Porta il workspace in cima ai non-pinned nell'ordine canonico ("bump" da attività non vista:
-    /// un completamento o una richiesta di input arrivati mentre non lo guardavi). È un vero
-    /// riordino persistente, non un float derivato: la posizione guadagnata resta finché non la
-    /// scavalca un altro bump o non la sposti a mano. No-op se è già in testa ai non-pinned, o se è
-    /// pinned/archiviato (i pinned sono già fissi in cima, gli archiviati fuori dalla lista).
+    /// Porta il workspace in cima al **proprio contenitore** ("bump" da attività non vista: un
+    /// completamento o una richiesta di input arrivati mentre non lo guardavi). È un vero riordino
+    /// persistente, non un float derivato: la posizione guadagnata resta finché non la scavalca un
+    /// altro bump o non la sposti a mano. No-op se è già in testa, o se è pinned/archiviato (i
+    /// pinned sono già fissi in cima, gli archiviati fuori dalla lista).
+    ///
+    /// Il contenitore è il gruppo, se ne ha uno: un membro sale in cima **alla sua card** e la card
+    /// non si muove (un gruppo sta dove l'hai messo, salvo pin o drag). Un workspace libero sale in
+    /// cima al primo elemento non pinned della sua sidebar: se quell'elemento è un gruppo, si
+    /// ancora al suo primo membro e finisce quindi **sopra** la card.
     func bumpWorkspaceToTop(_ id: UUID) {
-        guard let ws = workspaces.first(where: { $0.id == id }), !ws.pinned, !ws.archived,
-              // In cima **alla sua sidebar**: il bump riordina dentro la finestra che lo mostra,
-              // non lo strappa in testa alla lista globale (che nessuno vede intera).
-              let firstFree = workspaces.first(where: {
-                  !$0.pinned && !$0.archived && $0.windowID == ws.windowID
-              }),
-              firstFree.id != id else { return }
-        moveWorkspace(id, before: firstFree.id)
+        // In cima **alla sua sidebar**: il bump riordina dentro la finestra che lo mostra, non lo
+        // strappa in testa alla lista globale (che nessuno vede intera).
+        guard let ws = workspaces.first(where: { $0.id == id }), !ws.archived else { return }
+        if let groupID = ws.groupID {
+            guard let first = workspaces.first(where: {
+                $0.groupID == groupID && $0.windowID == ws.windowID && !$0.archived
+            }), first.id != id else { return }
+            moveWorkspace(id, before: first.id)
+            return
+        }
+        guard !ws.pinned,
+              let anchor = sidebarItems(in: ws.windowID).first(where: { !$0.pinned })?
+              .workspaces.first,
+              anchor.id != id else { return }
+        moveWorkspace(id, before: anchor.id)
     }
 
     // MARK: - Tab

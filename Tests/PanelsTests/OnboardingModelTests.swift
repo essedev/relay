@@ -4,7 +4,14 @@ import Testing
 // Navigazione dell'onboarding: ordine delle pagine, clamp ai bordi, selezione diretta dai dot.
 
 @Test func pagesAreInPresentationOrder() {
-    #expect(OnboardingPage.allCases == [.welcome, .hooks, .attention, .navigation, .customize])
+    #expect(OnboardingPage.allCases == [
+        .welcome,
+        .hooks,
+        .attention,
+        .organize,
+        .navigation,
+        .customize,
+    ])
 }
 
 @Test func startsAtWelcome() {
