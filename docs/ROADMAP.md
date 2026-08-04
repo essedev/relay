@@ -539,6 +539,25 @@ digitava nel terminale sotto (find bar) o Esc/frecce restavano mute (dashboard).
   (`panelSize(in:)`: il frame fisso del giro kanban aveva annullato il fix "keep the dashboard on
   screen", minimo finestra 700x460).
 
+## Fatto - Dove nasce una cosa nuova (0.13.0)
+
+Tab e workspace nuovi nascevano sempre in fondo. Ora nascono **accanto a quello su cui stai
+lavorando**: creare è un gesto contestuale, e il fondo della lista è per giunta il posto che il
+primo bump altrui scavalca.
+
+- **Tab**: entra nel pane focused **subito dopo la sua tab selezionata** (`Workspace.insertTab`
+  passa l'indice a `SplitPane.insert`). `tabs` resta il sacco degli oggetti, l'ordine visivo è del
+  pane.
+- **Workspace**: entra subito dopo il selezionato **della sua finestra** e ne eredita il `groupID`
+  (`WorkspaceStore.insertionAnchor`), quindi creare dentro una card crea dentro quella card - che
+  viene aperta se collassata, o il selezionato sarebbe una riga invisibile.
+  Stessa regola per "Move to New Workspace", ancorato al workspace d'origine.
+- Due eccezioni: se il selezionato è **archiviato** si torna in fondo (sta fuori da
+  `orderedWorkspaces`, ancorarcisi darebbe una posizione che nella lista non esiste), e il **pin non
+  si eredita** (il nuovo apre il segmento non pinned, la riga più vicina a quella da cui è nato).
+- Il codice posizionale (move, bump, ancora, move-tab) esce in `WorkspaceStore+Ordering`: il file
+  principale aveva sforato il budget di 400 righe.
+
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),

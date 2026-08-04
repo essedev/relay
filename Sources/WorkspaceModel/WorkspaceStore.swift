@@ -165,6 +165,9 @@ public final class WorkspaceStore {
         if let anchor { workspaces.move(workspace.id, after: anchor.id) }
         if select {
             windows.first { $0.id == target }?.selectedWorkspaceID = workspace.id
+            // Nato in una card **chiusa**: la si apre, come fa `reveal`. Altrimenti il selezionato
+            // sarebbe una riga che in sidebar non si vede.
+            if let groupID = workspace.groupID { group(groupID)?.collapsed = false }
         }
         addTab(to: workspace) // ogni workspace nasce con una tab
         return workspace

@@ -719,7 +719,8 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
   nel pane focused **subito dopo la sua tab selezionata**; un workspace entra **subito dopo il
   selezionato della sua finestra** e ne eredita il `groupID`, quindi creare dentro una card crea
   dentro quella card (`WorkspaceStore.insertionAnchor`, in `+Ordering`). Creare è un gesto
-  contestuale, e il fondo della lista è per giunta il posto che il primo bump altrui scavalca.
+  contestuale, e il fondo della lista è per giunta il posto che il primo bump altrui scavalca. Se la
+  card è collassata viene aperta, come farebbe `reveal`.
   L'ancora salta solo se il selezionato è archiviato (sta fuori da `orderedWorkspaces`: ancorarcisi
   darebbe una posizione che nella lista non esiste) e si ferma al pin (il nuovo non è pinned, quindi
   apre il segmento non pinned - la riga più vicina possibile a quella da cui è nato).

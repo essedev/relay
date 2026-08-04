@@ -556,7 +556,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   oggetti, l'ordine visivo è del pane). Un workspace entra **subito dopo il selezionato della sua
   finestra** (`insertionAnchor`, usata da `createWorkspace` **e** da `moveTabToNewWorkspace`, che si
   ancora al workspace d'origine) e ne **eredita il `groupID`**: creare dentro una card crea dentro
-  quella card, uscirne è un drag come entrarci. L'ancora è la selezione della **finestra di
+  quella card, uscirne è un drag come entrarci. Se la card è **chiusa**, `createWorkspace` la apre
+  (non passa da `reveal`, che lo farebbe: senza, il selezionato sarebbe una riga invisibile). L'ancora è la selezione della **finestra di
   destinazione**, non della key (`createWorkspace(in:)`). Due sole eccezioni: se il selezionato è
   **archiviato** si torna in fondo (sta fuori da `orderedWorkspaces`: ancorarcisi darebbe una
   posizione che nella lista non esiste), e il pin **non** si eredita (il nuovo apre il segmento non

@@ -1094,3 +1094,49 @@ la parte a mano è stata provata dal vivo con `relay --demo`, che ora semina una
 riga dentro e fuori da una card, riga dentro e fuori dall'archivio, card intera trascinata e
 pinnata, collasso col contatore. Restano fuori: drag di una card fra finestre, archiviazione di un
 gruppo in blocco, annidamento.
+
+## Cycle 17 - Dove nasce una cosa nuova
+
+### Il problema
+
+`Cmd+T` e `Cmd+N` creavano sempre **in fondo**: la tab nuova a fine strip, il workspace nuovo in
+coda alla sidebar. Nessuna delle due posizioni ha a che vedere con il punto da cui hai premuto il
+tasto, e con la sidebar "lista chat" (Cycle 13) il fondo è per giunta il posto che il primo bump
+altrui scavalca.
+
+### La diagnosi
+
+Chiedere "dopo il selezionato" sembra la stessa cosa per le due liste, ma non lo è: la strip di un
+pane è un ordine unico e piatto, mentre `store.workspaces` non è l'ordine visivo, ne è la sorgente.
+La proiezione (`sidebarItems`) rompe l'adiacenza in tre punti:
+
+- il **pin** partiziona (un non-pinned infilato dopo un pinned finisce a capo del segmento libero);
+- una **card** viene emessa alla posizione del suo *primo* membro, quindi un non-membro incastrato
+  fra due membri compare sotto tutta la card, non sotto la riga;
+- un **archiviato** sta fuori da `orderedWorkspaces`: ancorarcisi dà una posizione che nella lista
+  non esiste.
+
+### La decisione
+
+L'ancora è la selezione **della finestra di destinazione**, con eredità del `groupID`: creare dentro
+una card crea dentro quella card, uscirne è un drag come entrarci (`insertionAnchor`). Non è
+neutralità sul contenitore, è la scelta opposta: l'appartenenza segue il contesto, non aspetta un
+gesto separato.
+
+Delle tre rotture, due si risolvono accettandole invece di combatterle. L'**archiviato** è l'unico
+caso in cui l'ancora salta del tutto (fallback al fondo, il vecchio comportamento). Il **pin** non
+si eredita: il nuovo apre il segmento non pinned, la riga più vicina che gli è concessa. La **card**
+non è più una rottura, perché l'eredità del gruppo la trasforma nel caso normale.
+
+Effetto collaterale voluto: creazioni in sequenza conservano l'ordine di creazione, perché ognuna
+diventa l'ancora della successiva (demo mode e restore invariati).
+
+### Esito
+
+`make check` verde (439 test, 9 nuovi in `InsertionOrderTests`: tab, pane focused, gruppo, card
+chiusa, pin, archivio, finestra non key, sequenza, move-tab). Il codice posizionale esce in
+`WorkspaceStore+Ordering` perché il file principale aveva sforato il budget di 400 righe.
+
+Un caso emerso scrivendo i test: nascere dentro una card **collassata** rendeva selezionato un
+workspace la cui riga non è a schermo. `createWorkspace` scrive `selectedWorkspaceID` diretto, non
+passa da `reveal`, quindi l'apertura della card va ripetuta lì.

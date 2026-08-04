@@ -69,6 +69,22 @@ import Testing
     #expect(store.workspaces.map(\.id) == [a.id, inserted.id, b.id, outside.id])
 }
 
+@Test func newWorkspaceOpensTheCollapsedCardItWasBornIn() throws {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    let group = try #require(store.createGroup(name: "Work", with: [a.id]))
+    store.toggleGroupCollapsed(group.id)
+    store.selectWorkspace(a.id)
+
+    let inserted = store.createWorkspace(name: "new")
+
+    // Selezionare una riga dentro una card chiusa la aprirebbe (`reveal`): idem quando la riga
+    // nasce lì, o il selezionato sarebbe invisibile in sidebar.
+    #expect(inserted.groupID == group.id)
+    #expect(store.group(group.id)?.collapsed == false)
+    #expect(store.navigableWorkspaces.map(\.id) == [a.id, inserted.id])
+}
+
 @Test func newWorkspaceAfterAPinnedOneIsNotPinned() {
     let store = WorkspaceStore()
     let a = store.createWorkspace(name: "a")
