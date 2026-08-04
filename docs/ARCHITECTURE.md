@@ -715,6 +715,14 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
   (`SidebarItem`: riga libera o gruppo coi membri), da cui derivano `orderedWorkspaces` (ordine
   logico, membri nascosti compresi) e `navigableWorkspaces` (solo le righe **visibili**: i membri di
   una card chiusa non entrano in `Cmd+1..9` né nel menu Go).
+- **Dove nasce una cosa nuova**: accanto a quella su cui stai lavorando, non in fondo. Una tab entra
+  nel pane focused **subito dopo la sua tab selezionata**; un workspace entra **subito dopo il
+  selezionato della sua finestra** e ne eredita il `groupID`, quindi creare dentro una card crea
+  dentro quella card (`WorkspaceStore.insertionAnchor`, in `+Ordering`). Creare è un gesto
+  contestuale, e il fondo della lista è per giunta il posto che il primo bump altrui scavalca.
+  L'ancora salta solo se il selezionato è archiviato (sta fuori da `orderedWorkspaces`: ancorarcisi
+  darebbe una posizione che nella lista non esiste) e si ferma al pin (il nuovo non è pinned, quindi
+  apre il segmento non pinned - la riga più vicina possibile a quella da cui è nato).
 - Le finestre **partizionano** i workspace: uno store, un `layout.json`, un receiver di eventi, una
   `SurfaceRegistry` (una tab ha una surface sola ovunque sia montata). Chiudere una finestra
   **rimpatria** i suoi workspace in quella attivata più di recente: è un gesto sul contenitore, non

@@ -87,8 +87,10 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   rimappabili + combinazione pura) + `NameOrigin` (origine del nome workspace:
   `.default`/`.generated`/`.user`, guida la nomina automatica). Lookup e navigazione in
   `WorkspaceStore+Navigation` (`reveal(workspaceID:tabID:)` = seleziona workspace+tab e de-archivia;
-  `tab(id:)` = tab per id fra tutti i workspace); `moveTabToNewWorkspace` estrae una tab in un nuovo
-  workspace preservando la surface viva (vedi gotcha). Puro, niente AppKit.
+  `tab(id:)` = tab per id fra tutti i workspace); posizione in `WorkspaceStore+Ordering`
+  (`moveWorkspace`/`moveTab` posizionali, `bumpWorkspaceToTop`, `insertionAnchor` = dove nasce una
+  cosa nuova, `moveTabToNewWorkspace` che estrae una tab in un nuovo workspace preservando la
+  surface viva - vedi gotcha). Puro, niente AppKit.
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm.
   **Nessun tipo SwiftTerm deve trapelare fuori da qui** (espone solo `NSView`). `NSColor(relay:)`
   (init da `RelayColor`) vive qui: è il modulo AppKit più basso che TerminalHostUI e il composition
@@ -548,6 +550,21 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   canonico è quello vero e persistente, mutato dal drag **e** dal bump di attività
   (`bumpWorkspaceToTop`); `orderedWorkspaces` è display-only (proietta i pinned). Rename inline del
   workspace dal menu contestuale (`WorkspaceStore.renameWorkspace`).
+- **Dove nasce una cosa nuova** (`WorkspaceStore+Ordering`): accanto a quella su cui lavori, non in
+  fondo. Una tab entra nel pane focused **subito dopo la sua tab selezionata**
+  (`Workspace.insertTab`, che passa l'indice a `SplitPane.insert`; `tabs` resta il sacco degli
+  oggetti, l'ordine visivo è del pane). Un workspace entra **subito dopo il selezionato della sua
+  finestra** (`insertionAnchor`, usata da `createWorkspace` **e** da `moveTabToNewWorkspace`, che si
+  ancora al workspace d'origine) e ne **eredita il `groupID`**: creare dentro una card crea dentro
+  quella card, uscirne è un drag come entrarci. L'ancora è la selezione della **finestra di
+  destinazione**, non della key (`createWorkspace(in:)`). Due sole eccezioni: se il selezionato è
+  **archiviato** si torna in fondo (sta fuori da `orderedWorkspaces`: ancorarcisi darebbe una
+  posizione che nella lista non esiste), e il pin **non** si eredita (il nuovo apre il segmento non
+  pinned, la riga più vicina possibile a quella da cui è nato). Creazioni in sequenza conservano
+  l'ordine di creazione, perché ognuna diventa l'ancora della successiva. Il workspace transitorio
+  di `newWindow` eredita il gruppo per un istante e lo perde subito nella stessa mutazione
+  (`leaveGroupOnWindowChange` + `pruneEmptyGroups`): un membro in un'altra finestra farebbe
+  comparire la card in due sidebar.
 - Archive: i workspace archiviati (`Workspace.archived`, persistito, additivo) escono da
   `orderedWorkspaces` e vivono in una sezione collassabile ancorata **in fondo** alla sidebar
   (`archiveSection`, header **sempre presente** anche a zero archiviati = drop zone e affordance
@@ -711,7 +728,8 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   avvengono nella **stessa mutazione sincrona**: la tab è sempre presente in `store.workspaces` a
   ogni istante osservabile, quindi il reconcile delle surface (`retain` su tutti gli id, vedi
   TerminalHostUI) non la sfratta mai. Il nuovo workspace eredita la cwd della tab come `rootPath`,
-  nasce `.default` (eleggibile alla nomina automatica: il nome è un placeholder) e diventa il
+  nasce `.default` (eleggibile alla nomina automatica: il nome è un placeholder), nasce **accanto
+  al workspace d'origine e nel suo gruppo** (vedi "Dove nasce una cosa nuova") e diventa il
   selezionato con la tab spostata attiva. **No-op se la tab è l'unica del suo workspace**
   (svuoterebbe l'origine) o se l'id non esiste lì. Il nome placeholder ("Workspace N") lo assegna
   il composition root (`AppController.moveTabToNewWorkspace`), non lo store, come per `newWorkspace`.

@@ -56,6 +56,11 @@ Il modello "lista chat" resta, ma diventa **per contenitore** (`bumpWorkspaceToT
   pinnato: se quello è una card, la riga finisce **sopra** di lei;
 - **la card sta dove la metti.** A spostarla sono solo il pin, un drag o l'essere scavalcata.
 
+Stessa logica per **dove nasce** un workspace nuovo (`insertionAnchor`, in `WorkspaceStore+Ordering`):
+subito dopo il selezionato della sua finestra, ereditandone il `groupID`. Creare mentre sei dentro
+una card crea **dentro quella card**; per farlo nascere fuori si esce col drag, come ci si entra.
+Vale anche per "Move to New Workspace", che si ancora al workspace d'origine.
+
 Da qui il pin di gruppo: senza, la prima attività di una riga libera scavalcherebbe la card e da lì
 in poi i gruppi affonderebbero per sempre. Il pin è il modo di dire "questa resta in alto".
 

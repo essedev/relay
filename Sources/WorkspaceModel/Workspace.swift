@@ -141,11 +141,19 @@ public final class Workspace: Identifiable {
 
     // MARK: - Mutazioni (usate dallo store; qui per tenere gli invarianti)
 
-    /// Aggiunge una tab al pane focused, in fondo alla sua strip.
+    /// Aggiunge una tab al pane focused **subito dopo la sua tab selezionata** (in fondo se il pane
+    /// non ne ha una): la tab nuova nasce accanto a quella da cui l'hai aperta, non a fine strip
+    /// dove non la vedi. `tabs` resta il sacco degli oggetti (append): l'ordine visivo è quello del
+    /// pane.
     @discardableResult
-    func appendTab(_ tab: Tab, select: Bool) -> Tab {
+    func insertTab(_ tab: Tab, select: Bool) -> Tab {
         tabs.append(tab)
-        layout = layout.updatingPane(focusedPaneID) { $0.insert(tab.id, select: select) }
+        layout = layout.updatingPane(focusedPaneID) { pane in
+            let after = pane.selectedTabID
+                .flatMap { pane.tabIDs.firstIndex(of: $0) }
+                .map { $0 + 1 }
+            pane.insert(tab.id, at: after, select: select)
+        }
         return tab
     }
 

@@ -44,7 +44,7 @@ Workspace { tabs: [Tab], layout: SplitNode, focusedPaneID }
 
 | Azione | Semantica |
 | --- | --- |
-| `Cmd+T` | nuova tab **nel pane focused**, in fondo alla sua strip, selezionata |
+| `Cmd+T` | nuova tab **nel pane focused**, subito **dopo la sua tab selezionata**, selezionata |
 | `Cmd+\` / `Cmd+Shift+\` | split del pane focused con una **nuova tab** (cwd ereditata), focus al nuovo pane |
 | "Open in Split Right/Down" (menu tab) | **sposta** la tab esistente in un nuovo pane accanto al focused (sessione viva). No-op se è l'unica tab del suo pane e il target è quel pane |
 | `Cmd+W` | chiude la tab selezionata del pane focused; il pane collassa se resta vuoto; l'ultima tab dell'ultimo pane chiude il workspace (cascade) |
