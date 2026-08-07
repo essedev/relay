@@ -51,11 +51,11 @@ public struct PaneTabBar: View {
     private var drag = ReorderDragState()
     @State private var tabFrames: [Int: CGRect] = [:]
     @State private var laneHovered = false
-    /// Le due misure che servono al drag verso la sidebar, in coordinate finestra: l'area delle tab
-    /// (per convertire il punto del gesto) e l'intera strip (per sapere quando il puntatore è
-    /// uscito). Vedi `TabDragSession`.
-    @State private var tabsRect: CGRect = .zero
-    @State private var stripRect: CGRect = .zero
+    /// Le due misure che servono al drag verso la sidebar, in coordinate finestra: l'area delle
+    /// tab (per convertire il punto del gesto) e l'intera strip (per sapere quando il puntatore è
+    /// uscito). In una scatola e non in due `@State`: le legge solo il gesto, e scriverle
+    /// invaliderebbe la strip a ogni frame di scroll (vedi `DragGeometryBox`).
+    @State private var geometry = DragGeometryBox()
 
     public init(
         store: WorkspaceStore,
@@ -108,7 +108,7 @@ public struct PaneTabBar: View {
         // Prima il doppio (nuova tab), poi il singolo (focus): SwiftUI li discrimina da solo.
         .onTapGesture(count: 2) { actions.newTab(paneID, workspace) }
         .onTapGesture { store.focusPane(paneID, in: workspace) }
-        .windowRect { stripRect = $0 }
+        .windowRect { geometry.strip = $0 }
         // Rete di sicurezza: un gesto annullato (menu contestuale, perdita di focus) non passa da
         // `onEnded`, e senza questo il fantasma resterebbe appeso sopra la finestra.
         .onChange(of: drag.id == nil) { _, idle in
@@ -154,7 +154,10 @@ public struct PaneTabBar: View {
                     drag: $drag,
                     state: drag,
                     perform: { performMove(of: tab.id, to: $0, tabs: tabs, in: workspace) },
-                    crossDrag: crossDrag(for: tab, in: workspace)
+                    crossDrag: crossDrag(for: tab, in: workspace),
+                    // Le tab vestono il loro titolo, quindi hanno larghezze molto
+                    // diverse: lo scambio si decide sul bordo che avanza, non sul centro.
+                    probe: .leadingEdge
                 ))
             }
         }
@@ -166,7 +169,7 @@ public struct PaneTabBar: View {
             insertion: drag.insertion,
             lineColor: colors.accent
         ))
-        .windowRect { tabsRect = $0 }
+        .windowRect { geometry.tabs = $0 }
         .padding(.horizontal, Theme.Spacing.sm)
         .frame(minHeight: Theme.Metrics.tabBarHeight)
     }
@@ -220,8 +223,14 @@ public struct PaneTabBar: View {
                 }
                 // Il punto arriva nello space delle tab; la finestra è la sola lingua che anche la
                 // sidebar capisce.
-                let inWindow = CGPoint(x: tabsRect.minX + point.x, y: tabsRect.minY + point.y)
-                let outside = !stripRect.contains(inWindow)
+                let tabs = geometry.tabs
+                let inWindow = CGPoint(x: tabs.minX + point.x, y: tabs.minY + point.y)
+                // Basta uscire dalla strip: la tab si stacca e il fantasma la accompagna, anche
+                // sopra il terminale. Restringere l'uscita alla sola sidebar toglieva il segnale
+                // "la stai portando via" per metà del tragitto. Il riordino non ne soffre: con la
+                // soglia sul bordo (`ReorderProbe.leadingEdge`) scavalcare la vicina chiede metà
+                // della *sua* larghezza, e il puntatore resta dentro la strip.
+                let outside = !geometry.strip.contains(inWindow)
                 session.move(to: inWindow, outside: outside)
                 return outside
             },

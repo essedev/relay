@@ -76,10 +76,19 @@ La lista dei workspace: ordine, nascita, archivio, drag, chiusura. Il resto dell
   una preview con snap-back al rilascio): la riga *vera* si solleva con un `DragGesture` + `.offset`
   (semitrasparente, zIndex alto) seguendo il puntatore, una linea segnala l'inserimento, e al
   rilascio lo scambio parte in `withAnimation` mentre l'offset torna a zero (nessun salto).
-  L'indice di inserimento viene dal **centro proiettato della riga in volo** (frame originale +
+  L'indice di inserimento viene dalla **geometria proiettata della riga in volo** (frame originale +
   traslazione), **non** dal puntatore grezzo: così la linea segue il corpo della riga ed è
   **indipendente dal punto di presa** (afferrarla in cima o in fondo dà lo stesso risultato; col
-  puntatore la decisione sfasava di quanto eri lontano dal suo centro). I frame
+  puntatore la decisione sfasava di quanto eri lontano dal suo centro). *Quale* punto della riga si
+  confronta coi centri dei vicini lo decide `ReorderProbe`: la **sidebar** usa il centro (righe
+  tutte uguali, è la scelta più prevedibile), la **strip** il **bordo che avanza** nella direzione
+  del gesto. Motivo: le tab vestono il loro titolo, quindi hanno larghezze molto diverse, e col
+  centro la soglia di scambio è la distanza fra i due centri, cioè metà larghezza di **entrambe**
+  (due tab da 200pt: 204pt di traslazione). Su titoli lunghi il puntatore finiva fuori dalla strip
+  prima che scattasse, e la riga di inserimento non compariva mai - specie afferrando la tab dal
+  bordo sinistro, dove la corsa residua è già poca. Col bordo la soglia è metà del **solo vicino**
+  (105pt nello stesso esempio), quindi il puntatore non esce dalla strip per un riordino di una
+  posizione. Numeri fissati da `ReorderableTests`. I frame
   di layout li raccoglie un `PreferenceKey` in un coordinate space nominato, misurato **dopo**
   l'`.offset` del drag (dentro `reorderableRow`, mai con un GeometryReader sotto l'offset):
   l'offset è un GeometryEffect e si propaga alla geometria dei discendenti anche nello space
@@ -141,6 +150,14 @@ La lista dei workspace: ordine, nascita, archivio, drag, chiusura. Il resto dell
   `nil`: il gesto vivo è quello della strip sotto). Non si può promuovere un `DragGesture` SwiftUI
   già partito a `NSDraggingSession`: con la pasteboard servirebbero due meccaniche diverse nella
   stessa strip, decise all'inizio del gesto.
+  **Costo sul gesto**, due trappole pagate: (1) le misure di geometria della strip stanno in una
+  classe (`DragGeometryBox`), non in due `@State`, perché lo scroll orizzontale sposta il contenuto
+  e quindi ne cambia il rettangolo in finestra a ogni frame - in uno `@State` avrebbe invalidato la
+  strip per tutta la durata dello scroll; (2) `TabDragSession.target` è **stored**, non computed:
+  da computed dipenderebbe da `location`, che cambia a ogni evento del mouse, e la sidebar (che lo
+  legge per evidenziare la riga) si sarebbe ridisegnata a ogni pixel anche durante un riordino
+  orizzontale che non la riguarda. `location` resta osservata ma il suo unico lettore è il
+  fantasma, che esiste solo fuori dalla strip.
   Guardie contro i bersagli fantasma: il frame di ogni riga è **ritagliato al viewport** del suo
   ScrollView e scartato sotto metà altezza visibile (una riga scrollata via conserva il frame, che
   cadrebbe sull'area dell'archivio); `sidebarRect` fa da guardia esterna, quindi una sidebar

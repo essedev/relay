@@ -80,3 +80,54 @@ import Testing
         draggedIndex: 0, translation: 41, frames: frames, axis: .vertical, count: 2
     ) == 2)
 }
+
+// Tab larghe: col centro proiettato la soglia per scavalcare la vicina è metà larghezza di
+// entrambe, e su titoli lunghi il puntatore esce dalla strip prima che scatti. Col bordo che
+// avanza la soglia è metà della sola vicina.
+
+private let wideTabs: [Int: CGRect] = [
+    0: CGRect(x: 0, y: 0, width: 200, height: 28),
+    1: CGRect(x: 204, y: 0, width: 200, height: 28),
+]
+
+@Test func centerProbeNeedsHalfOfBothTabsToSwap() {
+    // Centri a 100 e 304: servono 204pt di traslazione, la tab trascinata è larga quanto la corsa.
+    #expect(reorderInsertionIndex(
+        draggedIndex: 1, translation: -150, frames: wideTabs, axis: .horizontal, count: 2
+    ) == 1)
+    #expect(reorderInsertionIndex(
+        draggedIndex: 1, translation: -205, frames: wideTabs, axis: .horizontal, count: 2
+    ) == 0)
+}
+
+@Test func leadingEdgeProbeSwapsAtHalfOfTheNeighbour() {
+    // Bordo sinistro a 204, centro della vicina a 100: bastano 105pt, metà del solo vicino.
+    #expect(reorderInsertionIndex(
+        draggedIndex: 1, translation: -105, frames: wideTabs, axis: .horizontal, count: 2,
+        probe: .leadingEdge
+    ) == 0)
+    // Sotto la soglia resta dov'è: lo scambio non anticipa il gesto.
+    #expect(reorderInsertionIndex(
+        draggedIndex: 1, translation: -50, frames: wideTabs, axis: .horizontal, count: 2,
+        probe: .leadingEdge
+    ) == 1)
+}
+
+@Test func leadingEdgeProbeIsSymmetricGoingForward() {
+    // Bordo destro della prima a 200, centro della seconda a 304: 105pt anche in avanti.
+    #expect(reorderInsertionIndex(
+        draggedIndex: 0, translation: 105, frames: wideTabs, axis: .horizontal, count: 2,
+        probe: .leadingEdge
+    ) == 2)
+    #expect(reorderInsertionIndex(
+        draggedIndex: 0, translation: 50, frames: wideTabs, axis: .horizontal, count: 2,
+        probe: .leadingEdge
+    ) == 1)
+}
+
+@Test func leadingEdgeProbeKeepsThePositionAtRest() {
+    #expect(reorderInsertionIndex(
+        draggedIndex: 1, translation: 0, frames: wideTabs, axis: .horizontal, count: 2,
+        probe: .leadingEdge
+    ) == 1)
+}

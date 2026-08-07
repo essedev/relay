@@ -32,7 +32,9 @@ public final class TabDragSession {
     }
 
     public private(set) var payload: Payload?
-    /// Puntatore in coordinate finestra (origine in alto a sinistra).
+    /// Puntatore in coordinate finestra (origine in alto a sinistra). Cambia a ogni evento del
+    /// mouse, quindi **nessuno oltre al fantasma deve osservarla**: il fantasma esiste solo fuori
+    /// dalla strip, così un riordino orizzontale non invalida niente (vedi `target`).
     public private(set) var location: CGPoint = .zero
     /// Il gesto ha lasciato la strip di partenza: da qui il fantasma è visibile e il rilascio può
     /// cambiare workspace.
@@ -54,7 +56,16 @@ public final class TabDragSession {
 
     /// Il workspace sotto il puntatore, o `nil` se il drop non sposterebbe niente (dentro la strip,
     /// fuori dalla sidebar, fuori da ogni riga, o sulla riga di partenza).
-    public var target: UUID? {
+    ///
+    /// **Stored, non computed**: la sidebar lo legge nel proprio body per evidenziare la riga, e da
+    /// computed dipenderebbe da `location`, cioè si ridisegnerebbe a ogni pixel di trascinamento -
+    /// anche durante un riordino orizzontale che non la riguarda, rubando main thread al gesto.
+    /// Così si invalida solo quando il bersaglio cambia davvero.
+    public private(set) var target: UUID?
+
+    /// Il bersaglio per la posizione corrente. Legge proprietà osservate, ma sempre fuori da un
+    /// body SwiftUI (da `move`), quindi non crea dipendenze.
+    private func resolveTarget() -> UUID? {
         guard isOutside, let payload, sidebarRect.contains(location) else { return nil }
         return TabDropTargets.hit(
             CGPoint(x: location.x - sidebarRect.minX, y: location.y - sidebarRect.minY),
@@ -94,14 +105,19 @@ public final class TabDragSession {
     public func begin(_ payload: Payload) {
         self.payload = payload
         isOutside = false
+        target = nil
     }
 
     /// Aggiorna il puntatore. `outside` lo decide la strip, che conosce i propri bounds.
     public func move(to point: CGPoint, outside: Bool) {
         location = point
-        guard isOutside != outside else { return }
-        isOutside = outside
-        onGhostVisibilityChange?(outside)
+        if isOutside != outside {
+            isOutside = outside
+            onGhostVisibilityChange?(outside)
+        }
+        let hit = resolveTarget()
+        guard target != hit else { return }
+        target = hit
     }
 
     /// Chiude il gesto e restituisce il bersaglio su cui è stato rilasciato (`nil` = nessuno, il
@@ -110,6 +126,7 @@ public final class TabDragSession {
     public func end() -> UUID? {
         let hit = target
         payload = nil
+        target = nil
         if isOutside {
             isOutside = false
             onGhostVisibilityChange?(false)
@@ -201,6 +218,10 @@ struct WindowRectReader: NSViewRepresentable {
 
     final class ReporterView: NSView {
         var onChange: ((CGRect) -> Void)?
+        /// Ultimo valore riportato: `report()` scatta a ogni layout, e la strip si rilayouta a ogni
+        /// evento del gesto. Senza questo confronto ogni passata riscriverebbe lo stesso rettangolo
+        /// nello `@State` del chiamante, invalidandone il body per niente.
+        private var reported: CGRect?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -228,12 +249,15 @@ struct WindowRectReader: NSViewRepresentable {
         private func report() {
             guard let window, let content = window.contentView else { return }
             let rect = convert(bounds, to: nil)
-            onChange?(CGRect(
+            let flipped = CGRect(
                 x: rect.minX,
                 y: content.bounds.height - rect.maxY,
                 width: rect.width,
                 height: rect.height
-            ))
+            )
+            guard reported != flipped else { return }
+            reported = flipped
+            onChange?(flipped)
         }
     }
 }
@@ -243,4 +267,19 @@ extension View {
     func windowRect(_ onChange: @escaping (CGRect) -> Void) -> some View {
         background(WindowRectReader(onChange: onChange))
     }
+}
+
+/// Le misure che servono **solo durante un gesto**: dove sta l'area delle tab e dove la strip, in
+/// coordinate finestra.
+///
+/// Deliberatamente una classe tenuta in uno `@State`, non due `@State` di valore: lo scroll
+/// orizzontale della strip sposta il contenuto e quindi ne cambia il rettangolo in finestra a ogni
+/// frame, e scriverlo in uno `@State` invaliderebbe la strip per tutta la durata dello scroll.
+/// Qui la scrittura non invalida niente, e il gesto legge il valore corrente quando gli serve.
+@MainActor
+final class DragGeometryBox {
+    var tabs: CGRect = .zero
+    var strip: CGRect = .zero
+
+    init() {}
 }

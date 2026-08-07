@@ -71,22 +71,51 @@ func reorderInsertionIndex(
     return index
 }
 
-/// Indice di inserimento guidato dal **centro proiettato** della riga trascinata (frame originale +
-/// traslazione), non dal puntatore grezzo. Così la linea segue il *corpo* della riga sollevata ed è
-/// **indipendente dal punto di presa** lungo la riga: afferrarla in cima o in fondo dà lo stesso
-/// risultato (col puntatore grezzo la decisione sfasava di quanto eri lontano dal centro). Se manca
-/// il frame della riga, ricade sulla sola traslazione (caso improbabile, frame non ancora
-/// misurato).
+/// Quale punto della riga in volo si confronta coi centri dei vicini.
+enum ReorderProbe {
+    /// Il centro proiettato. Soglia di scambio = distanza fra i due centri, cioè **metà larghezza
+    /// di entrambe** le righe: va bene dove le righe sono tutte della stessa misura (la sidebar).
+    case center
+    /// Il bordo che avanza nella direzione del gesto (iniziale se torni indietro, finale se vai
+    /// avanti). Soglia = metà del **vicino** soltanto, indipendente da quanto è larga la riga che
+    /// trascini. Serve dove le righe hanno larghezze molto diverse (le tab, che vestono il loro
+    /// titolo): col centro, portare una tab larga al primo posto chiede una traslazione che manda
+    /// il puntatore fuori dalla strip prima che la soglia scatti, e la riga di inserimento non
+    /// compare mai - peggio ancora se l'hai afferrata dal lato sinistro, dove la corsa disponibile
+    /// è già poca.
+    case leadingEdge
+}
+
+/// Indice di inserimento guidato dalla **geometria proiettata** della riga trascinata (frame
+/// originale + traslazione), non dal puntatore grezzo. Così la linea segue il *corpo* della riga
+/// sollevata ed è **indipendente dal punto di presa** lungo la riga: afferrarla in cima o in fondo
+/// dà lo stesso risultato (col puntatore grezzo la decisione sfasava di quanto eri lontano dal
+/// centro). Se manca il frame della riga, ricade sulla sola traslazione (caso improbabile, frame
+/// non ancora misurato).
 func reorderInsertionIndex(
     draggedIndex: Int,
     translation: CGFloat,
     frames: [Int: CGRect],
     axis: ReorderAxis,
-    count: Int
+    count: Int,
+    probe: ReorderProbe = .center
 ) -> Int {
-    let base = frames[draggedIndex].map { axis == .vertical ? $0.midY : $0.midX } ?? 0
-    let center = base + translation
-    let point = axis == .vertical ? CGPoint(x: 0, y: center) : CGPoint(x: center, y: 0)
+    let base: CGFloat = switch probe {
+    case .center:
+        frames[draggedIndex].map { axis == .vertical ? $0.midY : $0.midX } ?? 0
+    case .leadingEdge:
+        frames[draggedIndex].map { rect in
+            if translation < 0 {
+                axis == .vertical ? rect.minY : rect.minX
+            } else if translation > 0 {
+                axis == .vertical ? rect.maxY : rect.maxX
+            } else {
+                axis == .vertical ? rect.midY : rect.midX
+            }
+        } ?? 0
+    }
+    let projected = base + translation
+    let point = axis == .vertical ? CGPoint(x: 0, y: projected) : CGPoint(x: projected, y: 0)
     return reorderInsertionIndex(location: point, frames: frames, axis: axis, count: count)
 }
 
@@ -159,15 +188,20 @@ struct ReorderRowConfig {
     let perform: (Int) -> Void
     /// Uscita dal contenitore (drag di una tab verso un altro workspace). `nil` = solo riordino.
     var crossDrag: ReorderCrossDrag?
+    /// Come si decide lo scambio. Le tab usano `.leadingEdge` (larghezze molto diverse), la
+    /// sidebar il centro, che su righe tutte uguali è la scelta più prevedibile.
+    var probe: ReorderProbe = .center
 
-    /// Indice di inserimento per la traslazione corrente, dal centro proiettato della riga.
+    /// Indice di inserimento per la traslazione corrente, dalla riga proiettata (mai
+    /// dal puntatore).
     func insertionIndex(for translation: CGSize) -> Int {
         reorderInsertionIndex(
             draggedIndex: index,
             translation: shift(of: translation),
             frames: frames,
             axis: axis,
-            count: count
+            count: count,
+            probe: probe
         )
     }
 
