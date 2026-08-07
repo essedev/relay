@@ -25,6 +25,11 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
 - **Release**: `make release`. Versione = `./VERSION` (semver). Bumpa VERSION, `make check`,
   commit, poi `make release`: **è pubblicazione** (push tag + GitHub Release + tap brew), chiedi
   il via prima di lanciarla. Routine e firma in `docs/features/distribution.md`.
+- **Guida utente**: `make guide-md` rigenera `docs/GUIDE.md` dalla guida in-app (fonte unica in
+  `Sources/WorkspaceModel/Guide*.swift`). Un test fallisce se il file committato è disallineato:
+  se tocchi il contenuto, rigenera nello stesso commit. Vedi `docs/features/guide.md`.
+- **Screenshot del README**: `scripts/screenshots.sh` (demo isolata, non tocca `~/.relay` né le
+  preferenze). Occupa lo schermo per un minuto e serve il permesso Screen Recording.
 - **Simulatore agente**: `relay-cli simulate [coding|permission|burst] [--loops N] [--fast]`,
   da lanciare *dentro una tab di Relay*: recita una chat finta e manda eventi reali al socket
   (stesso client/wire degli hook). Per testare badge/aggregazioni senza sessioni Claude vere.
@@ -44,7 +49,8 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
 - `WorkspaceModel` - lo stato: `WorkspaceStore`/`Workspace`/`Tab`/`RelayWindow` (@Observable),
   `SplitNode`/`SplitPane` (albero di split, foglie = pane con le loro tab), `WorkspaceGroup`,
   `AttentionLevel`, `AgentStateReducer`, `AppSettings` (UserDefaults), `LayoutSnapshot`,
-  `ShortcutAction`/`KeyCombo`, `NameOrigin`. Le operazioni stanno nelle extension per area
+  `ShortcutAction`/`KeyCombo`, `NameOrigin`, `Guide`/`GuideMarkdown` (il manuale come dato, fonte
+  di guida in-app e `docs/GUIDE.md`). Le operazioni stanno nelle extension per area
   (`+Split`, `+Windows`, `+Persistence`, `+Groups`, `+Navigation`, `+Ordering`). Puro, niente
   AppKit.
 - `TerminalEngine` - astrazione `TerminalEngine`/`TerminalSurfaceHandle` + backend SwiftTerm e
@@ -57,7 +63,7 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
 - `Panels` - SwiftUI isolata: design system (`Theme`/`ThemeColors`, i valori estetici vengono da
   qui), `SidebarView` e i suoi pezzi (`SidebarLayout`/`SidebarDrop`/`SidebarReorder`, `GroupRow`),
   `PaneTabBar`, `ContextTitleBar`, badge, `ResumeBar`, `FindBar`, `Dashboard`, `SettingsView`,
-  `AboutView`, `Onboarding`, `RuntimeStatsView`, primitive condivise
+  `AboutView`, `Onboarding`, `GuideView`, `RuntimeStatsView`, primitive condivise
   (`StatusDot`/`CommandChip`/`CloseButton`), `KeyEventBridge`.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
@@ -117,7 +123,9 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
 - `docs/features/keyboard.md` - il local monitor come unico trigger delle azioni rimappabili,
   shortcut numerici, testo composto con `Option`.
 - `docs/features/workspace-naming.md` - nomina automatica via LLM: trigger, contesto, single-flight,
-  `NameOrigin`, API key su file 0600.
+  `NameOrigin`, API key su file 0600, default OpenRouter.
+- `docs/features/guide.md` - il manuale: una fonte (`Guide.sections`), due rese (pannello e
+  `docs/GUIDE.md`), tabella scorciatoie generata, test di allineamento, script degli screenshot.
 - `docs/features/distribution.md` - `make bundle`/`dmg`, tap brew e routine di release, firma,
   icona, check aggiornamenti, CI deterministica.
 - `docs/features/persistence.md` - `~/.relay/layout.json`, autosave, guardia anti-degrado,

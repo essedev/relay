@@ -12,7 +12,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 
-[English](README.md) · **Italiano**
+[English](README.md) · **Italiano** · [Guida utente](docs/GUIDE.md)
 
 </div>
 
@@ -20,15 +20,16 @@
   <img src="docs/images/hero.png" alt="Relay con più sessioni agente in parallelo tra i workspace" width="900">
 </p>
 
-Terminale macOS nativo per lavorare con molti coding agent in parallelo: stati agente
-affidabili (via hook Claude Code), organizzazione a workspace (sidebar con pin e riordino,
-dashboard overview), veloce e leggero.
+Terminale macOS nativo per lavorare con molti coding agent in parallelo: stati agente affidabili
+(via hook Claude Code), workspace che tengono separati i progetti e una vista di triage per quando
+girano dodici sessioni insieme. Veloce e leggero.
 
-Stato: baseline chiuso e distribuito via Homebrew tap. Workspace -> pane -> Tab -> terminale, agent
-runtime con badge/notifiche, split panes e multi-finestra, persistence del layout, resume assistito,
-dashboard di triage kanban, archivio dei workspace, nomina automatica dei workspace via LLM,
-onboarding, dodici temi. Engine v1 SwiftTerm dietro l'astrazione `TerminalEngine` (libghostty
-backend futuro). Decisioni, benchmark e log della ricerca: `docs/research/` (`CYCLES.md`).
+Stato: baseline chiuso e distribuito via Homebrew tap. Workspace -> pane -> tab -> terminale, agent
+runtime con badge e notifiche, split panes e multi-finestra, persistence del layout, resume
+assistito, dashboard di triage kanban, gruppi e archivio dei workspace, nomina automatica dei
+workspace via LLM, onboarding, guida in-app, dodici temi. Engine v1 SwiftTerm dietro l'astrazione
+`TerminalEngine` (libghostty backend futuro). Decisioni, benchmark e log della ricerca:
+`docs/research/` (`CYCLES.md`).
 
 ## Installazione
 
@@ -43,11 +44,112 @@ Applications.
 L'app non è firmata con Developer ID Apple: al primo avvio macOS la blocca. Apri **Impostazioni di
 Sistema > Privacy e Sicurezza** e premi **Apri comunque** (una volta sola per versione).
 
+## Cosa fa
+
+- **Stati agente di cui fidarsi.** I badge vengono dagli hook di Claude Code, non dal parsing
+  dell'output, quindi restano giusti anche sotto un muro di log. Per tab, e aggregati per
+  workspace.
+- **Attenzione a tre livelli.** Una sessione che ti aspetta è rumorosa; una che hai visto ma non
+  ripreso resta quieta sullo sfondo; rispondere la spegne. Niente resta acceso per sempre, e niente
+  si spegne prima che tu l'abbia visto.
+- **Triage invece di caccia.** `Cmd+D` mette tutte le sessioni dell'app su una schermata, su
+  quattro corsie per urgenza, con filtro a digitazione e Invio per saltarci dentro.
+- **Workspace che restano in ordine.** Gruppi, pin, archivio, e un ordine che cambia solo col tuo
+  drag - o quando una sessione finisce mentre stavi guardando altrove.
+- **I pane ospitano le tab.** Split a destra o sotto; ogni pane ha la sua strip e la sua selezione.
+  Ogni workspace può passare a una finestra sua, con tutte le sue sessioni.
+- **Tutto rimappabile**, dodici temi, e i terminali inutilizzati vengono scaricati: la memoria
+  resta piatta anche con decine di tab aperte.
+
+Il manuale completo è in **[docs/GUIDE.md](docs/GUIDE.md)** e dentro l'app sotto
+**Help > Relay Guide** (`Cmd+?`): stesso contenuto, generato dalla stessa fonte. È in inglese, come
+l'interfaccia.
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="La dashboard di triage, sessioni su quattro corsie per stato" width="900">
+</p>
+
+## Stato agente (hook Claude Code)
+
+Relay mostra lo stato di ogni agente come badge sulla tab e, aggregato, sul workspace nella sidebar
+(`running`, `needs_input`, completato). Lo stato arriva dagli hook di Claude Code, non dal parsing
+dell'output.
+
+```sh
+relay-cli hooks setup       # installa gli hook in ~/.claude/settings.json (convivono con Otty)
+relay-cli hooks status      # verifica
+relay-cli hooks uninstall   # rimuove solo gli hook di Relay
+```
+
+Poi apri Relay, lancia `claude` in una tab e i badge si aggiornano. `needs_input` resta finché non
+rispondi. Lo stesso si fa con un click da Impostazioni > Agents. Protocollo e binding in
+`docs/STATE_SCHEMA.md`.
+
+Con l'app avviata dal bundle arrivano anche le notifiche macOS quando un agente chiede input o
+finisce mentre non stai guardando quella tab; cliccarne una porta la tab in primo piano. Da
+`make run` (senza bundle) le notifiche sono disattivate.
+
+Per provare i badge senza una sessione Claude vera, dentro una tab di Relay:
+
+```sh
+relay-cli simulate            # chat finta (scenario "coding"), eventi reali sul socket
+relay-cli simulate permission # needs_input che resta in sospeso
+relay-cli simulate burst --loops 3 --fast
+```
+
+Per vedere l'app piena di attività: `relay --demo 5x4` apre cinque workspace da quattro tab con
+sessioni simulate concorrenti (sempre sul socket reale).
+
+## Nomina automatica dei workspace
+
+Un workspace senza cartella si chiama "Workspace 3", che smette di essere utile al terzo. Relay può
+chiedere a un modello un nome breve basato su cosa il workspace sta facendo: la cartella, un comando
+in esecuzione in una delle sue tab, una sessione agente attiva.
+
+Aggiungi una API key in **Impostazioni > Agents > Workspace naming**. L'endpoint di default è
+OpenRouter con un modello economico (un nome costa una frazione di centesimo); va bene qualunque
+base URL e modello OpenAI-compatible. Senza chiave la feature è inerte. I nomi che scrivi tu non
+vengono mai sovrascritti.
+
+## Scorciatoie
+
+Due assi, fissi: `Cmd+1..9` seleziona un workspace, `Option+1..9` una tab nel pane focused. Quelle
+da imparare per prime:
+
+| Tasti | Azione |
+| --- | --- |
+| `⌘T` / `⌘W` | Nuova tab, chiudi tab |
+| `⌘\` / `⇧⌘\` | Split a destra, split sotto |
+| `⌘J` / `⇧⌘J` | Salta alla prossima/precedente sessione che ti aspetta |
+| `⌘D` | Dashboard di triage |
+| `⌘F` / `⌘K` | Cerca nel terminale, puliscilo |
+| `⌘?` | La guida dell'app |
+
+Tutto il resto, coi default sempre allineati, sta nelle
+[tabelle delle scorciatoie](docs/GUIDE.md#keyboard). A parte i select-by-number e i comandi di
+sistema sono tutte rimappabili da Impostazioni > Shortcuts: clicca una combinazione, premi la
+nuova.
+
+Sui layout internazionali `Option` fa anche da AltGr: quando compone un carattere stampabile
+(`Option+ò` = `@`), quel carattere finisce nel terminale invece di far scattare una scorciatoia.
+
+## Aspetto
+
+Temi curati per il terminale (palette ANSI completa, così Claude Code, `git` e `ls` si vedono in
+palette) con la chrome intonata: dodici temi in sei coppie scuro/chiaro (Relay, Solarized, Gruvbox,
+Tokyo Night, Catppuccin, GitHub), più famiglia del font, dimensione e blink del cursore. Tutto da
+`Cmd+,`, tutto persistito. Il modello del tema vive in `Core` (`RelayTheme`), fonte unica per
+terminale e chrome.
+
+La title bar mostra il contesto della tab attiva: il titolo impostato dal programma (Claude Code
+manda il nome della chat, zsh `user@host:path`), altrimenti la cwd corrente abbreviata con `~`,
+altrimenti la cartella del workspace.
+
 ## Sviluppo
 
 Requisiti: Xcode/Swift 6, macOS 14+. I linter sono **pinnati**: `make tools` scarica le versioni
-esatte di SwiftFormat/SwiftLint in `.build/tools`, così CI e locale girano la stessa. Non installarli
-via brew per il giro di qualità (prenderesti una versione diversa).
+esatte di SwiftFormat/SwiftLint in `.build/tools`, così CI e locale girano la stessa. Non
+installarli via brew per il giro di qualità (prenderesti una versione diversa).
 
 ```bash
 make build     # build
@@ -57,6 +159,7 @@ make test      # test
 make check     # giro qualità completo (lint + build + test)
 make run-app   # avvia dal bundle .app (notifiche attive)
 make install-app  # installa Relay.app in /Applications
+make guide-md  # rigenera docs/GUIDE.md dalla guida in-app
 make dmg       # crea .build/Relay-<version>.dmg (installer, non firmato Developer ID)
 make release   # pubblica la release corrente (VERSION): dmg -> GitHub Release -> tap brew
 make help      # tutti i target
@@ -65,87 +168,30 @@ make help      # tutti i target
 Le notifiche macOS richiedono un bundle id, quindi girano solo dall'app impacchettata
 (`make run-app`/`install-app`), non da `make run`.
 
+**La guida utente è generata.** `docs/GUIDE.md` e la guida in-app vengono dalla stessa fonte
+(`Sources/WorkspaceModel/Guide*.swift`); un test fallisce se il file committato è disallineato.
+Modifica la fonte, poi `make guide-md`. Gli screenshot qui sopra li produce
+`scripts/screenshots.sh`, che pilota un'istanza demo isolata: non tocca il tuo layout né le tue
+preferenze.
+
 **Distribuzione**: la versione sta in `./VERSION` (semver). Per rilasciare: bumpa `VERSION`,
-`make check`, commit, poi `make release` (routine in `CLAUDE.md`). L'installer non è firmato con
-Developer ID né notarizzato, quindi il primo avvio richiede "Apri comunque"; la meccanica di firma
-Developer ID + notarizzazione non è ancora in piedi.
-
-## Scorciatoie
-
-- `Cmd+N` nuovo workspace (senza cartella, parte da home).
-- `Cmd+O` apri una cartella come workspace.
-- `Cmd+T` nuova tab, `Cmd+W` chiudi tab (la selezionata nel pane con il focus).
-- `Cmd+Shift+N` nuova finestra, `Cmd+Shift+W` chiudi finestra, `Cmd+Option+Shift+W` chiudi workspace.
-- `Cmd+\` split a destra, `Cmd+Shift+\` split in basso, `Cmd+Option+W` chiudi il pane (con tutte le
-  sue tab), `Cmd+]` / `Cmd+[` focus al pane successivo/precedente.
-- `Cmd+1..9` seleziona workspace, `Option+1..9` seleziona tab nel pane con il focus (i due assi,
-  fissi).
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` scorri le tab del pane con il focus, `Cmd+Option+Giù` /
-  `Cmd+Option+Su` scorri i workspace.
-- `Cmd+J` / `Cmd+Shift+J` salta alla prossima/precedente tab che richiede attenzione.
-- `Cmd+D` apre la dashboard di triage delle sessioni agente.
-- `Cmd+F` cerca nel terminale, `Cmd+G` / `Cmd+Shift+G` risultato successivo/precedente,
-  `Cmd+K` pulisce il terminale.
-- `Cmd +/-` zoom del terminale, `Cmd+0` dimensione originale.
-- `Cmd+B` mostra/nasconde la sidebar, `Cmd+,` impostazioni.
-
-Le scorciatoie (tranne i select-by-number e i comandi di sistema) sono **rimappabili** da
-Impostazioni > Shortcuts: clicca una combinazione, premi la nuova (conflitti segnalati, reset
-disponibile). La finestra si sposta trascinando dalla fascia del titolo in alto (non dal
-corpo/terminale); doppio click sulla fascia = zoom, come una title bar nativa.
-
-Sui layout internazionali `Option` fa anche da AltGr: quando compone un carattere stampabile
-(`Option+ò` = `@`) quel carattere viene digitato nel terminale invece di attivare una scorciatoia.
-L'unica eccezione è `Option+1..9`, riservato alla selezione delle tab.
-
-## Aspetto
-
-Tema del terminale curato (palette ANSI, quindi Claude Code/`git`/`ls` in palette), con chrome
-coerente. Dodici temi in sei coppie dark/light (Relay, Solarized, Gruvbox, Tokyo Night,
-Catppuccin, GitHub),
-scelta del font family (monospace installati), dimensione font e blink del cursore, tutto regolabile
-dal pannello impostazioni (`Cmd+,`, master-detail con ricerca) e persistito. Il modello di tema vive
-in `Core` (`RelayTheme`), unica fonte per terminale e chrome.
-
-La title bar mostra il contesto della tab attiva: il titolo impostato dal programma (Claude Code
-manda il nome della chat, zsh `user@host:path`), altrimenti la cwd corrente (OSC 7) abbreviata con
-`~`, altrimenti la cartella del workspace.
-
-## Stato agente (hook Claude Code)
-
-Relay mostra lo stato di ogni agente come badge sulla tab e, aggregato, sul workspace nella sidebar
-(`running`, `needs_input`, completato). Lo stato arriva dagli hook Claude Code, non dal parsing
-dell'output.
-
-```bash
-relay-cli hooks setup       # installa gli hook in ~/.claude/settings.json (convivono con Otty)
-relay-cli hooks status      # verifica
-relay-cli hooks uninstall   # rimuove solo gli hook di Relay
-```
-
-Poi apri Relay, avvia `claude` in una tab e i badge si aggiornano. `needs_input` resta finché non
-rispondi. Dettagli protocollo/binding in `docs/STATE_SCHEMA.md`.
-
-Con l'app avviata dal bundle (`make run-app`) arrivano anche le notifiche macOS quando un agente
-chiede input o finisce mentre non stai guardando la tab (impostazioni e suono in `Cmd+,`; il primo
-avvio chiede il permesso). Da `make run` (senza bundle) le notifiche sono disattivate.
-
-Per provare i badge senza una sessione Claude vera, dentro una tab di Relay:
-
-```bash
-relay-cli simulate            # chat finta (scenario "coding"), eventi reali sul socket
-relay-cli simulate permission # needs_input che resta in attesa
-relay-cli simulate burst --loops 3 --fast
-```
-
-Per vedere l'app piena di attività: `relay --demo 5x4` apre 5 workspace da 4 tab con sessioni
-simulate concorrenti (sempre via socket reale).
+`make check`, commit, poi `make release` (routine in `CLAUDE.md`). L'installer non è firmato
+Developer ID né notarizzato, quindi al primo avvio serve "Apri comunque"; firma Developer ID +
+notarizzazione non sono ancora configurate.
 
 ## Documentazione
 
+- **[`docs/GUIDE.md`](docs/GUIDE.md)** - la guida utente: tutto quello che Relay fa, generata dalla
+  guida in-app (in inglese, come l'interfaccia).
+
+Il resto è documentazione interna.
+
 - `docs/ARCHITECTURE.md` - tesi di prodotto, moduli, budget, engine, anti-pattern.
-- `docs/ROADMAP.md` - cosa è fatto e cosa manca (baseline chiuso; prossimo a scelta).
-- `docs/CONVENTIONS.md` - regole di codice, test, processo.
+- `docs/ROADMAP.md` - cosa è fatto e cosa manca (baseline chiuso; prossimo giro da decidere).
+- `docs/CONVENTIONS.md` - regole di codice, test e processo.
 - `docs/STATE_SCHEMA.md` - schema di persistence e protocollo eventi agente.
-- `docs/features/split-panes.md` - il modello "il pane ospita le tab" (stile cmux).
-- `CLAUDE.md` - guida operativa per l'agent.
+- `docs/features/*.md` - un file per area, con le invarianti e le trappole già pagate:
+  `attention.md`, `agent-runtime.md`, `terminal.md`, `sidebar.md`, `workspace-groups.md`,
+  `split-panes.md`, `windows.md`, `keyboard.md`, `workspace-naming.md`, `persistence.md`,
+  `distribution.md`.
+- `CLAUDE.md` - guida operativa per l'agent, volutamente corta: rimanda ai file qui sopra.

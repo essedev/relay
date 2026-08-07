@@ -558,6 +558,35 @@ primo bump altrui scavalca.
 - Il codice posizionale (move, bump, ancora, move-tab) esce in `WorkspaceStore+Ordering`: il file
   principale aveva sforato il budget di 400 righe.
 
+## Fatto - Una guida utente sola, in due rese
+
+Il censimento della superficie utente (23 aree) contro quello che era scritto da qualche parte ha
+dato 9 aree **non documentate in nessun posto**: il drag di una tab su un altro workspace, "Move
+Tab to New Workspace", il riordino nella strip, "Open in Split Right/Down", rename/ungroup/remove
+from group, la nomina automatica, i tre livelli di attenzione con Mark as Read e la decadenza, il
+check aggiornamenti, Runtime Stats. E `README.it.md` era fermo a ~0.11: gli mancava un'intera
+sezione (gruppi e archivio) e ogni menzione di finestre, drag e naming.
+
+- **Il manuale è un dato, non un testo** (`Guide.sections`), con due rese: il pannello
+  `Help > Relay Guide` (`Cmd+?`) e `docs/GUIDE.md`, generato da `make guide-md` e verificato da un
+  test. Nove sezioni che coprono tutte e 23 le aree. La tabella delle scorciatoie si genera da
+  `ShortcutAction`: un'azione nuova compare da sola in entrambe le rese. Invarianti e trappole in
+  `docs/features/guide.md`.
+- **Nel menu Help, non nelle impostazioni**: le impostazioni sono dove si cambia, la guida dove si
+  legge, e `Cmd+?` è il posto canonico su macOS.
+- **README**: EN riscritto attorno a "cosa fa" con rimando alla guida per il dettaglio, IT
+  riallineato sezione per sezione (stesso numero di `##`), lista scorciatoie ridotta alle sei che
+  contano più il link alle tabelle generate.
+- **Onboarding**: aggiunti i due buchi (nomina automatica, che è l'altro passo azionabile oltre
+  agli hook, e il drag di una tab fra workspace), più il rimando alla guida in chiusura.
+- **Nomina automatica su OpenRouter** (`deepseek/deepseek-v4-flash-latest`, un nome costa un
+  millesimo di centesimo), al posto di OpenAI + `gpt-4o-mini`. Cambio secco, senza ramo di
+  compatibilità: la feature è opt-in e inerte senza chiave.
+- **Screenshot ripetibili**: `scripts/screenshots.sh` pilota una demo isolata (socket, layout e
+  tema suoi: non tocca `~/.relay` né le preferenze) e ritaglia la sola finestra di Relay. Il seeder
+  della demo ora semina anche uno split, una riga pinned e un archivio popolato, che è come la
+  sidebar si presenta davvero.
+
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),
