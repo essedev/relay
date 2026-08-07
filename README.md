@@ -104,13 +104,15 @@ concurrent simulated sessions (always over the real socket).
 
 ## Automatic workspace naming
 
-A workspace with no folder is "Workspace 3", which stops being useful at the third one. Relay can
-ask a language model for a short name based on what the workspace is doing - the folder, a command
-running in one of its tabs, an active agent session.
+A workspace with no folder is "Workspace 3", which stops being useful at the third one. Relay
+renames it after what it is doing - the folder, a command running in one of its tabs, an active
+agent session. The name pulses while it is being worked out.
 
-Add an API key in **Settings > Agents > Workspace naming**. The default endpoint is OpenRouter with
-a cheap model (a name costs a fraction of a cent); any OpenAI-compatible base URL and model work.
-Without a key the feature is inert. Names you set by hand are never overwritten.
+This works with no setup: names are derived from those signals ("yellow-hub" becomes "Yellow Hub",
+"npm run dev" becomes "Npm Dev"). Add an API key in **Settings > Agents > Workspace naming** and a
+model writes them instead - better names, and "Regenerate name" gives you a different one. The
+default endpoint is OpenRouter with a cheap model (a name costs a fraction of a cent); any
+OpenAI-compatible base URL and model work. Names you set by hand are never overwritten.
 
 ## Shortcuts
 

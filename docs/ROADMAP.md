@@ -587,6 +587,34 @@ sezione (gruppi e archivio) e ogni menzione di finestre, drag e naming.
   della demo ora semina anche uno split, una riga pinned e un archivio popolato, che è come la
   sidebar si presenta davvero.
 
+## Fatto - La nomina si regge da sola (post-guida)
+
+Check della nomina automatica senza un sintomo in mano. La logica pura era coperta (37 test), il
+wiring in `RelayApp` no: entrambi i difetti stavano lì.
+
+- **`regenerate` declassava prima di controllare**: `markNameRegenerable` girava prima delle
+  guardie, quindi un Regenerate fallito (feature spenta, nessun contesto) lasciava comunque il
+  workspace a `.default` e la prima nomina automatica utile si prendeva un nome scelto a mano.
+  L'invariante "`.user` intoccabile" saltava per un'azione mai partita.
+- **L'azione manuale poteva tacere**: `fire` usciva in silenzio se trovava una richiesta in volo.
+  Ora il Regenerate si mette in coda e parte alla fine di quella; il nome del poll, calcolato senza
+  `avoiding`, sarebbe stato identico a quello già lì (`temperature` 0). Stesso sintomo di 0.11.1,
+  altra strada.
+- **La nomina non richiede più un modello**: al modello arrivano tre righe scarne
+  (`directoryHint` manda il basename, non il path), e su quell'input il lavoro è quasi tutto
+  meccanico. `Core.WorkspaceNaming.localNames` deriva i nomi ("yellow-hub" -> "Yellow Hub",
+  "npm run dev" -> "Npm Dev") con gli stessi trigger e la stessa `sanitize`; il modello resta
+  l'upgrade per chi ha una chiave, e il locale fa da ripiego quando i tentativi si esauriscono.
+  Senza chiave il Regenerate prende il primo candidato diverso da quello attuale e, se non c'è,
+  lo dice (`.noAlternative`).
+- **Il nome pulsa mentre si nomina** (`Workspace.isNaming`, volatile): un'azione che tace per un
+  giro di rete era indistinguibile da una che non fa niente.
+- **Costi tolti**: la API key non si rilegge più dal disco a ogni tick del poll, e
+  `armEligibilityObserver` non lascia più un osservatore vivo per ogni `reconfigure`/`regenerate`.
+  Poll ed eleggibilità in `NamingControllerPoll.swift` (budget di file).
+
+483 test (+19). Dettagli in `docs/features/workspace-naming.md`, il giro in `CYCLES.md` (Cycle 19).
+
 ## Prossima azione
 
 Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay`),

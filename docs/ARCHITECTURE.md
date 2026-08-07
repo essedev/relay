@@ -172,7 +172,9 @@ OpenAI-compatible, `NamingCredentialStore` tiene la API key in un file `0600` fu
 la logica pura di prompt/parse/trigger sta in `Core.WorkspaceNaming` e `Core.NamingTriggerPolicy`) e
 il **check aggiornamenti** (`UpdateController` interroga la GitHub Release, con confronto versioni e
 parsing puri in `Core.SemanticVersion`/`ReleaseCheck`; non scarica nulla, propone il comando brew).
-Entrambe sono opt-out dalle impostazioni, e la nomina è inerte senza API key.
+Entrambe sono opt-out dalle impostazioni. La nomina **non dipende** dalla rete: senza API key i nomi
+li deriva `Core.WorkspaceNaming.localNames` (regola pura, zero I/O) con gli stessi trigger, e la
+chiamata al modello è l'upgrade opzionale.
 
 ## Struttura Repo E Moduli
 

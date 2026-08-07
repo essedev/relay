@@ -122,8 +122,9 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
   overlay full-window, ciclo di vita di una `NSWindow`, multi-window.
 - `docs/features/keyboard.md` - il local monitor come unico trigger delle azioni rimappabili,
   shortcut numerici, testo composto con `Option`.
-- `docs/features/workspace-naming.md` - nomina automatica via LLM: trigger, contesto, single-flight,
-  `NameOrigin`, API key su file 0600, default OpenRouter.
+- `docs/features/workspace-naming.md` - nomina automatica: due fonti (regola locale di default, LLM
+  se c'è la chiave) con gli stessi trigger, contesto, single-flight, `NameOrigin`, API key su file
+  0600, default OpenRouter.
 - `docs/features/guide.md` - il manuale: una fonte (`Guide.sections`), due rese (pannello e
   `docs/GUIDE.md`), tabella scorciatoie generata, test di allineamento, script degli screenshot.
 - `docs/features/distribution.md` - `make bundle`/`dmg`, tap brew e routine di release, firma,

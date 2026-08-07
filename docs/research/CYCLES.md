@@ -1211,3 +1211,71 @@ Coda del giro: i `UserDefaults` dei test creavano un plist vero in `~/Library/Pr
 test e non lo cancellavano mai. Ne erano rimasti **3282**, 13 MB. Servono tre passi per toglierlo
 (`removePersistentDomain` lascia un plist vuoto che cfprefsd riscrive, poi `removeSuite`, poi il
 file), e un test che guarda il disco perché la prossima regressione non torni silenziosa.
+
+## Cycle 19 - La nomina si regge da sola
+
+### Il problema
+
+Un check sulla nomina automatica, chiesto senza un sintomo in mano. La logica pura era coperta bene
+(37 test fra `WorkspaceNamingTests` e `NamingTriggerPolicyTests`); il wiring - `NamingController`,
+in `RelayApp`, senza un test target - non ne aveva **nessuno**. È lì che stavano i due difetti.
+
+Il primo, vero: `regenerate` chiamava `store.markNameRegenerable` **prima** delle guardie di
+configurazione e contesto. Un Regenerate che falliva - feature spenta, nessun contesto - lasciava
+comunque il workspace a `.default`, e da lì la prima nomina automatica utile si prendeva un nome
+scelto a mano. L'invariante dichiarata (`.user` intoccabile) saltava per un'azione che non era
+nemmeno partita.
+
+Il secondo, lo stesso sintomo già pagato in 0.11.1 per un'altra strada: `fire` usciva in silenzio
+quando trovava una richiesta in volo, anche per l'azione manuale. Se il poll era partito un secondo
+prima, il Regenerate non faceva e non diceva niente, e il nome che arrivava era quello del poll,
+calcolato senza `avoiding`, cioè - a `temperature` 0 - identico a quello che c'era già.
+
+### La domanda vera
+
+"Secondo me la nomina potrebbe funzionare anche senza LLM, verifica." Verificato guardando cosa
+arriva davvero al modello: tre righe scarne (`Directory: hub`, `Command: brew update`,
+`Agent: claude`), perché `directoryHint` manda il **basename**, non il path. Su un input così povero
+la trasformazione è quasi tutta meccanica.
+
+| contesto | modello | regola |
+| --- | --- | --- |
+| cartella `yellow-hub` | Yellow Hub | Yellow Hub |
+| Claude in `hub` | Hub | Hub |
+| `brew update` | Homebrew Update | Brew Update |
+| `npm run dev` in `acme-web` | Acme Web Dev | Acme Web |
+
+Le prime due righe sono il grosso dei casi reali, e sono identiche. Il modello aggiunge espansione
+di sigle e la fusione di cartella e comando in una frase: la coda della distribuzione. Nel frattempo
+la chiave era un **requisito**, quindi la feature era inerte per chiunque non ne incollasse una: un
+workspace nuovo restava "Workspace 3" per sempre, per non fare Title Case.
+
+### La decisione
+
+Due fonti, stessi trigger. `Core.WorkspaceNaming.localNames` deriva i candidati (cartella prima, poi
+comando) e passa dalla **stessa** `sanitize` della risposta del modello, così i due percorsi non
+producono nomi di qualità diversa. Senza chiave si nomina in locale, con la chiave scrive il
+modello, e il locale fa da ripiego quando i tentativi si esauriscono - meglio "Yellow Hub" che
+arrendersi in silenzio.
+
+Il Regenerate senza modello prende il primo candidato diverso dal nome attuale; se non c'è
+alternativa lo **dice** (`.noAlternative`) invece di riapplicare lo stesso nome e sembrare rotto. È
+l'unico posto dove la mancanza del modello si sente davvero: una regola deterministica non ha un
+secondo parere. `.notConfigured` torna a voler dire una cosa sola, "nomina spenta".
+
+Aggiunto anche il feedback che mancava: il nome **pulsa** finché la richiesta è in volo
+(`Workspace.isNaming`, volatile). Un'azione che parte, tace per un giro di rete e poi cambia una
+riga della sidebar era indistinguibile da una che non fa niente - che è esattamente il bug di
+0.11.1, ma dal lato dell'utente.
+
+### Esito
+
+`make check` verde, 483 test (+19: 11 sulla derivazione locale, 8 sullo store della nomina, che non
+ne aveva). Tolto anche l'I/O inutile: la API key stava in un file riletto **a ogni tick** del poll,
+e `armEligibilityObserver` lasciava dietro un osservatore vivo per ogni `reconfigure`/`regenerate`
+(ora una generazione li estingue). `NamingController` ha superato il budget di file: poll ed
+eleggibilità stanno in `NamingControllerPoll.swift`.
+
+Coda del giro: la guida in-app diceva il falso - "a workspace named after its folder is left alone",
+mentre un nome-cartella è `.default`, quindi eleggibile e sostituito al primo segnale. Riscritta la
+sezione, `docs/GUIDE.md` rigenerato.

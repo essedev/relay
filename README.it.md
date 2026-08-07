@@ -106,14 +106,16 @@ sessioni simulate concorrenti (sempre sul socket reale).
 
 ## Nomina automatica dei workspace
 
-Un workspace senza cartella si chiama "Workspace 3", che smette di essere utile al terzo. Relay può
-chiedere a un modello un nome breve basato su cosa il workspace sta facendo: la cartella, un comando
-in esecuzione in una delle sue tab, una sessione agente attiva.
+Un workspace senza cartella si chiama "Workspace 3", che smette di essere utile al terzo. Relay lo
+rinomina in base a cosa sta facendo: la cartella, un comando in esecuzione in una delle sue tab, una
+sessione agente attiva. Il nome pulsa mentre lo si sta cercando.
 
-Aggiungi una API key in **Impostazioni > Agents > Workspace naming**. L'endpoint di default è
-OpenRouter con un modello economico (un nome costa una frazione di centesimo); va bene qualunque
-base URL e modello OpenAI-compatible. Senza chiave la feature è inerte. I nomi che scrivi tu non
-vengono mai sovrascritti.
+Funziona senza configurare niente: il nome si deriva da quei segnali ("yellow-hub" diventa "Yellow
+Hub", "npm run dev" diventa "Npm Dev"). Aggiungi una API key in **Impostazioni > Agents > Workspace
+naming** e a scriverli è un modello: nomi migliori, e "Regenerate name" te ne dà uno diverso.
+L'endpoint di default è OpenRouter con un modello economico (un nome costa una frazione di
+centesimo); va bene qualunque base URL e modello OpenAI-compatible. I nomi che scrivi tu non vengono
+mai sovrascritti.
 
 ## Scorciatoie
 
