@@ -12,7 +12,7 @@ Open the same guide inside the app from **Help > Relay Guide**.
 - [The sidebar](#sidebar) - Groups, pinning, archive, and everything you can drag.
 - [Agent state](#agents) - What your sessions are doing, and what is waiting for you.
 - [The dashboard](#dashboard) - Every session in one panel, sorted by what needs you.
-- [Automatic naming](#naming) - Let a model name a workspace after what is happening in it.
+- [Automatic naming](#naming) - A workspace takes its name from what is happening in it.
 - [Keyboard](#keyboard) - Every shortcut, and how to make them yours.
 - [Appearance & terminal](#appearance) - Themes, fonts, and what the terminal does for you.
 - [Updates & upkeep](#housekeeping) - Staying current, and where Relay keeps its things.
@@ -173,22 +173,24 @@ has unloaded to save memory are listed like any other.
 ## Automatic naming
 
 A workspace opened without a folder is called “Workspace 3”, which tells you nothing when there are
-nine of them. If you turn this on, Relay asks a language model for a short name based on what the
-workspace is actually doing: the folder, a command running in one of its tabs, an active agent
-session.
+nine of them. Relay renames it after what it is actually doing: the folder you cd into, a command
+running in one of its tabs, an active agent session. The name pulses while it is being worked out.
 
-1. Open Settings > Agents > Workspace naming.
-2. Paste an API key. The default endpoint is OpenRouter; any OpenAI-compatible base URL and model
-   work.
-3. Names appear on their own. “Regenerate name” in a workspace's context menu asks for a different
-   one right away.
+Out of the box the name is derived from those signals - “yellow-hub” becomes “Yellow Hub”, “npm run
+dev” becomes “Npm Dev”. No key, no network, no wait.
 
-Only placeholder names are replaced: a workspace named after its folder, or one you renamed
-yourself, is left alone. Renaming a workspace by hand opts it out for good.
+1. Open Settings > Agents > Workspace naming for the switch.
+2. Optional: paste an API key to have a model write the names instead. The default endpoint is
+   OpenRouter; any OpenAI-compatible base URL and model work.
+3. “Regenerate name” in a workspace's context menu asks for another one right away. Without a key
+   the names are derived by rule, so there is often only one to give.
 
-**Note:** The key is stored in a file only you can read, not in the preferences plist. Without a key
-the feature is inert - no requests, no timers. The default model costs a small fraction of a cent
-per name, but it is your account: automatic naming stays off until you add a key.
+A name you typed yourself is never overwritten: renaming a workspace by hand opts it out for good. A
+placeholder or a folder name is fair game, and once named the workspace is left alone.
+
+**Note:** The key is stored in a file only you can read, not in the preferences plist. The default
+model costs a small fraction of a cent per name, but it is your account - and the derived names cost
+nothing, so the key is an upgrade, not a requirement.
 
 <a id="keyboard"></a>
 

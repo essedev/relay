@@ -123,32 +123,40 @@ extension Guide {
             id: "naming",
             title: "Automatic naming",
             symbol: "text.badge.checkmark",
-            summary: "Let a model name a workspace after what is happening in it.",
+            summary: "A workspace takes its name from what is happening in it.",
             blocks: [
                 .paragraph(
                     "A workspace opened without a folder is called \u{201C}Workspace 3\u{201D}, "
-                        + "which tells you nothing when there are nine of them. If you turn this "
-                        + "on, Relay asks a language model for a short name based on what the "
-                        + "workspace is actually doing: the folder, a command running in one of "
-                        + "its tabs, an active agent session."
+                        + "which tells you nothing when there are nine of them. Relay renames it "
+                        + "after what it is actually doing: the folder you cd into, a command "
+                        + "running in one of its tabs, an active agent session. The name pulses "
+                        + "while it is being worked out."
+                ),
+                .paragraph(
+                    "Out of the box the name is derived from those signals - "
+                        + "\u{201C}yellow-hub\u{201D} becomes \u{201C}Yellow Hub\u{201D}, "
+                        + "\u{201C}npm run dev\u{201D} becomes \u{201C}Npm Dev\u{201D}. No key, "
+                        + "no network, no wait."
                 ),
                 .steps([
-                    "Open Settings > Agents > Workspace naming.",
-                    "Paste an API key. The default endpoint is OpenRouter; any "
-                        + "OpenAI-compatible base URL and model work.",
-                    "Names appear on their own. \u{201C}Regenerate name\u{201D} in a workspace's "
-                        + "context menu asks for a different one right away.",
+                    "Open Settings > Agents > Workspace naming for the switch.",
+                    "Optional: paste an API key to have a model write the names instead. The "
+                        + "default endpoint is OpenRouter; any OpenAI-compatible base URL and "
+                        + "model work.",
+                    "\u{201C}Regenerate name\u{201D} in a workspace's context menu asks for "
+                        + "another one right away. Without a key the names are derived by rule, "
+                        + "so there is often only one to give.",
                 ]),
                 .paragraph(
-                    "Only placeholder names are replaced: a workspace named after its folder, or "
-                        + "one you renamed yourself, is left alone. Renaming a workspace by hand "
-                        + "opts it out for good."
+                    "A name you typed yourself is never overwritten: renaming a workspace by "
+                        + "hand opts it out for good. A placeholder or a folder name is fair "
+                        + "game, and once named the workspace is left alone."
                 ),
                 .note(
                     "The key is stored in a file only you can read, not in the preferences "
-                        + "plist. Without a key the feature is inert - no requests, no timers. "
-                        + "The default model costs a small fraction of a cent per name, but it "
-                        + "is your account: automatic naming stays off until you add a key."
+                        + "plist. The default model costs a small fraction of a cent per name, "
+                        + "but it is your account - and the derived names cost nothing, so the "
+                        + "key is an upgrade, not a requirement."
                 ),
             ]
         )

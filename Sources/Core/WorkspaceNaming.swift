@@ -149,6 +149,86 @@ public enum WorkspaceNaming {
         return (system: system, user: lines.joined(separator: "\n"))
     }
 
+    // MARK: - Nomi senza modello
+
+    /// Nomi derivabili dai segnali **senza chiedere niente a nessuno**, in ordine di preferenza:
+    /// prima la cartella (identifica il progetto e non cambia sotto i piedi), poi il comando (dice
+    /// cosa stai facendo, ma passa). Lista vuota = gli stessi segnali per cui `prompt` torna `nil`,
+    /// cioè non c'è niente da cui nominare.
+    ///
+    /// Esiste perché al modello arrivano tre righe scarne (`Directory: hub`, `Command: brew
+    /// update`, `Agent: claude`): su un input così povero il grosso del lavoro è meccanico -
+    /// separatori, Title Case, suffissi di versione, estensioni. Farlo qui rende la nomina
+    /// automatica **il default per tutti**, senza API key, senza rete e senza attesa; il modello
+    /// resta per quello che una regola non sa fare (espandere sigle, fondere cartella e comando in
+    /// una frase) e per dare un nome *diverso* quando lo si rigenera.
+    public static func localNames(for signals: WorkspaceNameSignals, homePath: String) -> [String] {
+        var candidates: [String] = []
+        if let directory = directoryHint(signals.directory, homePath: homePath) {
+            candidates.append(titleCased(directory, maxWords: 3))
+        }
+        if let command = signals.command {
+            candidates.append(titleCased(commandWords(command), maxWords: 2))
+        }
+        // `sanitize` è la stessa porta d'uscita della risposta del modello: stesso cap, stessi
+        // generici rifiutati, così i due percorsi non producono nomi di qualità diversa.
+        var seen: Set<String> = []
+        return candidates
+            .compactMap(sanitize)
+            .filter { seen.insert($0.lowercased()).inserted }
+    }
+
+    /// Parole utili di una riga di comando: niente flag, niente sottocomandi-guscio (`npm **run**
+    /// dev` -> "npm dev"), estensioni via (`vim README.md` -> "vim README").
+    private static func commandWords(_ command: String) -> String {
+        let noise: Set = ["run", "exec", "x", "--"]
+        return command
+            .split(separator: " ")
+            .map(String.init)
+            .filter { !$0.hasPrefix("-") && !noise.contains($0.lowercased()) }
+            .map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    /// Title Case da uno slug: separa su `-`/`_`/`.`/spazio e sui confini camelCase, butta i
+    /// suffissi di versione (`v2`, `1.0`), tiene le parole già maiuscole come sono (`API`,
+    /// `README`)
+    /// e si ferma a `maxWords`.
+    private static func titleCased(_ raw: String, maxWords: Int) -> String {
+        let separators = CharacterSet(charactersIn: "-_. ")
+        let words = splitCamelCase(raw)
+            .components(separatedBy: separators)
+            .filter { !$0.isEmpty && !isVersionSuffix($0) }
+            .prefix(maxWords)
+            .map { word -> String in
+                // Una parola che ha già maiuscole sue (API, README, iOS) sa come si scrive.
+                word.contains(where: \.isUppercase) ? word : word.capitalized
+            }
+        return words.joined(separator: " ")
+    }
+
+    /// `yellowHub` -> `yellow Hub`: il camelCase è un separatore di parole quanto un trattino.
+    private static func splitCamelCase(_ raw: String) -> String {
+        var out = ""
+        var previous: Character?
+        for character in raw {
+            if let previous, previous.isLowercase || previous.isNumber, character.isUppercase {
+                out.append(" ")
+            }
+            out.append(character)
+            previous = character
+        }
+        return out
+    }
+
+    /// `v2`, `2`, `1.0`: coda di versione, non una parola del nome.
+    private static func isVersionSuffix(_ word: String) -> Bool {
+        var digits = Substring(word)
+        if digits.first == "v" || digits.first == "V" { digits = digits.dropFirst() }
+        return !digits.isEmpty && digits.allSatisfy(\.isNumber)
+    }
+
     /// Etichetta della directory per il prompt: basename della cwd, `nil` se assente o coincide con
     /// la home (una cwd = home non dice niente sul progetto).
     private static func directoryHint(_ directory: String?, homePath: String) -> String? {

@@ -55,13 +55,13 @@ extension AppController {
         alert.messageText = namingFailureTitle(failure, workspaceName: workspace.name)
         alert.informativeText = namingFailureInfo(failure)
         alert.addButton(withTitle: "OK")
-        // La configurazione è l'unico esito con un rimedio a un click: le altre due sono cose da
-        // fare nel terminale, non in un pannello.
-        if failure == .notConfigured { alert.addButton(withTitle: "Open Settings…") }
+        // Due esiti hanno un rimedio a un click nelle impostazioni: riaccendere la nomina, o
+        // aggiungere una chiave per avere nomi che variano. `noContext` no: è roba da terminale.
+        if failure != .noContext { alert.addButton(withTitle: "Open Settings…") }
         let target = windowControllers[workspace.windowID]?.window ?? window
         guard let target else { return }
         alert.beginSheetModal(for: target) { [weak self] response in
-            guard failure == .notConfigured, response == .alertSecondButtonReturn else { return }
+            guard failure != .noContext, response == .alertSecondButtonReturn else { return }
             self?.openSettings(nil)
         }
     }
@@ -69,9 +69,11 @@ extension AppController {
     private func namingFailureTitle(_ failure: NamingFailure, workspaceName: String) -> String {
         switch failure {
         case .notConfigured:
-            "Workspace naming isn\u{2019}t set up"
+            "Workspace naming is turned off"
         case .noContext:
             "Not enough context to name \u{201C}\(workspaceName)\u{201D}"
+        case .noAlternative:
+            "No other name for \u{201C}\(workspaceName)\u{201D}"
         case .requestFailed:
             "Couldn\u{2019}t generate a name for \u{201C}\(workspaceName)\u{201D}"
         }
@@ -81,8 +83,13 @@ extension AppController {
         switch failure {
         case .notConfigured:
             """
-            Relay names workspaces with a model you configure. Add an API key in \
-            Settings > Agents to turn it on.
+            Automatic naming is off. Turn it back on in Settings > Agents.
+            """
+        case .noAlternative:
+            """
+            Without a model, names are derived from the folder and the command running in the \
+            workspace, so there is nothing else to call this one right now. Add an API key in \
+            Settings > Agents for names that vary.
             """
         case .noContext:
             """

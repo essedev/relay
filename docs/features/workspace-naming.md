@@ -2,6 +2,18 @@
 
 Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLAUDE.md`.
 
+- **Due fonti per il nome, stessi trigger.** Senza API key il nome lo **deriva una regola**
+  (`Core.WorkspaceNaming.localNames`, puro e testato): basename della cartella o comando in
+  foreground -> split su separatori e camelCase, via i suffissi di versione e le estensioni, Title
+  Case, cap a 3 parole (2 per il comando), stessa `sanitize` della risposta del modello.
+  "yellow-hub" -> "Yellow Hub", "npm run dev" -> "Npm Dev". Con la chiave il nome lo scrive il
+  modello. **Perché**: al modello arrivano tre righe scarne (`Directory: hub`, `Command: brew
+  update`, `Agent: claude`) - `directoryHint` manda il **basename**, non il path - e su un input
+  così povero il grosso del lavoro è meccanico. Tenere l'LLM come requisito rendeva inerte per
+  tutti una feature che il 90% delle volte fa Title Case. Il modello resta per quel che una regola
+  non sa fare: espandere sigle (brew -> Homebrew), fondere cartella e comando in una frase, e dare
+  un nome **diverso** quando lo si rigenera. Il locale è anche il **ripiego** quando la richiesta
+  al modello ha esaurito i tentativi: meglio "Yellow Hub" che "Workspace 3" per sempre.
 - Nomina automatica workspace (LLM OpenAI-compatible): un workspace nato come placeholder o da
   cartella (`NameOrigin.default`) viene rinominato al primo segnale utile da quello che ci fai. La
   logica pura sta in `Core.WorkspaceNaming` (costruzione prompt dai segnali cwd/comando/agente,
@@ -54,7 +66,11 @@ Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLA
   nome scelto a mano. Se una richiesta è già in volo per quel workspace, il Regenerate **non si
   scarta**: si mette in coda e parte alla fine di quella (`queuedRegenerate`), altrimenti l'azione
   manuale sarebbe muta e il nome in arrivo sarebbe quello del poll, calcolato senza `avoiding` e
-  quindi identico a quello che c'è già. **Non cablarlo su `store.markNameRegenerable`
+  quindi identico a quello che c'è già. **Senza chiave** il Regenerate prende il primo nome
+  derivato diverso da quello attuale (di solito il comando, quando il nome viene dalla cartella);
+  se non c'è alternativa lo dice (`.noAlternative`) invece di riapplicare lo stesso nome e sembrare
+  rotto. `NamingFailure.notConfigured` ora vuol dire una cosa sola: nomina **spenta** dalle
+  impostazioni. La mancanza della chiave non è più un fallimento, è l'altro ramo. **Non cablarlo su `store.markNameRegenerable`
   da solo**: quello rimette solo il workspace in coda al poll passivo, che su un workspace fermo
   resta muto - era il bug del "Regenerate name che non fa niente" (`regenerate` era codice morto,
   mai chiamato da nessuna delle due voci). A differenza del poll, l'azione manuale **non tace mai**:
@@ -63,8 +79,8 @@ Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLA
   Settings…" sul primo). La
   API key è un segreto: **file 0600** `~/.relay/naming-credentials.json` (`NamingCredentialStore`),
   **non** UserDefaults; base URL + model in `AppSettings`. Config in Settings > Agents > Workspace
-  naming. Gira anche da `swift run` (non è bundle-gated come notifiche/update), ma è inerte senza
-  chiave. Mai in demo mode (nomi fissi).
+  naming. Gira anche da `swift run` (non è bundle-gated come notifiche/update); senza chiave non
+  tace più, nomina in locale. Mai in demo mode (nomi fissi).
 - **Endpoint di default: OpenRouter** (`openrouter.ai/api/v1`) con `deepseek/deepseek-v4-flash-latest`
   (0,09$/M token in ingresso, 0,18$/M in uscita: una nomina costa un millesimo di centesimo). Prima
   era OpenAI + `gpt-4o-mini`; il cambio è secco, **senza migrazione**: chi aveva configurato l'altro
