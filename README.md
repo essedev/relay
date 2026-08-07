@@ -161,5 +161,8 @@ The internal docs are in Italian (English-facing surface is this README).
 - `docs/ROADMAP.md` - what is done and what is missing (baseline complete; next step TBD).
 - `docs/CONVENTIONS.md` - code, test and process rules.
 - `docs/STATE_SCHEMA.md` - persistence schema and agent event protocol.
-- `docs/features/split-panes.md` - the "a pane hosts tabs" model (cmux style).
-- `CLAUDE.md` - operational guide for the agent.
+- `docs/features/*.md` - one file per area, with the invariants and the traps already paid for:
+  `attention.md`, `agent-runtime.md`, `terminal.md`, `sidebar.md`, `workspace-groups.md`,
+  `split-panes.md`, `windows.md`, `keyboard.md`, `workspace-naming.md`, `persistence.md`,
+  `distribution.md`.
+- `CLAUDE.md` - operational guide for the agent, deliberately short: it points at the files above.

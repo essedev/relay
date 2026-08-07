@@ -93,3 +93,34 @@ Workspace { tabs: [Tab], layout: SplitNode, focusedPaneID }
   menu contestuale + shortcut, il drag riordina solo dentro la strip). In ROADMAP.
 - Zoom del pane (`togglePaneZoom`), full-width tab mode, pin di tab nelle strip.
 - Navigazione direzionale spaziale fra pane (bonsplit usa bounds+overlap; noi cicliamo).
+
+## Invarianti e trappole
+
+- **Split panes (modello cmux, v2)**: i **pane ospitano le tab**. L'albero (`Workspace.layout`,
+  **sempre presente**) ha foglie `SplitPane` = {id, tabIDs ordinate, selectedTabID}; ogni pane ha
+  la **sua strip** (`Panels/PaneTabBar`, montata dentro la `PaneView` via factory
+  `makePaneStrip` iniettata dal composition root: TerminalHostUI non dipende da Panels) con
+  action lane a destra (nuova tab, split right/down). La tab bar globale non esiste più. La Tab
+  resta l'unità della sessione agente. Due nozioni **distinte**: **visibile** (`isVisible`,
+  selezionata nella sua strip -> ring, mark-read, protezione LRU, soppressione di notifica/bump)
+  vs **focused** (`focusedPaneID` + la sua selezione = `selectedTabID`, ora **derivato**). Ogni
+  "seleziona questa tab" passa da `reveal` (seleziona nel suo pane + focus al pane): selezionare
+  **non muta mai la struttura**. Il design "foglie = Tab.id" (v1) e ogni sua semantica
+  (monta/smonta, replacing) sono superati; il Codable di `SplitNode` decodifica ancora il formato
+  v1 (le tab fuori dall'albero vengono **adottate** al restore, vedi `Workspace.init`).
+  Invarianti: una tab sta in un pane solo, ogni pane ha >= 1 tab (`sanitized` li ripristina).
+  `closePane` (⌥⌘W, action lane, menu) **chiude il pane con le sue tab** (sessioni comprese,
+  conferma sui processi in foreground): nel nuovo modello non c'è un posto fuori dai pane. "Open
+  in Split Right/Down" (menu della tab) **sposta** la tab esistente in un pane nuovo accanto al
+  suo; no-op se è l'unica della sua strip. `Cmd+W` chiude la tab selezionata del pane focused
+  (selezione index-stable tipo browser); `Opt+1..9` e Ctrl+Tab navigano **la strip del pane
+  focused**. **Click-to-focus**: un click nel terminale di un pane aggiorna il focus del model
+  (monitor -> `owningPane` -> `focusPane`), non solo il first responder AppKit. Il rendering
+  (`WorkspaceAreaController+PaneTree`) riusa le `PaneView` per **`SplitPane.id`** e ricostruisce
+  solo se cambia la **struttura** (`hasSameStructure` ignora ratio E contenuto dei pane): un
+  cambio di selezione **scambia solo il terminale attaccato** (`attachTerminal`, le surface
+  restano nella registry per `Tab.id`). Il first responder si prende quando cambia la coppia
+  (pane focused, sua tab) **o dopo ogni rebuild** (staccare le view resetta il responder). Ratio:
+  write-back nello store **solo con mouse premuto** (i layout pass programmatici del boot
+  stomperebbero il ratio persistito con un 50/50) e riapplicazione in `viewDidLayout` al primo
+  layout con dimensioni vere.

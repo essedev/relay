@@ -120,3 +120,24 @@ viene lasciato cadere e i gruppi senza membri vengono potati.
   cambia finestra lascia il gruppo).
 - Un gruppo non si archivia in blocco: si archiviano i membri, e la card muore con l'ultimo.
 - Niente annidamento: le card non contengono card.
+
+## Invarianti e trappole
+
+- **Gruppi nella sidebar** (dettagli in `docs/features/workspace-groups.md`): card colorate attorno
+  a dei workspace. **L'appartenenza vive sul workspace** (`Workspace.groupID`), il `WorkspaceGroup`
+  porta solo l'aspetto (nome, colore ANSI del tema, collasso, pin del blocco): così non esiste una
+  lista di membri che diverga dall'ordine canonico, la posizione della card è quella del suo primo
+  membro e **un gruppo senza membri non esiste** (`pruneEmptyGroups` dopo ogni operazione che può
+  svuotarlo: uscita, archiviazione, cambio finestra, chiusura). Non introdurre una lista di membri
+  sul gruppo né un ordinamento separato dei gruppi: la contiguità dei membri è una comodità che
+  `compact`/`place` mantengono, non un invariante da cui dipende la correttezza (`sidebarItems`
+  raccoglie i membri sparsi in una card sola). `pinned`/`archived`/`groupID` sono mutuamente
+  esclusivi: `togglePin` è **no-op** dentro una card (lì pinna il gruppo, `setGroupPinned`) e la
+  voce di menu sparisce. Il **bump** è per contenitore (vedi `attention.md`): un membro sale
+  in cima alla **sua card**, un libero sale in cima alla lista e finisce **sopra** la card; la card
+  si muove solo con pin o drag - senza il pin di gruppo il primo bump di una riga libera la farebbe
+  affondare per sempre. `Cmd+1..9` e il menu Go usano `navigableWorkspaces` (esclude i membri delle
+  card **chiuse**: una scorciatoia su una riga invisibile non è una scorciatoia), mentre `Cmd+J`,
+  gli eredi di selezione e il restore usano `orderedWorkspaces` (ordine logico, li include);
+  `reveal` **apre** la card come già de-archiviava. Snapshot additivo (`groups` +
+  `WorkspaceSnapshot.groupID`, nessun bump di versione).

@@ -13,3 +13,4 @@ DerivedData/
 # artefatti generati dell icona (l icns vive in bundle/)
 /icon-1024.png
 /AppIcon-1024.png
+.playwright-mcp/

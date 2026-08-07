@@ -565,3 +565,18 @@ con dashboard di triage, onboarding di benvenuto, **split v2 sul modello cmux** 
 tab, strip per pane) e **multi-window**. Prossimo giro a scelta: distribuzione **firmata**
 (Developer ID + notarizzazione, per homebrew-cask ufficiale), generalizzazione multi-agente
 (Codex/opencode), oppure il drag di tab fra pane / workspace fra finestre (vedi Fatto - Split v2).
+
+## Backlog non pianificato
+
+Idee note, nessuna con una data. Non è una wishlist da svuotare: quando una diventa il prossimo
+giro, sale in "Prossima azione".
+
+- Distribuzione firmata Developer ID + notarizzazione (toglie l'"Apri comunque").
+- Generalizzazione multi-agente (Codex, opencode) oltre a Claude.
+- Drag di tab **fra** pane, incluso l'edge-drop stile bonsplit per creare uno split trascinando.
+- Drag di workspace (e gruppi) **fra** finestre.
+- Zoom del pane ed equalize dei divider.
+- Rename del workspace dalla menu bar (oggi solo dal contestuale della sidebar).
+- Evoluzioni della dashboard: azioni inline sulle card, preview del terminale (richiede surface
+  vive), timeline degli eventi agente.
+- Import di temi da config Ghostty.
