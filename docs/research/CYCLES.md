@@ -1140,3 +1140,74 @@ chiusa, pin, archivio, finestra non key, sequenza, move-tab). Il codice posizion
 Un caso emerso scrivendo i test: nascere dentro una card **collassata** rendeva selezionato un
 workspace la cui riga non è a schermo. `createWorkspace` scrive `selectedWorkspaceID` diretto, non
 passa da `reveal`, quindi l'apertura della card va ripetuta lì.
+
+## Cycle 18 - Una guida sola, letta in due posti
+
+### Il problema
+
+Nessuno sapeva cosa Relay sapesse fare, documentazione compresa. Il censimento della superficie
+utente - 23 aree, contate su menu bar, contestuali, `ShortcutAction` e preferenze - contro quello
+che era scritto da qualche parte ha dato **9 aree spiegate in nessun posto**: il drag di una tab su
+un altro workspace, "Move Tab to New Workspace", il riordino nella strip, "Open in Split
+Right/Down", rename/ungroup/remove from group, la nomina automatica, i tre livelli di attenzione con
+Mark as Read e la decadenza, il check aggiornamenti, Runtime Stats.
+
+E `README.it.md` era fermo a ~0.11: gli mancava un'intera sezione (gruppi e archivio) e ogni
+menzione di finestre, drag e naming. Non per trascuratezza: perché era una **seconda prosa**, e una
+seconda prosa diverge sempre.
+
+### La diagnosi
+
+La domanda giusta non era "dove scriviamo il manuale" ma "quante copie della verità ci teniamo".
+L'onboarding aveva già trovato la risposta per sé: le sue pagine mostrano i **componenti veri**
+invece di screenshot, e leggono le combo dai binding (`OnboardingPages.swift`), quindi non
+invecchiano. Il README fa l'opposto - una lista di scorciatoie a mano e un hero PNG - ed era
+infatti la parte più stantia del repo, con un'immagine di sei release prima.
+
+Un manuale in-app scritto come prosa in SwiftUI avrebbe solo aggiunto una terza copia da tenere
+allineata a README e onboarding.
+
+### La decisione
+
+Il contenuto è un **dato** (`Guide.sections`), non un testo: sezioni fatte di blocchi tipizzati.
+Due rese lo leggono - il pannello `Help > Relay Guide` e `GuideMarkdown` -> `docs/GUIDE.md` - e
+nessuna delle due possiede il contenuto.
+
+Tre conseguenze che valgono più della struttura in sé:
+
+- **La tabella delle scorciatoie non si scrive.** Il blocco `.allShortcuts` la genera da
+  `ShortcutAction.allCases`: un'azione nuova compare da sola in entrambe le rese, e un test fallisce
+  se qualcuna resta fuori. Era la parte del README destinata a divergere per prima.
+- **I tasti dipendono da chi legge.** Nel pannello vengono dai binding vivi (se rimappi, la guida
+  mostra la tua combo), nel markdown dai default di fabbrica: un file committato non può dipendere
+  dalle preferenze di chi lo genera.
+- **Il file generato è verificato**, non raccomandato: `committedGuideMatchesTheGeneratedOne`
+  fallisce in CI se `docs/GUIDE.md` non è quello che la fonte produce.
+
+Sta nel menu Help, non nelle impostazioni: quelle sono dove si **cambia** qualcosa, la guida dove si
+**legge**, e `Cmd+?` è il posto canonico dell'aiuto su macOS. Il README smette di essere un manuale
+e torna vetrina: cosa fa, come si installa, e un link.
+
+Fuori tema ma nello stesso giro, due decisioni piccole: il default della nomina passa a OpenRouter
+(`deepseek/deepseek-v4-flash-latest`) **senza** ramo di compatibilità con l'endpoint OpenAI
+precedente - la feature è opt-in e inerte senza chiave, un ramo per un default costa più di quanto
+salva; e gli screenshot diventano ripetibili (`scripts/screenshots.sh`) invece che scattati a mano.
+
+### Esito
+
+`make check` verde (464 test). La guida copre le 23 aree in 9 sezioni; `README.it.md` e `README.md`
+hanno le stesse otto sezioni, una per una.
+
+Sugli screenshot, tre cose imparate a caro prezzo. La cattura **per regione** (`screencapture -R`)
+prende un rettangolo di schermo, quindi il primo tentativo aveva dentro il Relay vero con i nomi dei
+progetti clienti: si cattura per **window id**, filtrato sul pid del processo che lo script ha
+lanciato (il nome non basta, c'è anche il Relay installato). La demo va **isolata**
+(`RELAY_SOCKET`/`RELAY_LAYOUT` temporanei, tema via `NSArgumentDomain`) o tocca il layout vero. E
+una demo con tre shell mute non è uno screenshot di niente: ora i pane a schermo recitano
+`relay-cli simulate`, con scenari diversi e il titolo della finestra fissato al nome della chat -
+che è anche il modo di tenere fuori dalle immagini il nome del Mac.
+
+Coda del giro: i `UserDefaults` dei test creavano un plist vero in `~/Library/Preferences` per ogni
+test e non lo cancellavano mai. Ne erano rimasti **3282**, 13 MB. Servono tre passi per toglierlo
+(`removePersistentDomain` lascia un plist vuoto che cfprefsd riscrive, poi `removeSuite`, poi il
+file), e un test che guarda il disco perché la prossima regressione non torni silenziosa.

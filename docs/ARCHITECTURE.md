@@ -187,14 +187,15 @@ repo/
                         di ricerca, versioni, prompt/policy della nomina; nessuna dipendenza
     AgentProtocol/      tipi evento e stati (AgentStateEvent); puro, niente I/O
     AgentRuntime/       socket receiver + client, runtime paths; puro, niente AppKit
-    WorkspaceModel/     store workspace/tab, reducer stati, attention, persistence, settings
+    WorkspaceModel/     store workspace/tab, reducer stati, attention, persistence, settings,
+                        contenuto della guida utente (dato, reso in due modi: vedi sotto)
     TerminalEngine/     backend SwiftTerm dietro un'astrazione, surface lifecycle
     TerminalHostUI/     AppKit: host view, surface registry (lazy + LRU), attention ring
-    Panels/             SwiftUI: sidebar, strip dei pane, dashboard, settings, stats, badge
+    Panels/             SwiftUI: sidebar, strip dei pane, dashboard, settings, guida, stats, badge
     HookInstaller/      manipolazione ~/.claude/settings.json + mapping hook -> stato
     LayoutStore/        persistence layout: snapshot JSON su disco (I/O), path iniettato
     relay/              eseguibile `relay` (RelayApp): composition root e wiring
-    relay-cli/          eseguibile `relay-cli` (CLI): hooks setup, claude-hook, simulate
+    relay-cli/          eseguibile `relay-cli` (CLI): hooks setup, claude-hook, simulate, guide-md
   Tests/
   docs/
   Makefile
