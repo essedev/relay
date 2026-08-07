@@ -51,6 +51,12 @@ Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLA
   **non** UserDefaults; base URL + model in `AppSettings`. Config in Settings > Agents > Workspace
   naming. Gira anche da `swift run` (non è bundle-gated come notifiche/update), ma è inerte senza
   chiave. Mai in demo mode (nomi fissi).
+- **Endpoint di default: OpenRouter** (`openrouter.ai/api/v1`) con `deepseek/deepseek-v4-flash-latest`
+  (0,09$/M token in ingresso, 0,18$/M in uscita: una nomina costa un millesimo di centesimo). Prima
+  era OpenAI + `gpt-4o-mini`; il cambio è secco, **senza migrazione**: chi aveva configurato l'altro
+  endpoint senza toccare i campi si ritrova il default nuovo e rimette base URL e modello a mano in
+  Settings > Agents. Deciso così di proposito - la feature è opt-in e inerte senza chiave, e un
+  ramo di compatibilità per un default vale meno del codice che costa.
 - **Modelli di reasoning nella nomina** (`ChatCompletionClient`, il client HTTP estratto dal
   `NamingController`): il tetto `max_tokens` deve coprire anche il *pensiero*, non solo il nome.
   Con 16 token un modello di reasoning (es. `deepseek/deepseek-v4-flash` su OpenRouter) torna

@@ -143,3 +143,12 @@ private func freshDefaults() -> UserDefaults {
     // Una combo ignota non risolve niente.
     #expect(settings.action(for: KeyCombo(key: "9", modifiers: [.control])) == nil)
 }
+
+// MARK: - Endpoint della nomina
+
+@MainActor @Test func namingDefaultsToOpenRouter() {
+    let settings = AppSettings(defaults: freshDefaults())
+    #expect(settings.workspaceNamingBaseURL == AppSettings.defaultNamingBaseURL)
+    #expect(settings.workspaceNamingBaseURL.contains("openrouter.ai"))
+    #expect(settings.workspaceNamingModel == AppSettings.defaultNamingModel)
+}
