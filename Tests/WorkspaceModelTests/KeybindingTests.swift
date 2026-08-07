@@ -93,42 +93,45 @@ import Testing
 
 // MARK: - Persistenza e conflitti (AppSettings è @MainActor)
 
-@MainActor @Test func keybindingDefaultOverridePersist() throws {
-    let defaults = try #require(UserDefaults(suiteName: "relay-test-\(UUID().uuidString)"))
-    let settings = AppSettings(defaults: defaults)
-    #expect(settings.binding(for: .newTab) == KeyCombo(key: "t", modifiers: [.command]))
+@MainActor @Test func keybindingDefaultOverridePersist() {
+    withTestDefaults { defaults in
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.binding(for: .newTab) == KeyCombo(key: "t", modifiers: [.command]))
 
-    let combo = KeyCombo(key: "y", modifiers: [.command, .shift])
-    settings.setBinding(combo, for: .newTab)
-    #expect(settings.binding(for: .newTab) == combo)
+        let combo = KeyCombo(key: "y", modifiers: [.command, .shift])
+        settings.setBinding(combo, for: .newTab)
+        #expect(settings.binding(for: .newTab) == combo)
 
-    // Ricaricato dallo stesso store persiste la scelta.
-    #expect(AppSettings(defaults: defaults).binding(for: .newTab) == combo)
+        // Ricaricato dallo stesso store persiste la scelta.
+        #expect(AppSettings(defaults: defaults).binding(for: .newTab) == combo)
+    }
 }
 
 @MainActor @Test func persistsOnlyRemappedBindings() throws {
-    let defaults = try #require(UserDefaults(suiteName: "relay-test-\(UUID().uuidString)"))
-    let settings = AppSettings(defaults: defaults)
+    try withTestDefaults { defaults in
+        let settings = AppSettings(defaults: defaults)
 
-    settings.setBinding(KeyCombo(key: "y", modifiers: [.command]), for: .newTab)
+        settings.setBinding(KeyCombo(key: "y", modifiers: [.command]), for: .newTab)
 
-    // Solo l'azione rimappata finisce su disco: le altre restano al default (che una versione
-    // futura può cambiare, ereditato via loadKeybindings).
-    let data = try #require(defaults.data(forKey: "relay.shortcuts.bindings"))
-    let saved = try JSONDecoder().decode([String: KeyCombo].self, from: data)
-    #expect(saved == ["newTab": KeyCombo(key: "y", modifiers: [.command])])
+        // Solo l'azione rimappata finisce su disco: le altre restano al default (che una versione
+        // futura può cambiare, ereditato via loadKeybindings).
+        let data = try #require(defaults.data(forKey: "relay.shortcuts.bindings"))
+        let saved = try JSONDecoder().decode([String: KeyCombo].self, from: data)
+        #expect(saved == ["newTab": KeyCombo(key: "y", modifiers: [.command])])
+    }
 }
 
-@MainActor @Test func keybindingConflictAndReset() throws {
-    let defaults = try #require(UserDefaults(suiteName: "relay-test-\(UUID().uuidString)"))
-    let settings = AppSettings(defaults: defaults)
-    let newTabCombo = settings.binding(for: .newTab)
-    #expect(settings.conflict(for: newTabCombo, excluding: .find) == .newTab)
-    #expect(settings.conflict(for: newTabCombo, excluding: .newTab) == nil)
+@MainActor @Test func keybindingConflictAndReset() {
+    withTestDefaults { defaults in
+        let settings = AppSettings(defaults: defaults)
+        let newTabCombo = settings.binding(for: .newTab)
+        #expect(settings.conflict(for: newTabCombo, excluding: .find) == .newTab)
+        #expect(settings.conflict(for: newTabCombo, excluding: .newTab) == nil)
 
-    settings.setBinding(KeyCombo(key: "z", modifiers: [.command]), for: .newTab)
-    settings.resetBinding(for: .newTab)
-    #expect(settings.binding(for: .newTab) == ShortcutAction.newTab.defaultCombo)
+        settings.setBinding(KeyCombo(key: "z", modifiers: [.command]), for: .newTab)
+        settings.resetBinding(for: .newTab)
+        #expect(settings.binding(for: .newTab) == ShortcutAction.newTab.defaultCombo)
+    }
 }
 
 @Test func defaultCombosAreUnique() {
