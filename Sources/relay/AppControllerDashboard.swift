@@ -16,7 +16,8 @@ extension AppController {
         if isDashboardOpen { closeDashboard() } else { openDashboard() }
     }
 
-    private func openDashboard() {
+    /// Internal, non private: la apre anche la demo mode (`--show dashboard`, per gli screenshot).
+    func openDashboard() {
         applyPendingDecayIfEnabled() // le card nascono già decadute, se la preferenza è attiva
         overlayPresenter?.present(.dashboard) {
             fullOverlayHost(DashboardView(

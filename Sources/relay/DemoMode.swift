@@ -31,6 +31,8 @@ enum DemoSeeder {
             allTabIDs.append(contentsOf: workspace.tabs.map(\.id))
         }
         seedGroup(into: store)
+        seedPinAndArchive(into: store)
+        seedSplit(into: store)
         store.selectWorkspace(store.workspaces[0].id)
         return allTabIDs
     }
@@ -42,6 +44,24 @@ enum DemoSeeder {
         guard store.workspaces.count >= 3 else { return }
         store.createGroup(name: "Demo Group", with: store.workspaces.prefix(2).map(\.id))
     }
+
+    /// Una riga pinned in testa e una archiviata in fondo: come i gruppi, sono parte di come si
+    /// presenta la sidebar piena, e senza di loro la demo mostra una lista tutta uguale. Servono
+    /// almeno quattro workspace perché ne restino di "liberi" fra i due estremi.
+    private static func seedPinAndArchive(into store: WorkspaceStore) {
+        guard store.workspaces.count >= 4 else { return }
+        store.togglePin(store.workspaces[2].id)
+        store.setArchived(store.workspaces[store.workspaces.count - 1].id, true)
+    }
+
+    /// Uno split affiancato ("Split Right") sul primo workspace, più una tab: il modello
+    /// "il pane ospita le tab" si vede solo se un pane ne ha più di una.
+    private static func seedSplit(into store: WorkspaceStore) {
+        guard let workspace = store.workspaces.first, workspace.tabs.count >= 2 else { return }
+        guard let split = store.splitPane(axis: .horizontal, in: workspace) else { return }
+        store.renameTab(split.id, in: workspace, to: "tests")
+        store.addTab(to: workspace, title: "logs")
+    }
 }
 
 /// Demo mode (`relay --demo [NxM]`): popola l'app con N workspace da M tab e simula sessioni
@@ -50,18 +70,31 @@ enum DemoSeeder {
 struct DemoConfig {
     let workspaces: Int
     let tabsPerWorkspace: Int
+    /// Overlay da aprire subito dopo il seed (`--show dashboard|guide`): serve agli screenshot
+    /// automatici (`scripts/screenshots.sh`), che non possono premere `Cmd+D` da soli.
+    let overlay: DemoOverlay?
 
-    /// Riconosce `--demo` con dimensione opzionale `NxM` (default 4x3).
+    /// Riconosce `--demo` con dimensione opzionale `NxM` (default 4x3) e `--show <overlay>`.
     static func parse(from args: [String]) -> DemoConfig? {
         guard let index = args.firstIndex(of: "--demo") else { return nil }
+        let overlay = args.firstIndex(of: "--show")
+            .flatMap { $0 + 1 < args.count ? DemoOverlay(rawValue: args[$0 + 1]) : nil }
         if index + 1 < args.count {
             let parts = args[index + 1].lowercased().split(separator: "x")
             if parts.count == 2, let n = Int(parts[0]), let m = Int(parts[1]), n > 0, m > 0 {
-                return DemoConfig(workspaces: min(n, 9), tabsPerWorkspace: min(m, 9))
+                return DemoConfig(
+                    workspaces: min(n, 9), tabsPerWorkspace: min(m, 9), overlay: overlay
+                )
             }
         }
-        return DemoConfig(workspaces: 4, tabsPerWorkspace: 3)
+        return DemoConfig(workspaces: 4, tabsPerWorkspace: 3, overlay: overlay)
     }
+}
+
+/// Gli overlay che la demo sa aprire da sola.
+enum DemoOverlay: String {
+    case dashboard
+    case guide
 }
 
 /// Simula una sessione agente indipendente per ogni tab: cicli idle -> running -> (a volte)
