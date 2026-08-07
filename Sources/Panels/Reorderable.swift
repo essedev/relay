@@ -32,6 +32,10 @@ struct ReorderDragState: Equatable {
     var id: UUID?
     var translation: CGFloat = 0
     var insertion: Int?
+    /// Il gesto ha lasciato il contenitore (vedi `ReorderCrossDrag`): la riga vera torna al suo
+    /// posto, perché a seguire il puntatore da qui in poi è il fantasma a livello finestra, e due
+    /// cose in volo per un gesto solo si leggono male.
+    var isOutside = false
 }
 
 /// Raccoglie i frame degli elementi riordinabili: indice visivo -> rettangolo nel coordinate space.
@@ -127,6 +131,17 @@ struct ReorderInsertionLine: View {
     }
 }
 
+/// Aggancio per portare il gesto **fuori** dal contenitore (la strip di un pane verso la sidebar,
+/// vedi `TabDragSession`). Assente = riordino puro, il comportamento di sempre.
+///
+/// `onChange` riceve il punto del gesto nel coordinate space del contenitore e risponde se il
+/// puntatore è uscito: mentre è fuori la linea di inserimento si spegne, perché prometterebbe un
+/// riordino che il rilascio non farà. `onEnd` dice se il drop se l'è preso qualcun altro.
+struct ReorderCrossDrag {
+    let onChange: (CGPoint) -> Bool
+    let onEnd: () -> Bool
+}
+
 /// Parametri di una riga riordinabile. Struct (init sintetizzato) per tenere snella la firma.
 struct ReorderRowConfig {
     let id: UUID
@@ -142,6 +157,8 @@ struct ReorderRowConfig {
     let drag: GestureState<ReorderDragState>
     let state: ReorderDragState
     let perform: (Int) -> Void
+    /// Uscita dal contenitore (drag di una tab verso un altro workspace). `nil` = solo riordino.
+    var crossDrag: ReorderCrossDrag?
 
     /// Indice di inserimento per la traslazione corrente, dal centro proiettato della riga.
     func insertionIndex(for translation: CGSize) -> Int {
@@ -170,11 +187,16 @@ private func reorderDragGesture(_ config: ReorderRowConfig) -> some Gesture {
             if state.id == nil { state.id = config.id }
             guard state.id == config.id else { return }
             state.translation = config.shift(of: value.translation)
-            state.insertion = config.insertionIndex(for: value.translation)
+            let outside = config.crossDrag?.onChange(value.location) ?? false
+            state.isOutside = outside
+            // Fuori dal contenitore il rilascio non riordina: spegnere la linea evita di promettere
+            // una posizione che non verrà.
+            state.insertion = outside ? nil : config.insertionIndex(for: value.translation)
         }
         .onEnded { value in
             // Il gesto vive sulla riga dove il drag è partito: niente guard sull'id. Lo scambio
             // parte qui; il reset (animato) dello stato lo fa la resetTransaction del caller.
+            if config.crossDrag?.onEnd() == true { return }
             let index = config.insertionIndex(for: value.translation)
             withAnimation(.easeInOut(duration: 0.2)) {
                 config.perform(index)
@@ -202,12 +224,12 @@ extension View {
     /// stabile per tutto il gesto.
     func reorderableRow(_ config: ReorderRowConfig) -> some View {
         let isDragging = config.state.id == config.id
-        let shift = isDragging ? config.state.translation : 0
+        let shift = isDragging && !config.state.isOutside ? config.state.translation : 0
         return offset(
             x: config.axis == .horizontal ? shift : 0,
             y: config.axis == .vertical ? shift : 0
         )
-        .opacity(isDragging ? 0.6 : 1)
+        .opacity(isDragging ? (config.state.isOutside ? 0.3 : 0.6) : 1)
         .zIndex(isDragging ? 1 : 0)
         .background(
             GeometryReader { proxy in

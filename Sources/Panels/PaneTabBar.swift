@@ -41,6 +41,9 @@ public struct PaneTabBar: View {
     /// Il pane di cui questa strip mostra le tab (`SplitPane.id`).
     let paneID: UUID
     let actions: PaneTabBarActions
+    /// Drag di una tab **fuori** dalla strip, verso un altro workspace nella sidebar. `nil` =
+    /// solo riordino orizzontale (preview e test).
+    let tabDrag: TabDragSession?
 
     // Stato del riordino via drag & drop (vedi Reorderable), in un @GestureState che si azzera
     // da solo anche a gesto annullato. Il riordino vive dentro la strip: niente segmenti.
@@ -48,19 +51,26 @@ public struct PaneTabBar: View {
     private var drag = ReorderDragState()
     @State private var tabFrames: [Int: CGRect] = [:]
     @State private var laneHovered = false
+    /// Le due misure che servono al drag verso la sidebar, in coordinate finestra: l'area delle tab
+    /// (per convertire il punto del gesto) e l'intera strip (per sapere quando il puntatore è
+    /// uscito). Vedi `TabDragSession`.
+    @State private var tabsRect: CGRect = .zero
+    @State private var stripRect: CGRect = .zero
 
     public init(
         store: WorkspaceStore,
         settings: AppSettings,
         windowID: UUID,
         paneID: UUID,
-        actions: PaneTabBarActions
+        actions: PaneTabBarActions,
+        tabDrag: TabDragSession? = nil
     ) {
         self.store = store
         self.settings = settings
         self.windowID = windowID
         self.paneID = paneID
         self.actions = actions
+        self.tabDrag = tabDrag
     }
 
     public var body: some View {
@@ -98,6 +108,12 @@ public struct PaneTabBar: View {
         // Prima il doppio (nuova tab), poi il singolo (focus): SwiftUI li discrimina da solo.
         .onTapGesture(count: 2) { actions.newTab(paneID, workspace) }
         .onTapGesture { store.focusPane(paneID, in: workspace) }
+        .windowRect { stripRect = $0 }
+        // Rete di sicurezza: un gesto annullato (menu contestuale, perdita di focus) non passa da
+        // `onEnded`, e senza questo il fantasma resterebbe appeso sopra la finestra.
+        .onChange(of: drag.id == nil) { _, idle in
+            if idle { tabDrag?.end() }
+        }
     }
 
     private func tabsRow(
@@ -137,7 +153,8 @@ public struct PaneTabBar: View {
                     frames: tabFrames,
                     drag: $drag,
                     state: drag,
-                    perform: { performMove(of: tab.id, to: $0, tabs: tabs, in: workspace) }
+                    perform: { performMove(of: tab.id, to: $0, tabs: tabs, in: workspace) },
+                    crossDrag: crossDrag(for: tab, in: workspace)
                 ))
             }
         }
@@ -149,6 +166,7 @@ public struct PaneTabBar: View {
             insertion: drag.insertion,
             lineColor: colors.accent
         ))
+        .windowRect { tabsRect = $0 }
         .padding(.horizontal, Theme.Spacing.sm)
         .frame(minHeight: Theme.Metrics.tabBarHeight)
     }
@@ -184,6 +202,41 @@ public struct PaneTabBar: View {
         }
         .buttonStyle(.borderless)
         .help(help)
+    }
+
+    /// Aggancio del drag verso la sidebar: pubblica il puntatore in coordinate finestra e, al
+    /// rilascio fuori dalla strip su una riga, sposta la tab in quel workspace. Finché il puntatore
+    /// resta dentro la strip non fa niente e vale il riordino orizzontale di sempre.
+    private func crossDrag(
+        for tab: WorkspaceModel.Tab, in workspace: Workspace
+    ) -> ReorderCrossDrag? {
+        guard let session = tabDrag else { return nil }
+        return ReorderCrossDrag(
+            onChange: { point in
+                if session.payload == nil {
+                    session.begin(TabDragSession.Payload(
+                        tabID: tab.id, sourceWorkspaceID: workspace.id, title: tab.title
+                    ))
+                }
+                // Il punto arriva nello space delle tab; la finestra è la sola lingua che anche la
+                // sidebar capisce.
+                let inWindow = CGPoint(x: tabsRect.minX + point.x, y: tabsRect.minY + point.y)
+                let outside = !stripRect.contains(inWindow)
+                session.move(to: inWindow, outside: outside)
+                return outside
+            },
+            onEnd: {
+                // `end()` chiude comunque il gesto (fantasma via): il valore dice solo se il drop
+                // se l'è preso un workspace.
+                guard let targetID = session.end(),
+                      let destination = store.workspaces.first(where: { $0.id == targetID })
+                else { return false }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    store.moveTab(tab.id, from: workspace, to: destination)
+                }
+                return true
+            }
+        )
     }
 
     /// Inserisce la tab trascinata prima della tab `insertion` della strip (o in fondo). Il reset

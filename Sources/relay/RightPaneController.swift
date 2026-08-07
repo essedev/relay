@@ -20,6 +20,8 @@ final class RightPaneController: NSViewController {
     private let windowID: UUID
     private let registry: SurfaceRegistry
     private let paneActions: PaneTabBarActions
+    /// Sessione di drag di una tab verso la sidebar, condivisa con quest'ultima (una per finestra).
+    private let tabDrag: TabDragSession
     private var resumeBarHost: NSView?
     private let findModel = FindModel()
     private var findBarHost: NSView?
@@ -45,7 +47,8 @@ final class RightPaneController: NSViewController {
         engine: TerminalEngine,
         windowID: UUID,
         registry: SurfaceRegistry,
-        paneActions: PaneTabBarActions
+        paneActions: PaneTabBarActions,
+        tabDrag: TabDragSession
     ) {
         self.store = store
         self.settings = settings
@@ -53,6 +56,7 @@ final class RightPaneController: NSViewController {
         self.windowID = windowID
         self.registry = registry
         self.paneActions = paneActions
+        self.tabDrag = tabDrag
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -123,13 +127,14 @@ final class RightPaneController: NSViewController {
         // La strip di tab di ogni pane: SwiftUI (Panels) montata dentro la PaneView (AppKit).
         // Costruita qui perché l'area non dipende da Panels; il contenuto osserva lo store e si
         // aggiorna da solo, la view resta viva finché vive il pane.
-        area.makePaneStrip = { [store, settings, windowID, paneActions] paneID in
+        area.makePaneStrip = { [store, settings, windowID, paneActions, tabDrag] paneID in
             let strip = NSHostingView(rootView: PaneTabBar(
                 store: store,
                 settings: settings,
                 windowID: windowID,
                 paneID: paneID,
-                actions: paneActions
+                actions: paneActions,
+                tabDrag: tabDrag
             ))
             strip.safeAreaRegions = [] // gotcha: senza, la safe area spinge il contenuto
             return strip

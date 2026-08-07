@@ -41,7 +41,8 @@ extension SidebarView {
                             draggable(
                                 .workspace(workspace.id),
                                 plan: plan,
-                                row: .archived(workspace.id)
+                                row: .archived(workspace.id),
+                                viewport: .archive
                             ) {
                                 makeRow(workspace, colors: colors)
                             }
@@ -64,6 +65,11 @@ extension SidebarView {
                     : 0
             )
             .scrollContentBackground(.hidden)
+            .onGeometryChange(
+                for: CGRect.self,
+                of: { $0.frame(in: .named(SidebarView.space)) },
+                action: { archiveViewport = $0 }
+            )
         }
     }
 

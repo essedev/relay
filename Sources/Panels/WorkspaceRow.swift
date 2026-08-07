@@ -18,6 +18,8 @@ struct WorkspaceGroupMenu {
 struct WorkspaceRow: View {
     let workspace: Workspace
     let selected: Bool
+    /// Una tab trascinata da una strip è sospesa su questa riga: rilasciarla la sposta qui.
+    var dropTargeted: Bool = false
     let colors: ChromeColors
     let groupMenu: WorkspaceGroupMenu?
     let onSelect: () -> Void
@@ -80,6 +82,12 @@ struct WorkspaceRow: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.sm)
                 .fill(selected ? colors.selection : hovered ? colors.hover : Color.clear)
+        )
+        // Bersaglio del drop di una tab: contorno, non riempimento, così resta distinguibile dalla
+        // riga selezionata (che è già piena) mentre trascini.
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                .stroke(colors.accent, lineWidth: dropTargeted ? 2 : 0)
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)

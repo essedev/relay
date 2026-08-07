@@ -65,6 +65,12 @@ final class RelayWindowController: NSObject, NSWindowDelegate {
         window.isMovableByWindowBackground = false
         window.contentViewController = rootController
         window.delegate = self
+        // Il fantasma della tab trascinata fuori dalla sua strip vive a livello finestra: strip e
+        // sidebar sono hosting view sorelle, nessuna delle due può disegnare sopra l'altra.
+        splitVC.tabDrag.onGhostVisibilityChange = { [weak self] visible in
+            guard let self else { return }
+            rootController.setDragGhost(visible ? splitVC.makeDragGhostView() : nil)
+        }
         // **Dopo** `contentViewController`: assegnarlo rimpicciolisce la finestra alla view (ancora
         // vuota), che il `contentMinSize` inchioda al minimo. Senza imporre il frame qui,
         // riaprirebbe sempre a 700x460. Lo persiste il `LayoutSnapshot`, per finestra

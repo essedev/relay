@@ -33,6 +33,9 @@ public struct SidebarView: View {
     /// Config della pill di aggiornamento (sopra la sezione Archive). `nil` = niente pill (bundle
     /// assente / test): la sidebar non dipende dalla rete né dal composition root.
     let updateConfig: SidebarUpdateConfig?
+    /// Drag di una tab da una strip verso queste righe. La sidebar ci registra i bersagli e ne
+    /// legge quello sotto il puntatore; `nil` = nessun drop cross-workspace (test, preview).
+    let tabDrag: TabDragSession?
 
     /// Coordinate space unico della sidebar: lista principale e archivio ci misurano dentro le
     /// proprie righe, così il drag può attraversarli (vedi `SidebarReorder`).
@@ -50,6 +53,11 @@ public struct SidebarView: View {
     /// Altezza del contenuto archiviato: la sezione Archive si dimensiona su questa, cappata a metà
     /// sidebar (poi scroll interno).
     @State var archivedHeight: CGFloat = 0
+    /// Finestre visibili dei due ScrollView (lista e archivio) nello space della sidebar: una riga
+    /// scrollata fuori conserva il suo frame, che senza ritaglio finirebbe a coprire l'area di un
+    /// altro contenitore e accetterebbe drop che a schermo non esistono.
+    @State var listViewport: CGRect = .zero
+    @State var archiveViewport: CGRect = .zero
 
     public init(
         store: WorkspaceStore,
@@ -59,7 +67,8 @@ public struct SidebarView: View {
         onCloseWorkspace: @escaping (Workspace) -> Void,
         onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
         onRegenerateName: @escaping (Workspace) -> Void,
-        updateConfig: SidebarUpdateConfig? = nil
+        updateConfig: SidebarUpdateConfig? = nil,
+        tabDrag: TabDragSession? = nil
     ) {
         self.store = store
         self.settings = settings
@@ -69,6 +78,7 @@ public struct SidebarView: View {
         self.onMoveWorkspaceToNewWindow = onMoveWorkspaceToNewWindow
         self.onRegenerateName = onRegenerateName
         self.updateConfig = updateConfig
+        self.tabDrag = tabDrag
     }
 
     public var body: some View {
@@ -112,10 +122,32 @@ public struct SidebarView: View {
             )
         }
         .overlay(alignment: .topLeading) { flyingRow(colors: colors) }
-        .onChange(of: drag.dragged == nil) { _, idle in
+        // Struttura congelata mentre un drag è in corso, **anche** quello di una tab che arriva da
+        // una strip: lì il puntatore mira a una riga, e un bump da attività non vista la
+        // sposterebbe sotto le mani un istante prima del rilascio.
+        .onChange(of: drag.dragged == nil && tabDrag?.payload == nil) { _, idle in
             frozenItems = idle ? nil : store.sidebarItems(in: windowID)
             frozenArchived = idle ? nil : store.archivedWorkspaces(in: windowID)
         }
+        // Bersagli del drop di una tab (vedi TabDragSession): la sidebar intera fa da guardia (un
+        // rilascio fuori di qui non sposta niente), le singole righe si registrano in `draggable`.
+        .windowRect { tabDrag?.setSidebarRect($0) }
+        .onChange(of: plan.rows) { _, rows in
+            tabDrag?.pruneTargets(keeping: Self.workspaceIDs(in: rows))
+        }
+    }
+
+    /// I workspace che il piano mostra davvero: i membri di una card chiusa non ci sono, e non
+    /// devono restare bersagli.
+    static func workspaceIDs(in rows: [SidebarLayout.Row]) -> Set<UUID> {
+        Set(rows.compactMap { row in
+            switch row {
+            case let .workspace(id), let .member(id, _), let .archived(id):
+                id
+            case .groupHeader, .groupTail, .archiveHeader:
+                nil
+            }
+        })
     }
 
     /// Descrittore puro di un elemento per il piano delle righe (`SidebarLayout` non conosce i tipi
@@ -182,6 +214,11 @@ public struct SidebarView: View {
             .animation(.easeInOut(duration: 0.2), value: plan.rows)
         }
         .scrollContentBackground(.hidden)
+        .onGeometryChange(
+            for: CGRect.self,
+            of: { $0.frame(in: .named(Self.space)) },
+            action: { listViewport = $0 }
+        )
         .layoutPriority(1) // la lista principale tiene il flex; l'archivio prende il resto
     }
 
@@ -193,6 +230,7 @@ public struct SidebarView: View {
         _ dragged: SidebarDrop.Dragged,
         plan: SidebarLayout.Plan,
         row: SidebarLayout.Row? = nil,
+        viewport: Viewport = .list,
         @ViewBuilder content: () -> some View
     ) -> some View {
         let target = row ?? defaultRow(for: dragged)
@@ -206,9 +244,38 @@ public struct SidebarView: View {
                 plan: plan,
                 drag: $drag,
                 state: drag,
-                onFrame: { frames[$0] = $1 },
+                onFrame: {
+                    frames[$0] = $1
+                    registerDropTarget(dragged, frame: $1, viewport: viewport)
+                },
                 perform: { performDrop(dragged, at: $0, plan: plan) }
             ))
+    }
+
+    /// Quale dei due ScrollView ospita una riga: serve a ritagliarne il frame quando si registra
+    /// come bersaglio del drop.
+    enum Viewport {
+        case list
+        case archive
+    }
+
+    /// Registra (o toglie) una riga fra i bersagli del drop di una tab. Solo i workspace:
+    /// rilasciare
+    /// una sessione sull'header di una card non ha un significato ovvio, meglio nessun bersaglio
+    /// che uno che indovina. Il frame viene ritagliato al suo ScrollView e scartato se la riga è
+    /// visibile per meno di metà: un bersaglio a filo di bordo è una promessa che l'occhio non
+    /// vede.
+    private func registerDropTarget(
+        _ dragged: SidebarDrop.Dragged, frame: CGRect, viewport: Viewport
+    ) {
+        guard let tabDrag, case let .workspace(id) = dragged else { return }
+        let clip = viewport == .archive ? archiveViewport : listViewport
+        let visible = frame.intersection(clip)
+        if visible.isNull || visible.height < frame.height / 2 {
+            tabDrag.clearTarget(id)
+        } else {
+            tabDrag.setTarget(id, frame: visible)
+        }
     }
 
     func defaultRow(for dragged: SidebarDrop.Dragged) -> SidebarLayout.Row {
@@ -224,6 +291,7 @@ public struct SidebarView: View {
         WorkspaceRow(
             workspace: workspace,
             selected: workspace.id == store.selectedWorkspace(in: windowID)?.id,
+            dropTargeted: tabDrag?.target == workspace.id,
             colors: colors,
             groupMenu: groupMenu(for: workspace),
             onSelect: { store.selectWorkspace(workspace.id) },

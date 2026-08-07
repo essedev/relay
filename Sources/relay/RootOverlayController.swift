@@ -12,6 +12,8 @@ final class RootOverlayController: NSViewController {
     private var lastKnownSidebarWidth: CGFloat = 0
     /// Overlay full-window corrente (dashboard): sopra tutto, uno alla volta.
     private var fullOverlay: NSView?
+    /// Fantasma della tab in volo durante un drag verso la sidebar (vedi `setDragGhost`).
+    private var dragGhost: NSView?
     /// Spazio orizzontale dei semafori: l'overlay non va mai più a sinistra di così.
     private static let trafficLightsInset: CGFloat = 78
 
@@ -85,6 +87,39 @@ final class RootOverlayController: NSViewController {
         fullOverlay = container
         view.window?.disableCursorRects()
         NSCursor.arrow.set() // il cursore corrente può essere l'I-beam del terminale
+    }
+
+    /// Monta (o toglie) il fantasma di una tab trascinata fuori dalla sua strip: copre la finestra
+    /// sopra tutto, **compreso** l'eventuale overlay full-window, e non intercetta niente
+    /// (`DragGhostContainerView.hitTest` torna sempre `nil`), perché il gesto vivo è quello della
+    /// strip sotto.
+    func setDragGhost(_ ghost: NSView?) {
+        dragGhost?.removeFromSuperview()
+        dragGhost = nil
+        guard let ghost else { return }
+        let container = DragGhostContainerView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        ghost.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(ghost)
+        view.addSubview(container)
+        NSLayoutConstraint.activate([
+            ghost.topAnchor.constraint(equalTo: container.topAnchor),
+            ghost.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            ghost.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            ghost.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            container.topAnchor.constraint(equalTo: view.topAnchor),
+            container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        dragGhost = container
+    }
+
+    /// Contenitore del fantasma: trasparente agli eventi, sempre.
+    private final class DragGhostContainerView: NSView {
+        override func hitTest(_: NSPoint) -> NSView? {
+            nil
+        }
     }
 
     func dismissFullOverlay() {

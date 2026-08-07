@@ -12,6 +12,9 @@ final class MainSplitViewController: NSSplitViewController {
     private let settings: AppSettings
     private let right: RightPaneController
     private var sidebarItem: NSSplitViewItem!
+    /// Il drag di una tab dalla strip di un pane a una riga della sidebar: una sessione per
+    /// finestra, perché è qui che le due hosting view coesistono (vedi `TabDragSession`).
+    let tabDrag = TabDragSession()
     /// Notifica la larghezza corrente della sidebar (0 se collassata) a ogni resize, anche
     /// frame-by-frame durante l'animazione: guida la posizione dell'overlay toggle.
     var onSidebarWidthChange: ((CGFloat) -> Void)?
@@ -30,13 +33,15 @@ final class MainSplitViewController: NSSplitViewController {
         paneActions: PaneTabBarActions
     ) {
         self.settings = settings
+        let tabDrag = tabDrag
         right = RightPaneController(
             store: store,
             settings: settings,
             engine: engine,
             windowID: windowID,
             registry: registry,
-            paneActions: paneActions
+            paneActions: paneActions,
+            tabDrag: tabDrag
         )
         super.init(nibName: nil, bundle: nil)
 
@@ -49,7 +54,8 @@ final class MainSplitViewController: NSSplitViewController {
                 onCloseWorkspace: onCloseWorkspace,
                 onMoveWorkspaceToNewWindow: onMoveWorkspaceToNewWindow,
                 onRegenerateName: onRegenerateWorkspaceName,
-                updateConfig: updateConfig
+                updateConfig: updateConfig,
+                tabDrag: tabDrag
             )
         )
         // L'header della sidebar vive sulla riga dei semafori (full-size content view): niente
@@ -69,6 +75,14 @@ final class MainSplitViewController: NSSplitViewController {
         addSplitViewItem(NSSplitViewItem(viewController: right))
 
         observeSidebarState()
+    }
+
+    /// Il fantasma della tab in volo, da montare sopra tutta la finestra mentre il drag è fuori
+    /// dalla strip: lo costruisce qui chi ha già tema e sessione.
+    func makeDragGhostView() -> NSView {
+        let host = NSHostingView(rootView: TabDragGhost(session: tabDrag, settings: settings))
+        host.safeAreaRegions = []
+        return host
     }
 
     /// Inoltra la query "processo in foreground" della tab al right pane (registry delle surface).

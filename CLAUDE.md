@@ -105,7 +105,9 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
 - `docs/features/terminal.md` - integrazioni e limiti di SwiftTerm: kitty keyboard, cwd senza
   OSC 7, selezione durante lo streaming, scroll fluido, ricerca `Cmd+F`, cap LRU delle surface.
 - `docs/features/sidebar.md` - lista dei workspace, dove nasce una cosa nuova, archivio, drag &
-  drop (righe e slot), chiusura con conferma, "Move to New Workspace".
+  drop (righe e slot), chiusura con conferma, "Move to New Workspace" e il **drag di una tab da
+  una strip a un altro workspace** (`TabDragSession`: due hosting view sorelle, coordinate
+  finestra, fantasma a livello finestra).
 - `docs/features/workspace-groups.md` - card di gruppo: l'appartenenza vive sul workspace, il
   gruppo porta solo l'aspetto; un gruppo senza membri non esiste.
 - `docs/features/split-panes.md` - modello cmux v2: i pane ospitano le tab, "visibile" vs

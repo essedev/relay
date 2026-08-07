@@ -119,3 +119,35 @@ La lista dei workspace: ordine, nascita, archivio, drag, chiusura. Il resto dell
   selezionato con la tab spostata attiva. **No-op se la tab è l'unica del suo workspace**
   (svuoterebbe l'origine) o se l'id non esiste lì. Il nome placeholder ("Workspace N") lo assegna
   il composition root (`AppController.moveTabToNewWorkspace`), non lo store, come per `newWorkspace`.
+- **Trascina una tab in un altro workspace** (dalla strip di un pane a una riga della sidebar):
+  `TabDragSession` (Panels) + `WorkspaceStore.moveTab(_:from:to:)`. Come "Move to New Workspace"
+  viaggia lo **stesso** oggetto `Tab` con inserimento prima della rimozione, quindi il pty non si
+  tocca; la tab entra nel pane focused della destinazione **subito dopo la sua tab selezionata** e
+  la destinazione viene rivelata (de-archiviata, card aperta). Spostare l'**ultima** tab è
+  legittimo e chiude il workspace d'origine (cascade): qui, a differenza di "Move to New
+  Workspace", non sarebbe un rename mascherato.
+  **Perché serve un intermediario**: strip e sidebar sono due `NSHostingView` **sorelle**, quindi
+  nessun coordinate space SwiftUI le attraversa e la riga sollevata con `.offset` verrebbe clippata
+  al bordo della strip proprio mentre esci. La lingua comune sono le **coordinate finestra con
+  origine in alto a sinistra**, prodotte da `WindowRectReader` (un `NSViewRepresentable`: `.global`
+  di SwiftUI è relativo alla propria hosting view, e il punto è uscirne). Si convertono **due
+  origini** (l'area delle tab e la sidebar), non il frame di ogni riga: i frame restano nello space
+  della sidebar e la conversione avviene nel solo `target`.
+  Il gesto resta **uno**: `Reorderable` ha un aggancio opzionale (`ReorderCrossDrag`) che la strip
+  usa per pubblicare il puntatore; finché il puntatore è dentro la strip (`isOutside == false`)
+  vale il riordino orizzontale di sempre, fuori si spegne la linea di inserimento, la riga vera
+  torna al suo posto e a seguire il puntatore è il **fantasma** (`TabDragGhost`), montato dal
+  composition root a livello finestra (`RootOverlayController.setDragGhost`, `hitTest` sempre
+  `nil`: il gesto vivo è quello della strip sotto). Non si può promuovere un `DragGesture` SwiftUI
+  già partito a `NSDraggingSession`: con la pasteboard servirebbero due meccaniche diverse nella
+  stessa strip, decise all'inizio del gesto.
+  Guardie contro i bersagli fantasma: il frame di ogni riga è **ritagliato al viewport** del suo
+  ScrollView e scartato sotto metà altezza visibile (una riga scrollata via conserva il frame, che
+  cadrebbe sull'area dell'archivio); `sidebarRect` fa da guardia esterna, quindi una sidebar
+  collassata (larghezza ~0) non accetta niente; `pruneTargets` scarta le righe che il piano non
+  mostra più. La struttura della sidebar è **congelata** anche durante questo drag, come per quello
+  interno: un bump da attività non vista sposterebbe la riga bersaglio sotto le mani. Hit test e
+  ciclo di vita della sessione sono puri e testati (`TabDropTargetTests`).
+  **Limiti noti**: niente autoscroll della sidebar (un workspace fuori vista va raggiunto
+  scrollando prima), i bersagli sono solo righe di workspace (non gli header di gruppo), e il drop
+  non sceglie una posizione dentro la strip di destinazione (le sue tab non sono visibili).

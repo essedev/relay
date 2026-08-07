@@ -31,6 +31,32 @@ public extension WorkspaceStore {
         workspace.moveTab(tabID, before: targetID)
     }
 
+    /// Sposta una tab in un **altro workspace esistente** (drag dalla strip sulla riga della
+    /// sidebar, o menu contestuale), preservando la sessione viva: come `moveTabToNewWorkspace`
+    /// viaggia lo stesso oggetto `Tab`, quindi la surface legata per id non si tocca.
+    ///
+    /// La tab entra nel pane focused della destinazione **subito dopo la sua tab selezionata**
+    /// (`insertTab`, la stessa regola di dove nasce una tab nuova) e diventa la tab in vista lì; la
+    /// destinazione diventa il workspace selezionato della **sua** finestra, de-archiviata e con la
+    /// card aperta se serve (`reveal`). Spostare l'**ultima** tab è legittimo e chiude il workspace
+    /// d'origine (cascade, come `closeTab`): a differenza di `moveTabToNewWorkspace` non sarebbe un
+    /// rename mascherato, la tab va davvero altrove.
+    ///
+    /// L'inserimento nella destinazione precede la rimozione dall'origine, nella stessa mutazione
+    /// sincrona: la tab è presente in `store.workspaces` a ogni istante osservabile, quindi il
+    /// reconcile delle surface (`retain` su tutti gli id) non la sfratta mai. No-op se i due
+    /// workspace coincidono o se la tab non è nell'origine.
+    @discardableResult
+    func moveTab(_ tabID: UUID, from source: Workspace, to destination: Workspace) -> Bool {
+        guard source.id != destination.id,
+              let tab = source.tabs.first(where: { $0.id == tabID }) else { return false }
+        destination.insertTab(tab, select: true)
+        source.removeTab(tabID)
+        if source.tabs.isEmpty { closeWorkspace(source.id) }
+        reveal(workspaceID: destination.id, tabID: tabID)
+        return true
+    }
+
     /// Sposta una tab in un **nuovo** workspace preservando la sessione viva: sposta lo stesso
     /// oggetto `Tab` (stesso `Tab.id`), quindi la surface legata per id resta intatta - nessun
     /// teardown del pty, il lavoro dentro la tab non si tocca. Il nuovo workspace eredita la cwd
