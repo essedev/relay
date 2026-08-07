@@ -54,7 +54,11 @@ let package = Package(
         ),
         .executableTarget(
             name: "CLI",
-            dependencies: ["Core", "AgentProtocol", "AgentRuntime", "HookInstaller"],
+            // WorkspaceModel per il solo `guide-md` (comando di sviluppo): è un modulo puro, non
+            // tira dentro AppKit.
+            dependencies: [
+                "Core", "AgentProtocol", "AgentRuntime", "HookInstaller", "WorkspaceModel",
+            ],
             path: "Sources/relay-cli"
         ),
 

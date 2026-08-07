@@ -20,7 +20,7 @@ SWIFTFORMAT := $(TOOLS_DIR)/swiftformat
 SWIFTLINT := $(TOOLS_DIR)/swiftlint
 TOOLS_STAMP := $(TOOLS_DIR)/.installed-sf$(SWIFTFORMAT_VERSION)-sl$(SWIFTLINT_VERSION)
 
-.PHONY: help install build run cli test tools lint format check clean bundle run-app dmg install-app icon release
+.PHONY: help install build run cli test guide-md tools lint format check clean bundle run-app dmg install-app icon release
 
 APP := .build/Relay.app
 DMG := .build/Relay-$(VERSION).dmg
@@ -43,6 +43,10 @@ cli: ## Avvia la CLI (uso: make cli ARGS="hooks status")
 
 test: ## Esegue i test
 	$(SWIFT) test
+
+guide-md: ## Rigenera docs/GUIDE.md dal contenuto della guida in-app
+	$(SWIFT) run relay-cli guide-md > docs/GUIDE.md
+	@echo "docs/GUIDE.md rigenerato"
 
 tools: $(TOOLS_STAMP) ## Scarica gli strumenti di lint pinnati (.build/tools)
 

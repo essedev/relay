@@ -13,6 +13,7 @@ final class FullOverlayPresenter {
     enum Kind {
         case dashboard
         case onboarding
+        case guide
     }
 
     private let root: RootOverlayController

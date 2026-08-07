@@ -1,5 +1,6 @@
 import Foundation
 import HookInstaller
+import WorkspaceModel
 
 // CLI di Relay. Output utente su stdout (print qui è corretto: non è logging).
 
@@ -33,6 +34,10 @@ case "hooks":
     exit(HookCLI.run(Array(arguments.dropFirst()), cliPath: cliExecutablePath()))
 case "simulate":
     exit(SimulateCommand.run(Array(arguments.dropFirst())))
+case "guide-md":
+    // Comando di sviluppo (fuori dall'usage: non serve a chi usa Relay). `make guide-md` lo
+    // ridirige in docs/GUIDE.md, e un test verifica che il file committato sia questo.
+    print(GuideMarkdown.render(), terminator: "")
 case nil:
     print(usage) // nessun comando: help, uscita 0
 default:

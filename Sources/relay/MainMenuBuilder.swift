@@ -257,10 +257,13 @@ enum MainMenuBuilder {
         return menuItem
     }
 
-    /// Help: riapre l'onboarding (Welcome to Relay). Registrato come `NSApp.helpMenu`: AppKit ci
-    /// mette il campo di ricerca standard.
+    /// Help: il giro di benvenuto e il manuale. Registrato come `NSApp.helpMenu`: AppKit ci mette
+    /// il campo di ricerca standard. `Cmd+?` (cioè `Cmd+Shift+/`) è il posto canonico dell'aiuto su
+    /// macOS e non è una delle azioni rimappabili, quindi non collide col recorder.
     private static func helpMenu(_ target: AnyObject) -> NSMenuItem {
         let menuItem = submenu("Help", [
+            item("Relay Guide", #selector(AppController.showGuide(_:)), target,
+                 key: "?", mask: [.command]),
             item("Welcome to Relay", #selector(AppController.showWelcome(_:)), target),
         ])
         NSApp.helpMenu = menuItem.submenu
