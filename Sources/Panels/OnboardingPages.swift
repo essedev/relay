@@ -210,7 +210,8 @@ struct NavigationPage: View {
                 shortcut(combo(.newTab), "New tab",
                          "inherits the directory you are working in")
                 shortcut(combo(.splitRight), "Split the view",
-                         "a second terminal beside this one; \(combo(.splitDown)) splits below")
+                         "a pane beside this one, with its own tabs; "
+                             + "\(combo(.splitDown)) splits below")
                 shortcut(combo(.focusNextPane), "Next pane",
                          "move the keyboard between the panes on screen")
                 shortcut(combo(.find), "Find in terminal", "with next and previous matches")
@@ -291,6 +292,12 @@ struct CustomizePage: View {
                     + "handy on a second screen, and its sessions keep running.")
                 bullet("arrow.clockwise", "Claude sessions survive restarts: a Resume bar "
                     + "offers to pick up where you left off.")
+                // La nomina è l'altro passo azionabile oltre agli hook, e l'unico che spende
+                // soldi dell'utente: va detto qui, non solo in fondo a un pannello.
+                bullet("text.badge.checkmark", "Let a model name your workspaces after what "
+                    + "they are doing: add an API key in Settings > Agents.")
+                bullet("questionmark.circle", "This is the short tour. The full guide is in "
+                    + "Help > Relay Guide.")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

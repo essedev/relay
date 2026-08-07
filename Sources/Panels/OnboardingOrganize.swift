@@ -30,6 +30,9 @@ struct OrganizePage: View {
                     point("archivebox", "Archive is one drag away",
                           "Drag a row onto the Archive section at the bottom, and back out when "
                               + "the project wakes up.")
+                    point("arrow.right.doc.on.clipboard", "Tabs move between workspaces",
+                          "Drag a tab out of its strip onto a workspace row: it lands there with "
+                              + "its terminal still running.")
                 }
                 .frame(width: 250)
                 miniSidebar
