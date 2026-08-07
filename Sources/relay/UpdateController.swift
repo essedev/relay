@@ -20,15 +20,40 @@ final class UpdateController {
         string: "https://api.github.com/repos/essedev/relay/releases/latest"
     )!
 
+    /// Errori che valgono un retry: falliscono **subito** perché la rete non è ancora pronta
+    /// (interfaccia su ma resolver DNS non caldo al lancio, risveglio dal sleep, switch VPN).
+    /// `.timedOut` è escluso di proposito: lì la prima chiamata ha già consumato i 15s di
+    /// `timeoutInterval`, e ritentare porterebbe il check manuale a 30s prima dell'alert.
+    private static let retriableCodes: Set<URLError.Code> = [
+        .cannotFindHost, .dnsLookupFailed, .cannotConnectToHost, .networkConnectionLost,
+    ]
+    private static let retryDelay = Duration.seconds(3)
+
     let availability = UpdateAvailability()
 
     private let log = RelayLog.logger("update")
     private let settings: AppSettings
     private let session: URLSession
+    private let launchSession: URLSession
 
-    init(settings: AppSettings, session: URLSession = .shared) {
+    /// Due sessioni perché `waitsForConnectivity` è della **configuration**, non della richiesta:
+    /// il check al lancio può partire da offline (Wi-Fi non ancora associato) e aspetta che la rete
+    /// arrivi, quello manuale deve fallire in fretta e dire cosa è successo.
+    init(
+        settings: AppSettings,
+        session: URLSession = .shared,
+        launchSession: URLSession? = nil
+    ) {
         self.settings = settings
         self.session = session
+        self.launchSession = launchSession ?? Self.makeLaunchSession()
+    }
+
+    private static func makeLaunchSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.waitsForConnectivity = true
+        configuration.timeoutIntervalForResource = 60
+        return URLSession(configuration: configuration)
     }
 
     /// Versione installata (nil da `swift run`: nessun Info.plist).
@@ -66,22 +91,8 @@ final class UpdateController {
 
     private func check(manual: Bool) async {
         guard let current = currentVersion else { return }
-        var request = URLRequest(url: Self.latestReleaseURL)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("Relay-Updater", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 15
         do {
-            let (data, response) = try await session.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200,
-                  let latest = ReleaseCheck.parseLatest(from: data)
-            else {
-                log.error("update check: bad response")
-                if manual { presentAlert(
-                    title: "Couldn't check for updates",
-                    info: "Please try again later."
-                ) }
-                return
-            }
+            let latest = try await fetchLatest(using: manual ? session : launchSession)
             let actionable = ReleaseCheck.actionableUpdate(
                 currentVersion: current,
                 latest: latest,
@@ -95,12 +106,58 @@ final class UpdateController {
                     info: "Relay \(current) is the latest version."
                 )
             }
+        } catch is BadResponse {
+            log.error("update check: bad response")
+            if manual { presentAlert(
+                title: "Couldn't check for updates",
+                info: "Please try again later."
+            ) }
         } catch {
             log.error("update check failed: \(error.localizedDescription)")
             if manual { presentAlert(
                 title: "Couldn't check for updates",
-                info: error.localizedDescription
+                info: Self.userFacingMessage(for: error)
             ) }
+        }
+    }
+
+    /// Risposta HTTP arrivata ma inutilizzabile (status != 200, JSON non parsabile). Distinta dagli
+    /// errori di rete: non si ritenta e il messaggio all'utente è un altro.
+    private struct BadResponse: Error {}
+
+    /// Una richiesta, più **un solo** retry a distanza di `retryDelay` sugli errori transitori.
+    private func fetchLatest(using session: URLSession) async throws -> LatestRelease {
+        do {
+            return try await requestLatest(using: session)
+        } catch let error as URLError where Self.retriableCodes.contains(error.code) {
+            log.info("update check: \(error.code.rawValue), retrying once in 3s")
+            try await Task.sleep(for: Self.retryDelay)
+            return try await requestLatest(using: session)
+        }
+    }
+
+    private func requestLatest(using session: URLSession) async throws -> LatestRelease {
+        var request = URLRequest(url: Self.latestReleaseURL)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("Relay-Updater", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 15
+        let (data, response) = try await session.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200,
+              let latest = ReleaseCheck.parseLatest(from: data)
+        else { throw BadResponse() }
+        return latest
+    }
+
+    /// Il testo grezzo di URLSession ("A server with the specified hostname could not be found")
+    /// descrive il meccanismo, non la causa: per gli errori di rete dice all'utente cosa guardare.
+    private static func userFacingMessage(for error: Error) -> String {
+        guard let error = error as? URLError else { return error.localizedDescription }
+        switch error.code {
+        case .notConnectedToInternet, .networkConnectionLost, .cannotFindHost, .dnsLookupFailed,
+             .cannotConnectToHost, .timedOut:
+            return "Relay couldn't reach GitHub. Check your internet connection and try again."
+        default:
+            return error.localizedDescription
         }
     }
 

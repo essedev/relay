@@ -265,7 +265,15 @@ validata a mano con Claude reale; le notifiche girano solo dal bundle (`make run
   riapertura). Come le notifiche gira **solo dal bundle** (`swift run` non ha
   `CFBundleShortVersionString`: `makeSidebarConfig()` -> `nil`, niente pill, check no-op). Preferenza
   in Settings > Updates (default on) + voce menu "Check for Updates…" (check manuale, dà sempre un
-  feedback, anche "yoùre up to date").
+  feedback, anche "yoùre up to date"). **Rete non pronta**: il check al lancio può cadere su un DNS
+  ancora freddo (`-1003 cannotFindHost`, tipico dopo boot/risveglio/switch VPN). Due difese:
+  `fetchLatest` ritenta **una sola volta** dopo 3s sui codici che falliscono subito
+  (`retriableCodes`; `.timedOut` è **escluso** di proposito, ritentarlo porterebbe il check manuale
+  a 30s prima dell'alert), e il check **automatico** usa una `URLSession` dedicata con
+  `waitsForConnectivity` (proprietà della configuration, non della richiesta: da qui le due
+  sessioni), così un lancio da offline aspetta la rete invece di fallire. Il manuale resta su una
+  sessione che fallisce in fretta, e il testo grezzo di URLSession non arriva più all'utente:
+  `userFacingMessage` mappa gli errori di rete su "check your internet connection".
 - Nomina automatica workspace (LLM OpenAI-compatible): un workspace nato come placeholder o da
   cartella (`NameOrigin.default`) viene rinominato al primo segnale utile da quello che ci fai. La
   logica pura sta in `Core.WorkspaceNaming` (costruzione prompt dai segnali cwd/comando/agente,
