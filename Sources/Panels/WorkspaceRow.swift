@@ -34,6 +34,8 @@ struct WorkspaceRow: View {
     let onClose: () -> Void
 
     @State private var hovered = false
+    /// Fase della pulsazione del nome durante la nomina (vedi `workspace.isNaming`).
+    @State private var namingPulse = false
     @State private var editing = false
     @State private var draft = ""
     @FocusState private var nameFocused: Bool
@@ -55,6 +57,18 @@ struct WorkspaceRow: View {
                         .font(Theme.Typography.item)
                         .foregroundStyle(colors.foreground)
                         .lineLimit(1)
+                        // Nomina in corso: il nome pulsa finché la richiesta è in volo. È l'unica
+                        // risposta immediata che "Regenerate name" può dare - il nome nuovo arriva
+                        // dopo un giro di rete, e senza segnale l'azione sembra non aver fatto
+                        // niente (il sintomo che questa feature si è già portata dietro una volta).
+                        .opacity(namingPulse ? Theme.Opacity.pulseFloor : 1)
+                        .animation(
+                            workspace.isNaming ? Theme.Motion.pulse : Theme.Motion.settle,
+                            value: namingPulse
+                        )
+                        .onChange(of: workspace.isNaming, initial: true) { _, naming in
+                            namingPulse = naming
+                        }
                 }
                 // Cosa succede nella tab selezionata: nome chat Claude (titolo OSC) o cwd. Resta
                 // visibile anche in rename, così la riga non cambia altezza.

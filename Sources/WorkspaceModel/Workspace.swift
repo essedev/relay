@@ -18,6 +18,11 @@ public final class Workspace: Identifiable {
     /// Origine del nome (vedi `NameOrigin`): guida la nomina automatica. `.default` = eleggibile,
     /// `.generated` = già nominato (one-shot), `.user` = rinominato a mano (intoccabile).
     public var nameOrigin: NameOrigin
+    /// Una richiesta di nomina è in volo per questo workspace: la sidebar lo mostra facendo pulsare
+    /// il nome. Serve soprattutto al "Regenerate name" manuale, che altrimenti resta senza risposta
+    /// visibile per tutto il tempo della chiamata di rete e sembra non aver fatto niente. Volatile:
+    /// stato di una richiesta viva, non va nello snapshot.
+    public internal(set) var isNaming: Bool = false
     public var rootPath: String?
     public var pinned: Bool
     /// Messo via: fuori dalla lista principale, raccolto nella sezione Archive in fondo alla

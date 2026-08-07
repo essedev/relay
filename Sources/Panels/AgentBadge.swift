@@ -114,8 +114,8 @@ private struct PulsingDot: View {
 
     var body: some View {
         StatusDot(color: color)
-            .opacity(dim ? 0.35 : 1)
-            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: dim)
+            .opacity(dim ? Theme.Opacity.pulseFloor : 1)
+            .animation(Theme.Motion.pulse, value: dim)
             .onAppear { dim = true }
     }
 }

@@ -33,6 +33,22 @@ public enum Theme {
         public static let rowIcon = Font.system(size: 12)
     }
 
+    public enum Opacity {
+        /// Fondo di una pulsazione: quanto si smorza ciò che pulsa (badge che chiede attenzione,
+        /// nome di un workspace in corso di generazione).
+        public static let pulseFloor: Double = 0.35
+    }
+
+    /// Movimento condiviso: le durate stanno qui e non nelle view, come i colori.
+    public enum Motion {
+        /// Pulsazione lenta e continua: "sta succedendo qualcosa", senza urgenza.
+        public static let pulse = Animation.easeInOut(duration: 0.8).repeatForever(
+            autoreverses: true
+        )
+        /// Ritorno a riposo quando la pulsazione finisce: corto, così la fine si nota.
+        public static let settle = Animation.easeOut(duration: 0.2)
+    }
+
     public enum Metrics {
         public static let tabBarHeight: CGFloat = 34
         /// Altezza della strip del titolo (allineata verticalmente ai semafori della finestra).

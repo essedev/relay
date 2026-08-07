@@ -82,6 +82,20 @@ final class NamingController {
     /// Fine del cooldown post-fallimento per workspace: il poll li salta fino a quel momento.
     /// L'azione manuale lo ignora (è una richiesta esplicita) e lo azzera.
     private var retryAfter: [UUID: Date] = [:]
+    /// "Regenerate name" arrivato mentre una richiesta era già in volo (tipicamente una del poll,
+    /// partita un attimo prima). Si rimanda alla fine di quella invece di scartarlo: scartandolo
+    /// l'azione manuale sarebbe muta, e il nome che sta per arrivare è quello del poll, calcolato
+    /// **senza** `avoiding`, cioè - a `temperature` 0 - identico a quello che c'è già.
+    private var queuedRegenerate: Set<UUID> = []
+    /// API key in cache. Rileggerla dal disco a ogni tick (ogni 3s, finché esiste un workspace
+    /// `.default`) è I/O inutile: si ricarica quando l'eleggibilità viene ri-valutata, cioè anche a
+    /// ogni `reconfigure()` (che le impostazioni chiamano quando la chiave viene salvata).
+    private var apiKey: String?
+    /// Generazione dell'osservatore di eleggibilità. `withObservationTracking` non si disdice, e
+    /// ogni ri-arma (start, reconfigure, regenerate, cambio osservato) ne lascia in giro uno
+    /// vecchio che allo scatto successivo rifarebbe tutto il giro in parallelo. Chi scatta con una
+    /// generazione superata si estingue in silenzio.
+    private var observerGeneration = 0
     /// Policy dei trigger per workspace (streak comando + stabilizzazione cwd). Logica pura in
     /// `Core.NamingTriggerPolicy`; qui resta solo lo stato accumulato tick dopo tick.
     private var policies: [UUID: NamingTriggerPolicy] = [:]
@@ -124,40 +138,44 @@ final class NamingController {
         armEligibilityObserver()
     }
 
-    /// "Regenerate name" dal menu contestuale (sidebar) e dal menu Workspace: riporta il workspace
-    /// a `.default`, azzera abbandono/tentativi/cooldown, nomina **subito** col contesto corrente
-    /// saltando le soglie della policy, e riarma il poll come rete di sicurezza.
+    /// "Regenerate name" dal menu contestuale (sidebar) e dal menu Workspace: nomina **subito** col
+    /// contesto corrente saltando le soglie della policy, riporta il workspace a `.default`, azzera
+    /// abbandono/tentativi/cooldown e riarma il poll come rete di sicurezza.
     ///
     /// Il nome corrente diventa un vincolo ("dammene un altro") solo se l'ha prodotto il modello:
     /// un placeholder o un nome-cartella non sono risposte da evitare, sono contesto o niente.
+    ///
+    /// **Non tace mai**: ogni ramo che non porta a una richiesta o dice perché (`onFailure`) o la
+    /// mette in coda. Mentre la richiesta è in volo il nome pulsa in sidebar (`store.setNaming`).
     func regenerate(_ id: UUID) {
         guard let workspace = store.workspaces.first(where: { $0.id == id }) else { return }
+        // Il nome corrente diventa un vincolo solo se l'ha prodotto il modello.
+        let avoid = workspace.nameOrigin == .generated ? workspace.name : nil
+        // Prima le guardie, poi il declassamento: un `.user` non deve perdere la sua immunità per
+        // un tentativo che non è nemmeno partito (feature spenta, nessun contesto).
+        guard settings.workspaceNamingEnabled, let key = resolvedAPIKey() else {
+            onFailure(id, .notConfigured)
+            return
+        }
+        guard let prompt = WorkspaceNaming.prompt(
+            for: collectSignals(for: workspace), homePath: homePath, avoiding: avoid
+        ) else {
+            onFailure(id, .noContext)
+            return
+        }
+        // C'è già una richiesta per questo workspace: la seconda non partirebbe (single-flight), e
+        // uscire di soppiatto renderebbe muta l'azione manuale. La si rimanda alla fine di quella.
+        guard !inFlight.contains(id) else {
+            queuedRegenerate.insert(id)
+            return
+        }
         abandoned.remove(id)
         attempts[id] = nil
         retryAfter[id] = nil
         cleanupTracking(id)
-        let avoid = workspace.nameOrigin == .generated ? workspace.name : nil
         store.markNameRegenerable(id)
-        nameNow(workspace, avoiding: avoid)
+        fire(id, prompt: prompt, apiKey: key, manual: true)
         armEligibilityObserver()
-    }
-
-    /// Nomina immediata per l'azione manuale: salta la soglia di stabilità della policy e chiede
-    /// subito un nome dal contesto corrente del workspace. A differenza del poll **non tace mai**:
-    /// ogni ramo che non produce un nome riporta il perché (`onFailure`), perché qui l'utente ha
-    /// chiesto qualcosa e sta aspettando una risposta.
-    private func nameNow(_ workspace: Workspace, avoiding: String?) {
-        guard settings.workspaceNamingEnabled, let apiKey = credentials.loadKey() else {
-            onFailure(workspace.id, .notConfigured)
-            return
-        }
-        guard let prompt = WorkspaceNaming.prompt(
-            for: collectSignals(for: workspace), homePath: homePath, avoiding: avoiding
-        ) else {
-            onFailure(workspace.id, .noContext)
-            return
-        }
-        fire(workspace.id, prompt: prompt, apiKey: apiKey, manual: true)
     }
 
     /// Osserva **tutte** le tab del workspace, non solo la selezionata: un workspace si nomina da
@@ -187,17 +205,36 @@ final class NamingController {
     /// timer. La presenza della chiave (non osservabile) è controllata qui e ri-valutata via
     /// `reconfigure()`.
     private func armEligibilityObserver() {
+        observerGeneration += 1
+        let generation = observerGeneration
         let eligible = withObservationTracking {
             settings.workspaceNamingEnabled
                 && store.workspaces.contains { !$0.archived && $0.nameOrigin == .default }
         } onChange: { [weak self] in
-            Task { @MainActor in self?.armEligibilityObserver() }
+            Task { @MainActor in
+                // Un osservatore di una generazione precedente ha già un successore: lasciarlo
+                // ri-armare moltiplicherebbe gli osservatori a ogni `reconfigure`/`regenerate`.
+                guard let controller = self, generation == controller.observerGeneration
+                else { return }
+                controller.armEligibilityObserver()
+            }
         }
-        if eligible, credentials.hasKey() {
+        // Unico punto in cui la chiave si rilegge dal disco: da qui in poi il poll usa la cache.
+        apiKey = credentials.loadKey()
+        if eligible, apiKey != nil {
             startTimer()
         } else {
             stopTimer()
         }
+    }
+
+    /// La chiave per una richiesta: la cache, o una rilettura se la cache è vuota. La rilettura
+    /// copre l'azione manuale su una chiave comparsa senza passare dalle impostazioni (file scritto
+    /// a mano): è rara e costa un accesso a file, mentre nel poll la cache regge sempre.
+    private func resolvedAPIKey() -> String? {
+        if let apiKey { return apiKey }
+        apiKey = credentials.loadKey()
+        return apiKey
     }
 
     private func startTimer() {
@@ -216,7 +253,7 @@ final class NamingController {
     // MARK: - Poll
 
     private func poll() {
-        guard settings.workspaceNamingEnabled, let apiKey = credentials.loadKey() else {
+        guard settings.workspaceNamingEnabled, let apiKey else {
             stopTimer()
             return
         }
@@ -276,6 +313,9 @@ final class NamingController {
     ) {
         guard !inFlight.contains(id) else { return }
         inFlight.insert(id)
+        // Segnale di lavoro in corso: il nome pulsa in sidebar. Vale anche per il poll - una nomina
+        // che arriva da sola è meno spaesante se si è visto che stava succedendo.
+        store.setNaming(id, true)
         let baseURL = settings.workspaceNamingBaseURL
         let model = settings.workspaceNamingModel
         Task { [weak self, client] in
@@ -288,6 +328,8 @@ final class NamingController {
             )
             guard let self else { return }
             inFlight.remove(id)
+            store.setNaming(id, false)
+            defer { drainQueuedRegenerate(id) }
             guard let raw, let name = WorkspaceNaming.sanitize(raw) else {
                 recordFailure(id, manual: manual)
                 return
@@ -300,6 +342,14 @@ final class NamingController {
             // Se non applicato (origine cambiata o workspace sparito): niente da fare, l'ha vinto
             // l'utente.
         }
+    }
+
+    /// Esegue il "Regenerate name" che era arrivato mentre la richiesta precedente era in volo. Ora
+    /// il contesto è quello di adesso e il nome da evitare è quello appena applicato: è la stessa
+    /// cosa che l'utente otterrebbe premendo di nuovo la voce di menu, senza doverlo fare.
+    private func drainQueuedRegenerate(_ id: UUID) {
+        guard queuedRegenerate.remove(id) != nil else { return }
+        regenerate(id)
     }
 
     /// Un tentativo andato a vuoto: conta, mette il workspace in cooldown (il poll non deve

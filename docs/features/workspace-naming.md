@@ -28,6 +28,13 @@ Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLA
   **Single-flight per workspace**, max 2 tentativi **distanziati da un cooldown di 60s** poi si
   arrende in silenzio (senza il cooldown la policy, che ha già deciso "nomina", ridecideva a ogni
   tick: un blip di rete bruciava i due tentativi in sei secondi e spegneva la nomina per sempre).
+  Mentre una richiesta è in volo il nome **pulsa** in sidebar (`Workspace.isNaming`, volatile:
+  fuori dallo snapshot, `store.setNaming`): è l'unica risposta che il "Regenerate name" può dare
+  prima del giro di rete. La API key sta **in cache** nel controller e si rilegge solo quando si
+  ri-valuta l'eleggibilità (quindi a ogni `reconfigure()`): il poll gira ogni 3s e leggere il file
+  a ogni tick era I/O per niente. L'osservatore di eleggibilità porta una **generazione**:
+  `withObservationTracking` non si disdice, e senza il contatore ogni `reconfigure`/`regenerate`
+  lasciava dietro un osservatore vivo in più, tutti a ri-armarsi insieme al primo cambio.
   La nomina **automatica** resta silenziosa (mai un alert per un nome che non hai chiesto); quella
   **manuale** no, vedi sotto. Il poll gira **solo** finché c'è un `.default`
   (osservazione su `nameOrigin`): quando tutti sono nominati il timer si ferma. Alla risposta,
@@ -36,11 +43,18 @@ Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLA
   (eleggibile) -> `.generated` (one-shot) / `.user` (a mano). Snapshot **additivo** (assente ->
   `.user`: i nomi pre-feature sono conosciuti dall'utente, non rigenerare). **"Regenerate name"**
   (menu contestuale della sidebar **e** menu Workspace) passa da
-  `AppController.regenerateWorkspaceName` -> `NamingController.regenerate`: torna `.default`, azzera
-  abbandono/tentativi/cooldown, nomina **subito** col contesto corrente (salta le soglie della
-  policy) e chiede un nome **diverso** da quello attuale (`prompt(avoiding:)`, solo se l'attuale
-  l'ha generato il modello: `temperature` è 0, quindi a contesto invariato ridarebbe lo stesso
-  identico nome e sembrerebbe non aver fatto niente). **Non cablarlo su `store.markNameRegenerable`
+  `AppController.regenerateWorkspaceName` -> `NamingController.regenerate`: nomina **subito** col
+  contesto corrente (salta le soglie della policy), torna `.default`, azzera
+  abbandono/tentativi/cooldown, e chiede un nome **diverso** da quello attuale
+  (`prompt(avoiding:)`, solo se l'attuale l'ha generato il modello: `temperature` è 0, quindi a
+  contesto invariato ridarebbe lo stesso identico nome e sembrerebbe non aver fatto niente).
+  **L'ordine conta**: il declassamento a `.default` avviene solo dopo che le guardie (configurata,
+  contesto sufficiente) sono passate. Declassare prima significava che un Regenerate *fallito* su
+  un workspace `.user` gli toglieva l'immunità, e la prima nomina automatica utile si prendeva un
+  nome scelto a mano. Se una richiesta è già in volo per quel workspace, il Regenerate **non si
+  scarta**: si mette in coda e parte alla fine di quella (`queuedRegenerate`), altrimenti l'azione
+  manuale sarebbe muta e il nome in arrivo sarebbe quello del poll, calcolato senza `avoiding` e
+  quindi identico a quello che c'è già. **Non cablarlo su `store.markNameRegenerable`
   da solo**: quello rimette solo il workspace in coda al poll passivo, che su un workspace fermo
   resta muto - era il bug del "Regenerate name che non fa niente" (`regenerate` era codice morto,
   mai chiamato da nessuna delle due voci). A differenza del poll, l'azione manuale **non tace mai**:
