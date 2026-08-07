@@ -73,8 +73,8 @@ public final class AppSettings {
     public private(set) var workspaceNamingBaseURL: String
     public private(set) var workspaceNamingModel: String
 
-    public static let defaultNamingBaseURL = "https://api.openai.com/v1"
-    public static let defaultNamingModel = "gpt-4o-mini"
+    public static let defaultNamingBaseURL = "https://openrouter.ai/api/v1"
+    public static let defaultNamingModel = "deepseek/deepseek-v4-flash-latest"
 
     /// Combinazioni per le azioni rimappabili. Dizionario completo (ogni `ShortcutAction`), che
     /// parte dai default e sovrascrive con quanto salvato. I select-by-number e i comandi di
@@ -335,31 +335,6 @@ public final class AppSettings {
     private func toggle(_ keyPath: ReferenceWritableKeyPath<AppSettings, Bool>, key: String) {
         self[keyPath: keyPath].toggle()
         defaults.set(self[keyPath: keyPath], forKey: key)
-    }
-
-    private enum Keys {
-        static let themeName = "relay.theme.name"
-        static let fontSize = "relay.theme.fontSize"
-        static let fontName = "relay.theme.fontName"
-        static let cursorBlink = "relay.cursor.blink"
-        static let sidebarCollapsed = "relay.sidebar.collapsed"
-        static let archiveExpanded = "relay.sidebar.archiveExpanded"
-        static let sidebarWidth = "relay.sidebar.width"
-        static let autoResumeAgents = "relay.agents.autoResume"
-        static let pendingDecayHours = "relay.agents.pendingDecayHours"
-        static let notificationsEnabled = "relay.notifications.enabled"
-        static let notifyOnNeedsInput = "relay.notifications.needsInput"
-        static let notifyOnCompleted = "relay.notifications.completed"
-        static let notificationSound = "relay.notifications.sound"
-        static let notificationSoundName = "relay.notifications.soundName"
-        static let checkForUpdates = "relay.updates.checkAutomatically"
-        static let skippedUpdateVersion = "relay.updates.skippedVersion"
-        static let onboardingSeen = "relay.onboarding.seen"
-        static let dashboardLayout = "relay.dashboard.layout"
-        static let workspaceNamingEnabled = "relay.naming.enabled"
-        static let workspaceNamingBaseURL = "relay.naming.baseURL"
-        static let workspaceNamingModel = "relay.naming.model"
-        static let keybindings = "relay.shortcuts.bindings"
     }
 }
 
