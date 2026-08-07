@@ -66,6 +66,10 @@ Il manuale completo è in **[docs/GUIDE.md](docs/GUIDE.md)** e dentro l'app sott
 l'interfaccia.
 
 <p align="center">
+  <img src="docs/images/guide.png" alt="La guida in-app, aperta sulla sezione workspace e tab" width="900">
+</p>
+
+<p align="center">
   <img src="docs/images/dashboard.png" alt="La dashboard di triage, sessioni su quattro corsie per stato" width="900">
 </p>
 

@@ -83,7 +83,7 @@ extension Guide {
     static var housekeepingSection: GuideSection {
         GuideSection(
             id: "housekeeping",
-            title: "Updates & housekeeping",
+            title: "Updates & upkeep",
             symbol: "gearshape",
             summary: "Staying current, and where Relay keeps its things.",
             blocks: [

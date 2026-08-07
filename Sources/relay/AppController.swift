@@ -304,6 +304,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         driver.start(tabIDs: tabIDs)
         log.info("demo mode: \(config.workspaces) workspaces x \(config.tabsPerWorkspace) tabs")
         config.overlay.map(presentDemoOverlay)
+        startDemoChats()
+        resizeWindowForDemo()
     }
 
     /// Workspace senza cartella: parte da home, l'utente ci naviga con `cd`. Internal: usato

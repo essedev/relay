@@ -15,7 +15,7 @@ Open the same guide inside the app from **Help > Relay Guide**.
 - [Automatic naming](#naming) - Let a model name a workspace after what is happening in it.
 - [Keyboard](#keyboard) - Every shortcut, and how to make them yours.
 - [Appearance & terminal](#appearance) - Themes, fonts, and what the terminal does for you.
-- [Updates & housekeeping](#housekeeping) - Staying current, and where Relay keeps its things.
+- [Updates & upkeep](#housekeeping) - Staying current, and where Relay keeps its things.
 
 <a id="workspaces"></a>
 
@@ -294,7 +294,7 @@ stay.
 
 <a id="housekeeping"></a>
 
-## Updates & housekeeping
+## Updates & upkeep
 
 - **Updates** - Relay checks for a new release at launch and tells you in a banner; you can skip a
   version and it will stay quiet until a newer one appears. Check for Updates in the Relay menu asks

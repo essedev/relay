@@ -64,6 +64,10 @@ The full manual lives in **[docs/GUIDE.md](docs/GUIDE.md)**, and inside the app 
 **Help > Relay Guide** (`Cmd+?`) - same content, generated from the same source.
 
 <p align="center">
+  <img src="docs/images/guide.png" alt="The in-app guide, open on the Workspaces and tabs section" width="900">
+</p>
+
+<p align="center">
   <img src="docs/images/dashboard.png" alt="The triage dashboard, sessions grouped in four lanes by state" width="900">
 </p>
 
