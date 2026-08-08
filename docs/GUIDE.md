@@ -188,9 +188,9 @@ dev” becomes “Npm Dev”. No key, no network, no wait.
 A name you typed yourself is never overwritten: renaming a workspace by hand opts it out for good. A
 placeholder or a folder name is fair game, and once named the workspace is left alone.
 
-**Note:** The key is stored in a file only you can read, not in the preferences plist. The default
-model costs a small fraction of a cent per name, but it is your account - and the derived names cost
-nothing, so the key is an upgrade, not a requirement.
+**Note:** The key is stored in a file only you can read, not in the preferences plist. A name is a
+couple of hundred tokens on a cheap default model, but it is your account - and the derived names
+cost nothing, so the key is an upgrade, not a requirement.
 
 <a id="keyboard"></a>
 
@@ -198,6 +198,8 @@ nothing, so the key is an upgrade, not a requirement.
 
 Two axes, always the same: workspaces with Command, tabs with Option. Everything else is remappable
 in Settings > Shortcuts - click a combination, press the new one, conflicts are flagged as you go.
+Fixed and not remappable: those two number axes, the terminal control keys, and the macOS menu
+commands, this guide's own ⌘? included.
 
 | Keys | Action | Notes |
 | --- | --- | --- |

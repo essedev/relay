@@ -16,7 +16,9 @@ extension Guide {
                 .paragraph(
                     "Two axes, always the same: workspaces with Command, tabs with Option. "
                         + "Everything else is remappable in Settings > Shortcuts - click a "
-                        + "combination, press the new one, conflicts are flagged as you go."
+                        + "combination, press the new one, conflicts are flagged as you go. "
+                        + "Fixed and not remappable: those two number axes, the terminal control "
+                        + "keys, and the macOS menu commands, this guide's own \u{2318}? included."
                 ),
                 .shortcuts([
                     .fixed(keys: "\u{2318}1\u{2013}9", title: "Select workspace",

@@ -154,7 +154,7 @@ extension Guide {
                 ),
                 .note(
                     "The key is stored in a file only you can read, not in the preferences "
-                        + "plist. The default model costs a small fraction of a cent per name, "
+                        + "plist. A name is a couple of hundred tokens on a cheap default model, "
                         + "but it is your account - and the derived names cost nothing, so the "
                         + "key is an upgrade, not a requirement."
                 ),

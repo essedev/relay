@@ -11,6 +11,7 @@
 [![Homebrew](https://img.shields.io/badge/install-brew%20cask-FBB040?logo=homebrew&logoColor=white)](#installazione)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [English](README.md) · **Italiano** · [Guida utente](docs/GUIDE.md)
 
@@ -27,7 +28,8 @@ girano dodici sessioni insieme. Veloce e leggero.
 Stato: baseline chiuso e distribuito via Homebrew tap. Workspace -> pane -> tab -> terminale, agent
 runtime con badge e notifiche, split panes e multi-finestra, persistence del layout, resume
 assistito, dashboard di triage kanban, gruppi e archivio dei workspace, nomina automatica dei
-workspace via LLM, onboarding, guida in-app, dodici temi. Engine v1 SwiftTerm dietro l'astrazione
+workspace (senza configurare niente, con un LLM se vuoi nomi migliori), onboarding, guida in-app,
+dodici temi. Engine v1 SwiftTerm dietro l'astrazione
 `TerminalEngine` (libghostty backend futuro). Decisioni, benchmark e log della ricerca:
 `docs/research/` (`CYCLES.md`).
 
@@ -37,12 +39,15 @@ workspace via LLM, onboarding, guida in-app, dodici temi. Engine v1 SwiftTerm di
 brew install --cask essedev/relay/relay
 ```
 
-Aggiornamenti: `brew update && brew upgrade --cask relay`. In alternativa scarica il `.dmg`
-dall'ultima [release](https://github.com/essedev/relay/releases/latest) e trascina Relay in
-Applications.
+Aggiornamenti: `brew update && brew upgrade --cask relay`. Il cask mette anche i comandi `relay` e
+`relay-cli` nel PATH, quelli che usano le sezioni qui sotto.
 
-L'app non è firmata con Developer ID Apple: al primo avvio macOS la blocca. Apri **Impostazioni di
-Sistema > Privacy e Sicurezza** e premi **Apri comunque** (una volta sola per versione).
+In alternativa scarica il `.dmg` dall'ultima
+[release](https://github.com/essedev/relay/releases/latest) e trascina Relay in Applications. Relay
+non è firmata con Developer ID Apple, quindi con l'installazione manuale macOS blocca il primo
+avvio: apri **Impostazioni di Sistema > Privacy e Sicurezza** e premi **Apri comunque** (una volta
+sola per versione). Il cask toglie la quarantena al posto tuo, quindi installando da brew quel
+passaggio non serve; i due eseguibili stanno dentro `Relay.app/Contents/MacOS`.
 
 ## Cosa fa
 
@@ -52,14 +57,17 @@ Sistema > Privacy e Sicurezza** e premi **Apri comunque** (una volta sola per ve
 - **Attenzione a tre livelli.** Una sessione che ti aspetta è rumorosa; una che hai visto ma non
   ripreso resta quieta sullo sfondo; rispondere la spegne. Niente resta acceso per sempre, e niente
   si spegne prima che tu l'abbia visto.
-- **Triage invece di caccia.** `Cmd+D` mette tutte le sessioni dell'app su una schermata, su
-  quattro corsie per urgenza, con filtro a digitazione e Invio per saltarci dentro.
+- **Triage invece di caccia.** `Cmd+D` mette tutte le sessioni dell'app su una schermata, di default
+  su quattro corsie per urgenza (il layout a griglia è a un toggle di distanza), con filtro a
+  digitazione e Invio per saltarci dentro.
 - **Workspace che restano in ordine.** Gruppi, pin, archivio, e un ordine che cambia solo col tuo
   drag - o quando una sessione finisce mentre stavi guardando altrove.
 - **I pane ospitano le tab.** Split a destra o sotto; ogni pane ha la sua strip e la sua selezione.
   Ogni workspace può passare a una finestra sua, con tutte le sue sessioni.
-- **Tutto rimappabile**, dodici temi, e i terminali inutilizzati vengono scaricati: la memoria
-  resta piatta anche con decine di tab aperte.
+- **Scorciatoie rimappabili**, dodici temi, e i terminali inutilizzati vengono scaricati: la memoria
+  resta piatta anche con decine di tab aperte. ~90 MB residenti con un terminale vivo, ~92 MB con
+  tredici, e il monitor di input aggiunge 2.4µs nel caso peggiore su un keystroke. Metodo e numeri
+  in [`docs/research/PERF.md`](docs/research/PERF.md).
 
 Il manuale completo è in **[docs/GUIDE.md](docs/GUIDE.md)** e dentro l'app sotto
 **Help > Relay Guide** (`Cmd+?`): stesso contenuto, generato dalla stessa fonte. È in inglese, come
@@ -86,7 +94,7 @@ relay-cli hooks uninstall   # rimuove solo gli hook di Relay
 ```
 
 Poi apri Relay, lancia `claude` in una tab e i badge si aggiornano. `needs_input` resta finché non
-rispondi. Lo stesso si fa con un click da Impostazioni > Agents. Protocollo e binding in
+rispondi. Lo stesso si fa con un click da Settings > Agents. Protocollo e binding in
 `docs/STATE_SCHEMA.md`.
 
 Con l'app avviata dal bundle arrivano anche le notifiche macOS quando un agente chiede input o
@@ -102,7 +110,8 @@ relay-cli simulate burst --loops 3 --fast
 ```
 
 Per vedere l'app piena di attività: `relay --demo 5x4` apre cinque workspace da quattro tab con
-sessioni simulate concorrenti (sempre sul socket reale).
+sessioni simulate concorrenti (sempre sul socket reale). Relay è single-instance: chiudi prima
+quella già aperta, altrimenti il flag viene ignorato e torna avanti la finestra esistente.
 
 ## Nomina automatica dei workspace
 
@@ -111,11 +120,11 @@ rinomina in base a cosa sta facendo: la cartella, un comando in esecuzione in un
 sessione agente attiva. Il nome pulsa mentre lo si sta cercando.
 
 Funziona senza configurare niente: il nome si deriva da quei segnali ("yellow-hub" diventa "Yellow
-Hub", "npm run dev" diventa "Npm Dev"). Aggiungi una API key in **Impostazioni > Agents > Workspace
-naming** e a scriverli è un modello: nomi migliori, e "Regenerate name" te ne dà uno diverso.
-L'endpoint di default è OpenRouter con un modello economico (un nome costa una frazione di
-centesimo); va bene qualunque base URL e modello OpenAI-compatible. I nomi che scrivi tu non vengono
-mai sovrascritti.
+Hub", "npm run dev" diventa "Npm Dev"). Aggiungi una API key in **Settings > Agents > Workspace
+naming** e a scriverli è un modello: nomi migliori, e "Regenerate name" te ne dà uno diverso
+(funziona anche senza chiave, sulla regola locale). L'endpoint di default è OpenRouter con un
+modello economico, e un nome costa un paio di centinaia di token; va bene qualunque base URL e
+modello OpenAI-compatible. I nomi che scrivi tu non vengono mai sovrascritti.
 
 ## Scorciatoie
 
@@ -132,9 +141,10 @@ da imparare per prime:
 | `⌘?` | La guida dell'app |
 
 Tutto il resto, coi default sempre allineati, sta nelle
-[tabelle delle scorciatoie](docs/GUIDE.md#keyboard). A parte i select-by-number e i comandi di
-sistema sono tutte rimappabili da Impostazioni > Shortcuts: clicca una combinazione, premi la
-nuova.
+[tabelle delle scorciatoie](docs/GUIDE.md#keyboard). Sono rimappabili da Settings > Shortcuts
+(clicca una combinazione, premi la nuova), con tre eccezioni fisse: i due assi numerici qui sopra,
+i tasti di controllo del terminale (`⌃C`, `⌃D`, `⌃Z`, che appartengono al programma che stai
+usando) e i comandi di menu di macOS, `⌘?` incluso.
 
 Sui layout internazionali `Option` fa anche da AltGr: quando compone un carattere stampabile
 (`Option+ò` = `@`), quel carattere finisce nel terminale invece di far scattare una scorciatoia.
@@ -198,6 +208,12 @@ Il resto è documentazione interna.
 - `docs/STATE_SCHEMA.md` - schema di persistence e protocollo eventi agente.
 - `docs/features/*.md` - un file per area, con le invarianti e le trappole già pagate:
   `attention.md`, `agent-runtime.md`, `terminal.md`, `sidebar.md`, `workspace-groups.md`,
-  `split-panes.md`, `windows.md`, `keyboard.md`, `workspace-naming.md`, `persistence.md`,
-  `distribution.md`.
+  `split-panes.md`, `windows.md`, `keyboard.md`, `workspace-naming.md`, `guide.md`,
+  `persistence.md`, `distribution.md`.
 - `CLAUDE.md` - guida operativa per l'agent, volutamente corta: rimanda ai file qui sopra.
+
+## Licenza
+
+Relay è [licenziata MIT](LICENSE). Include SwiftTerm (MIT) come engine del terminale e
+swift-argument-parser (Apache-2.0); le loro notice stanno in [NOTICE](NOTICE), che viaggia dentro
+l'app sotto `Relay.app/Contents/Resources`.
