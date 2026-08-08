@@ -1,7 +1,7 @@
 # Architecture
 
 Progetto: **Relay**.
-Ultimo aggiornamento: 2026-07-25.
+Ultimo aggiornamento: 2026-08-08.
 
 Documento vivo: budget, moduli e confini si rivedono quando misure o sviluppo portano evidenze
 nuove. La storia decisionale completa (cicli 0-8: analisi engine, diagnosi lag cmux, benchmark
@@ -154,7 +154,7 @@ macOS App
     Settings
 
   Servizi di rete (solo nel composition root)
-    NamingController + ChatCompletionClient   nomina workspace via LLM
+    NamingController + ChatCompletionClient   nomina workspace (LLM opzionale)
     UpdateController                          check della GitHub Release
 
   CLI (relay-cli)
@@ -211,12 +211,12 @@ Regole di dipendenza:
 - l'engine concreto (SwiftTerm oggi, libghostty domani) è importato solo da `TerminalEngine`;
   il resto dell'app parla con `TerminalEngine`, non con l'engine. La policy del lifecycle
   (decisioni lazy/LRU) è un tipo puro testabile senza AppKit;
-- `relay-cli` dipende da `Core`, `AgentProtocol`, `AgentRuntime` (client socket) e `HookInstaller`:
-  niente dipendenze dal target app;
+- `relay-cli` dipende da `Core`, `AgentProtocol`, `AgentRuntime` (client socket), `HookInstaller` e
+  `WorkspaceModel` (la guida come dato, per generare `docs/GUIDE.md`): niente dipendenze dal target
+  app;
 - `relay` è solo composition root: se cresce oltre il wiring, manca un modulo.
 
-Disciplina di codice, test e processo: `CONVENTIONS.md` (bozza qui, poi `docs/CONVENTIONS.md`
-nel repo app).
+Disciplina di codice, test e processo: `docs/CONVENTIONS.md`.
 
 ### Confine AppKit / SwiftUI
 
@@ -913,12 +913,16 @@ di bottiglia reale resta l'architettura, non il parser.
 
 ## Decisioni Da Chiudere
 
-1. Nome prodotto e repo (candidato: Relay, con riserve sul clash GraphQL).
-2. Engine v1 SwiftTerm chiuso (Cycle 5); resta da definire la soglia oggettiva che farebbe
+Restano aperte solo queste. Chiuse per storico: nome prodotto e repo (Relay, rilasciata e
+distribuita via tap brew), formato del protocollo v1 (`STATE_SCHEMA.md`), strategia di
+distribuzione degli hook (`HookInstaller` + `docs/features/agent-runtime.md`), budget performance
+(misurati, `docs/research/PERF.md`).
+
+1. Engine: SwiftTerm chiuso per la v1 (Cycle 5); resta da definire la soglia oggettiva che farebbe
    scattare il passaggio a libghostty.
-3. Dettaglio budget performance dopo misure reali dello spike.
-4. Formato protocollo v1 definitivo.
-5. Strategia di distribuzione hook (firma, bundle, path).
+2. Isolamento di `WorkspaceStore`: oggi `@Observable` non isolato, mutato dal solo main thread per
+   convenzione. Renderlo `@MainActor` è una decisione aperta, non un fatto.
+3. Firma Developer ID + notarizzazione: oggi self-signed, la quarantena la toglie il cask.
 
 ## Stato Attuale
 
@@ -1041,7 +1045,8 @@ Costruito dopo ancora (split, finestre, nomina):
 
 - split panes al modello cmux (i pane ospitano le tab) e multi-window come partizione dei workspace
   su un solo store (`docs/features/split-panes.md`);
-- archivio dei workspace, onboarding, nomina automatica dei workspace via LLM, check aggiornamenti,
+- archivio dei workspace, onboarding, nomina automatica dei workspace (regola locale di default,
+  LLM se c'è una chiave), check aggiornamenti,
   pannello Runtime Stats, ricerca nel terminale con evidenziazione, scroll fluido.
 
 Da fare dopo:

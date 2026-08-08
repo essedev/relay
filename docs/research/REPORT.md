@@ -1,4 +1,12 @@
-# Analisi Base Terminale Agent-Aware
+# Analisi Base Terminale Agent-Aware (documento superato)
+
+> **Questo file è archivio.** È il report iniziale della ricerca, con le opzioni valutate prima di
+> scrivere Relay. Diverse conclusioni sono state ribaltate dai cicli successivi (vedi gli
+> aggiornamenti in linea e `CYCLES.md`). Lo stato corrente sta in `docs/` un livello sopra.
+>
+> In particolare, "GPL accettabile" qui sotto è un vincolo della fase di valutazione, quando si
+> considerava di partire da una base GPL: **non descrive Relay**, che è MIT e usa SwiftTerm (MIT)
+> come engine. Vedi [`LICENSE`](../../LICENSE).
 
 Data: 2026-07-02  
 Scope: macOS-only, GPL accettabile, obiettivo MVP ispirato a `cmux` con stati agente stile Otty.

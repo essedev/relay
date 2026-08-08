@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' idle \"$PPID\""
+            "command": "OURTERM_CLI='/path/to/ourterm-spike/bin/ourterm-state.py' '/path/to/ourterm-spike/bin/ourterm-claude-hook.sh' idle \"$PPID\""
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
+            "command": "OURTERM_CLI='/path/to/ourterm-spike/bin/ourterm-state.py' '/path/to/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
+            "command": "OURTERM_CLI='/path/to/ourterm-spike/bin/ourterm-state.py' '/path/to/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
+            "command": "OURTERM_CLI='/path/to/ourterm-spike/bin/ourterm-state.py' '/path/to/ourterm-spike/bin/ourterm-claude-hook.sh' processing \"$PPID\""
           }
         ]
       }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' awaiting \"$PPID\" ctx"
+            "command": "OURTERM_CLI='/path/to/ourterm-spike/bin/ourterm-state.py' '/path/to/ourterm-spike/bin/ourterm-claude-hook.sh' awaiting \"$PPID\" ctx"
           }
         ]
       }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "OURTERM_CLI='/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py' '/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-claude-hook.sh' idle \"$PPID\""
+            "command": "OURTERM_CLI='/path/to/ourterm-spike/bin/ourterm-state.py' '/path/to/ourterm-spike/bin/ourterm-claude-hook.sh' idle \"$PPID\""
           }
         ]
       }

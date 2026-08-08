@@ -1,5 +1,8 @@
 # OurTerm Spike
 
+> Spike storico del ciclo di ricerca: i path qui sotto sono placeholder, vanno adattati alla
+> posizione reale della cartella `ourterm-spike` sulla tua macchina.
+
 Minimal prototype to validate reliable Claude agent states via hooks.
 
 ## Files
@@ -13,9 +16,9 @@ Minimal prototype to validate reliable Claude agent states via hooks.
 ## Quick test
 
 ```bash
-/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py state:claude session-id=test state=processing bypass=0
-/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py dump
-/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py timeline test
+/path/to/ourterm-spike/bin/ourterm-state.py state:claude session-id=test state=processing bypass=0
+/path/to/ourterm-spike/bin/ourterm-state.py dump
+/path/to/ourterm-spike/bin/ourterm-state.py timeline test
 ```
 
 ## Intended mapping

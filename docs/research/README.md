@@ -1,15 +1,25 @@
 # Ricerca
 
 Storia della ricerca che ha portato a Relay, importata dall'ex repo `terminal-agent-analysis`
-(ora unificato qui). Materiale **storico**: la documentazione corrente e canonica dell'app vive in
-`docs/` (un livello sopra). In caso di conflitto, valgono i doc canonici.
+(ora unificato qui). La documentazione corrente e canonica dell'app vive in `docs/` (un livello
+sopra). In caso di conflitto, valgono i doc canonici.
 
-## Contenuto
+Attenzione: la cartella **non è tutta storica**. Due file sono vivi e si aggiornano col codice, il
+resto è archivio della fase di analisi.
 
-- **`CYCLES.md`** - log dei cicli di lavoro (0-8): analisi engine, diagnosi lag cmux, benchmark,
-  agent runtime, giro UI/UX. È il diario decisionale.
+## Vivi
+
+- **`CYCLES.md`** - il diario decisionale, un'entrata per ciclo di lavoro. Parte dal Cycle 0
+  (analisi engine, diagnosi lag cmux, benchmark) e continua a crescere: è il posto dove finisce il
+  "perché" di ogni giro. Linkato da `CLAUDE.md` e dal README come riferimento corrente.
+- **`PERF.md`** - le misure di performance dietro ai budget di `../ARCHITECTURE.md` e la taratura
+  del cap LRU, con le istruzioni per rieseguirle (`RELAY_PERF=1`).
+
+## Archivio della fase di analisi
+
 - **`REPORT.md`** - report iniziale di ricerca (Fase 0): confronto Otty/cmux/ghostty, tesi di
-  prodotto, prime decisioni.
+  prodotto, prime decisioni. Le valutazioni di licenza qui dentro (l'ipotesi di partire da una base
+  GPL) sono superate: Relay è MIT e l'engine è SwiftTerm, MIT. Vedi `../../LICENSE`.
 - **`ARCHITECTURE.md`** - architettura della fase di ricerca (Fase 0-1). Superata da
   `../ARCHITECTURE.md` (corrente), tenuta come storia del "perché".
 - **`ROADMAP.md`** - piano di ricerca per fasi (0-1). Il piano forward attivo è `../ROADMAP.md`.

@@ -54,10 +54,11 @@ def main() -> int:
         print("unknown command", file=sys.stderr)
         return 2
 
+    spike_root = Path(__file__).resolve().parent.parent
     log_path = Path(
         os.environ.get(
             "OURTERM_STATE_LOG_FILE",
-            "/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/state/agent-state-events.jsonl",
+            str(spike_root / "state" / "agent-state-events.jsonl"),
         )
     )
     params = parse_kv(sys.argv[2:])

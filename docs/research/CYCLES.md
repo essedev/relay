@@ -115,7 +115,7 @@ Output runtime:
 - Config `~/.claude/settings.json` valida dopo modifica.
 - Hook nostri installati in parallelo a Otty, non in sostituzione.
 - Backup creato:
-  - `/Users/doppia/.claude/settings.backup-ourterm-20260702-1043.json`
+  - `~/.claude/settings.backup-ourterm-20260702-1043.json`
 - Simulata sequenza: `processing`, `awaiting`, `idle`.
 - Ricevuti eventi da sessioni Claude reali.
 

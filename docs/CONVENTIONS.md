@@ -32,8 +32,10 @@ Regole di stile, qualità, test e processo. Struttura moduli e regole di dipende
   wiring, e le sue `AppController+*.swift` (navigazione, menu, dashboard, onboarding, finestre,
   stats) sono ammesse purché ognuna resti *cablaggio* di un'area - se una di quelle extension inizia
   a contenere decisioni di dominio, quella logica va in un tipo suo (è così che sono nati
-  `ShortcutRuntime`, `FullOverlayPresenter`, `NamingController`). Il tetto vale comunque: nessun file
-  oltre i limiti, e la regola non si estende ad altri tipi.
+  `FullOverlayPresenter` e `NamingController`; `Sources/relay/ShortcutRuntime.swift` è invece
+  rimasta una `extension AppController`, ammessa perché è puro cablaggio del monitor tastiera, ma
+  se prendesse decisioni proprie andrebbe estratta come le altre due). Il tetto vale comunque:
+  nessun file oltre i limiti, e la regola non si estende ad altri tipi.
 - No force unwrap / force try. `force_unwrapping` è opt-in in `.swiftlint.yml` e **non esclude i
   test**: la regola vale anche lì (`XCTUnwrap` e `#require` fanno lo stesso lavoro dando un
   messaggio migliore). Se in futuro servisse allentarla nei test, va aggiunta un'esclusione nel
@@ -127,9 +129,11 @@ make install    # swift package resolve
 make build      # build (debug)
 make run        # build e lancia l'app (senza notifiche)
 make test       # unit + integration di tutti i package
+make tools      # scarica SwiftFormat/SwiftLint pinnati in .build/tools (prerequisito di lint)
 make lint       # SwiftFormat --lint + SwiftLint --strict
 make format     # SwiftFormat write
 make check      # lint + build + test (definition of done)
+make guide-md   # rigenera docs/GUIDE.md dalla guida in-app (un test lo verifica)
 make bundle / run-app / install-app / dmg / release   # .app, installer, pubblicazione
 make icon / clean
 ```
@@ -146,12 +150,26 @@ Vedi `make help` per l'elenco completo.
 
 Set minimo alla creazione:
 
-- `README.md`: cosa fa, come si builda, link ai doc.
+- `README.md` (+ `README.it.md`): cosa fa, come si installa, link ai doc. Vetrina pubblica.
 - `CLAUDE.md`: convenzioni operative per l'agent, comandi, gotcha.
 - `docs/ARCHITECTURE.md`: trasferita e mantenuta da questa analisi.
 - `docs/CONVENTIONS.md`: questo file.
 - `docs/STATE_SCHEMA.md`: schema di persistence (snapshot layout) e protocollo eventi, al
   posto del `DATABASE_SCHEMA.md` (niente database in v1). Aggiornato nello stesso commit di
   ogni cambio schema.
+
+Cresciuto poi, con la codebase:
+
+- `docs/ROADMAP.md`: cosa manca e in che ordine.
+- `docs/GUIDE.md`: la guida utente. **Generata**, non si edita a mano: la fonte è
+  `Sources/WorkspaceModel/Guide*.swift`, si rigenera con `make guide-md` e un test fallisce se il
+  file committato è disallineato (`docs/features/guide.md`).
+- `docs/features/*.md`: un file per area, con invarianti e trappole già pagate. Qui vanno i
+  dettagli che farebbero crescere `CLAUDE.md`.
+- `docs/research/*`: materiale storico della fase di analisi, più due file vivi (`CYCLES.md`,
+  il diario delle decisioni, e `PERF.md`, i numeri di performance).
+- `LICENSE` + `NOTICE`: MIT, con le notice delle dipendenze bundleate (SwiftTerm MIT,
+  swift-argument-parser Apache-2.0). `NOTICE` viaggia dentro il `.app`: è un obbligo della MIT
+  di SwiftTerm, non un vezzo.
 
 Doc e codice cambiano nello stesso commit, o la doc è troppo dettagliata.

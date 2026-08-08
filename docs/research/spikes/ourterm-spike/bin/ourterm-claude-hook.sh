@@ -15,8 +15,9 @@ sid="${CLAUDE_SESSION_ID:-$(printf '%s' "$input" | sed -n 's/.*"session_id"[[:sp
 bypass=0
 ps -o args= -p "$claude_pid" 2>/dev/null | grep -qF -- '--dangerously-skip-permissions' && bypass=1
 
-cli="${OURTERM_CLI:-/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state.py}"
-log_cli="${OURTERM_LOG_CLI:-/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/bin/ourterm-state-log.py}"
+bin_dir="$(cd "$(dirname "$0")" && pwd)"
+cli="${OURTERM_CLI:-$bin_dir/ourterm-state.py}"
+log_cli="${OURTERM_LOG_CLI:-$bin_dir/ourterm-state-log.py}"
 
 if [ "$want_ctx" = "ctx" ]; then
     ctx="$(printf '%s' "$input" | base64)"

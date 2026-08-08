@@ -22,6 +22,11 @@ senza parsing dell'output. Notifiche macOS e verifica live con Claude reale poi 
 Obiettivo: rendere Relay agent-aware. È il differenziatore. Pipeline hook -> stato già validata
 in `docs/research/spikes/ourterm-spike` (Cycle 1); qui la si porta nell'app.
 
+Il piano qui sotto è **come fu scritto**, e due nomi non esistono più: `AgentSessionStore` (l'actor
+è stato rimosso, lo stato vive su `Tab` e il coordinatore serializza con un pump FIFO) e
+`TabBarView` (diventata `PaneTabBar` con lo split v2). Per l'assetto vero vedi
+`docs/features/agent-runtime.md`.
+
 Design (vedi `ARCHITECTURE.md`: Agent Runtime, Local Control API, Aggregazione Stati E Badge):
 
 1. **Receiver locale** (`AgentRuntime`): Unix domain socket, JSON lines; decodifica in

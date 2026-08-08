@@ -124,10 +124,11 @@ nomina automatica sono arrivati senza toccarla):
 
 ```text
 LayoutSnapshot    { version, selectedWorkspaceID?, workspaces: [WorkspaceSnapshot],
-                    windows: [WindowSnapshot] }
+                    windows: [WindowSnapshot], groups: [GroupSnapshot] }
 WindowSnapshot    { id, selectedWorkspaceID?, frame?: WindowFrame, isKey }
 WindowFrame       { x, y, width, height }
-WorkspaceSnapshot { id, windowID, name, nameOrigin, rootPath?, pinned, archived,
+GroupSnapshot     { id, name, colorIndex, collapsed, pinned }
+WorkspaceSnapshot { id, windowID, groupID?, name, nameOrigin, rootPath?, pinned, archived,
                     selectedTabID?, tabs: [TabSnapshot], splitLayout?: SplitNode,
                     focusedPaneID? }
 TabSnapshot       { id, title, hasCustomTitle, currentDirectory?, resume?, pendingSince? }
@@ -143,11 +144,19 @@ chiave mancante farebbe fallire il decode, cioè butterebbe il layout dell'utent
 | --- | --- | --- |
 | `windows` | `[]` (una finestra sola, `RelayWindow.mainID`) | layout pre multi-window |
 | `windowID` | `RelayWindow.mainID` | idem |
+| `groups` | `[]` (nessun gruppo, righe tutte libere) | layout pre gruppi |
+| `groupID` | `nil` (workspace fuori da ogni gruppo) | idem |
 | `nameOrigin` | `.user` | i nomi pre-feature sono dell'utente, non si rigenerano |
 | `archived` | `false` | layout pre archivio |
 | `splitLayout` | `nil` -> pane radice con tutte le tab | layout pre split |
 | `focusedPaneID` | `nil` -> il pane della selezione | layout pre modello cmux |
 | `pendingSince` | `nil` (nessun sospeso) | layout pre attenzione a tre livelli |
+
+I gruppi sono salvati come **solo aspetto** (nome, colore, collassato, pinnato): l'appartenenza vive
+su `WorkspaceSnapshot.groupID`, quindi non c'è una lista di membri da validare al restore. Due
+guardie al load (`WorkspaceStore+Persistence.swift:112` e `:121`): un workspace archiviato perde
+l'appartenenza salvata (un archiviato non sta in una card), e i gruppi rimasti senza membri vengono
+potati, perché un gruppo senza righe non ha una posizione in sidebar e quindi non esiste.
 
 `splitLayout` e `focusedPaneID` sono tolleranti anche al **valore**, non solo alla chiave: un nodo
 corrotto o di un formato futuro degrada a `nil` invece di far fallire il decode. Il `Codable` di
@@ -213,8 +222,8 @@ layout, mai in un payload evento.
 In codice: `AgentState`, `AgentEventType`, `AgentStateEvent` (con fence di run), `WorkspaceStore`,
 `Workspace`, `Tab`, `SplitNode`/`SplitPane`, `RelayWindow`, `AppSettings`, agent runtime completo
 (receiver/client/coordinator/reducer), persistence layout (`LayoutSnapshot` + `LayoutStore` +
-`LayoutAutosave`) con split, finestre, archivio, `nameOrigin` e sospesi, e resume (`ResumeBinding` +
-ResumeBar).
+`LayoutAutosave`) con split, finestre, gruppi, archivio, `nameOrigin` e sospesi, e resume
+(`ResumeBinding` + ResumeBar).
 
 Non ancora nello snapshot: nulla di strutturale in sospeso. Le evoluzioni note (drag di tab fra
 pane, drag di workspace fra finestre) muovono id dentro i formati già descritti qui e non ne

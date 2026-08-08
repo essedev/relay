@@ -89,16 +89,17 @@ def main() -> int:
         print("usage: ourterm-state.py <command> [key=value ...]", file=sys.stderr)
         return 2
 
+    spike_root = Path(__file__).resolve().parent.parent
     state_file = Path(
         os.environ.get(
             "OURTERM_STATE_FILE",
-            "/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/state/agent-states.json",
+            str(spike_root / "state" / "agent-states.json"),
         )
     )
     log_file = Path(
         os.environ.get(
             "OURTERM_STATE_LOG_FILE",
-            "/Users/doppia/Development/Yellow/terminal-agent-analysis/ourterm-spike/state/agent-state-events.jsonl",
+            str(spike_root / "state" / "agent-state-events.jsonl"),
         )
     )
 

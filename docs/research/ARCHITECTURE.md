@@ -1,4 +1,9 @@
-# Architecture
+# Architecture (documento superato)
+
+> **Questo file è archivio.** È l'architettura della fase di ricerca (Fase 0-1), scritta quando il
+> progetto si chiamava ancora `ourterm`. L'architettura corrente di Relay è
+> [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md): in caso di conflitto vale quella. Questo resta come
+> storia del "perché".
 
 Codename di lavoro: `ourterm` (nome definitivo da scegliere).
 Ultimo aggiornamento: 2026-07-02.
