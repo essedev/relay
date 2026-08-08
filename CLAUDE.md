@@ -25,6 +25,9 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
 - **Release**: `make release`. Versione = `./VERSION` (semver). Bumpa VERSION, `make check`,
   commit, poi `make release`: **è pubblicazione** (push tag + GitHub Release + tap brew), chiedi
   il via prima di lanciarla. Routine e firma in `docs/features/distribution.md`.
+- **Licenza**: MIT (`LICENSE`), con le notice delle dipendenze in `NOTICE`. Entrambi vengono
+  copiati in `Relay.app/Contents/Resources` da `make bundle`: la MIT di SwiftTerm impone di
+  riprodurre la notice in ogni distribuzione. Se aggiungi una dipendenza, aggiorna `NOTICE`.
 - **Guida utente**: `make guide-md` rigenera `docs/GUIDE.md` dalla guida in-app (fonte unica in
   `Sources/WorkspaceModel/Guide*.swift`). Un test fallisce se il file committato è disallineato:
   se tocchi il contenuto, rigenera nello stesso commit. Vedi `docs/features/guide.md`.

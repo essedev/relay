@@ -31,6 +31,10 @@ public struct AboutView: View {
                 .foregroundStyle(colors.secondary)
                 .textSelection(.enabled)
                 .padding(.top, Theme.Spacing.xs)
+            Text("MIT licensed. Terminal engine: SwiftTerm (MIT).")
+                .font(Theme.Typography.item)
+                .foregroundStyle(colors.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -6,7 +6,7 @@ VERSION := $(shell cat VERSION)
 # Identita di firma per codesign. '-' = ad-hoc (default). Per un self-signed stabile
 # (identita costante tra le build: niente 'Apri comunque' ricorrente, notifiche non decadono)
 # usare il cert dedicato: SIGN_IDENTITY="Relay Self-Signed" (lo prepara scripts/setup-signing.sh;
-# `make release` fa tutto da solo). L'identita e' risolta dalla search list dei keychain.
+# `make release` fa tutto da solo). L'identita è risolta dalla search list dei keychain.
 SIGN_IDENTITY ?= -
 
 # Strumenti di lint pinnati (binari dai release GitHub, in .build/tools): CI e locale usano la
@@ -80,6 +80,10 @@ bundle: ## Assembla Relay.app (release, firma $(SIGN_IDENTITY), versione da ./VE
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" $(APP)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP)/Contents/Info.plist
 	cp bundle/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
+	# La MIT di SwiftTerm impone di riprodurre copyright e permission notice in ogni
+	# distribuzione: LICENSE e NOTICE viaggiano dentro l'app, non solo nel repo.
+	cp LICENSE $(APP)/Contents/Resources/LICENSE
+	cp NOTICE $(APP)/Contents/Resources/NOTICE
 	# Il binario annidato va firmato prima del bundle esterno.
 	codesign --force --sign "$(SIGN_IDENTITY)" $(APP)/Contents/MacOS/relay-cli
 	codesign --force --sign "$(SIGN_IDENTITY)" $(APP)
