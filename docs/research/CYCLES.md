@@ -1279,3 +1279,67 @@ eleggibilità stanno in `NamingControllerPoll.swift`.
 Coda del giro: la guida in-app diceva il falso - "a workspace named after its folder is left alone",
 mentre un nome-cartella è `.default`, quindi eleggibile e sostituito al primo segnale. Riscritta la
 sezione, `docs/GUIDE.md` rigenerato.
+
+## Cycle 20 - Quello che vede chi arriva da fuori
+
+### Il problema
+
+L'app era distribuita via brew da sei versioni, ma tutto il perimetro che incontra chi non l'ha
+scritta era sbagliato o assente. Il repo era pubblico **senza licenza**, cioè per default tutti i
+diritti riservati: nessuno poteva legalmente forkarlo o ridistribuirlo. La MIT di SwiftTerm chiede
+in più che copyright e permission notice viaggino con **ogni** distribuzione, e il dmg non li
+conteneva. Nessuna security policy, quindi nessun canale privato per una segnalazione. E la doc
+interna si era staccata dal codice in tre punti.
+
+Nessuno di questi è un bug dell'app. Sono tutti bug del pacchetto attorno.
+
+### Licenza e notice
+
+MIT (`LICENSE`) con le notice delle dipendenze in `NOTICE`, e `make bundle` li copia in
+`Relay.app/Contents/Resources`: averli nel repo non basta, l'obbligo è sulla distribuzione. About
+dichiara la licenza. Aggiunte anche le stanze `binary` del cask su **entrambi** gli eseguibili
+(`relay` e `relay-cli`), altrimenti i comandi che il README documenta non esistono in shell dopo un
+`brew install`; vivono solo nel repo del tap, e `scripts/release.sh` tocca `version` e `sha256`,
+quindi non le sovrascrive.
+
+### Il README diceva sei cose non vere
+
+Non stale in blocco: sei affermazioni puntuali, ognuna fuorviante per chi arriva da fuori. L'"Apri
+comunque" di Gatekeeper serve solo all'installazione manuale del dmg (il cask toglie la quarantena);
+la nomina non richiede un LLM da Cycle 19; `Cmd+?` e i tasti di controllo del terminale non sono
+rimappabili; `--demo` è un no-op contro un'istanza già viva; la dashboard ha quattro corsie solo nel
+layout kanban; `guide.md` mancava dall'elenco delle feature. Aggiunti i numeri misurati di memoria e
+latenza e una sezione License. Le stesse due affermazioni sulla rimappabilità e sul costo stavano
+anche nella guida in-app: sorgente e `docs/GUIDE.md` si sono mossi nello stesso commit, che è
+esattamente il motivo per cui in Cycle 18 la guida è diventata una fonte sola.
+
+### SECURITY.md
+
+Dove segnalare (private reporting di GitHub o email, prima risposta attesa entro una settimana da un
+progetto a un manutentore solo) e, soprattutto, **cosa tocca Relay sulla macchina**: gli hook
+appesi a `~/.claude/settings.json` e marcati `RELAY_MANAGED_HOOK=1`, `~/.relay/` col socket che non
+ha autenticazione oltre ai permessi del filesystem (un evento muove un badge e registra un resume
+id, non esegue mai un comando), la API key della nomina `0600` e mai loggata, due sole chiamate di
+rete entrambe opzionali, nessun parsing dell'output del terminale. La firma self-signed è dichiarata
+lì invece di essere una sorpresa al primo avvio.
+
+### La doc che si era staccata
+
+- `STATE_SCHEMA.md` non aveva mai preso i gruppi (`groups`, `GroupSnapshot`, `groupID`), arrivati in
+  Cycle 16. La convenzione dice "schema e migrazione nello stesso commit", ma non ha un test dietro,
+  e infatti ha ceduto in silenzio.
+- `ARCHITECTURE.md` aveva una data stale, le dipendenze sbagliate di `relay-cli`, una lista di
+  decisioni chiusa che chiedeva ancora di scegliere il nome del prodotto, e la nomina descritta come
+  solo-LLM.
+- `CONVENTIONS.md` non citava `make tools` né `guide-md`, e dava `ShortcutRuntime` per tipo estratto
+  quando è ancora un'extension di `AppController`.
+- `docs/research/` ora dichiara quali due file sono vivi, i superati portano un banner in testa, e
+  la nota di licensing dell'era GPL (quando l'engine candidato era libghostty) è marcata come non
+  descrittiva di Relay. Via i path personali dagli spike.
+
+### Esito
+
+Pubblicata 0.16.1 (`v0.16.1`). Nell'app cambia una riga sola, quella della licenza in About: il
+resto del giro è il pacchetto. La lezione da tenere è la prima del blocco sopra: una regola di
+accoppiamento doc-codice senza un test che la verifichi si rompe senza fare rumore, e i gruppi
+hanno passato quattro cicli fuori dallo schema documentato.
