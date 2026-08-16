@@ -30,6 +30,16 @@ Finestre, chrome senza title bar, overlay e le loro trappole AppKit. Il resto de
   correnti, `ThemeSwatch` che seleziona il tema dal vivo, `RelayMarkView` = icona ridisegnata in
   SwiftUI con la geometria di `bundle/make-icon.swift`, usata anche da About - da dev build
   `NSApp.applicationIconImage` darebbe l'icona generica).
+- **Pannello di un overlay full-window: clamp + scroll, mai un frame fisso nudo**. I tre pannelli
+  (`Dashboard`, `GuideView`, `OnboardingView`) hanno la stessa forma: `GeometryReader` ->
+  `panelSize(in:)` che clampa la misura ideale allo spazio finestra meno `Spacing.lg * 2` (il
+  minimo finestra è 700x460, un frame fisso verrebbe tagliato ai bordi), e il **contenuto in
+  `ScrollView`** con l'eventuale footer fuori. Senza scroll una pagina con altezza intrinseca
+  (testi `fixedSize`) trabocca il suo `maxHeight`, si mangia il footer e il `clipShape` taglia
+  titolo e bottoni: era il bug dell'onboarding. Corollario: dentro lo scroll niente
+  `maxHeight: .infinity` sulle pagine (rideclina l'altezza sbagliata) e niente `Spacer` per
+  centrare (collassa) - il riempimento lo fa `minHeight: contentHeight` sul contenuto, il
+  centraggio l'allineamento di quel frame.
 - Overlay full-window e hit-testing: `presentFullOverlay` avvolge l'overlay in un
   `FullOverlayContainerView` il cui `hitTest` non torna mai `nil` dentro i bounds e consuma il
   mouse nelle zone senza contenuto hit-testable; senza, mouse e cursor update cadevano sul

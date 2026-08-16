@@ -12,8 +12,9 @@ struct WelcomePage: View {
     let colors: ChromeColors
 
     var body: some View {
+        // Niente Spacer per centrare: la pagina sta in uno ScrollView, dove uno Spacer collassa.
+        // Il centraggio verticale lo fa l'allineamento del contenitore (`OnboardingView.panel`).
         VStack(spacing: Theme.Spacing.sm) {
-            Spacer()
             RelayMarkView(size: 88)
                 .padding(.bottom, Theme.Spacing.sm)
             Text("Welcome to Relay")
@@ -31,7 +32,6 @@ struct WelcomePage: View {
                         "Know what needs you, ignore what does not.")
             }
             .padding(.top, Theme.Spacing.lg)
-            Spacer()
         }
         .frame(maxWidth: .infinity)
     }
@@ -120,9 +120,8 @@ struct HooksPage: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             PageHeader(
                 "Connect Claude Code",
-                subtitle: "Relay learns what your agents are doing from Claude Code hooks: "
-                    + "small, reliable callbacks that report when a session starts working, "
-                    + "asks for input or finishes. No output parsing, no guesswork.",
+                subtitle: "Relay reads agent state from Claude Code hooks: callbacks that report "
+                    + "when a session starts, asks for input or finishes. No output parsing.",
                 colors: colors
             )
             if let hooks {
@@ -150,14 +149,13 @@ struct HooksPage: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.top, Theme.Spacing.xs)
-            Spacer(minLength: 0)
-            Text("You can install or remove the hooks anytime in Settings > Agents. "
-                + "They append to ~/.claude/settings.json and coexist with your own hooks.")
+            Text("Install or remove them anytime in Settings > Agents: they append to "
+                + "~/.claude/settings.json and coexist with your own hooks.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private var manualSetup: some View {
@@ -193,37 +191,33 @@ struct NavigationPage: View {
                     + "learning first.",
                 colors: colors
             )
+            // Otto righe, non tutte: questa è la lista minima per partire. L'elenco completo
+            // (Option come testo, clear, e il resto) è in Help > Relay Guide.
             Grid(
                 alignment: .leadingFirstTextBaseline,
                 horizontalSpacing: Theme.Spacing.lg,
-                verticalSpacing: Theme.Spacing.md
+                verticalSpacing: Theme.Spacing.sm
             ) {
                 shortcut(combo(.toggleDashboard), "Dashboard",
                          "every session sorted by urgency; type to filter, Return to jump")
                 shortcut(combo(.nextAttention), "Next attention",
                          "cycle through whatever is waiting for you")
-                shortcut("\u{2318}1\u{2013}9", "Switch workspace",
-                         "follows the sidebar order, top row first")
+                shortcut("\u{2318}1\u{2013}9", "Switch workspace", "follows the sidebar order")
                 shortcut("\u{2325}1\u{2013}9", "Switch tab", "within the current workspace")
-                shortcut("\u{2325} text", "Type layout symbols",
-                         "Option-generated characters go to the terminal first")
-                shortcut(combo(.newTab), "New tab",
-                         "inherits the directory you are working in")
+                shortcut(combo(.newTab), "New tab", "inherits the directory you are working in")
                 shortcut(combo(.splitRight), "Split the view",
-                         "a pane beside this one, with its own tabs; "
-                             + "\(combo(.splitDown)) splits below")
+                         "a pane beside this one; \(combo(.splitDown)) splits below")
                 shortcut(combo(.focusNextPane), "Next pane",
                          "move the keyboard between the panes on screen")
                 shortcut(combo(.find), "Find in terminal", "with next and previous matches")
-                shortcut(combo(.clear), "Clear terminal", "screen and scrollback")
             }
-            Spacer(minLength: 0)
             Text("Every shortcut except \u{2318}1\u{2013}9 and non-text \u{2325}1\u{2013}9 is "
                 + "remappable in Settings > Shortcuts.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
+                .padding(.top, Theme.Spacing.xs)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func combo(_ action: ShortcutAction) -> String {
@@ -262,8 +256,7 @@ struct CustomizePage: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             PageHeader(
                 "Make it yours",
-                subtitle: "Pick a theme. Terminal, chrome and badges all follow the same "
-                    + "palette \u{2014} try one now.",
+                subtitle: "Pick a theme. Terminal, chrome and badges follow the same palette.",
                 colors: colors
             )
             LazyVGrid(
@@ -281,26 +274,25 @@ struct CustomizePage: View {
                     ) { settings.selectTheme(theme.name) }
                 }
             }
-            Spacer(minLength: 0)
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                bullet("textformat", "Font family, size and cursor live in Settings (\u{2318},).")
                 // Non "quando Relay non è in primo piano": la regola vera è che la tab non sia a
                 // schermo in una finestra che stai guardando (vedi `isVisible`).
                 bullet("bell", "Notifications fire when a session needs you and you are not "
                     + "looking at it.")
                 bullet("macwindow", "Right-click a workspace to move it to its own window: "
-                    + "handy on a second screen, and its sessions keep running.")
-                bullet("arrow.clockwise", "Claude sessions survive restarts: a Resume bar "
-                    + "offers to pick up where you left off.")
+                    + "its sessions keep running.")
+                bullet("arrow.clockwise", "Claude sessions survive restarts: a Resume bar picks "
+                    + "up where you left off.")
                 // La nomina è l'altro passo azionabile oltre agli hook, e l'unico che spende
                 // soldi dell'utente: va detto qui, non solo in fondo a un pannello.
-                bullet("text.badge.checkmark", "Let a model name your workspaces after what "
-                    + "they are doing: add an API key in Settings > Agents.")
+                bullet("text.badge.checkmark", "Let a model name your workspaces after what they "
+                    + "are doing: add an API key in Settings > Agents.")
                 bullet("questionmark.circle", "This is the short tour. The full guide is in "
                     + "Help > Relay Guide.")
             }
+            .padding(.top, Theme.Spacing.xs)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func bullet(_ symbol: String, _ text: String) -> some View {

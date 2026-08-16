@@ -23,30 +23,28 @@ struct OrganizePage: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                     point("rectangle.3.group", "Groups",
                           "A colored card around related workspaces. Right-click a row to make "
-                              + "one, or drag rows in and out. Collapse it and the card tells you "
-                              + "how many members still need you.")
+                              + "one, or drag rows in and out.")
                     point("pin", "Pinned stays on top",
                           "Pin a row or a whole group and it leads the list.")
                     point("archivebox", "Archive is one drag away",
-                          "Drag a row onto the Archive section at the bottom, and back out when "
-                              + "the project wakes up.")
+                          "Drag a row onto Archive at the bottom, and back out when the project "
+                              + "wakes up.")
                     point("arrow.right.doc.on.clipboard", "Tabs move between workspaces",
-                          "Drag a tab out of its strip onto a workspace row: it lands there with "
-                              + "its terminal still running.")
+                          "Drag a tab onto a workspace row: it lands there still running.")
                 }
                 .frame(width: 250)
                 miniSidebar
                     .frame(maxWidth: .infinity, alignment: .top)
             }
             .padding(.top, Theme.Spacing.xs)
-            Spacer(minLength: 0)
             Text("A workspace that finishes work while you are elsewhere moves to the top of "
-                + "wherever it lives: the list, or its own group. A group stays where you put it.")
+                + "wherever it lives: the list, or its own group.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, Theme.Spacing.xs)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func point(_ symbol: String, _ title: String, _ detail: String) -> some View {

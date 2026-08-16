@@ -28,17 +28,16 @@ struct AttentionPage: View {
                     .frame(maxWidth: .infinity)
             }
             .padding(.top, Theme.Spacing.xs)
-            Spacer(minLength: 0)
             // Il quieto si spegne anche col dismiss dalla dashboard e, di default, da solo dopo
             // 12h (`AppSettings.pendingDecayHours`): dire "solo la ripresa" sarebbe falso.
             Text("Interacting with the terminal turns the strong signal into the quiet one. "
-                + "Resuming the conversation clears it, and so does dismissing it from the "
-                + "dashboard.")
+                + "Resuming clears it, and so does dismissing it from the dashboard.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, Theme.Spacing.xs)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func stateRow(_ state: AttentionDemoState) -> some View {
