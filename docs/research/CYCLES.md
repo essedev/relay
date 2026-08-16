@@ -1343,3 +1343,42 @@ Pubblicata 0.16.1 (`v0.16.1`). Nell'app cambia una riga sola, quella della licen
 resto del giro è il pacchetto. La lezione da tenere è la prima del blocco sopra: una regola di
 accoppiamento doc-codice senza un test che la verifichi si rompe senza fare rumore, e i gruppi
 hanno passato quattro cicli fuori dallo schema documentato.
+
+## Cycle 21 - Il benvenuto tagliato a metà
+
+### Il problema
+
+Le pagine dell'onboarding traboccavano il loro pannello: titolo mangiato in cima, footer con Skip e
+Continue tagliato a metà dal `clipShape`. Cioè la prima schermata che vede chi installa l'app era
+rotta, ed era rotta da quando le pagine hanno smesso di essere corte.
+
+La causa è un frame fisso nudo (`maxWidth: 660, maxHeight: 440`) attorno a contenuto con altezza
+intrinseca: i testi sono `fixedSize`, SwiftUI non li comprime, il VStack sfora il frame e il clip
+taglia quello che avanza. Nessun test poteva vederlo: è geometria di layout, e le pagine crescono
+un testo alla volta.
+
+### Il fix, e perché non era una scelta fra overlay e finestra
+
+Dashboard e guida hanno la stessa forma ma non il bug, perché fanno due cose che all'onboarding
+mancavano: clampano il pannello allo spazio finestra (`panelSize(in:)`) e tengono il contenuto in
+una `ScrollView`. L'onboarding ora fa entrambe, col footer fuori dallo scroll.
+
+Valutata e scartata la strada "farne finestre vere come Settings": `makePanelWindow` produce
+finestre **non ridimensionabili** a dimensione fissa, quindi lo stesso contenuto sforerebbe
+identico. Il tipo di contenitore non c'entrava. Per la guida resta un argomento d'uso valido
+(leggerla mentre si digita nel terminale), che è un'altra decisione.
+
+Corollari, ora scritti in `docs/features/windows.md`: dentro uno scroll niente
+`maxHeight: .infinity` sulle pagine e niente `Spacer` per centrare, perché il primo ridichiara
+l'altezza sbagliata e il secondo collassa.
+
+### Il taglio
+
+Lo scroll deve restare una rete, non l'esperienza normale: otto scorciatoie invece di dieci (le due
+tolte, Option-come-testo e clear, vivono già nella guida), cinque bullet invece di sei, copy più
+corta sulle pagine dense. Le pagine più alte passano da ~400px a ~330 su 403 disponibili.
+
+### Esito
+
+Pubblicata 0.16.2. La lezione: un pannello a dimensione fissa che ospita contenuto redazionale è un
+bug in attesa del paragrafo che lo supera, e il paragrafo arriva sempre.
