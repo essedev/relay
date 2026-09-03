@@ -437,7 +437,9 @@ posto giusto.
 Cosa espone ogni agente (verificato luglio 2026): **Codex** ha hook con nomi di evento quasi
 identici a Claude (`PreToolUse`, `PermissionRequest`, `PostToolUse`, `SessionStart`, `Stop`,
 `UserPromptSubmit`, `SubagentStop`) via `hooks.json` o `[hooks]` in `config.toml` - stesso paradigma,
-cambia solo il vettore di installazione. **opencode** espone un event bus (`session.created`,
+cambia solo il vettore di installazione. Da rimappare per ognuno anche l'**errore**: su Claude è
+`StopFailure` (Cycle 22), e un agente senza un evento equivalente lascerebbe il buco che avevamo
+qui - la tab bloccata su `running` a turno morto. **opencode** espone un event bus (`session.created`,
 `session.idle`, permission events) consumato da un plugin TS - segnali chiari, vettore diverso (un
 plugin che scrive sul socket, non un hook shell).
 
@@ -641,4 +643,8 @@ giro, sale in "Prossima azione".
 - Rename del workspace dalla menu bar (oggi solo dal contestuale della sidebar).
 - Evoluzioni della dashboard: azioni inline sulle card, preview del terminale (richiede surface
   vive), timeline degli eventi agente.
+- Altri hook Claude Code non ancora sfruttati: il set è cresciuto molto dal mapping v1
+  (`PermissionDenied`, `Notification` con matcher `idle_prompt`, `SubagentStart`, `PostCompact`,
+  `PreModelSwitch`, `CwdChanged`). Nessuno urgente - `StopFailure` era l'unico che copriva un buco
+  vero - ma la lista va ripassata quando si tocca il mapping.
 - Import di temi da config Ghostty.

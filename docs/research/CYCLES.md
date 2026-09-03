@@ -1382,3 +1382,77 @@ corta sulle pagine dense. Le pagine più alte passano da ~400px a ~330 su 403 di
 
 Pubblicata 0.16.2. La lezione: un pannello a dimensione fissa che ospita contenuto redazionale è un
 bug in attesa del paragrafo che lo supera, e il paragrafo arriva sempre.
+
+## Cycle 22 - Lo stato che c'era e non arrivava mai
+
+### Il problema
+
+`AgentState.error` esisteva dal primo giorno del runtime: cablato nel badge (pallino rosso), nel
+ring (bordo rosso pulsante), nella severità dell'aggregato workspace, nella corsia **Needs You**
+della dashboard, nell'alert di chiusura tab. Tutto pronto. Solo che **nessuno lo produceva**: gli
+hook installati si fermavano a `Stop`, e `Stop` scatta solo alla fine normale di un turno.
+
+Un turno ucciso da un errore API - rate limit, overloaded, auth scaduta, billing, rete giù - non
+emetteva nulla. La tab restava `running` per sempre, spinner acceso su una sessione ferma, badge
+del workspace che diceva "sta lavorando", card in corsia Running. Zero notifiche, zero marker,
+zero bump. Il caso d'uso per cui Relay esiste - la sessione che si pianta mentre guardi altrove -
+era esattamente quello che non funzionava.
+
+L'unico modo di vedere `error` era digitare a mano `relay-cli claude-hook error`. Nemmeno il
+simulatore lo produceva.
+
+### La fonte: `StopFailure`
+
+Claude Code ha l'hook giusto: `StopFailure`, "when the turn ends due to an API error", col matcher
+sul tipo (`rate_limit`, `overloaded`, `authentication_failed`, `billing_error`, `server_error`,
+`max_output_tokens`, ...). Lo installiamo **senza matcher**, che equivale a `"*"`: tutti i tipi
+collassano in `error`. La distinzione la legge l'utente dal terminale; la tab deve solo dire "qui
+si è fermato, serve la tua mano". Un badge che distingue nove tipi di errore è un badge che non si
+legge a colpo d'occhio, e a colpo d'occhio è l'unico modo in cui un badge viene letto.
+
+`PostToolUseFailure` valutato e scartato: un tool che fallisce dentro un turno che prosegue non è
+un errore di sessione, è rumore dentro il lavoro normale.
+
+### `error` è l'unico stato che è anche marker
+
+La distinzione stato/marker regge da sempre: `running`/`needs_input`/`error` sono stati (il badge
+li legge da `agentState` finché lo stato cambia), `attention` è il marker post-completamento.
+L'errore la rompe, e va bene così: senza marker non avrebbe **ring, bump in sidebar né notifica**,
+cioè resterebbe un pallino rosso su una riga in fondo alla lista - il segnale più debole per
+l'evento più urgente.
+
+Quindi `error` alza `unseen` come un completamento. I due canali restano indipendenti: il
+declassamento (flash o interazione) spegne il segnale forte ma **non** il badge rosso, che segue lo
+stato finché non riprendi.
+
+### Due guardie che erano sbagliate anche prima
+
+- `attentionBorn = previousAttention == .none` misurava l'uscita da "niente", non il salto a
+  `unseen`. Un errore (o un completamento) che atterra su un `pending` già declassato alzava il
+  marker **senza bump e senza flash**, e restava `unseen` per sempre senza aver chiamato nessuno.
+  Ora è `attentionRose = attention == .unseen && previous != .unseen`. Il buco c'era già sul
+  completamento: l'errore l'ha solo reso visibile.
+- `isInstalled` rispondeva "installato" se trovava **almeno un** hook nostro. Con `specs` che
+  cresce, ogni installazione fatta da una versione precedente sarebbe rimasta verde senza mai
+  ricevere il nuovo hook. Ora richiede tutti gli spec; il setup è idempotente, rifarlo è gratis.
+
+### Le notifiche: perché non tutti gli stati
+
+La richiesta era "come tutti i cambi di stato, mi aspetterei una notifica". Alla lettera non si
+può: `running` lo generano `UserPromptSubmit` e **ogni** `PreToolUse`/`PostToolUse`, decine di
+eventi per turno, tutti conseguenza del prompt appena mandato; `unknown` è `SessionEnd`, cioè
+`/clear`, `exit`, logout. Sono azioni dell'utente, e notificarle seppellirebbe le altre.
+
+La regola scritta è quindi: **notifichiamo ogni transizione che porta informazione che l'utente non
+ha già**, cioè i tre stati che nascono da Claude e non da te - `needs_input`, `error`,
+completamento non visto. Che dopo questo giro sono anche tutti gli stati "di Claude" esistenti.
+Toggle per tipo in Settings (`notifyOnError`, default on).
+
+### Esito
+
+Otto hook invece di sette. 492 test (+9), `make check` verde. Chi ha Relay già installato vede
+Settings > Agents segnalare gli hook come non installati: è voluto, un click di Setup aggiunge
+`StopFailure`.
+
+Resta non verificato end-to-end con un errore API vero: il nome dell'hook e il payload vengono
+dalla doc Claude Code di settembre 2026, non da una sessione che si è rotta davvero.
