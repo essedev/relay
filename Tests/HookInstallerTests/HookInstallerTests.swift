@@ -34,6 +34,18 @@ private func ourEntries(_ settings: [String: Any], _ event: String) -> [[String:
     #expect(ourEntries(merged, "PostToolUse").first?["matcher"] as? String == "*")
     #expect(ourEntries(merged, "Stop").first?["matcher"] == nil)
     #expect(ourEntries(merged, "PermissionRequest").first?["matcher"] == nil)
+    // `StopFailure` matcha sul tipo di errore: chiave assente = tutti i tipi, che è quello che
+    // vogliamo (rate limit, overloaded, billing... collassano nello stesso stato `error`).
+    #expect(ourEntries(merged, "StopFailure").first?["matcher"] == nil)
+}
+
+/// `StopFailure` è l'unico hook che produce `error`. Senza, un turno morto per errore API non
+/// emette nulla (`Stop` copre solo la fine normale) e la tab resta `running` per sempre.
+@Test func stopFailureMapsToError() {
+    let merged = ClaudeHookInstaller.merge(into: [:], cliPath: cli)
+    let command = (ourEntries(merged, "StopFailure").first?["hooks"] as? [[String: Any]])?
+        .first?["command"] as? String
+    #expect(command?.hasSuffix("claude-hook error") == true)
 }
 
 @Test func mergePreservesExistingUserHooks() {
@@ -89,6 +101,18 @@ private func ourEntries(_ settings: [String: Any], _ event: String) -> [[String:
     #expect(!ClaudeHookInstaller.isInstalled(in: [:]))
     let merged = ClaudeHookInstaller.merge(into: [:], cliPath: cli)
     #expect(ClaudeHookInstaller.isInstalled(in: merged))
+}
+
+/// Un'installazione parziale (fatta da una versione con meno spec, o mutilata a mano) NON è
+/// "installata": altrimenti lo status resterebbe verde e all'utente mancherebbe per sempre l'hook
+/// aggiunto dopo, senza che nessuno gli proponga il setup. Il setup è idempotente, rifarlo è
+/// gratis.
+@Test func isInstalledIsFalseWhenOneHookIsMissing() {
+    var merged = ClaudeHookInstaller.merge(into: [:], cliPath: cli)
+    var hooks = merged["hooks"] as? [String: Any] ?? [:]
+    hooks.removeValue(forKey: "StopFailure")
+    merged["hooks"] = hooks
+    #expect(!ClaudeHookInstaller.isInstalled(in: merged))
 }
 
 /// Crea una directory temporanea univoca per i test su disco. Il chiamante la rimuove nel `defer`.

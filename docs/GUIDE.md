@@ -107,8 +107,8 @@ destination.
 ## Agent state
 
 Relay knows what Claude Code is doing because Claude Code tells it: small callbacks (hooks) report
-when a session starts working, asks for input or finishes. Nothing is guessed from the terminal
-output, so the badges stay right even when the screen is full of build logs.
+when a session starts working, asks for input, finishes, or dies on an API error. Nothing is guessed
+from the terminal output, so the badges stay right even when the screen is full of build logs.
 
 1. Install the hooks once, from Settings > Agents or with relay-cli hooks setup.
 2. Run claude in any tab. The tab is bound to that session automatically.
@@ -137,9 +137,13 @@ Navigating does not count as reading: switching tabs in a strip or clicking a ro
 leaves the signal alone. Only working inside the terminal does. When you disagree, the context menu
 has Mark as Read and Mark as Unread on the tab.
 
-- **Notifications** - macOS notifications when a session needs input or finishes while you are not
-  looking at its tab. Clicking one brings that tab up, wherever it is. Per-type toggles and the
-  sound are in Settings.
+- **Errors stop the session** - When a turn dies on an API error - rate limit, overloaded, billing,
+  no network - the turn ends without finishing. The tab goes red and calls you like any other unseen
+  signal: ring, badge, a float to the top and a notification. Every kind of error looks the same
+  here; the terminal has the details. Retrying clears it.
+- **Notifications** - macOS notifications when a session needs input, hits an error, or finishes
+  while you are not looking at its tab. Clicking one brings that tab up, wherever it is. Per-type
+  toggles and the sound are in Settings.
 - **Resume after a restart** - Terminals do not survive a restart, but Claude sessions can: a
   restored tab with a session offers a Resume bar that types the resume command for you. Settings
   can make it automatic; the default asks, because nothing should type commands into your shell

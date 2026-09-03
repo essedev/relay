@@ -70,26 +70,32 @@ public extension WorkspaceStore {
                 resetsAttention: resetsAttention
             )
             tab.apply(result, at: timestamp)
-            // `attentionBorn` = un completamento ha appena acceso il marker (`unseen`): è l'unico
-            // evento che alza `attention` da `none` (running/needs_input/error -> none, unknown
-            // preserva), quindi equivale a "running -> idle".
-            let attentionBorn = previousAttention == .none && tab.attention != .none
+            // `attentionRose` = il marker è appena salito al segnale forte (`unseen`): un
+            // completamento (running -> idle) o un errore API. Si misura sul salto **a** `unseen`,
+            // non sull'uscita da `none`: un errore che arriva sopra un sospeso già declassato a
+            // `pending` è una novità come le altre, e con la vecchia guardia
+            // (`previousAttention == .none`) non avrebbe prodotto né bump né flash, restando
+            // `unseen` per sempre senza mai aver chiamato nessuno. Vale anche per il
+            // completamento, che aveva lo stesso buco.
+            let attentionRose = tab.attention == .unseen && previousAttention != .unseen
             let enteredNeedsInput = previousState != .needsInput && tab.agentState == .needsInput
-            if isVisible, attentionBorn {
-                // Flash di completamento sulla tab in vista: il marker è nato forte come ogni
-                // completamento; segnalo al composition root, che schedula un mark-read differito
-                // (declassa a `pending` dopo qualche secondo). Un completamento non visto invece
-                // resta forte finché non lo vedi (nessun timer).
+            if isVisible, attentionRose {
+                // Flash sulla tab in vista: il marker è nato forte (completamento o errore);
+                // segnalo al composition root, che schedula un mark-read differito (declassa a
+                // `pending` dopo qualche secondo). Non visto invece resta forte finché non lo
+                // vedi (nessun timer). Sull'errore il declassamento tocca solo il marker: il
+                // badge resta rosso, perché lo legge da `agentState` finché non riprendi.
                 onVisibleCompletion?(tab.id)
-            } else if !isVisible, attentionBorn || enteredNeedsInput {
-                // Bump (modello lista chat): un'attività **non vista** - un completamento o
-                // l'entrata in `needs_input` - porta il workspace in cima. Ordine reale e
+            } else if !isVisible, attentionRose || enteredNeedsInput {
+                // Bump (modello lista chat): un'attività **non vista** - un completamento, un
+                // errore o l'entrata in `needs_input` - porta il workspace in cima. Ordine reale e
                 // persistente, non un float derivato. La ripresa (`running`) non muove niente:
                 // la riga su cui lavori resta ferma, la scavalca solo un altro bump o il drag.
                 bumpWorkspaceToTop(workspace.id)
             }
-            // Notifica (needs_input / completato non visto): classificazione pura, effetto nel
-            // composition root. Emessa dopo aver aggiornato la tab (titolo aggiornato dagli hook).
+            // Notifica (needs_input / errore / completato non visto): classificazione pura,
+            // effetto nel composition root. Emessa dopo aver aggiornato la tab (titolo aggiornato
+            // dagli hook).
             if let kind = AgentStateReducer.notification(
                 current: previousState,
                 incoming: state,

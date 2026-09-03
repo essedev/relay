@@ -3,7 +3,8 @@ import Foundation
 import UserNotifications
 import WorkspaceModel
 
-/// Notifiche macOS per gli eventi agente (needs_input / completato). Vive nel composition root:
+/// Notifiche macOS per gli eventi agente (needs_input / completato / errore). Vive nel composition
+/// root:
 /// unico punto che tocca `UNUserNotificationCenter`. Riceve richieste pure dallo store
 /// (`onNotifiableTransition`), applica le preferenze utente e la soppressione runtime, poi
 /// consegna.
@@ -103,6 +104,11 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             if request.isVisible { return }
         case .completed:
             guard settings.notifyOnCompleted else { return }
+        case .error:
+            guard settings.notifyOnError else { return }
+            // Come `needsInput`: se la tab è in vista con Relay davanti, l'errore lo stai già
+            // leggendo nel terminale.
+            if request.isVisible { return }
         }
         deliver(request)
     }
@@ -135,6 +141,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         switch kind {
         case .needsInput: "Claude needs a reply"
         case .completed: "Claude finished"
+        case .error: "Claude stopped on an error"
         }
     }
 

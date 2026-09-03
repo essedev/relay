@@ -107,7 +107,9 @@ extension AppController {
             "Claude is working in this tab. Closing it will interrupt the session."
         case .needsInput:
             "Claude is waiting for your reply. Closing it will interrupt the session."
-        case .idle, .error:
+        case .error:
+            "Claude stopped on an error here. Closing the tab drops the session for good."
+        case .idle:
             "This tab has an open Claude session. Closing it will interrupt it."
         case .unknown:
             "\u{201C}\(process)\u{201D} is running. Closing the tab will terminate it."

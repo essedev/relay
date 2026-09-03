@@ -6,9 +6,10 @@ import AgentProtocol
 public enum AgentStateReducer {
     public struct Result: Equatable {
         public let state: AgentState
-        /// Attenzione post-completamento (vedi `AttentionLevel`). NON copre `needs_input`/`error`,
-        /// che sono stati mostrati dal badge finché lo stato non cambia (es. `needs_input` resta
-        /// finché rispondi a Claude).
+        /// Marker di attenzione (vedi `AttentionLevel`). Lo accendono il completamento e
+        /// l'errore: entrambi sono novità che nascono da Claude mentre non guardavi, e il marker
+        /// è il canale che le porta in cima alla sidebar e accende il ring. NON copre
+        /// `needs_input`, che il badge mostra da `agentState` finché rispondi.
         public let attention: AttentionLevel
 
         public init(state: AgentState, attention: AttentionLevel) {
@@ -47,10 +48,16 @@ public enum AgentStateReducer {
         }
 
         let attention: AttentionLevel = switch incoming {
-        case .running, .needsInput, .error:
-            // La conversazione si è mossa (il tuo prompt, un permesso, un errore): la ripresa vera
-            // risolve il completamento, visto o in sospeso che fosse.
+        case .running, .needsInput:
+            // La conversazione si è mossa (il tuo prompt, un permesso): la ripresa vera risolve il
+            // completamento, visto o in sospeso che fosse.
             .none
+        case .error:
+            // Turno morto per errore API: novità forte quanto un completamento, e più urgente.
+            // Nasce sempre `unseen`, anche sopra un sospeso già declassato a `pending`: un errore
+            // nuovo è un fatto nuovo, non la coda di quello vecchio. Il declassamento sulla tab in
+            // vista lo fa il composition root col solito flash, come per il completamento.
+            .unseen
         case .idle:
             // Lavoro completato: nasce sempre col segnale forte (`unseen`). Sulla tab in vista il
             // composition root lo declassa a `pending` dopo un breve flash; se non guardavi resta
@@ -65,9 +72,18 @@ public enum AgentStateReducer {
         return Result(state: incoming, attention: attention)
     }
 
-    /// Decide se una transizione merita una notifica macOS (nil = nessuna). Coerente con le regole
-    /// anti-rumore dei badge:
+    /// Decide se una transizione merita una notifica macOS (nil = nessuna). Notifichiamo ogni
+    /// transizione che porta informazione che l'utente non ha già, cioè i tre stati che nascono da
+    /// Claude: `needs_input`, `error` e il completamento. `running` e `unknown` restano fuori di
+    /// proposito, e non è un'omissione: `running` lo generano `UserPromptSubmit` e **ogni**
+    /// `PreToolUse`/`PostToolUse` (decine di eventi per turno, tutti causati dal prompt che hai
+    /// appena mandato) e `unknown` è `SessionEnd`, cioè `/clear`, `exit` o logout. Sono azioni
+    /// dell'utente: notificarle seppellirebbe le tre che contano.
+    ///
+    /// Regole anti-rumore, le stesse dei badge:
     /// - `needs_input` alla *entrata* nello stato (non a ogni evento successivo);
+    /// - `error` alla *entrata* nello stato: una raffica di retry falliti riaccende il badge ogni
+    ///   volta ma notifica una sola volta;
     /// - `completed` solo se il lavoro finisce (running -> idle) mentre la tab non è in vista.
     ///
     /// Puro: la soppressione runtime (app in primo piano) e le preferenze utente le applica il
@@ -83,6 +99,9 @@ public enum AgentStateReducer {
         if resetsAttention { return nil }
         if incoming == .needsInput, current != .needsInput {
             return .needsInput
+        }
+        if incoming == .error, current != .error {
+            return .error
         }
         if incoming == .idle, current == .running, !isVisible {
             return .completed

@@ -36,6 +36,18 @@ Come gli eventi degli hook arrivano allo store e restano ordinati. Il resto dell
   (decode tollerante col vecchio formato a secondi interi e con eventi senza `runId`); un'app
   vecchia però non decodifica gli eventi di un CLI nuovo, e un CLI vecchio (niente `runId`) viene
   scartato dal fence di un'app nuova: dopo un cambio al wire ricompila/reinstalla entrambi.
+- `StopFailure -> error`: unica fonte dello stato `error`. Il turno che muore su un errore API
+  (rate limit, overloaded, auth, billing, rete giù) **non** emette `Stop`, che copre solo la fine
+  normale: senza questo hook la tab resta `running` per sempre, spinner acceso su una sessione
+  ferma. Il matcher di `StopFailure` è il tipo di errore e noi lo installiamo **senza matcher**
+  (= `"*"`): tutti i tipi collassano in `error`, i dettagli li legge l'utente dal terminale.
+  `error` accende anche il marker `unseen` (vedi `attention.md`): è l'unico stato che è anche
+  marker, perché senza non avrebbe ring, bump né notifica. `PostToolUseFailure` **non** è mappato:
+  un tool che fallisce dentro un turno che prosegue non è un errore di sessione.
+- **Migrazione**: `ClaudeHookInstaller.isInstalled` richiede che **tutti** gli spec siano presenti,
+  non almeno uno. Quando `specs` cresce, un'installazione fatta da una versione precedente
+  risulterebbe "installata" e l'utente non riceverebbe mai il nuovo hook. Il setup è idempotente,
+  quindi rifarlo è gratis.
 - Mapping hook -> stato in due metà, entrambe in `HookInstaller`: statico per evento
   (`ClaudeHookInstaller.specs`, finisce nei comandi di settings.json) e dipendente dal payload
   (`ClaudeHookStateMapper`, applicato dal CLI): il `PreToolUse` di un tool che apre un prompt

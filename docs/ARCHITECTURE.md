@@ -461,10 +461,21 @@ Mapping Claude v1:
 | `PostToolUse` | `running` |
 | `PermissionRequest` | `needs_input` |
 | `Stop` | `idle` |
+| `StopFailure` | `error` |
 | `SessionEnd` | `unknown` |
 
-`SubagentStop` non è mappato: lo stop di un subagent non è il completamento del pane. Nomi hook
-confermati sulla doc Claude Code corrente (luglio 2026). Nota: nello spike gli stati usano i nomi
+`StopFailure` è l'unica fonte di `error`: scatta quando il turno finisce per un errore API. Il suo
+matcher è il tipo di errore (`rate_limit`, `overloaded`, `authentication_failed`, `billing_error`,
+`server_error`, `max_output_tokens`, ...) e noi lo installiamo **senza matcher**, che equivale a
+`"*"`: tutti i tipi collassano nello stesso stato `error`. La distinzione la legge l'utente dal
+terminale; la tab deve solo dire "qui si è fermato, serve la tua mano". Senza questo hook un turno
+morto per errore non produce nessun evento - `Stop` copre solo la fine normale - e la tab resta
+`running` per sempre, con lo spinner acceso su una sessione ferma: era il buco più grosso del
+runtime, perché il caso d'uso di Relay è proprio la sessione che si pianta mentre guardi altrove.
+
+`SubagentStop` non è mappato: lo stop di un subagent non è il completamento del pane. `PostToolUseFailure`
+neanche: un tool che fallisce dentro un turno che prosegue non è un errore di sessione. Nomi hook
+confermati sulla doc Claude Code corrente (settembre 2026). Nota: nello spike gli stati usano i nomi
 Otty (`processing`, `awaiting`, `idle`); nell'app si usano i nomi prodotto qui sopra.
 
 I tool che aprono un prompt bloccante (`AskUserQuestion`, `ExitPlanMode`) non passano da
@@ -562,7 +573,7 @@ Severità: `needs_input` > `error` > `running` > `completed` non visto > `in sos
 | `running` | spinner o indicatore working |
 | `needs_input` | badge attention + notifica macOS |
 | `idle` dopo lavoro | marker completed (forte), poi "in sospeso" (quieto) finché non ripreso |
-| `error` | marker errore |
+| `error` | badge rosso + marker attenzione + notifica |
 | `unknown` | nessun badge forte (ma un sospeso sopravvive alla fine sessione) |
 
 Regole:
@@ -570,6 +581,10 @@ Regole:
 - distinzione **stato vs marker**: `running`/`needs_input`/`error` sono stati e il badge li mostra
   in base ad `agentState` finché lo stato cambia. `needs_input` resta finché la sessione è in attesa
   (si spegne quando rispondi a Claude e parte un nuovo hook), **non** alla semplice visita del pane;
+  `error` è l'unico stato che è **anche** marker: accende `unseen` come un completamento, perché
+  senza marker non avrebbe né ring né bump né notifica, e un turno morto mentre guardavi altrove
+  non chiamerebbe nessuno. I due canali restano indipendenti: declassare il marker (flash o
+  interazione) non spegne il badge rosso, che segue lo stato finché non riprendi;
 - `attention` (`Tab.attention`, enum `AttentionLevel`) è il marker post-completamento a **tre
   livelli**, che distingue percezione ("l'ho visto") da risoluzione ("me ne sono occupato"):
   - `unseen` - completato (`running` -> `idle`) mentre il pane non era in vista: segnale forte
@@ -582,8 +597,8 @@ Regole:
     `scheduleCompletionFlashDecay` -> `markSeen`): senza il flash un completamento sotto gli occhi
     non si vedeva mai. Sopravvive alla fine della sessione (`unknown`) e al riavvio
     (persistito come `pendingSince` nel `TabSnapshot`);
-  - risoluzione: la **ripresa vera** della conversazione (prompt -> `running`, o `needs_input`/
-    `error`: la sessione si è mossa) spegne il marker a qualunque livello; in alternativa il
+  - risoluzione: la **ripresa vera** della conversazione (prompt -> `running`, o `needs_input`: la
+    sessione si è mossa) spegne il marker a qualunque livello; in alternativa il
     **dismiss esplicito** (card della dashboard) o la chiusura della tab. La **decadenza**
     (`AppSettings.pendingDecayHours`, default **12h**; `0` = opt-out esplicito, mai) spegne i sospesi
     diventati tali (misura da `attentionSince`, non dall'evento) più vecchi
@@ -597,8 +612,15 @@ Regole:
 
 Le notifiche riusano le stesse regole anti-rumore dei badge. La decisione è pura e testabile
 (`AgentStateReducer.notification(current:incoming:isVisible:)`): notifica alla **entrata** in
-`needs_input` (non a ogni evento successivo) e al **completamento non visto** (running -> idle mentre
-la tab non è in vista). Chiave: **"in vista" = la tab è *montata in un pane* del workspace mostrato
+`needs_input` e alla **entrata** in `error` (non a ogni evento successivo: una raffica di retry
+falliti riaccende il badge ogni volta ma notifica una volta sola) e al **completamento non visto**
+(running -> idle mentre la tab non è in vista).
+
+Notifichiamo i tre stati che nascono **da Claude**; `running` e `unknown` restano fuori di
+proposito, e non è un'omissione. `running` lo generano `UserPromptSubmit` e **ogni**
+`PreToolUse`/`PostToolUse`: decine di eventi per turno, tutti conseguenza del prompt che hai appena
+mandato. `unknown` è `SessionEnd`, cioè `/clear`, `exit` o logout. Sono azioni dell'utente:
+notificarle seppellirebbe le tre che contano. Chiave: **"in vista" = la tab è *montata in un pane* del workspace mostrato
 *dalla sua finestra*, quella finestra è a schermo, e Relay è in primo piano**. Lo store lo calcola in
 `applyAgentState` come `montata && selezionata-nella-sua-finestra && !occlusa && appActive`
 (`appActive = NSApp.isActive`, `occlusa` da `NSWindow.occlusionState`, entrambi passati dal

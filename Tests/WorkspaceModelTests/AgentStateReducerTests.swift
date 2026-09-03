@@ -43,13 +43,36 @@ import Testing
     #expect(result == AgentStateReducer.Result(state: .needsInput, attention: .none))
 }
 
-@Test func errorDoesNotUseAttention() {
+/// Un turno morto per errore API accende il marker forte: è una novità che nasce da Claude
+/// mentre non guardavi, esattamente come un completamento, e senza marker non produrrebbe né bump
+/// in sidebar né ring.
+@Test func errorRaisesUnseenAttention() {
     let result = AgentStateReducer.reduce(
         current: .running,
         incoming: .error,
         currentAttention: .none
     )
-    #expect(result == AgentStateReducer.Result(state: .error, attention: .none))
+    #expect(result == AgentStateReducer.Result(state: .error, attention: .unseen))
+}
+
+/// Un errore sopra un sospeso già visto torna forte: è un fatto nuovo, non la coda del vecchio.
+@Test func errorRaisesPendingBackToUnseen() {
+    let result = AgentStateReducer.reduce(
+        current: .idle,
+        incoming: .error,
+        currentAttention: .pending
+    )
+    #expect(result == AgentStateReducer.Result(state: .error, attention: .unseen))
+}
+
+/// La ripresa dopo l'errore (il tuo retry -> running) spegne il marker come ogni ripresa vera.
+@Test func runningAfterErrorResolvesAttention() {
+    let result = AgentStateReducer.reduce(
+        current: .error,
+        incoming: .running,
+        currentAttention: .unseen
+    )
+    #expect(result == AgentStateReducer.Result(state: .running, attention: .none))
 }
 
 // MARK: - Risoluzione (la ripresa vera spegne il marker)
@@ -160,6 +183,24 @@ import Testing
     ) == .completed)
     #expect(AgentStateReducer.notification(
         current: .running, incoming: .idle, isVisible: true
+    ) == nil)
+}
+
+/// L'errore notifica all'entrata, anche a tab in vista: la soppressione "la stai guardando" è
+/// runtime (`NotificationCoordinator`), non qui.
+@Test func notifiesOnErrorEntry() {
+    #expect(AgentStateReducer.notification(
+        current: .running, incoming: .error, isVisible: false
+    ) == .error)
+    #expect(AgentStateReducer.notification(
+        current: .running, incoming: .error, isVisible: true
+    ) == .error)
+}
+
+/// Una raffica di retry falliti riaccende il badge ogni volta ma notifica una sola volta.
+@Test func doesNotReNotifyError() {
+    #expect(AgentStateReducer.notification(
+        current: .error, incoming: .error, isVisible: false
     ) == nil)
 }
 

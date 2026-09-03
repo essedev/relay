@@ -60,6 +60,10 @@ extension SettingsView {
         Binding(get: { settings.notifyOnCompleted }, set: { settings.setNotifyOnCompleted($0) })
     }
 
+    var notifyErrorBinding: Binding<Bool> {
+        Binding(get: { settings.notifyOnError }, set: { settings.setNotifyOnError($0) })
+    }
+
     var notificationSoundBinding: Binding<Bool> {
         Binding(get: { settings.notificationSound }, set: { settings.setNotificationSound($0) })
     }

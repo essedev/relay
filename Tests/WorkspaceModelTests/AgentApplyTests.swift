@@ -76,6 +76,46 @@ import Testing
     #expect(flashed == [fixture.visibleTab.id])
 }
 
+/// Un turno morto per errore API accende il marker sulla tab nascosta, come un completamento: è
+/// il canale che porta la riga in cima e accende il ring. Il badge resta comunque rosso, che lo
+/// legge da `agentState`.
+@Test @MainActor func errorOnHiddenTabRaisesUnseen() {
+    let fixture = makeAgentFixture()
+    let tabID = fixture.hiddenTab.id.uuidString
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 1)
+    )
+    fixture.store.applyAgentState(paneId: tabID, state: .error, at: Date(timeIntervalSince1970: 2))
+    #expect(fixture.hiddenTab.agentState == .error)
+    #expect(fixture.hiddenTab.attention == .unseen)
+    #expect(fixture.hiddenTab.attentionSince == Date(timeIntervalSince1970: 2))
+}
+
+/// Un errore sopra un sospeso già declassato a `pending` risale a `unseen` **e** segnala il flash
+/// sulla tab in vista. La guardia vecchia (`previousAttention == .none`) lo mancava: il marker
+/// tornava forte senza che nessuno lo declassasse mai più.
+@Test @MainActor func errorOverPendingSignalsFlash() {
+    let fixture = makeAgentFixture()
+    var flashed: [UUID] = []
+    fixture.store.onVisibleCompletion = { flashed.append($0) }
+    let tabID = fixture.visibleTab.id.uuidString
+    fixture.store.applyAgentState(
+        paneId: tabID,
+        state: .running,
+        at: Date(timeIntervalSince1970: 1)
+    )
+    fixture.store.applyAgentState(paneId: tabID, state: .idle, at: Date(timeIntervalSince1970: 2))
+    fixture.store.markSeen(fixture.visibleTab.id) // declassa a pending, come il flash decay
+    #expect(fixture.visibleTab.attention == .pending)
+
+    flashed.removeAll()
+    fixture.store.applyAgentState(paneId: tabID, state: .error, at: Date(timeIntervalSince1970: 3))
+    #expect(fixture.visibleTab.attention == .unseen)
+    #expect(flashed == [fixture.visibleTab.id])
+}
+
 /// Un completamento non visto (tab nascosta) NON segnala il flash: resta forte finché non lo vedi,
 /// senza timer di declassamento.
 @Test @MainActor func completedOnHiddenTabDoesNotSignalFlash() {
@@ -238,6 +278,20 @@ import Testing
     store.applyAgentState(paneId: cTab, state: .idle, at: Date(timeIntervalSince1970: 2))
     #expect(store.orderedWorkspaces.map(\.name) == ["a", "b", "c"]) // resta dov'è
     #expect(c.tabs[0].attention == .unseen)
+}
+
+/// L'errore su una tab nascosta bumpa come il completamento: è il caso per cui esiste il bump,
+/// una sessione che si è fermata mentre guardavi altrove.
+@Test @MainActor func errorOnHiddenTabBumpsToTop() {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    _ = store.createWorkspace(name: "b")
+    let c = store.createWorkspace(name: "c")
+    store.selectWorkspace(a.id)
+    store.applyAgentState(
+        paneId: c.tabs[0].id.uuidString, state: .error, at: Date(timeIntervalSince1970: 1)
+    )
+    #expect(store.orderedWorkspaces.map(\.name) == ["c", "a", "b"])
 }
 
 /// L'entrata in `needs_input` mentre non guardavi bumpa come il completamento.

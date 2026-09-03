@@ -18,6 +18,7 @@ extension AppSettings {
         static let notificationsEnabled = "relay.notifications.enabled"
         static let notifyOnNeedsInput = "relay.notifications.needsInput"
         static let notifyOnCompleted = "relay.notifications.completed"
+        static let notifyOnError = "relay.notifications.error"
         static let notificationSound = "relay.notifications.sound"
         static let notificationSoundName = "relay.notifications.soundName"
         static let checkForUpdates = "relay.updates.checkAutomatically"

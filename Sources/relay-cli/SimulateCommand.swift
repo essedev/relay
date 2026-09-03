@@ -47,6 +47,18 @@ enum SimulateCommand {
             Step(state: .running, message: "you   > approved", delay: 2.0),
             Step(state: .idle, message: "claude: deployed", delay: 1.0),
         ],
+        "error": [
+            Step(state: .idle, message: "session started", delay: 0.5),
+            Step(state: .running, message: "you   > refactor the split tree", delay: 2.0),
+            Step(state: .running, message: "claude: reading SplitNode.swift...", delay: 2.5),
+            Step(
+                state: .error,
+                message: "claude: API error (rate_limit) - turn ended, no retry",
+                delay: 8.0
+            ),
+            Step(state: .running, message: "you   > retry", delay: 2.0),
+            Step(state: .idle, message: "claude: done", delay: 1.0),
+        ],
         "burst": [
             Step(state: .running, message: "task 1: refactor imports", delay: 1.2),
             Step(state: .idle, message: "task 1 done", delay: 1.0),

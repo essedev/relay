@@ -33,7 +33,7 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
   se tocchi il contenuto, rigenera nello stesso commit. Vedi `docs/features/guide.md`.
 - **Screenshot del README**: `scripts/screenshots.sh` (demo isolata, non tocca `~/.relay` né le
   preferenze). Occupa lo schermo per un minuto e serve il permesso Screen Recording.
-- **Simulatore agente**: `relay-cli simulate [coding|permission|burst] [--loops N] [--fast]`,
+- **Simulatore agente**: `relay-cli simulate [coding|permission|error|burst] [--loops N] [--fast]`,
   da lanciare *dentro una tab di Relay*: recita una chat finta e manda eventi reali al socket
   (stesso client/wire degli hook). Per testare badge/aggregazioni senza sessioni Claude vere.
 - **Demo mode**: `relay --demo [NxM]` (default 4x3): N workspace da M tab con sessioni simulate

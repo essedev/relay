@@ -79,7 +79,10 @@ extension SettingsView {
             SettingsBlock(
                 id: "notifications",
                 category: .notifications,
-                keywords: ["notification", "notify", "alert", "sound", "needs input", "finished"],
+                keywords: [
+                    "notification", "notify", "alert", "sound", "needs input", "finished",
+                    "error", "failure", "rate limit",
+                ],
                 view: AnyView(notificationsBlock(colors))
             ),
             SettingsBlock(
@@ -189,6 +192,7 @@ extension SettingsView {
             Divider()
             toggleRow("When Claude needs input", colors, notifyNeedsInputBinding).disabled(!on)
             toggleRow("When Claude finishes", colors, notifyCompletedBinding).disabled(!on)
+            toggleRow("When Claude hits an error", colors, notifyErrorBinding).disabled(!on)
             Divider()
             toggleRow("Play sound", colors, notificationSoundBinding).disabled(!on)
             row("Sound", colors) {

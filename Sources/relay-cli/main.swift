@@ -14,7 +14,7 @@ Usage:
   relay-cli claude-hook <state>   (invoked by hooks) emit an agent state event
   relay-cli simulate [scenario]   fake agent session driving real badges
                                   (run inside a Relay tab)
-                                  scenarios: coding | permission | burst
+                                  scenarios: coding | permission | error | burst
                                   options: --loops N, --fast
 
 States: running | idle | needs_input | error | unknown

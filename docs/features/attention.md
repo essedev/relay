@@ -2,7 +2,24 @@
 
 Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard. Il resto della guida sta in `../../CLAUDE.md`.
 
-- Notifiche: il trigger è puro (`AgentStateReducer.notification`), lo store emette via
+- **L'errore accende il marker**: `error` (da `StopFailure`, vedi `agent-runtime.md`) è l'unico
+  stato che è **anche** marker: il reducer gli fa alzare `unseen` come a un completamento, e nasce
+  forte anche sopra un `pending` già declassato (un errore nuovo è un fatto nuovo). Senza marker un
+  turno morto per errore non avrebbe ring, bump né notifica: resterebbe un pallino rosso su una
+  riga in fondo alla sidebar. I due canali restano indipendenti: il declassamento (flash o
+  interazione) spegne il segnale forte ma **non** il badge rosso, che segue `agentState` finché non
+  riprendi. La guardia del bump è `attention == .unseen && previousAttention != .unseen`, non
+  "usciva da `none`": con la vecchia forma un errore (o un completamento) sopra un `pending` alzava
+  il marker senza bump né flash, e restava `unseen` per sempre senza aver chiamato nessuno.
+- Notifiche: tre tipi, uno per stato che nasce da Claude - entrata in `needs_input`, entrata in
+  `error`, completamento non visto - ognuno col suo toggle in Settings (`notifyOnNeedsInput`,
+  `notifyOnError`, `notifyOnCompleted`, tutti default on) sotto il master `notificationsEnabled`.
+  `running` e `unknown` non notificano di proposito: il primo lo generano `UserPromptSubmit` e ogni
+  `PreToolUse`/`PostToolUse` (decine di eventi per turno, causati dal tuo prompt), il secondo è
+  `SessionEnd` (`/clear`, `exit`, logout). Sono azioni tue: notificarle seppellirebbe le altre.
+  `needs_input` ed `error` notificano solo alla **entrata** nello stato, quindi una raffica di
+  retry falliti riaccende il badge ogni volta ma suona una volta sola.
+  Il trigger è puro (`AgentStateReducer.notification`), lo store emette via
   `onNotifiableTransition` e il `NotificationCoordinator` (solo se `Bundle.main.bundleIdentifier !=
   nil`) filtra per preferenze e consegna. `isVisible = tab selezionata && NSApp.isActive`: se Relay è
   in background notifica anche sulla tab selezionata. Il marker "completato" (`attention`, enum
@@ -13,7 +30,7 @@ Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard
   la posizione in sidebar è un ordine **reale e persistente**, non un float derivato. A muoverla è
   solo un **bump** (`WorkspaceStore.bumpWorkspaceToTop`, da `applyAgentState`), che porta il
   workspace in cima al **proprio contenitore** (la lista, o la sua card di gruppo) quando
-  un'attività arriva **non vista** - completamento o entrata
+  un'attività arriva **non vista** - completamento, **errore API** o entrata
   in `needs_input` con `!isVisible` (simmetrico al segnale forte e alla notifica: un completamento
   sulla tab **in vista** **non** bumpa, così la riga non salta sotto le mani). La
   ripresa (`running`) non muove niente: la riga su cui lavori resta ferma, la scavalca solo un altro
@@ -61,8 +78,9 @@ Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard
   finestra in primo piano). Senza l'handler il click non faceva nulla.
 - Ring di attenzione (`AttentionRingView`): bordo colorato attorno al terminale della tab in vista
   che ne segnala lo stato (verde = completato non visto, statico + flash; giallo/rosso pulsante =
-  aspetta input/errore). Il ring risponde solo a `unseen`: un sospeso (`pending`) non accende il
-  bordo (segnale quieto: badge ad anello vuoto + dashboard), altrimenti useresti la shell con un
+  aspetta input/errore). Giallo e rosso vengono da `agentState` (`needs_input`/`error`) e restano
+  finché lo stato cambia, anche dopo che il marker è stato declassato; il **verde** risponde solo a
+  `unseen`, perché un sospeso (`pending`) non accende il bordo (segnale quieto: badge ad anello vuoto + dashboard), altrimenti useresti la shell con un
   ring verde permanente. Colori dai colori ANSI del tema, coerenti coi badge. Overlay con `hitTest`
   nil (non intercetta eventi); i terminali si inseriscono `positioned: .below` così resta in cima.
   L'observer del ring (`observeRing`) è **separato** da `render()` e **non** scrive `attention`:

@@ -7,6 +7,9 @@ public enum AgentNotificationKind: Sendable, Equatable {
     case needsInput
     /// Lavoro finito (running -> idle) mentre la tab non era in vista.
     case completed
+    /// Turno finito per un errore API (entrata nello stato `error`): rate limit, overloaded,
+    /// auth, billing, rete giù. Tutti i tipi di errore collassano qui.
+    case error
 }
 
 /// Richiesta di notifica emessa dallo store quando una transizione la merita. Dato puro: wiring a

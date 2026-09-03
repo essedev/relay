@@ -30,22 +30,37 @@ public struct ClaudeHookInstaller {
     }
 
     /// Mapping evento Claude -> stato prodotto. Unico posto da aggiornare se cambiano i nomi hook.
-    /// `isToolEvent`: gli eventi tool (`PreToolUse`/`PostToolUse`) usano un `matcher`; gli altri
-    /// no.
+    /// `matcher`: valore della chiave `matcher` della entry, `nil` = chiave assente. Serve solo
+    /// agli eventi tool (`PreToolUse`/`PostToolUse`), che senza matcher non scattano; per gli
+    /// eventi che il matcher lo supportano ma non lo richiedono (`StopFailure`, che matcha sul
+    /// tipo di errore) la chiave assente equivale a `"*"`, cioè "tutti", ed è quello che vogliamo.
     struct HookSpec {
         let event: String
         let state: String
-        let isToolEvent: Bool
+        let matcher: String?
+
+        init(event: String, state: String, matcher: String? = nil) {
+            self.event = event
+            self.state = state
+            self.matcher = matcher
+        }
     }
 
+    /// `StopFailure` è l'unica fonte di `error`: scatta quando il turno finisce per un errore API
+    /// (rate limit, overloaded, auth, billing, server error, rete giù...). Senza di lui un turno
+    /// morto per errore non produce nessun hook - `Stop` copre solo la fine normale - e la tab
+    /// resterebbe `running` per sempre, con lo spinner acceso su una sessione ferma. Tutti gli
+    /// `error_type` collassano nello stesso stato `error`: la distinzione la legge l'utente dal
+    /// terminale, la tab deve solo dire "qui si è rotto qualcosa, serve la tua mano".
     static let specs: [HookSpec] = [
-        HookSpec(event: "SessionStart", state: "idle", isToolEvent: false),
-        HookSpec(event: "UserPromptSubmit", state: "running", isToolEvent: false),
-        HookSpec(event: "PreToolUse", state: "running", isToolEvent: true),
-        HookSpec(event: "PostToolUse", state: "running", isToolEvent: true),
-        HookSpec(event: "PermissionRequest", state: "needs_input", isToolEvent: false),
-        HookSpec(event: "Stop", state: "idle", isToolEvent: false),
-        HookSpec(event: "SessionEnd", state: "unknown", isToolEvent: false),
+        HookSpec(event: "SessionStart", state: "idle"),
+        HookSpec(event: "UserPromptSubmit", state: "running"),
+        HookSpec(event: "PreToolUse", state: "running", matcher: "*"),
+        HookSpec(event: "PostToolUse", state: "running", matcher: "*"),
+        HookSpec(event: "PermissionRequest", state: "needs_input"),
+        HookSpec(event: "Stop", state: "idle"),
+        HookSpec(event: "StopFailure", state: "error"),
+        HookSpec(event: "SessionEnd", state: "unknown"),
     ]
 
     public init() {}
@@ -112,8 +127,8 @@ public struct ClaudeHookInstaller {
             var entry: [String: Any] = [
                 "hooks": [["type": "command", "command": command(for: spec, cliPath: cliPath)]],
             ]
-            if spec.isToolEvent {
-                entry["matcher"] = "*"
+            if let matcher = spec.matcher {
+                entry["matcher"] = matcher
             }
             entries.append(entry)
             hooks[spec.event] = entries
@@ -146,13 +161,17 @@ public struct ClaudeHookInstaller {
         return settings
     }
 
+    /// Installato = **ogni** spec ha la sua entry nostra. Non "almeno una": quando `specs`
+    /// cresce (è successo con `StopFailure`), un'installazione fatta da una versione precedente
+    /// non ha il nuovo hook, e uno status ottimista lascerebbe l'utente senza lo stato che è
+    /// appena stato aggiunto, senza mai proporgli il setup. Il setup è idempotente, quindi il
+    /// costo di rifarlo è nullo.
     static func isInstalled(in settings: [String: Any]) -> Bool {
         guard let hooks = settings["hooks"] as? [String: Any] else { return false }
-        for value in hooks.values {
-            guard let entries = value as? [[String: Any]] else { continue }
-            if entries.contains(where: entryIsOurs) { return true }
+        return specs.allSatisfy { spec in
+            guard let entries = hooks[spec.event] as? [[String: Any]] else { return false }
+            return entries.contains(where: entryIsOurs)
         }
-        return false
     }
 
     /// Una entry è nostra se un suo comando contiene il marker.

@@ -49,6 +49,7 @@ public final class AppSettings {
     public private(set) var notificationsEnabled: Bool
     public private(set) var notifyOnNeedsInput: Bool
     public private(set) var notifyOnCompleted: Bool
+    public private(set) var notifyOnError: Bool
     public private(set) var notificationSound: Bool
     public private(set) var notificationSoundName: String
 
@@ -118,6 +119,7 @@ public final class AppSettings {
         notificationsEnabled = Self.boolDefaultingTrue(defaults, Keys.notificationsEnabled)
         notifyOnNeedsInput = Self.boolDefaultingTrue(defaults, Keys.notifyOnNeedsInput)
         notifyOnCompleted = Self.boolDefaultingTrue(defaults, Keys.notifyOnCompleted)
+        notifyOnError = Self.boolDefaultingTrue(defaults, Keys.notifyOnError)
         notificationSound = Self.boolDefaultingTrue(defaults, Keys.notificationSound)
         notificationSoundName = defaults.string(forKey: Keys.notificationSoundName) ?? "Default"
         checkForUpdatesAutomatically = Self.boolDefaultingTrue(defaults, Keys.checkForUpdates)
@@ -254,6 +256,10 @@ public final class AppSettings {
 
     public func setNotifyOnCompleted(_ enabled: Bool) {
         update(\.notifyOnCompleted, enabled, key: Keys.notifyOnCompleted)
+    }
+
+    public func setNotifyOnError(_ enabled: Bool) {
+        update(\.notifyOnError, enabled, key: Keys.notifyOnError)
     }
 
     public func setNotificationSound(_ enabled: Bool) {
