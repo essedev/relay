@@ -411,6 +411,22 @@ adottato il suo pattern. Design e migrazione: `docs/features/split-panes.md`.
 **Ancora da fare** (ereditato + nuovo): drag di tab fra pane (incluso l'edge-drop di bonsplit per
 creare split trascinando), drag di workspace fra finestre, zoom del pane, equalize dei divider.
 
+## Fatto - Gli errori API diventano uno stato (0.17.0)
+
+`AgentState.error` era cablato in badge, ring, severità e dashboard ma nessun hook lo produceva:
+gli hook installati si fermavano a `Stop`, che scatta solo alla fine normale di un turno. Un turno
+ucciso da un errore API lasciava la tab `running` per sempre.
+
+- `StopFailure -> error` (ottavo hook), senza matcher: tutti gli `error_type` in un solo stato.
+- `error` alza il marker `unseen`: ring, bump in sidebar, corsia Needs You, notifica. È l'unico
+  stato che è anche marker; il badge rosso resta comunque legato ad `agentState` finché non riprendi.
+- Notifica per tipo con `notifyOnError` (default on). `running` e `unknown` restano senza notifica
+  di proposito: li generano azioni dell'utente, decine di eventi per turno.
+- `isInstalled` richiede tutti gli spec: chi aggiorna deve rifare il setup, un click in Settings.
+- Simulatore: scenario `error`.
+
+Vedi CYCLES #22 e `docs/features/agent-runtime.md`.
+
 ## Più avanti
 
 - Distribuzione firmata: Developer ID + notarizzazione (toglie il bypass quarantena e apre a

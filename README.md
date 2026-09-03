@@ -40,7 +40,9 @@ brew install --cask essedev/relay/relay
 ```
 
 Updates: `brew update && brew upgrade --cask relay`. The cask also links the `relay` and
-`relay-cli` commands into your PATH, which the sections below use.
+`relay-cli` commands into your PATH, which the sections below use. When an update adds a hook
+(0.17.0 added one, for API errors), Settings > Agents reports the hooks as not installed until you
+run the setup again: it is idempotent and leaves your other hooks alone.
 
 Alternatively, download the `.dmg` from the latest
 [release](https://github.com/essedev/relay/releases/latest) and drag Relay into Applications. Relay
@@ -81,8 +83,8 @@ The full manual lives in **[docs/GUIDE.md](docs/GUIDE.md)**, and inside the app 
 ## Agent state (Claude Code hooks)
 
 Relay shows each agent's state as a badge on the tab and, aggregated, on the workspace in the
-sidebar (`running`, `needs_input`, done). State comes from Claude Code hooks, not from parsing
-output.
+sidebar (`running`, `needs_input`, `error`, done). State comes from Claude Code hooks, not from
+parsing output.
 
 ```sh
 relay-cli hooks setup       # install the hooks into ~/.claude/settings.json (coexist with Otty)
@@ -94,15 +96,22 @@ Then open Relay, start `claude` in a tab and the badges update. `needs_input` st
 respond. The same thing is one click in Settings > Agents. Protocol and binding details in
 `docs/STATE_SCHEMA.md`.
 
+A turn killed by an API error - rate limit, overloaded, billing, no network - ends without
+finishing, so it never reaches the "done" state. Relay catches it (`StopFailure`) and turns the tab
+red: ring, badge, a float to the top of the sidebar and a notification, like any other signal you
+have not seen. Every kind of error looks the same; the terminal has the details. Retrying clears
+it.
+
 With the app launched from the bundle you also get macOS notifications when an agent asks for
-input or finishes while you are not looking at the tab; clicking one brings that tab up. From
-`make run` (no bundle) notifications are disabled.
+input, hits an error, or finishes while you are not looking at the tab; clicking one brings that
+tab up. From `make run` (no bundle) notifications are disabled.
 
 To try the badges without a real Claude session, inside a Relay tab:
 
 ```sh
 relay-cli simulate            # fake chat ("coding" scenario), real events on the socket
 relay-cli simulate permission # needs_input that stays pending
+relay-cli simulate error      # a turn that dies on a rate limit, then a retry
 relay-cli simulate burst --loops 3 --fast
 ```
 

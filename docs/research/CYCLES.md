@@ -1450,9 +1450,16 @@ Toggle per tipo in Settings (`notifyOnError`, default on).
 
 ### Esito
 
-Otto hook invece di sette. 492 test (+9), `make check` verde. Chi ha Relay già installato vede
+Pubblicata 0.17.0. Otto hook invece di sette, 492 test (+9), `make check` verde. Chi aggiorna vede
 Settings > Agents segnalare gli hook come non installati: è voluto, un click di Setup aggiunge
 `StopFailure`.
 
-Resta non verificato end-to-end con un errore API vero: il nome dell'hook e il payload vengono
-dalla doc Claude Code di settembre 2026, non da una sessione che si è rotta davvero.
+Verificato end-to-end su un'app isolata (socket e layout temporanei), mandando il payload
+`StopFailure` con `relay-cli claude-hook error` e l'env letto dalla shell della tab: è lo stesso
+comando che sta in `settings.json`. Il ciclo running -> error -> retry si vede negli screenshot:
+ring rosso, bollino sulla tab, bollino sul workspace, poi tutto spento al retry.
+
+Due cose restano non verificate. La **notifica macOS**, perché richiede il bundle e il guard
+single-instance (bundle id) fa uscire ogni istanza mentre il Relay installato è aperto: coperta
+solo dai test sul classificatore. E il fatto che Claude emetta davvero `StopFailure` con quel nome
+e quel payload, che viene dalla doc di settembre 2026 e non da una sessione rotta davvero.

@@ -36,10 +36,24 @@ Mapping Claude -> stato (installato in `settings.json` da `ClaudeHookInstaller`)
 | `PostToolUse` | `running` | `*` |
 | `PermissionRequest` | `needs_input` | - |
 | `Stop` | `idle` | - |
+| `StopFailure` | `error` | - |
 | `SessionEnd` | `unknown` | - |
 
-Il `matcher` esiste solo per gli eventi tool. `SubagentStop` non è mappato di proposito: lo stop di
-un subagent non è il completamento del pane principale (anti-rumore).
+Il `matcher` è obbligatorio solo per gli eventi tool, che senza non scattano. `StopFailure` lo
+supporta (matcha sul tipo di errore) ma noi lo omettiamo di proposito: chiave assente equivale a
+`"*"`, quindi **tutti** i tipi (`rate_limit`, `overloaded`, `authentication_failed`,
+`oauth_org_not_allowed`, `account_on_hold`, `billing_error`, `invalid_request`, `model_not_found`,
+`server_error`, `max_output_tokens`, `unknown`) collassano nello stesso stato `error`.
+
+**`StopFailure` è l'unica fonte di `error`**: scatta quando il turno finisce per un errore API.
+`Stop` copre solo la fine normale, quindi senza questo hook un turno morto non emette nulla e la
+tab resta `running` per sempre. `SubagentStop` non è mappato di proposito (lo stop di un subagent
+non è il completamento del pane principale), e nemmeno `PostToolUseFailure` (un tool che fallisce
+dentro un turno che prosegue non è un errore di sessione).
+
+`ClaudeHookInstaller.isInstalled` richiede che **tutti** gli spec di questa tabella siano presenti,
+non almeno uno: quando la tabella cresce, un'installazione fatta da una versione precedente deve
+risultare incompleta, o l'utente non riceverebbe mai il nuovo hook. Il setup è idempotente.
 
 **Tool a prompt bloccante**: il `PreToolUse` di `AskUserQuestion` e `ExitPlanMode` viene corretto
 in `needs_input` dal CLI (`ClaudeHookStateMapper`, che legge `hook_event_name` e `tool_name` dallo
