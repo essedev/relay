@@ -312,7 +312,7 @@ dato puro in `Core` (`RelayTheme`/`RelayColor`): colori base + 16 ANSI + font. �
   **GitHub** (Primer dark/light default).
 
 Pannello impostazioni (`Cmd+,`): master-detail themed - sidebar con ricerca e lista categorie
-(Appearance / Terminal / Agents / Notifications), contenuto a destra. Ogni voce è un "blocco"
+(Appearance / Terminal / Agents / Notifications / Updates / Shortcuts), contenuto a destra. Ogni voce è un "blocco"
 dichiarativo (categoria + keywords + vista), unica fonte per categorie e ricerca: aggiungere
 un'impostazione è una riga. Temi come lista selezionabile (ogni riga anteprima la sua palette),
 scelta font family (monospace installati), zoom (`Cmd +/-`, `Cmd+0`). Import da config Ghostty:

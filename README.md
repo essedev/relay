@@ -208,7 +208,8 @@ notarization is not set up yet.
 The rest is internal and in Italian (the English-facing surface is this README and the guide).
 
 - `docs/ARCHITECTURE.md` - product thesis, modules, budget, engine, anti-patterns.
-- `docs/ROADMAP.md` - what is done and what is missing (baseline complete; next step TBD).
+- `docs/ROADMAP.md` - what is missing and in which order (baseline complete; next round TBD).
+- `docs/research/CYCLES.md` - the work log, one entry per round (older ones in `cycles-archive/`).
 - `docs/CONVENTIONS.md` - code, test and process rules.
 - `docs/STATE_SCHEMA.md` - persistence schema and agent event protocol.
 - `docs/features/*.md` - one file per area, with the invariants and the traps already paid for:

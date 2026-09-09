@@ -5,7 +5,7 @@ qualche decina di workspace la sidebar diventa un elenco indifferenziato: i grup
 struttura che l'utente decide, senza toccare il modello di attenzione.
 
 Riferimenti: modello dati in `docs/ARCHITECTURE.md` #Data-Model, ordine della sidebar in
-#Chrome-E-Finestra, storia in `docs/ROADMAP.md`.
+#Chrome-E-Finestra, storia in `docs/research/CYCLES.md` (Cycle 16).
 
 ## Cosa fa
 

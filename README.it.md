@@ -212,7 +212,8 @@ notarizzazione non sono ancora configurate.
 Il resto è documentazione interna.
 
 - `docs/ARCHITECTURE.md` - tesi di prodotto, moduli, budget, engine, anti-pattern.
-- `docs/ROADMAP.md` - cosa è fatto e cosa manca (baseline chiuso; prossimo giro da decidere).
+- `docs/ROADMAP.md` - cosa manca e in che ordine (baseline chiuso; prossimo giro da decidere).
+- `docs/research/CYCLES.md` - il log dei cicli di lavoro (i più vecchi in `cycles-archive/`).
 - `docs/CONVENTIONS.md` - regole di codice, test e processo.
 - `docs/STATE_SCHEMA.md` - schema di persistence e protocollo eventi agente.
 - `docs/features/*.md` - un file per area, con le invarianti e le trappole già pagate:
