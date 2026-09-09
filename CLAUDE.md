@@ -4,11 +4,8 @@ Terminale macOS nativo agent-aware. Leggi `docs/ARCHITECTURE.md` prima di toccar
 e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `docs/ROADMAP.md`;
 la storia delle decisioni sta in `docs/research/CYCLES.md`.
 
-Stato: baseline delle milestone chiuso (agent runtime + badge, persistence del layout, cap LRU,
-bundle `.app` con notifiche, split panes e multi-window), app installabile da brew. Il prossimo
-giro è a scelta fra distribuzione firmata e multi-agente, vedi `docs/ROADMAP.md`. La pipeline
-hook -> badge -> resume è validata a mano con Claude reale; notifiche e check aggiornamenti
-girano **solo dal bundle** (`make run-app`), non da `swift run`.
+Notifiche e check aggiornamenti girano **solo dal bundle** (`make run-app`), non da `swift run`:
+una verifica a mano di quelle due aree fatta con `make run` non prova niente.
 
 **Questo file resta corto**: è caricato in contesto a ogni sessione. I dettagli di una feature
 vivono in `docs/features/*.md` (indice sotto), la storia in `docs/research/CYCLES.md`. Se stai
@@ -43,9 +40,8 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
 ## Mappa moduli (dipendenze solo verso il basso)
 
 - `Core` - primitivi puri, nessuna dipendenza: logging (`RelayLog`), modello tema
-  (`RelayTheme`/`RelayColor`, qui perché lo convertono sia il terminale sia la chrome), `OSC7`,
-  `ShellEscape`, `CurrentDirectory`, `KeyboardTextInput`, `TerminalSearchMatcher`,
-  `SemanticVersion`/`ReleaseCheck`, `WorkspaceNaming`/`NamingTriggerPolicy`, `LatencyStats`.
+  (`RelayTheme`/`RelayColor`, qui perché lo convertono sia il terminale sia la chrome), e la logica
+  senza I/O che serve a più moduli (OSC 7, escaping, cwd, ricerca, versioni, policy della nomina).
 - `AgentProtocol` - tipi evento/stato agente. Niente I/O, niente AppKit.
 - `AgentRuntime` - trasporto eventi: `AgentEventReceiver` (server Unix socket), `AgentEventClient`
   (usato dal CLI), `RelayRuntimePaths`, `AgentWireCoding`. Niente AppKit né WorkspaceModel.
@@ -63,11 +59,9 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
 - `TerminalHostUI` - path caldo: `SurfaceRegistry` (Tab.id -> surface, lazy, cap LRU; **una sola
   per l'app**, condivisa dalle finestre), `WorkspaceAreaController` (osserva lo store e riconcilia
   l'albero di pane in `NSSplitView` annidate, vedi `+PaneTree`), `PaneView`, `AttentionRingView`.
-- `Panels` - SwiftUI isolata: design system (`Theme`/`ThemeColors`, i valori estetici vengono da
-  qui), `SidebarView` e i suoi pezzi (`SidebarLayout`/`SidebarDrop`/`SidebarReorder`, `GroupRow`),
-  `PaneTabBar`, `ContextTitleBar`, badge, `ResumeBar`, `FindBar`, `Dashboard`, `SettingsView`,
-  `AboutView`, `Onboarding`, `GuideView`, `RuntimeStatsView`, primitive condivise
-  (`StatusDot`/`CommandChip`/`CloseButton`), `KeyEventBridge`.
+- `Panels` - SwiftUI isolata: design system (`Theme`/`ThemeColors`, i valori estetici vengono **solo**
+  da qui) e tutti i pannelli (sidebar, `PaneTabBar`, `ContextTitleBar`, badge, `ResumeBar`,
+  `FindBar`, dashboard, settings, about, onboarding, guida, runtime stats) con le loro primitive.
 - `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
   `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
   scrittura atomica. Trasformazioni pure (`merge`/`remove`) separate dall'I/O per i test.
@@ -76,11 +70,10 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
 - `RelayApp` (`Sources/relay`) - composition root e **unico posto che tocca il mondo esterno**:
   `AppController` (+ le sue extension per area), `RelayWindowController`, `MainSplitViewController`,
   `RightPaneController`, `RootOverlayController`/`FullOverlayPresenter`, `MainMenuBuilder`,
-  `AgentCoordinator` (lega `AgentRuntime` a `WorkspaceModel`), `NotificationCoordinator`
-  (`UNUserNotificationCenter`), `UpdateController` (rete/clipboard degli aggiornamenti),
-  `NamingController` + `ChatCompletionClient` + `NamingCredentialStore` (rete e segreto della
-  nomina), `LayoutAutosave`, `ShortcutRuntime`, `PerfSampler`/`RuntimeStatsSampler`,
-  `DemoMode`/`DemoSeeder`. Se cresce oltre il wiring, manca un modulo.
+  `AgentCoordinator` (lega `AgentRuntime` a `WorkspaceModel`), e tutto ciò che parla col sistema o
+  con la rete: notifiche, aggiornamenti, nomina LLM (`NamingController` + client + credential
+  store), autosave, shortcut runtime, sampler, demo mode. Se cresce oltre il wiring, manca un
+  modulo.
 - `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status`,
   `claude-hook <state>` (invocato dagli hook: stdin + `RELAY_TAB_ID` -> socket) e `simulate`.
 
@@ -155,3 +148,9 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
   `RELAY_CLAUDE_SETTINGS=/tmp/....json`. I test unit passano già un `settingsPath` esplicito.
 - `swift build --target X` può ricompilare un modulo senza rilinkare l'eseguibile: per testare un
   binario aggiornato usa `swift build` completo (o `make build`).
+- **Focus dentro un overlay/hosting SwiftUI**: `makeFirstResponder(host)` sincrono dopo
+  `addSubview` gira prima che l'hosting monti il campo e fallisce in silenzio, mentre uno differito
+  ruba il focus al campo che se l'era già preso con `@FocusState`. La forma che regge: differisci di
+  un runloop, salta il set se il first responder è già un discendente dell'host, e dal lato SwiftUI
+  ritenta il `FocusState` da un `task` (l'`onAppear` corre contro il primo layout). Tre fix separati
+  su find bar, dashboard e presenter prima di scriverla; dettagli in `docs/features/windows.md`.

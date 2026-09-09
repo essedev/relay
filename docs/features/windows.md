@@ -40,6 +40,14 @@ Finestre, chrome senza title bar, overlay e le loro trappole AppKit. Il resto de
   `maxHeight: .infinity` sulle pagine (rideclina l'altezza sbagliata) e niente `Spacer` per
   centrare (collassa) - il riempimento lo fa `minHeight: contentHeight` sul contenuto, il
   centraggio l'allineamento di quel frame.
+- **Il focus del primo campo, in tre pezzi che si pestavano** (find bar, dashboard, presenter: tre
+  fix separati). `makeFirstResponder(host)` sincrono subito dopo `addSubview` gira **prima** che
+  l'hosting SwiftUI monti il `TextField`, fallisce in silenzio e i tasti restano al terminale:
+  va differito di un runloop. Differito e basta però ruba il campo a chi se l'era già preso da sé
+  con `@FocusState`, quindi il presenter **salta il set** se il first responder corrente è già un
+  discendente dell'host. Dal lato SwiftUI, il `FocusState` settato in `onAppear` corre contro la
+  prima passata di layout (pesante, nel kanban) e quando perde il campo resta sordo: si ritenta da
+  un `task`. Le tre parti vanno lette insieme, toccarne una sola riapre uno degli altri due bug.
 - Overlay full-window e hit-testing: `presentFullOverlay` avvolge l'overlay in un
   `FullOverlayContainerView` il cui `hitTest` non torna mai `nil` dentro i bounds e consuma il
   mouse nelle zone senza contenuto hit-testable; senza, mouse e cursor update cadevano sul
