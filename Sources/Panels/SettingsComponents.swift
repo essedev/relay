@@ -34,6 +34,13 @@ extension SettingsView {
         Binding(get: { settings.autoResumeAgents }, set: { settings.setAutoResumeAgents($0) })
     }
 
+    var newTabOnStripDoubleClickBinding: Binding<Bool> {
+        Binding(
+            get: { settings.newTabOnStripDoubleClick },
+            set: { settings.setNewTabOnStripDoubleClick($0) }
+        )
+    }
+
     var pendingDecayBinding: Binding<Int> {
         Binding(get: { settings.pendingDecayHours }, set: { settings.setPendingDecayHours($0) })
     }

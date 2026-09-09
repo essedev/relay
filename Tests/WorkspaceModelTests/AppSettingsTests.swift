@@ -97,6 +97,15 @@ import Testing
     }
 }
 
+@MainActor @Test func newTabOnStripDoubleClickDefaultsOnAndPersists() {
+    withTestDefaults { defaults in
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.newTabOnStripDoubleClick)
+        settings.setNewTabOnStripDoubleClick(false)
+        #expect(AppSettings(defaults: defaults).newTabOnStripDoubleClick == false)
+    }
+}
+
 @MainActor @Test func notificationsDefaultOn() {
     withTestDefaults { defaults in
         let settings = AppSettings(defaults: defaults)

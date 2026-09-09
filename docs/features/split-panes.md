@@ -53,7 +53,7 @@ Workspace { tabs: [Tab], layout: SplitNode, focusedPaneID }
 | `Opt+1..9` | seleziona la N-esima tab **del pane focused** |
 | Click su tab | seleziona nel suo pane + focus al pane |
 | Click sull'area vuota della strip | focus al pane, **senza** cambiare la sua selezione |
-| Doppio click sull'area vuota della strip | nuova tab in **quel** pane (come il doppio click nella tab bar di Safari/Terminal) |
+| Doppio click sull'area vuota della strip | nuova tab in **quel** pane (come il doppio click nella tab bar di Safari/Terminal). Disattivabile da Settings > Terminal (`newTabOnStripDoubleClick`, default on): col setting off resta il solo focus |
 
 ## Persistence e migrazione
 

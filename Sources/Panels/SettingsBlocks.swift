@@ -45,6 +45,11 @@ extension SettingsView {
     }
 
     private func fixedBlocks(_ colors: ChromeColors) -> [SettingsBlock] {
+        chromeBlocks(colors) + agentBlocks(colors)
+    }
+
+    /// Aspetto e terminale: le preferenze della chrome e della superficie.
+    private func chromeBlocks(_ colors: ChromeColors) -> [SettingsBlock] {
         [
             SettingsBlock(
                 id: "theme",
@@ -64,6 +69,20 @@ extension SettingsView {
                 keywords: ["cursor", "caret", "blink", "terminal"],
                 view: AnyView(cursorBlock(colors))
             ),
+            SettingsBlock(
+                id: "tabs",
+                category: .terminal,
+                keywords: [
+                    "tab", "tabs", "double click", "double-click", "strip", "tab bar", "new tab",
+                ],
+                view: AnyView(tabsBlock(colors))
+            ),
+        ]
+    }
+
+    /// Agenti, notifiche e scorciatoie.
+    private func agentBlocks(_ colors: ChromeColors) -> [SettingsBlock] {
+        [
             SettingsBlock(
                 id: "resume",
                 category: .agents,
@@ -156,6 +175,18 @@ extension SettingsView {
             Toggle("", isOn: cursorBlinkBinding)
                 .toggleStyle(.switch)
                 .labelsHidden()
+        }
+    }
+
+    /// On (default) = doppio click sull'area vuota della strip apre una nuova tab nel pane, come
+    /// nella tab bar di Safari/Terminal. Off lascia alla strip il solo click di focus.
+    private func tabsBlock(_ colors: ChromeColors) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            toggleRow("Double-click tab bar to open a tab", colors, newTabOnStripDoubleClickBinding)
+            Text("Applies to the empty area of a pane's tab strip. A single click still focuses "
+                + "the pane.")
+                .font(Theme.Typography.subtitle)
+                .foregroundStyle(colors.secondary)
         }
     }
 

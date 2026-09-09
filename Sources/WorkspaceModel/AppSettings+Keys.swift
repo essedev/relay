@@ -14,6 +14,7 @@ extension AppSettings {
         static let archiveExpanded = "relay.sidebar.archiveExpanded"
         static let sidebarWidth = "relay.sidebar.width"
         static let autoResumeAgents = "relay.agents.autoResume"
+        static let newTabOnStripDoubleClick = "relay.tabs.newTabOnDoubleClick"
         static let pendingDecayHours = "relay.agents.pendingDecayHours"
         static let notificationsEnabled = "relay.notifications.enabled"
         static let notifyOnNeedsInput = "relay.notifications.needsInput"

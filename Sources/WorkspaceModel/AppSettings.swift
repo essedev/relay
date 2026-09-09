@@ -39,6 +39,10 @@ public final class AppSettings {
     /// Al re-focus di una tab ripristinata con sessione agente: `true` inietta il resume da solo,
     /// `false` (default) mostra la barra "Resume". Default prudente: niente comandi automatici.
     public private(set) var autoResumeAgents: Bool
+    /// Doppio click sull'area vuota della strip di un pane = nuova tab (default on, come la tab
+    /// bar di Safari/Terminal). Off per chi lo trova un gesto accidentale: alla strip resta il
+    /// click singolo che dà il focus al pane.
+    public private(set) var newTabOnStripDoubleClick: Bool
     /// Decadenza dei completamenti "in sospeso" (`AttentionLevel.pending`): dopo queste ore il
     /// marker si spegne da solo. Default `defaultPendingDecayHours` (12h): il sospeso è il segnale
     /// *quieto* e già visto, tenerlo per sempre è banner blindness. `0` = mai (opt-out esplicito):
@@ -111,6 +115,9 @@ public final class AppSettings {
         let savedSidebarWidth = defaults.double(forKey: Keys.sidebarWidth)
         sidebarWidth = savedSidebarWidth == 0 ? Self.defaultSidebarWidth : savedSidebarWidth
         autoResumeAgents = defaults.bool(forKey: Keys.autoResumeAgents)
+        newTabOnStripDoubleClick = Self.boolDefaultingTrue(
+            defaults, Keys.newTabOnStripDoubleClick
+        )
         // Chiave assente -> default attivo (12h); un `0` salvato (opt-out esplicito) va rispettato,
         // quindi distinguo "mai scritto" da "scritto 0" (integer(forKey:) torna 0 in entrambi).
         pendingDecayHours = defaults.object(forKey: Keys.pendingDecayHours) == nil
@@ -218,6 +225,10 @@ public final class AppSettings {
 
     public func setAutoResumeAgents(_ enabled: Bool) {
         update(\.autoResumeAgents, enabled, key: Keys.autoResumeAgents)
+    }
+
+    public func setNewTabOnStripDoubleClick(_ enabled: Bool) {
+        update(\.newTabOnStripDoubleClick, enabled, key: Keys.newTabOnStripDoubleClick)
     }
 
     public func setPendingDecayHours(_ hours: Int) {

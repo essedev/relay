@@ -29,7 +29,8 @@ public struct PaneTabBarActions {
 
 /// La strip di tab di **un pane** (modello cmux): le sue tab a sinistra, l'action lane a destra
 /// (nuova tab, split right, split down). Ogni pane ne monta una; click su una tab = selezione nel
-/// pane + focus al pane; click sullo spazio vuoto = focus; doppio click = nuova tab.
+/// pane + focus al pane; click sullo spazio vuoto = focus; doppio click = nuova tab (setting
+/// `newTabOnStripDoubleClick`, default on).
 ///
 /// Pannello SwiftUI isolato, montato dentro la `PaneView` (AppKit) via factory del composition
 /// root. Colori dal tema corrente; la barra del pane non focused attenua i suoi segnali.
@@ -106,7 +107,13 @@ public struct PaneTabBar: View {
         .background(colors.background)
         .contentShape(Rectangle())
         // Prima il doppio (nuova tab), poi il singolo (focus): SwiftUI li discrimina da solo.
-        .onTapGesture(count: 2) { actions.newTab(paneID, workspace) }
+        // Il gesto resta montato anche col setting off (la guardia è dentro): staccarlo cambierebbe
+        // l'identità della view a ogni toggle, e col setting off il secondo click cade su un focus
+        // già dato, quindi non si perde nulla.
+        .onTapGesture(count: 2) {
+            guard settings.newTabOnStripDoubleClick else { return }
+            actions.newTab(paneID, workspace)
+        }
         .onTapGesture { store.focusPane(paneID, in: workspace) }
         .windowRect { geometry.strip = $0 }
         // Rete di sicurezza: un gesto annullato (menu contestuale, perdita di focus) non passa da
