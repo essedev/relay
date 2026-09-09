@@ -40,7 +40,9 @@ brew install --cask essedev/relay/relay
 ```
 
 Aggiornamenti: `brew update && brew upgrade --cask relay`. Il cask mette anche i comandi `relay` e
-`relay-cli` nel PATH, quelli che usano le sezioni qui sotto.
+`relay-cli` nel PATH, quelli che usano le sezioni qui sotto. Quando un aggiornamento aggiunge un
+hook (la 0.17.0 ne ha aggiunto uno, per gli errori API), Settings > Agents segnala gli hook come
+non installati finché non rilanci il setup: è idempotente e non tocca gli altri tuoi hook.
 
 In alternativa scarica il `.dmg` dall'ultima
 [release](https://github.com/essedev/relay/releases/latest) e trascina Relay in Applications. Relay
@@ -84,8 +86,8 @@ l'interfaccia.
 ## Stato agente (hook Claude Code)
 
 Relay mostra lo stato di ogni agente come badge sulla tab e, aggregato, sul workspace nella sidebar
-(`running`, `needs_input`, completato). Lo stato arriva dagli hook di Claude Code, non dal parsing
-dell'output.
+(`running`, `needs_input`, `error`, completato). Lo stato arriva dagli hook di Claude Code, non dal
+parsing dell'output.
 
 ```sh
 relay-cli hooks setup       # installa gli hook in ~/.claude/settings.json (convivono con Otty)
@@ -97,8 +99,14 @@ Poi apri Relay, lancia `claude` in una tab e i badge si aggiornano. `needs_input
 rispondi. Lo stesso si fa con un click da Settings > Agents. Protocollo e binding in
 `docs/STATE_SCHEMA.md`.
 
-Con l'app avviata dal bundle arrivano anche le notifiche macOS quando un agente chiede input o
-finisce mentre non stai guardando quella tab; cliccarne una porta la tab in primo piano. Da
+Un turno ucciso da un errore API - rate limit, sovraccarico, billing, rete assente - finisce senza
+concludere, quindi non arriva mai al "completato". Relay lo intercetta (`StopFailure`) e colora la
+tab di rosso: ring, badge, float in cima alla sidebar e notifica, come qualunque altro segnale che
+non hai visto. Ogni tipo di errore ha lo stesso aspetto; i dettagli stanno nel terminale. Il retry
+lo spegne.
+
+Con l'app avviata dal bundle arrivano anche le notifiche macOS quando un agente chiede input, va in
+errore o finisce mentre non stai guardando quella tab; cliccarne una porta la tab in primo piano. Da
 `make run` (senza bundle) le notifiche sono disattivate.
 
 Per provare i badge senza una sessione Claude vera, dentro una tab di Relay:
@@ -106,6 +114,7 @@ Per provare i badge senza una sessione Claude vera, dentro una tab di Relay:
 ```sh
 relay-cli simulate            # chat finta (scenario "coding"), eventi reali sul socket
 relay-cli simulate permission # needs_input che resta in sospeso
+relay-cli simulate error      # un turno che muore su un rate limit, poi il retry
 relay-cli simulate burst --loops 3 --fast
 ```
 
