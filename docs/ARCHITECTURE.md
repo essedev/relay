@@ -1047,8 +1047,8 @@ Costruito (Milestone 4, bundle + notifiche):
   `bundle/AppIcon.icns` via `make icon`): prompt terminale (chevron accento + cursore a blocco) su
   squircle scuro della palette Relay Dark;
 - installer: `make dmg` (`.build/Relay-<version>.dmg`, drag su /Applications) e `make install-app`.
-  Distribuito via Homebrew tap (`brew install --cask essedev/relay/relay-terminal`), firma self-signed
-  stabile; Developer ID + notarizzazione ancora da fare;
+  Distribuito via Homebrew tap (`brew install --cask essedev/relay/relay-terminal`), firma
+  self-signed stabile; Developer ID + notarizzazione ancora da fare;
 - notifiche macOS su `needs_input`/completato (`NotificationCoordinator` +
   `UNUserNotificationCenter`), classificazione pura nel reducer, preferenze in `AppSettings`
   (master, per-tipo, suono + scelta suono). Vedi #Notifiche macOS;

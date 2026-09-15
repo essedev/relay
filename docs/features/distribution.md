@@ -22,9 +22,13 @@ Dal sorgente al `.app` installato: bundle, firma, release, aggiornamenti. Il res
   `essedev/homebrew-relay` (cask `Casks/relay-terminal.rb`), il cask scarica il `.dmg` dalle Release
   di `essedev/relay`. **Il token del cask è `relay-terminal`, non `relay`**: Homebrew/cask ha già un
   cask `relay` (altra app, `msllrs/relay`) e un token non qualificato risolve sul core, quindi un
-  `brew upgrade` sostituiva Relay.app con quella. La routine `scripts/release.sh` (via
-  `make release`): check working tree pulito + branch main + account gh `essedev`; blocca se il tag
-  `vX` esiste già (idempotente per versione); `make dmg` -> sha256 -> `git tag vX` + push -> `gh release create` con
+  `brew upgrade` sostituiva Relay.app con quella. Il rename del token è **anche un passo manuale nel
+  tap**: `update_tap` clona il tap e cerca `$CASK_PATH`, e se il file non c'è esce con "cask non
+  trovato nel tap" senza pubblicare niente. Il `.rb` va rinominato nel repo del tap prima della prima
+  release col token nuovo, e chi ha installato col token vecchio non migra da solo: va disinstallato
+  col token qualificato (`brew uninstall --cask essedev/relay/relay`) e reinstallato. La routine `scripts/release.sh` (via `make release`): check working
+  tree pulito + branch main + account gh `essedev`; blocca se il tag `vX` esiste già (idempotente per
+  versione); `make dmg` -> sha256 -> `git tag vX` + push -> `gh release create` con
   l'asset -> clona il tap, aggiorna `version`+`sha256` nel cask (l'URL li interpola) e pusha. Per
   rilasciare: bumpa `./VERSION`, commit, **poi** `make release`. **Firma**: `make release` usa il
   **self-signed stabile** `Relay Self-Signed` (default in `scripts/release.sh`, preparato in modo

@@ -994,4 +994,36 @@ click cade comunque su un focus già dato dal primo: non si perde niente.
 
 ### Esito
 
-493 test (+1), `make check` verde.
+493 test (+1), `make check` verde. Pubblicata 0.18.0.
+
+## Cycle 24 - Il nome che apparteneva a qualcun altro
+
+### Il problema
+
+Il cask del tap si chiamava `relay`, e un token non qualificato Homebrew lo risolve sul core prima
+che sul tap di terze parti. Ma `homebrew/cask` ha già un `relay` suo (`msllrs/relay`, un'altra app),
+quindi `brew upgrade --cask relay` non aggiornava Relay: sostituiva Relay.app con quell'altra.
+
+L'installazione qualificata (`essedev/relay/relay`) funzionava, il che è il motivo per cui il
+problema è rimasto invisibile fino a un aggiornamento: l'install si scrive col tap davanti, l'upgrade
+no. E il comando di upgrade era pubblicato ovunque - i due README, la pill di aggiornamento in
+sidebar, l'output di `make release` - tutti col token nudo.
+
+### La scelta
+
+Token `relay-terminal`: un nome non collidibile vale più di un nome corto, e il nome corto non era
+disponibile comunque. Cambiato in un colpo solo `CASK_PATH` in `scripts/release.sh`,
+`UpdateController.upgradeCommand` (che è la stringa che l'utente copia o esegue dalla pill), i due
+README, `ARCHITECTURE.md` e `ROADMAP.md`. Il binario in shell resta `relay`: il token del cask e il
+nome dell'eseguibile sono cose diverse, e il secondo non collide con niente.
+
+Il rename non è tutto nel repo. `update_tap` clona il tap e fallisce se `$CASK_PATH` non esiste, per
+scelta (un cask mancante è un bootstrap rotto, non una cosa da creare al volo): finché il `.rb` non
+è rinominato **nel repo del tap**, la prossima `make release` esce senza pubblicare. E chi ha già
+installato col token vecchio non migra da solo: va disinstallato col token qualificato e
+reinstallato con quello nuovo.
+
+### Esito
+
+Nessun test tocca il token: è una stringa di distribuzione, e la verità sta nel tap. Registrato in
+`docs/features/distribution.md` come vincolo della routine di release, non come nota storica.

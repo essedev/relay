@@ -7,11 +7,12 @@ questo file.
 
 ## Dove siamo
 
-Baseline chiuso e app **distribuita via Homebrew tap** (`brew install --cask essedev/relay/relay-terminal`):
-agent runtime + badge, attenzione a tre livelli con dashboard di triage, persistence del layout,
-cap LRU delle surface, bundle `.app` con notifiche, gruppi in sidebar, nomina automatica dei
-workspace, guida in-app, **split v2 sul modello cmux** (i pane ospitano le tab, una strip per pane),
-**multi-window** e gli errori API come stato di prima classe (0.17.0).
+Baseline chiuso e app **distribuita via Homebrew tap**
+(`brew install --cask essedev/relay/relay-terminal`): agent runtime + badge, attenzione a tre
+livelli con dashboard di triage, persistence del layout, cap LRU delle surface, bundle `.app` con
+notifiche, gruppi in sidebar, nomina automatica dei workspace, guida in-app, **split v2 sul modello
+cmux** (i pane ospitano le tab, una strip per pane), **multi-window** e gli errori API come stato di
+prima classe (0.17.0).
 
 ## Prossimo giro (a scelta)
 
