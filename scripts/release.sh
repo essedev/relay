@@ -8,7 +8,7 @@ set -euo pipefail
 
 REPO="essedev/relay"
 TAP_REPO="essedev/homebrew-relay"
-CASK_PATH="Casks/relay.rb"
+CASK_PATH="Casks/relay-terminal.rb"
 GH_ACCOUNT="essedev"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -123,5 +123,5 @@ gh release create "$TAG" "$DMG" \
 update_tap
 
 printf '\033[32m✓ rilasciata Relay %s\033[0m\n' "$TAG"
-echo "  installa:  brew install --cask ${GH_ACCOUNT}/relay/relay"
-echo "  aggiorna:  brew update && brew upgrade --cask relay"
+echo "  installa:  brew install --cask ${GH_ACCOUNT}/relay/relay-terminal"
+echo "  aggiorna:  brew update && brew upgrade --cask relay-terminal"

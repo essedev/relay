@@ -36,10 +36,10 @@ live in `docs/research/` (`CYCLES.md`).
 ## Installation
 
 ```sh
-brew install --cask essedev/relay/relay
+brew install --cask essedev/relay/relay-terminal
 ```
 
-Updates: `brew update && brew upgrade --cask relay`. The cask also links the `relay` and
+Updates: `brew update && brew upgrade --cask relay-terminal`. The cask also links the `relay` and
 `relay-cli` commands into your PATH, which the sections below use. When an update adds a hook
 (0.17.0 added one, for API errors), Settings > Agents reports the hooks as not installed until you
 run the setup again: it is idempotent and leaves your other hooks alone.

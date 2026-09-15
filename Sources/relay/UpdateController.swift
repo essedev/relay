@@ -15,7 +15,7 @@ import WorkspaceModel
 /// notifiche.
 @MainActor
 final class UpdateController {
-    static let upgradeCommand = "brew update && brew upgrade --cask relay"
+    static let upgradeCommand = "brew update && brew upgrade --cask relay-terminal"
     private static let latestReleaseURL = URL(
         string: "https://api.github.com/repos/essedev/relay/releases/latest"
     )!

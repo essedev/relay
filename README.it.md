@@ -36,10 +36,10 @@ dodici temi. Engine v1 SwiftTerm dietro l'astrazione
 ## Installazione
 
 ```sh
-brew install --cask essedev/relay/relay
+brew install --cask essedev/relay/relay-terminal
 ```
 
-Aggiornamenti: `brew update && brew upgrade --cask relay`. Il cask mette anche i comandi `relay` e
+Aggiornamenti: `brew update && brew upgrade --cask relay-terminal`. Il cask mette anche i comandi `relay` e
 `relay-cli` nel PATH, quelli che usano le sezioni qui sotto. Quando un aggiornamento aggiunge un
 hook (la 0.17.0 ne ha aggiunto uno, per gli errori API), Settings > Agents segnala gli hook come
 non installati finché non rilanci il setup: è idempotente e non tocca gli altri tuoi hook.

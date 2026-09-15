@@ -17,11 +17,14 @@ Dal sorgente al `.app` installato: bundle, firma, release, aggiornamenti. Il res
   `make dmg` fa `.build/Relay-<version>.dmg` (installer **non firmato Developer ID**: primo avvio con
   "Apri comunque"). Serve per le notifiche: `UNUserNotificationCenter` richiede un bundle id, da bare
   executable (`swift run`) crasha; in sviluppo `make run` va bene (niente notifiche).
-- **Distribuzione (brew tap)**: Relay è distribuito via `brew install --cask essedev/relay/relay`.
-  Il tap è il repo pubblico `essedev/homebrew-relay` (cask `Casks/relay.rb`), il cask scarica il
-  `.dmg` dalle Release di `essedev/relay`. La routine `scripts/release.sh` (via `make release`):
-  check working tree pulito + branch main + account gh `essedev`; blocca se il tag `vX` esiste già
-  (idempotente per versione); `make dmg` -> sha256 -> `git tag vX` + push -> `gh release create` con
+- **Distribuzione (brew tap)**: Relay è distribuito via
+  `brew install --cask essedev/relay/relay-terminal`. Il tap è il repo pubblico
+  `essedev/homebrew-relay` (cask `Casks/relay-terminal.rb`), il cask scarica il `.dmg` dalle Release
+  di `essedev/relay`. **Il token del cask è `relay-terminal`, non `relay`**: Homebrew/cask ha già un
+  cask `relay` (altra app, `msllrs/relay`) e un token non qualificato risolve sul core, quindi un
+  `brew upgrade` sostituiva Relay.app con quella. La routine `scripts/release.sh` (via
+  `make release`): check working tree pulito + branch main + account gh `essedev`; blocca se il tag
+  `vX` esiste già (idempotente per versione); `make dmg` -> sha256 -> `git tag vX` + push -> `gh release create` con
   l'asset -> clona il tap, aggiorna `version`+`sha256` nel cask (l'URL li interpola) e pusha. Per
   rilasciare: bumpa `./VERSION`, commit, **poi** `make release`. **Firma**: `make release` usa il
   **self-signed stabile** `Relay Self-Signed` (default in `scripts/release.sh`, preparato in modo
@@ -40,7 +43,7 @@ Dal sorgente al `.app` installato: bundle, firma, release, aggiornamenti. Il res
   flusso sopra di lei). La logica è pura in `Core` (`SemanticVersion` compara, `ReleaseCheck` parsa
   e decide se l'update è azionabile rispettando lo skip), testata; rete/clipboard/apertura URL
   stanno nel controller. **Non scarica**: la pill offre solo il comando `brew update && brew upgrade
-  --cask relay` da copiare, le release notes e "Skip this version" (persistito in
+  --cask relay-terminal` da copiare, le release notes e "Skip this version" (persistito in
   `skippedUpdateVersion`, si ripropone solo a una versione ancora più nuova). Nessun conflitto con
   brew, che resta l'updater. Oltre a "copia", la pill ha un **play** che esegue il comando in una
   tab dedicata "Relay Update" (`AppController.runUpdateInTab`, iniettato via
