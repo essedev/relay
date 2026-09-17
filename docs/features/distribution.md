@@ -26,7 +26,10 @@ Dal sorgente al `.app` installato: bundle, firma, release, aggiornamenti. Il res
   tap**: `update_tap` clona il tap e cerca `$CASK_PATH`, e se il file non c'è esce con "cask non
   trovato nel tap" senza pubblicare niente. Il `.rb` va rinominato nel repo del tap prima della prima
   release col token nuovo, e chi ha installato col token vecchio non migra da solo: va disinstallato
-  col token qualificato (`brew uninstall --cask essedev/relay/relay`) e reinstallato. La routine `scripts/release.sh` (via `make release`): check working
+  col token qualificato (`brew uninstall --cask essedev/relay/relay`) e reinstallato. La quarantena
+  la toglie una `postflight_steps` (`run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Relay.app"]`):
+  `postflight` è deprecato da Homebrew 7.0.3 e stampava un warning a ogni install. La routine
+  `scripts/release.sh` (via `make release`): check working
   tree pulito + branch main + account gh `essedev`; blocca se il tag `vX` esiste già (idempotente per
   versione); `make dmg` -> sha256 -> `git tag vX` + push -> `gh release create` con
   l'asset -> clona il tap, aggiorna `version`+`sha256` nel cask (l'URL li interpola) e pusha. Per
