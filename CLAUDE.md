@@ -62,9 +62,9 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
 - `Panels` - SwiftUI isolata: design system (`Theme`/`ThemeColors`, i valori estetici vengono **solo**
   da qui) e tutti i pannelli (sidebar, `PaneTabBar`, `ContextTitleBar`, badge, `ResumeBar`,
   `FindBar`, dashboard, settings, about, onboarding, guida, runtime stats) con le loro primitive.
-- `HookInstaller` - `ClaudeHookInstaller`: setup/uninstall/status idempotenti su
-  `~/.claude/settings.json`, marcati `RELAY_MANAGED_HOOK=1`, append (convivono con Otty), backup +
-  scrittura atomica. Trasformazioni pure (`merge`/`remove`) separate dall'I/O per i test.
+- `HookInstaller` - installer Claude/Codex sopra `JSONHookInstaller`: setup/uninstall/status
+  idempotenti su `~/.claude/settings.json` e `~/.codex/hooks.json`, entry marcate, append,
+  backup + scrittura atomica. Trasformazioni pure separate dall'I/O per i test.
 - `LayoutStore` - `load()`/`save(snapshot)` del `LayoutSnapshot` su disco (JSON atomico,
   versionato, path iniettato). Niente AppKit.
 - `RelayApp` (`Sources/relay`) - composition root e **unico posto che tocca il mondo esterno**:
@@ -74,8 +74,9 @@ per aggiungere qui più di tre righe su una feature, il posto giusto è il suo f
   con la rete: notifiche, aggiornamenti, nomina LLM (`NamingController` + client + credential
   store), autosave, shortcut runtime, sampler, demo mode. Se cresce oltre il wiring, manca un
   modulo.
-- `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status`,
-  `claude-hook <state>` (invocato dagli hook: stdin + `RELAY_TAB_ID` -> socket) e `simulate`.
+- `CLI` (`Sources/relay-cli`) - eseguibile `relay-cli`: `hooks setup|uninstall|status
+  [claude|codex|all]`, `claude-hook` / `codex-hook <state>` (stdin + `RELAY_TAB_ID` -> socket) e
+  `simulate`.
 
 ## Regole che non si violano
 
@@ -103,7 +104,7 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
   **Invariante**: posizione in sidebar e segnale di attenzione sono scollegati.
 - `docs/features/agent-runtime.md` - binding `RELAY_TAB_ID`/`RELAY_RUN_ID`, socket e self-heal,
   ordine degli eventi (pump FIFO + monotonicità + `eventFloor` + fence di run), mapping hook ->
-  stato, resume di Claude. **Invariante**: un evento fuori run o anteriore al boot si scarta.
+  stato, resume di Claude Code e Codex. **Invariante**: un evento fuori run o anteriore al boot si scarta.
 - `docs/features/terminal.md` - integrazioni e limiti di SwiftTerm: kitty keyboard, cwd senza
   OSC 7, selezione durante lo streaming, scroll fluido, ricerca `Cmd+F`, cap LRU delle surface.
 - `docs/features/sidebar.md` - lista dei workspace, dove nasce una cosa nuova, archivio, drag &
@@ -143,9 +144,11 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
   `WorkspaceModel.Tab`.
 - Bridge Observation -> AppKit: `WorkspaceAreaController.observe()` usa `withObservationTracking`
   e si ri-arma; leggi le proprietà osservate dentro `render()` o non verranno tracciate.
-- **Mai lanciare `relay-cli hooks setup` a mano senza `RELAY_CLAUDE_SETTINGS`**: `NSHomeDirectory()`
+- **Mai lanciare `relay-cli hooks setup` a mano nei test senza gli override path**:
+  `NSHomeDirectory()`
   ignora `$HOME` su macOS e scriverebbe il vero `~/.claude`. Per test/manuale usa
-  `RELAY_CLAUDE_SETTINGS=/tmp/....json`. I test unit passano già un `settingsPath` esplicito.
+  `RELAY_CLAUDE_SETTINGS=/tmp/....json` e `RELAY_CODEX_HOOKS=/tmp/....json`. I test unit passano
+  già un path esplicito.
 - `swift build --target X` può ricompilare un modulo senza rilinkare l'eseguibile: per testare un
   binario aggiornato usa `swift build` completo (o `make build`).
 - **Focus dentro un overlay/hosting SwiftUI**: `makeFirstResponder(host)` sincrono dopo

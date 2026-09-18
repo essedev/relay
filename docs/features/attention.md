@@ -11,9 +11,11 @@ Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard
   riprendi. La guardia del bump è `attention == .unseen && previousAttention != .unseen`, non
   "usciva da `none`": con la vecchia forma un errore (o un completamento) sopra un `pending` alzava
   il marker senza bump né flash, e restava `unseen` per sempre senza aver chiamato nessuno.
-- Notifiche: tre tipi, uno per stato che nasce da Claude - entrata in `needs_input`, entrata in
+- Notifiche: tre tipi, uno per stato segnalato dall'agente - entrata in `needs_input`, entrata in
   `error`, completamento non visto - ognuno col suo toggle in Settings (`notifyOnNeedsInput`,
   `notifyOnError`, `notifyOnCompleted`, tutti default on) sotto il master `notificationsEnabled`.
+  Il titolo usa `AgentNotification.agent` per distinguere Claude da Codex. L'errore API è
+  osservabile via hook solo su Claude Code; `Interrupt` Codex non genera una notifica di completamento.
   `running` e `unknown` non notificano di proposito: il primo lo generano `UserPromptSubmit` e ogni
   `PreToolUse`/`PostToolUse` (decine di eventi per turno, causati dal tuo prompt), il secondo è
   `SessionEnd` (`/clear`, `exit`, logout). Sono azioni tue: notificarle seppellirebbe le altre.

@@ -27,7 +27,7 @@ struct WelcomePage: View {
                 feature("square.grid.2x2", "Workspaces",
                         "One calm home for every project and its tabs.")
                 feature("dot.radiowaves.left.and.right", "Live agent state",
-                        "Relay reads Claude Code hooks, not terminal output.")
+                        "Relay reads Claude Code and Codex hooks, not terminal output.")
                 feature("bell.badge", "Attention signals",
                         "Know what needs you, ignore what does not.")
             }
@@ -109,48 +109,50 @@ struct RelayMarkView: View {
 
 // MARK: - Hooks
 
-/// L'unica pagina azionabile: senza hook Relay è un terminale muto. Riusa `ClaudeHooksBlock`
-/// (Impostazioni > Agents): stato live + install con il relay-cli impacchettato. `hooks == nil`
-/// (cli non raggiungibile, es. build di sviluppo) mostra il comando manuale.
+/// L'unica pagina azionabile: senza hook Relay è un terminale muto. Riusa `AgentHooksBlock`
+/// (Impostazioni > Agents): stato live + install con il relay-cli impacchettato.
 struct HooksPage: View {
     let colors: ChromeColors
-    let hooks: HookControls?
+    let hooks: [HookControls]
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             PageHeader(
-                "Connect Claude Code",
-                subtitle: "Relay reads agent state from Claude Code hooks: callbacks that report "
+                "Connect your coding agents",
+                subtitle: "Relay reads Claude Code and Codex hooks: callbacks that report "
                     + "when a session starts, asks for input or finishes. No output parsing.",
                 colors: colors
             )
-            if let hooks {
-                ClaudeHooksBlock(hooks: hooks, colors: colors)
-                    .padding(Theme.Spacing.md)
-                    .background(
-                        RoundedRectangle(cornerRadius: Theme.Radius.md)
-                            .fill(colors.surface)
-                    )
-            } else {
+            if hooks.isEmpty {
                 manualSetup
+            } else {
+                ForEach(hooks) { controls in
+                    AgentHooksBlock(hooks: controls, colors: colors)
+                        .padding(Theme.Spacing.md)
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.Radius.md)
+                                .fill(colors.surface)
+                        )
+                }
             }
             HStack(spacing: Theme.Spacing.sm) {
                 CommandChip(colors: colors) {
                     HStack(spacing: Theme.Spacing.xs) {
                         Text("\u{276F}")
                             .foregroundStyle(colors.accent)
-                        Text("claude")
+                        Text("claude / codex")
                     }
                 }
-                Text("Once installed, just run claude in any tab: the badge lights up "
+                Text("Once installed, run either agent in any tab: the badge lights up "
                     + "on its own.")
                     .font(Theme.Typography.item)
                     .foregroundStyle(colors.foreground)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.top, Theme.Spacing.xs)
-            Text("Install or remove them anytime in Settings > Agents: they append to "
-                + "~/.claude/settings.json and coexist with your own hooks.")
+            Text("Install or remove them anytime in Settings > Agents. Relay preserves your "
+                + "existing hooks. In Codex, review the configuration with /hooks after setup "
+                + "and whenever the hook definitions change.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -165,7 +167,7 @@ struct HooksPage: View {
                 .font(Theme.Typography.item)
                 .foregroundStyle(colors.foreground)
                 .fixedSize(horizontal: false, vertical: true)
-            CommandChip("relay-cli hooks setup", colors: colors, selectable: true)
+            CommandChip("relay-cli hooks setup all", colors: colors, selectable: true)
         }
         .padding(Theme.Spacing.md)
         .background(
@@ -281,8 +283,8 @@ struct CustomizePage: View {
                     + "looking at it.")
                 bullet("macwindow", "Right-click a workspace to move it to its own window: "
                     + "its sessions keep running.")
-                bullet("arrow.clockwise", "Claude sessions survive restarts: a Resume bar picks "
-                    + "up where you left off.")
+                bullet("arrow.clockwise", "Resume Claude Code or Codex sessions after a restart "
+                    + "with the Resume bar.")
                 // La nomina è l'altro passo azionabile oltre agli hook, e l'unico che spende
                 // soldi dell'utente: va detto qui, non solo in fondo a un pannello.
                 bullet("text.badge.checkmark", "Let a model name your workspaces after what they "

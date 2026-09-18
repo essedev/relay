@@ -104,6 +104,7 @@ public extension WorkspaceStore {
             ) {
                 onNotifiableTransition?(AgentNotification(
                     kind: kind,
+                    agent: agent,
                     tabID: tab.id,
                     workspaceID: workspace.id,
                     tabTitle: tab.title,

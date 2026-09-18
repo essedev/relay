@@ -99,9 +99,9 @@ enum AttentionDemoState: CaseIterable {
     var caption: String {
         switch self {
         case .running:
-            "Claude is working. Leave the tab: Relay keeps watching and the badge spins."
+            "Your agent is working. Leave the tab: Relay keeps watching and the badge spins."
         case .needsInput:
-            "Claude asked you something: notification, pulsing ring, and the workspace "
+            "Your agent needs input: notification, pulsing ring, and the workspace "
                 + "bumps to the top of the sidebar."
         case .doneUnseen:
             "Finished while you were away: green ring around the terminal, notification, "
@@ -155,7 +155,7 @@ struct AttentionPreview: View {
             HStack(spacing: Theme.Spacing.xs) {
                 Text("\u{276F}")
                     .foregroundStyle(colors.accent)
-                Text("claude")
+                Text("codex")
                     .foregroundStyle(colors.foreground)
             }
             .font(.system(size: 11, design: .monospaced))

@@ -17,6 +17,7 @@ public enum AgentNotificationKind: Sendable, Equatable {
 /// composition root (`RelayApp`), non qui.
 public struct AgentNotification: Sendable, Equatable {
     public let kind: AgentNotificationKind
+    public let agent: String
     /// Tab e workspace che hanno originato la notifica: viaggiano nel `userInfo` così che il click
     /// sulla notifica possa riportare in vista la tab giusta.
     public let tabID: UUID
@@ -29,6 +30,7 @@ public struct AgentNotification: Sendable, Equatable {
 
     public init(
         kind: AgentNotificationKind,
+        agent: String,
         tabID: UUID,
         workspaceID: UUID,
         tabTitle: String,
@@ -36,6 +38,7 @@ public struct AgentNotification: Sendable, Equatable {
         isVisible: Bool
     ) {
         self.kind = kind
+        self.agent = agent
         self.tabID = tabID
         self.workspaceID = workspaceID
         self.tabTitle = tabTitle

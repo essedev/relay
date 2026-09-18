@@ -158,6 +158,13 @@ import Testing
     #expect(!ResumeBinding.isSafeComponent("$(whoami)"))
 }
 
+@Test func resumeCommandUsesAgentSyntax() {
+    #expect(ResumeBinding(agent: "claude", sessionId: "c-1", label: "C").resumeCommand
+        == "claude --resume c-1")
+    #expect(ResumeBinding(agent: "codex", sessionId: "x-1", label: "X").resumeCommand
+        == "codex resume x-1")
+}
+
 @Test @MainActor func unsafeSessionIdDoesNotCreateResume() {
     let fixture = makeAgentFixture()
     fixture.store.applyAgentState(
@@ -185,13 +192,14 @@ import Testing
     var emitted: [AgentNotification] = []
     fixture.store.onNotifiableTransition = { emitted.append($0) }
     let tabID = fixture.hiddenTab.id.uuidString
-    fixture.store.applyAgentState(paneId: tabID, state: .needsInput, at: Date())
+    fixture.store.applyAgentState(paneId: tabID, agent: "codex", state: .needsInput, at: Date())
     #expect(emitted.count == 1)
     #expect(emitted.first?.kind == .needsInput)
+    #expect(emitted.first?.agent == "codex")
     #expect(emitted.first?.isVisible == false)
     #expect(emitted.first?.workspaceName == "B")
     // Un secondo evento needs_input non ri-notifica (è già in quello stato).
-    fixture.store.applyAgentState(paneId: tabID, state: .needsInput, at: Date())
+    fixture.store.applyAgentState(paneId: tabID, agent: "codex", state: .needsInput, at: Date())
     #expect(emitted.count == 1)
 }
 

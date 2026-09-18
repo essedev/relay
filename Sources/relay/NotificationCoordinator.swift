@@ -115,7 +115,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
 
     private func deliver(_ request: AgentNotification) {
         let content = UNMutableNotificationContent()
-        content.title = Self.title(for: request.kind)
+        content.title = Self.title(for: request.kind, agent: request.agent)
         content.body = "\(request.workspaceName) / \(request.tabTitle)"
         content.userInfo = [
             UserInfoKey.workspaceID: request.workspaceID.uuidString,
@@ -137,11 +137,16 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         }
     }
 
-    private static func title(for kind: AgentNotificationKind) -> String {
-        switch kind {
-        case .needsInput: "Claude needs a reply"
-        case .completed: "Claude finished"
-        case .error: "Claude stopped on an error"
+    private static func title(for kind: AgentNotificationKind, agent: String) -> String {
+        let name = switch agent.lowercased() {
+        case "claude": "Claude"
+        case "codex": "Codex"
+        default: agent.isEmpty ? "Agent" : agent
+        }
+        return switch kind {
+        case .needsInput: "\(name) needs a reply"
+        case .completed: "\(name) finished"
+        case .error: "\(name) stopped on an error"
         }
     }
 

@@ -22,7 +22,7 @@
 </p>
 
 Terminale macOS nativo per lavorare con molti coding agent in parallelo: stati agente affidabili
-(via hook Claude Code), workspace che tengono separati i progetti e una vista di triage per quando
+(via hook Claude Code e Codex), workspace che tengono separati i progetti e una vista di triage per quando
 girano dodici sessioni insieme. Veloce e leggero.
 
 Stato: baseline chiuso e distribuito via Homebrew tap. Workspace -> pane -> tab -> terminale, agent
@@ -53,7 +53,7 @@ passaggio non serve; i due eseguibili stanno dentro `Relay.app/Contents/MacOS`.
 
 ## Cosa fa
 
-- **Stati agente di cui fidarsi.** I badge vengono dagli hook di Claude Code, non dal parsing
+- **Stati agente di cui fidarsi.** I badge vengono dagli hook di Claude Code e Codex, non dal parsing
   dell'output, quindi restano giusti anche sotto un muro di log. Per tab, e aggregati per
   workspace.
 - **Attenzione a tre livelli.** Una sessione che ti aspetta è rumorosa; una che hai visto ma non
@@ -83,33 +83,44 @@ l'interfaccia.
   <img src="docs/images/dashboard.png" alt="La dashboard di triage, sessioni su quattro corsie per stato" width="900">
 </p>
 
-## Stato agente (hook Claude Code)
+## Stato agente (hook Claude Code e Codex)
 
 Relay mostra lo stato di ogni agente come badge sulla tab e, aggregato, sul workspace nella sidebar
-(`running`, `needs_input`, `error`, completato). Lo stato arriva dagli hook di Claude Code, non dal
+(`running`, `needs_input`, `error`, completato). Lo stato arriva dagli hook nativi degli agenti, non dal
 parsing dell'output.
 
 ```sh
-relay-cli hooks setup       # installa gli hook in ~/.claude/settings.json (convivono con Otty)
-relay-cli hooks status      # verifica
-relay-cli hooks uninstall   # rimuove solo gli hook di Relay
+relay-cli hooks setup all       # installa gli hook Claude Code e Codex
+relay-cli hooks status all      # verifica entrambe le integrazioni
+relay-cli hooks uninstall all   # rimuove solo gli hook gestiti da Relay
 ```
 
-Poi apri Relay, lancia `claude` in una tab e i badge si aggiornano. `needs_input` resta finché non
-rispondi. Lo stesso si fa con un click da Settings > Agents. Protocollo e binding in
-`docs/STATE_SCHEMA.md`.
+Poi apri Relay, lancia `claude` o `codex` in una tab e i badge si aggiornano. `needs_input` resta
+finché non rispondi. Lo stesso setup si fa per agente da Settings > Agents. Sostituisci `all` con
+`claude` o `codex` per gestire solo quell'agente; senza argomento il default resta `claude`.
+
+Gli hook Claude sono aggiunti a `~/.claude/settings.json`; quelli Codex a `~/.codex/hooks.json`
+(oppure `$CODEX_HOME/hooks.json` se configurato). Gli hook esistenti sono preservati. Usa una
+versione di Codex CLI con [supporto agli hook nativi](https://developers.openai.com/codex/hooks)
+e rivedi la configurazione con `/hooks` dopo il setup e ogni volta che cambiano le definizioni.
+Lo stato installato verifica il file, non la decisione di trust di Codex. Protocollo e binding in
+[docs/STATE_SCHEMA.md](docs/STATE_SCHEMA.md).
 
 Un turno ucciso da un errore API - rate limit, sovraccarico, billing, rete assente - finisce senza
-concludere, quindi non arriva mai al "completato". Relay lo intercetta (`StopFailure`) e colora la
-tab di rosso: ring, badge, float in cima alla sidebar e notifica, come qualunque altro segnale che
+concludere, quindi non arriva mai al "completato". Claude Code espone `StopFailure`, che Relay
+intercetta per colorare la tab di rosso: ring, badge, float in cima alla sidebar e notifica,
+come qualunque altro segnale che
 non hai visto. Ogni tipo di errore ha lo stesso aspetto; i dettagli stanno nel terminale. Il retry
-lo spegne.
+lo spegne. Gli hook Codex non espongono ancora un evento di fallimento equivalente: l'errore API
+resta visibile nel terminale, ma non può ancora produrre lo stato rosso di Relay; il badge può
+conservare l'ultimo stato fino al prossimo hook. Interrompere un turno Codex lo riporta a idle
+senza notifica di completamento. Dopo un riavvio di Relay, la barra Resume supporta entrambi gli agenti.
 
 Con l'app avviata dal bundle arrivano anche le notifiche macOS quando un agente chiede input, va in
 errore o finisce mentre non stai guardando quella tab; cliccarne una porta la tab in primo piano. Da
 `make run` (senza bundle) le notifiche sono disattivate.
 
-Per provare i badge senza una sessione Claude vera, dentro una tab di Relay:
+Per provare i badge senza una sessione agente vera, dentro una tab di Relay:
 
 ```sh
 relay-cli simulate            # chat finta (scenario "coding"), eventi reali sul socket

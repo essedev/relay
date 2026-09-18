@@ -106,20 +106,25 @@ destination.
 
 ## Agent state
 
-Relay knows what Claude Code is doing because Claude Code tells it: small callbacks (hooks) report
-when a session starts working, asks for input, finishes, or dies on an API error. Nothing is guessed
-from the terminal output, so the badges stay right even when the screen is full of build logs.
+Relay knows what Claude Code and Codex are doing because their native callbacks (hooks) report when
+a session starts working, asks for input, or finishes. Nothing is guessed from the terminal output,
+so the badges stay right even when the screen is full of build logs.
 
-1. Install the hooks once, from Settings > Agents or with relay-cli hooks setup.
-2. Run claude in any tab. The tab is bound to that session automatically.
+1. Install the hooks once, from Settings > Agents or with relay-cli hooks setup all.
+2. Run claude or codex in any tab. The tab is bound to that session automatically.
 3. The badge on the tab, and the aggregate badge on its workspace, follow along.
 
 ```sh
-relay-cli hooks status
+relay-cli hooks status all
 ```
 
-Check what is installed. The hooks are appended to your Claude Code settings and marked as Relay's,
-so they coexist with hooks you already have; relay-cli hooks uninstall removes only ours.
+Check both integrations. Relay appends marked entries to Claude Code and Codex configuration, so
+your existing hooks stay in place; relay-cli hooks uninstall all removes only ours. Replace all with
+claude or codex to manage one agent; omitting it defaults to claude.
+
+**Note:** Use a Codex CLI version with native hook support. In Codex, review user hooks with /hooks
+after installation and whenever definitions change. Installed means the configuration is present;
+Relay cannot check whether Codex has trusted it.
 
 Attention is a separate thing from state. A session that finished is not news forever, and Relay
 says so in three steps rather than with one badge that stays until you click it:
@@ -137,14 +142,15 @@ Navigating does not count as reading: switching tabs in a strip or clicking a ro
 leaves the signal alone. Only working inside the terminal does. When you disagree, the context menu
 has Mark as Read and Mark as Unread on the tab.
 
-- **Errors stop the session** - When a turn dies on an API error - rate limit, overloaded, billing,
-  no network - the turn ends without finishing. The tab goes red and calls you like any other unseen
-  signal: ring, badge, a float to the top and a notification. Every kind of error looks the same
-  here; the terminal has the details. Retrying clears it.
+- **Errors stop the session** - Claude Code reports when a turn dies on an API error - rate limit,
+  overloaded, billing, no network - the turn ends without finishing. The tab goes red and calls you
+  like any other unseen signal: ring, badge, a float to the top and a notification. Every kind of
+  error looks the same here; the terminal has the details. Retrying clears it. Codex currently has
+  no equivalent failure hook, so those failures remain visible only in its terminal output.
 - **Notifications** - macOS notifications when a session needs input, hits an error, or finishes
   while you are not looking at its tab. Clicking one brings that tab up, wherever it is. Per-type
   toggles and the sound are in Settings.
-- **Resume after a restart** - Terminals do not survive a restart, but Claude sessions can: a
+- **Resume after a restart** - Terminals do not survive a restart, but agent sessions can: a
   restored tab with a session offers a Resume bar that types the resume command for you. Settings
   can make it automatic; the default asks, because nothing should type commands into your shell
   unannounced.

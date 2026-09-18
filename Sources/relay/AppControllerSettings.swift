@@ -45,19 +45,39 @@ extension AppController {
         panel.makeKeyAndOrderFront(nil)
     }
 
-    /// Controlli per installare/rimuovere gli hook di Claude dalle impostazioni, usando il
+    /// Controlli per installare/rimuovere gli hook Claude e Codex dalle impostazioni, usando il
     /// `relay-cli` accanto all'eseguibile corrente (nel bundle: `Contents/MacOS/relay-cli`; in dev:
-    /// la stessa dir di build). `nil` se il cli non è raggiungibile, così il blocco resta nascosto.
-    func makeHookControls() -> HookControls? {
-        guard let exec = Bundle.main.executableURL else { return nil }
+    /// la stessa dir di build). Array vuoto se il cli non è raggiungibile: l'onboarding mostra il
+    /// comando manuale e Settings non aggiunge i blocchi.
+    func makeHookControls() -> [HookControls] {
+        guard let exec = Bundle.main.executableURL else { return [] }
         let cli = exec.deletingLastPathComponent().appendingPathComponent("relay-cli").path
-        guard FileManager.default.isExecutableFile(atPath: cli) else { return nil }
-        let installer = ClaudeHookInstaller()
-        return HookControls(
-            isInstalled: { installer.status() },
-            install: { try installer.setup(cliPath: cli) },
-            uninstall: { try installer.uninstall() }
-        )
+        guard FileManager.default.isExecutableFile(atPath: cli) else { return [] }
+        let claude = ClaudeHookInstaller()
+        let codex = CodexHookInstaller()
+        return [
+            HookControls(
+                id: "claude",
+                title: "Claude Code hooks",
+                detail: "Relay reads agent state from Claude Code hooks. Installation appends "
+                    + "to ~/.claude/settings.json and keeps existing hooks.",
+                isInstalled: { claude.status() },
+                install: { try claude.setup(cliPath: cli) },
+                uninstall: { try claude.uninstall() }
+            ),
+            HookControls(
+                id: "codex",
+                title: "Codex hooks",
+                detail: "Relay reads agent state from Codex hooks. Installation appends to "
+                    + "~/.codex/hooks.json (or CODEX_HOME/hooks.json) and keeps existing hooks.",
+                note: "After installing, open /hooks in Codex to review and trust the user "
+                    + "configuration; review again after hook definitions change. "
+                    + "Codex hooks do not currently report API failures.",
+                isInstalled: { codex.status() },
+                install: { try codex.setup(cliPath: cli) },
+                uninstall: { try codex.uninstall() }
+            ),
+        ]
     }
 
     /// Controlli per la API key della nomina automatica: legge/salva la chiave dal

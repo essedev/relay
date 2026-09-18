@@ -6,7 +6,7 @@ aggiornato nello stesso commit di ogni cambiamento a questi formati.
 
 ## Protocollo Eventi Agente (v1)
 
-Trasporto: Unix domain socket, JSON lines. Fonte autorevole: hook Claude Code.
+Trasporto: Unix domain socket, JSON lines. Fonti autorevoli: hook Claude Code e Codex.
 Tipi in `Sources/AgentProtocol/`; trasporto in `Sources/AgentRuntime/`.
 
 **Formato sul filo (v1)**: una riga = un `AgentStateEvent` codificato JSON (date ISO 8601 **con
@@ -19,7 +19,7 @@ ancora un envelope con `type`: in v1 ogni hook mappa a un `agent.state`, quindi 
 quando serviranno payload diversi (session lifecycle, resume): allora si introduce l'envelope.
 
 Percorso socket: `~/.relay/relay.sock` (override `RELAY_SOCKET`). Il receiver (app) fa da server; il
-CLI (`relay-cli claude-hook`) fa da client. Vedi `RelayRuntimePaths`, `AgentEventReceiver`,
+CLI (`relay-cli claude-hook` / `codex-hook`) fa da client. Vedi `RelayRuntimePaths`, `AgentEventReceiver`,
 `AgentEventClient`. Il receiver non calpesta un socket vivo (una `connect` di prova prima del bind)
 e si auto-rigenera (ri-binda se il file sparisce sotto di lui): senza, un socket cancellato da
 un'altra istanza congelava tutti i badge. Dettaglio in `ARCHITECTURE.md`, Local Control API.
@@ -61,13 +61,32 @@ stdin dell'hook): quei tool non passano da `PermissionRequest` (non sono permess
 `Stop` finché l'utente non risponde; il `PostToolUse`, che arriva solo dopo la risposta, riporta
 `running`.
 
+Mapping Codex -> stato (installato in `~/.codex/hooks.json` da `CodexHookInstaller`):
+
+| Codex event | Stato | matcher |
+| --- | --- | --- |
+| `SessionStart` | `idle` | - |
+| `UserPromptSubmit` | `running` | - |
+| `PreToolUse` | `running` (`needs_input` per `request_user_input`) | `*` |
+| `PostToolUse` | `running` | `*` |
+| `PermissionRequest` | `needs_input` | - |
+| `Stop` | `idle` | - |
+| `Interrupt` | `idle`, con `resetsAttention` | - |
+| `SessionEnd` | `unknown` | - |
+
+Codex non espone oggi un hook equivalente a `StopFailure`. Relay non deduce gli errori dall'output:
+un errore API Codex resta quindi visibile nel terminale, ma non produce lo stato `error`. L'evento
+`Interrupt` non è un completamento: `resetsAttention` impedisce marker e notifica falsi sulla
+transizione `running -> idle`. Le configurazioni utente Codex vanno riviste con `/hooks` dopo il
+setup e ogni modifica delle definizioni. Lo status dell'installer non verifica il trust.
+
 **Attenzione, due `source` diversi con lo stesso nome**. Sul filo `source` è
 l'`AgentStateSource` - **quanto è autorevole** lo stato: `hook`, `osc`, `shell_integration`,
 `heuristic` (v1 manda sempre `hook`). Il `source` di cui parla il paragrafo qui sotto
-(`startup`/`resume`/`clear`/`compact`) è un campo dello **stdin dell'hook** `SessionStart` di Claude:
+(`startup`/`resume`/`clear`/`compact`) è un campo dello **stdin dell'hook** `SessionStart`:
 il CLI lo legge e lo traduce in `resetsAttention`, ma non finisce mai sul filo.
 
-**Ri-presa attiva (`resetsAttention`)**: sullo stdin di `SessionStart` Claude passa un `source`
+**Ri-presa attiva (`resetsAttention`)**: sullo stdin di `SessionStart` l'agente passa un `source`
 (`startup`/`resume`/`clear`/`compact`). Su `clear` (= `/clear`, `/new`) e `resume` il CLI lo legge e
 marca l'evento `resetsAttention: true`: lo `state` resta `idle` (l'agente è fermo in attesa) ma il
 marker di attenzione in sospeso si spegne, come farebbe il primo prompt. `startup` resta `idle`
@@ -103,8 +122,9 @@ restart azzererebbe un resume binding appena ripristinato. Chi produce eventi de
 `runId` che ha trovato nell'env della surface. Complementare al fence c'è `eventFloor` (soglia
 anti-stantio timbrata all'avvio), che scarta gli eventi con timestamp anteriore al boot.
 
-`resetsAttention` (default `false`, di solito omesso dai CLI vecchi) è `true` solo sui `SessionStart`
-di `clear`/`resume`: ri-prese attive che spengono il marker in sospeso. `sessionId` è vuoto quando
+`resetsAttention` (default `false`, di solito omesso dai CLI vecchi) è `true` sui `SessionStart`
+di `clear`/`resume` e su `Interrupt` Codex: ri-prese o interruzioni che non devono sembrare un
+completamento. `sessionId` è vuoto quando
 la sessione è sconosciuta (lo store salta il resume binding); un `SessionStart` con `source=compact`
 non viene inviato affatto (rumore, fingerebbe un completamento).
 

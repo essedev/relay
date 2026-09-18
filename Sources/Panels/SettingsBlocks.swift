@@ -33,12 +33,15 @@ extension SettingsView {
         }
         // Gli hook stanno nella categoria Agents (dopo il blocco "pending"): l'append in coda li
         // lascia lì, perché il filtro per categoria in `detail` tiene l'ordine dell'array.
-        if let hooks {
+        for hooks in hooks {
             blocks.append(SettingsBlock(
-                id: "hooks",
+                id: "hooks-\(hooks.id)",
                 category: .agents,
-                keywords: ["claude", "hooks", "install", "setup", "agent", "settings.json"],
-                view: AnyView(ClaudeHooksBlock(hooks: hooks, colors: colors))
+                keywords: [
+                    hooks.id, "hooks", "install", "setup", "agent",
+                    "settings.json", "hooks.json",
+                ],
+                view: AnyView(AgentHooksBlock(hooks: hooks, colors: colors))
             ))
         }
         return blocks
@@ -86,7 +89,7 @@ extension SettingsView {
             SettingsBlock(
                 id: "resume",
                 category: .agents,
-                keywords: ["agent", "claude", "resume", "session", "restore", "launch"],
+                keywords: ["agent", "claude", "codex", "resume", "session", "restore", "launch"],
                 view: AnyView(resumeBlock(colors))
             ),
             SettingsBlock(
@@ -221,9 +224,9 @@ extension SettingsView {
         return VStack(spacing: Theme.Spacing.md) {
             toggleRow("Enable notifications", colors, notificationsEnabledBinding)
             Divider()
-            toggleRow("When Claude needs input", colors, notifyNeedsInputBinding).disabled(!on)
-            toggleRow("When Claude finishes", colors, notifyCompletedBinding).disabled(!on)
-            toggleRow("When Claude hits an error", colors, notifyErrorBinding).disabled(!on)
+            toggleRow("When an agent needs input", colors, notifyNeedsInputBinding).disabled(!on)
+            toggleRow("When an agent finishes", colors, notifyCompletedBinding).disabled(!on)
+            toggleRow("When an agent hits an error", colors, notifyErrorBinding).disabled(!on)
             Divider()
             toggleRow("Play sound", colors, notificationSoundBinding).disabled(!on)
             row("Sound", colors) {

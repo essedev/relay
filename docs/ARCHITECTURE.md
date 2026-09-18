@@ -11,7 +11,7 @@ SwiftTerm) vive in `docs/research/` (`CYCLES.md`); qui si tiene lo stato corrent
 
 Un terminale macOS nativo per lavorare con molti coding agent in parallelo. Combina:
 
-- gli stati agente affidabili di Otty (hook Claude Code, non parsing dell'output);
+- gli stati agente affidabili (hook Claude Code e Codex, non parsing dell'output);
 - l'organizzazione a workspace di cmux (progetti che raggruppano tab, sidebar, pin, riordino);
 - una dashboard overview di tutti i progetti e i loro agenti;
 - velocità e leggerezza dove cmux lagga.
@@ -24,7 +24,7 @@ Non è un fork di cmux. È una nuova app che usa:
 - **SwiftTerm** come terminal engine v1, dietro un'astrazione sostituibile (`TerminalEngine`);
 - cmux come reference di prodotto e come catalogo di anti-pattern di performance;
 - Otty come reference comportamentale per gli stati agente;
-- hook Claude Code come fonte autorevole del lifecycle agente.
+- hook Claude Code e Codex come fonti autorevoli del lifecycle agente.
 
 Motivo della scelta engine (rivisto nel Cycle 5): libghostty non è ancora una libreria
 embeddabile stabile. Solo `libghostty-vt` (il parser VT, non il rendering) è in arrivo, alpha,
@@ -158,8 +158,8 @@ macOS App
     UpdateController                          check della GitHub Release
 
   CLI (relay-cli)
-    hooks setup/uninstall/status
-    claude-hook <state>, simulate
+    hooks setup/uninstall/status [claude|codex|all]
+    claude-hook/codex-hook <state>, simulate
 ```
 
 Nota: non c'è (ancora) una timeline degli eventi né un session store persistente: `AgentRuntime`
@@ -194,10 +194,10 @@ repo/
     TerminalEngine/     backend SwiftTerm dietro un'astrazione, surface lifecycle
     TerminalHostUI/     AppKit: host view, surface registry (lazy + LRU), attention ring
     Panels/             SwiftUI: sidebar, strip dei pane, dashboard, settings, guida, stats, badge
-    HookInstaller/      manipolazione ~/.claude/settings.json + mapping hook -> stato
+    HookInstaller/      installer JSON Claude/Codex + mapping hook -> stato
     LayoutStore/        persistence layout: snapshot JSON su disco (I/O), path iniettato
     relay/              eseguibile `relay` (RelayApp): composition root e wiring
-    relay-cli/          eseguibile `relay-cli` (CLI): hooks setup, claude-hook, simulate, guide-md
+    relay-cli/          eseguibile `relay-cli`: hooks, claude-hook/codex-hook, simulate, guide-md
   Tests/
   docs/
   Makefile
@@ -358,7 +358,7 @@ root:
   `AppSettings.onboardingSeen`, mai in demo mode), riapribile da Help > Welcome to Relay. Sei
   pagine coi componenti veri del design system al posto di screenshot (badge live, keycap dai
   binding correnti, temi selezionabili dal vivo, icona procedurale `RelayMarkView`); la pagina
-  hook riusa `ClaudeHooksBlock` (stato + install). Logica di navigazione pura
+  hook riusa `AgentHooksBlock` per Claude Code e Codex (stato + install). Logica di navigazione pura
   (`OnboardingModel`, testata), wiring in `AppControllerOnboarding`.
 - Gli overlay full-window sono avvolti in un container che chiude i buchi di hit-testing (il
   mouse non passa mai al terminale sotto) e disattivano le cursor rects della finestra finché
@@ -442,8 +442,8 @@ in `WorkspaceModel`, non qui: `AgentRuntime` resta puro trasporto.
 
 ### Fonti Stato
 
-- hook Claude Code: fonte autorevole;
-- futuro: hook Codex/OpenCode;
+- hook Claude Code e Codex: fonti autorevoli;
+- futuro: plugin OpenCode;
 - OSC / shell integration (`133`, `9;4`): solo per comandi shell generici;
 - euristiche output: fallback opzionale, mai per gli stati agente principali.
 
@@ -487,6 +487,13 @@ aperta resterebbe `running` per sempre. Il mapping è quindi in due metà, entra
 `HookInstaller`: statico per evento (`ClaudeHookInstaller.specs`, finisce nei comandi di
 settings.json) e dipendente dal payload (`ClaudeHookStateMapper`, applicato dal CLI).
 
+Mapping Codex: stesso lifecycle di base (`SessionStart`, `UserPromptSubmit`, `PreToolUse`,
+`PostToolUse`, `PermissionRequest`, `Stop`, `SessionEnd`) più `Interrupt`. L'installer scrive
+`~/.codex/hooks.json`; `Interrupt` è `idle` con `resetsAttention`, quindi non finge un
+completamento. Codex non espone oggi un hook equivalente a `StopFailure`: Relay non interpreta
+l'output del terminale e quindi non può produrre lo stato `error` per un errore API Codex. Dopo
+l'installazione l'utente rivede e autorizza gli hook globali con `/hooks`.
+
 Il `SessionStart` porta un `source`: su `clear` (`/clear`, `/new`) e `resume` il CLI marca l'evento
 `resetsAttention` (lo `state` resta `idle`), che nel reducer risolve il completamento in sospeso -
 una ri-presa attiva della conversazione è, come il primo prompt, prova che te ne stai occupando.
@@ -495,7 +502,7 @@ Vedi `STATE_SCHEMA.md` per il dettaglio.
 ### Local Control API
 
 Trasporto: Unix domain socket (`~/.relay/relay.sock`, override `RELAY_SOCKET`), JSON lines. Il
-receiver (app, `AgentEventReceiver`) fa da server; il CLI (`relay-cli claude-hook`,
+receiver (app, `AgentEventReceiver`) fa da server; il CLI (`relay-cli claude-hook` / `codex-hook`,
 `AgentEventClient`) fa da client. Scelta: tutto il trasporto è codice nostro (Swift, testabile),
 lo script hook è solo un thin wrapper - niente `nc`/`jq`/parsing shell.
 
@@ -540,20 +547,22 @@ copre anche i lanci senza bundle id (`swift run`) che il guard di LaunchServices
 Comandi (`relay-cli`, implementati in `HookInstaller`):
 
 ```text
-relay-cli hooks setup       # installa gli hook Relay in ~/.claude/settings.json
-relay-cli hooks uninstall   # rimuove solo gli hook gestiti da Relay
-relay-cli hooks status      # riporta se sono installati
+relay-cli hooks setup all       # installa hook Claude Code e Codex
+relay-cli hooks uninstall all   # rimuove solo gli hook gestiti da Relay
+relay-cli hooks status all      # riporta lo stato di entrambi
 ```
 
 Regole (verificate a test):
 
-- append, non replace: gli hook nostri sono marcati (`RELAY_MANAGED_HOOK=1` nel comando) e si
+- append, non replace: gli hook nostri sono marcati (`RELAY_MANAGED_HOOK=1` per Claude,
+  `RELAY_MANAGED_CODEX_HOOK=1` per Codex) e si
   aggiungono agli array esistenti - convivenza con Otty/ourterm preservata;
 - idempotente: setup ripetuto non duplica (rimpiazza i propri entry);
 - uninstall rimuove solo i marcati e ripulisce array/chiavi vuoti;
 - validazione JSON prima e dopo, backup sempre (`.relay-backup-<epoch>`), scrittura atomica;
-- override path via `RELAY_CLAUDE_SETTINGS` (test/automazioni: non tocca il vero `~/.claude`);
-- il CLI dell'hook fallisce in silenzio (exit 0) per non rompere Claude;
+- override path via `RELAY_CLAUDE_SETTINGS` / `RELAY_CODEX_HOOKS` (Codex rispetta anche
+  `CODEX_HOME`; test e automazioni non toccano i file reali);
+- il CLI dell'hook fallisce in silenzio (exit 0) per non rompere l'agente;
 - il path del CLI finisce nei comandi: da build di sviluppo è `.build/.../relay-cli`, dal `.app` è
   il `relay-cli` accanto all'eseguibile nel bundle (per gli utenti brew: Impostazioni > Agents
   installa gli hook senza chiedere di trovarlo nel PATH).
@@ -580,7 +589,7 @@ Regole:
 
 - distinzione **stato vs marker**: `running`/`needs_input`/`error` sono stati e il badge li mostra
   in base ad `agentState` finché lo stato cambia. `needs_input` resta finché la sessione è in attesa
-  (si spegne quando rispondi a Claude e parte un nuovo hook), **non** alla semplice visita del pane;
+  (si spegne quando rispondi all'agente e parte un nuovo hook), **non** alla semplice visita del pane;
   `error` è l'unico stato che è **anche** marker: accende `unseen` come un completamento, perché
   senza marker non avrebbe né ring né bump né notifica, e un turno morto mentre guardavi altrove
   non chiamerebbe nessuno. I due canali restano indipendenti: declassare il marker (flash o
@@ -616,7 +625,8 @@ Le notifiche riusano le stesse regole anti-rumore dei badge. La decisione è pur
 falliti riaccende il badge ogni volta ma notifica una volta sola) e al **completamento non visto**
 (running -> idle mentre la tab non è in vista).
 
-Notifichiamo i tre stati che nascono **da Claude**; `running` e `unknown` restano fuori di
+Notifichiamo i tre stati segnalati **dall'agente** (l'errore API è osservabile solo su Claude Code);
+il titolo identifica Claude o Codex tramite `AgentNotification.agent`. `running` e `unknown` restano fuori di
 proposito, e non è un'omissione. `running` lo generano `UserPromptSubmit` e **ogni**
 `PreToolUse`/`PostToolUse`: decine di eventi per turno, tutti conseguenza del prompt che hai appena
 mandato. `unknown` è `SessionEnd`, cioè `/clear`, `exit` o logout. Sono azioni dell'utente:
@@ -807,7 +817,7 @@ temporanea). Design:
 
 ### Resume
 
-Ripristinare la sessione Claude di una tab dopo un riavvio (il PTY muore, la sessione finisce):
+Ripristinare la sessione di un agente dopo un riavvio (il PTY muore, la sessione finisce):
 
 - `ResumeBinding {agent, sessionId, label}` su `Tab`, persistito nel `TabSnapshot`. Catturato da
   `WorkspaceStore.applyAgentState` (agent + sessionId dagli hook) mentre la sessione è viva, azzerato
@@ -821,10 +831,11 @@ Ripristinare la sessione Claude di una tab dopo un riavvio (il PTY muore, la ses
   binding, e la barra non compariva.
 - Al restore la tab è `pendingResume` (binding presente + `agentState == unknown`). Al **primo
   focus** (lazy, un agente alla volta, non un big-bang al boot) `RightPaneController` mostra la barra
-  `ResumeBar` (Panels) overlaid sul terminale: `Resume` inietta `claude --resume <id>` nel PTY
+  `ResumeBar` (Panels) overlaid sul terminale: `Resume` inietta `claude --resume <id>` oppure
+  `codex resume <id>` nel PTY
   (`surface.sendText`), la x scarta. Il setting `autoResumeAgents` (default off) salta la barra e
   inietta da solo, con un piccolo ritardo per far arrivare la shell al prompt.
-- La LRU non interseca: una tab con Claude vivo ha processi figli -> non è sfrattabile, quindi il
+- La LRU non interseca: una tab con un agente vivo ha processi figli -> non è sfrattabile, quindi il
   resume serve solo dopo un riavvio, non dopo uno sfratto.
 
 Si salva solo: `sessionId`, `agent`, `cwd`, `label`. Mai prompt, token, chiavi, credenziali.
@@ -834,7 +845,7 @@ Si salva solo: `sessionId`, `agent`, `cwd`, `label`. Mai prompt, token, chiavi, 
 ### Agent State Flow
 
 ```text
-Claude Code hook
+Claude Code / Codex hook
   -> hook adapter (script)
   -> unix socket receiver
   -> agent runtime (normalizzazione + binding paneId)
@@ -1069,11 +1080,12 @@ Costruito dopo ancora (split, finestre, nomina):
   su un solo store (`docs/features/split-panes.md`);
 - archivio dei workspace, onboarding, nomina automatica dei workspace (regola locale di default,
   LLM se c'è una chiave), check aggiornamenti,
-  pannello Runtime Stats, ricerca nel terminale con evidenziazione, scroll fluido.
+  pannello Runtime Stats, ricerca nel terminale con evidenziazione, scroll fluido;
+- integrazione Codex tramite hook nativi, installer condiviso e resume specifico per agente.
 
 Da fare dopo:
 
 - distribuzione firmata Developer ID + notarizzazione (toglie l'"Apri comunque");
-- generalizzazione multi-agente (Codex/opencode);
+- terzo agente (opencode, con plugin anziché hook shell);
 - drag di tab **fra** pane e di workspace **fra** finestre (incluso l'edge-drop per creare split
   trascinando), zoom del pane.

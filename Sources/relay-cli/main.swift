@@ -8,10 +8,11 @@ let usage = """
 relay-cli - Relay command line
 
 Usage:
-  relay-cli hooks setup           install Claude hooks in ~/.claude/settings.json
-  relay-cli hooks uninstall       remove Relay-managed hooks
-  relay-cli hooks status          report whether Relay hooks are installed
+  relay-cli hooks setup [agent]   install hooks (agent: claude | codex | all)
+  relay-cli hooks uninstall [agent]
+  relay-cli hooks status [agent]  report hook status (default: claude)
   relay-cli claude-hook <state>   (invoked by hooks) emit an agent state event
+  relay-cli codex-hook <state>    (invoked by hooks) emit an agent state event
   relay-cli simulate [scenario]   fake agent session driving real badges
                                   (run inside a Relay tab)
                                   scenarios: coding | permission | error | burst
@@ -30,6 +31,8 @@ func cliExecutablePath() -> String {
 switch arguments.first {
 case "claude-hook":
     exit(ClaudeHookCommand.run(stateArg: arguments.count > 1 ? arguments[1] : nil))
+case "codex-hook":
+    exit(CodexHookCommand.run(stateArg: arguments.count > 1 ? arguments[1] : nil))
 case "hooks":
     exit(HookCLI.run(Array(arguments.dropFirst()), cliPath: cliExecutablePath()))
 case "simulate":

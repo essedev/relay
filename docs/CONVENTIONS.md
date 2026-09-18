@@ -76,11 +76,11 @@ Regola base: logica nuova = test nello stesso commit. Bug fix = regression test 
 fallisce.
 
 - **Unit** (Swift Testing, `swift test` per package): tutta la logica pura. In particolare:
-  - mapping eventi -> stati (`ClaudeHookStateMapper`, `ClaudeHookEvent`);
+  - mapping eventi -> stati (mapper ed eventi Claude/Codex in `HookInstaller`);
   - transizioni del marker di attenzione e aggregazione badge;
   - policy lifecycle surface (lazy/LRU) come tipo puro (`SurfaceEvictionPolicy`);
   - serializzazione protocollo (`AgentStateEvent` round-trip) e persistence layout.
-- **Installer**: fixture di `settings.json` (vuoto, con Otty, con hook utente) -> assert su
+- **Installer**: fixture di `settings.json` e `hooks.json` (vuoto, con hook utente) -> assert su
   idempotenza, backup + pruning, preservazione, uninstall pulito, round-trip su disco.
 - **Integration**: receiver socket end-to-end (avvia receiver, invia JSON lines, assert sul
   callback), incluso il self-heal (rebind quando il socket sparisce). Niente mock del trasporto.

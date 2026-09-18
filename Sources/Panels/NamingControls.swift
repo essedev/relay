@@ -27,7 +27,7 @@ public struct NamingControls {
 
 /// Blocco impostazioni (categoria Agents) per la nomina automatica dei workspace: toggle, endpoint
 /// OpenAI-compatible (base URL + model) e API key (campo sicuro, salvata a parte). Componente a sé
-/// (come `ClaudeHooksBlock`) per tenere `SettingsView` entro il budget di dimensione.
+/// (come `AgentHooksBlock`) per tenere `SettingsView` entro il budget di dimensione.
 struct WorkspaceNamingBlock: View {
     let settings: AppSettings
     let naming: NamingControls

@@ -1027,3 +1027,32 @@ reinstallato con quello nuovo.
 
 Nessun test tocca il token: è una stringa di distribuzione, e la verità sta nel tap. Registrato in
 `docs/features/distribution.md` come vincolo della routine di release, non come nota storica.
+
+## Cycle 25 - Codex parla la stessa lingua
+
+### La scelta
+
+Codex entra in Relay tramite i suoi hook nativi, non tramite parsing del terminale e non obbligando
+la TUI a passare da un client App Server gestito. Il core era già multi-agente; il secondo backend
+ha portato l'estrazione concreta di `JSONHookInstaller`, condiviso fra `~/.claude/settings.json` e
+`~/.codex/hooks.json`, lasciando mapper e comandi CLI separati dove i payload differiscono.
+
+`relay-cli hooks setup|status|uninstall` accetta `claude`, `codex` o `all`; senza argomento resta
+compatibile con Claude. Settings e onboarding mostrano entrambi gli agenti, le notifiche usano il
+nome dell'agente e il resume sceglie `claude --resume` o `codex resume`.
+
+### Il confine reale
+
+Codex espone start, prompt, tool, permessi, stop, interrupt e fine sessione, ma non un hook
+equivalente a `StopFailure`. Relay non trasforma testo terminale in stato: gli errori API Codex
+restano quindi visibili nella TUI ma non accendono il badge rosso. `Interrupt` torna `idle` con
+`resetsAttention`, così non viene scambiato per un completamento. Gli hook utente Codex richiedono
+inoltre una revisione con `/hooks` dopo l'installazione e quando cambiano le definizioni.
+
+### Verifica per la 0.19.0
+
+`make check` verde: 502 test, incluso il mapping Codex, l'installer e il comando di resume.
+Setup/status/uninstall del CLI verificati su file temporanei. Allineati README inglese/italiano,
+guida generata, onboarding (setup, attenzione e resume), Settings e documenti di comportamento.
+La verifica automatica non sostituisce una sessione Codex interattiva con hook autorizzati: il
+trust dell'utente e le notifiche macOS dal bundle non sono stati provati end-to-end dal vivo.

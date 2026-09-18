@@ -8,14 +8,14 @@ import WorkspaceModel
 /// passano per i setter di `AppSettings`.
 public struct SettingsView: View {
     let settings: AppSettings
-    let hooks: HookControls?
+    let hooks: [HookControls]
     let naming: NamingControls?
     @State private var search = ""
     @State private var category: SettingsCategory = .appearance
 
     public init(
         settings: AppSettings,
-        hooks: HookControls? = nil,
+        hooks: [HookControls] = [],
         naming: NamingControls? = nil
     ) {
         self.settings = settings

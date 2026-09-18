@@ -14,22 +14,31 @@ extension Guide {
             summary: "What your sessions are doing, and what is waiting for you.",
             blocks: [
                 .paragraph(
-                    "Relay knows what Claude Code is doing because Claude Code tells it: small "
+                    "Relay knows what Claude Code and Codex are doing because their native "
                         + "callbacks (hooks) report when a session starts working, asks for "
-                        + "input, finishes, or dies on an API error. Nothing is guessed from the "
+                        + "input, or finishes. Nothing is guessed from the "
                         + "terminal output, so the badges stay right even when the screen is "
                         + "full of build logs."
                 ),
                 .steps([
-                    "Install the hooks once, from Settings > Agents or with relay-cli hooks setup.",
-                    "Run claude in any tab. The tab is bound to that session automatically.",
+                    "Install the hooks once, from Settings > Agents or with relay-cli hooks "
+                        + "setup all.",
+                    "Run claude or codex in any tab. The tab is bound to that session "
+                        + "automatically.",
                     "The badge on the tab, and the aggregate badge on its workspace, follow along.",
                 ]),
                 .command(
-                    "relay-cli hooks status",
-                    note: "Check what is installed. The hooks are appended to your Claude Code "
-                        + "settings and marked as Relay's, so they coexist with hooks you already "
-                        + "have; relay-cli hooks uninstall removes only ours."
+                    "relay-cli hooks status all",
+                    note: "Check both integrations. Relay appends marked entries to Claude Code "
+                        + "and Codex configuration, so your existing hooks stay in place; "
+                        + "relay-cli hooks uninstall all removes only ours. Replace all with "
+                        + "claude or codex to manage one agent; omitting it defaults to claude."
+                ),
+                .note(
+                    "Use a Codex CLI version with native hook support. In Codex, review user "
+                        + "hooks with /hooks after installation and whenever definitions change. "
+                        + "Installed means the configuration is present; Relay cannot check "
+                        + "whether Codex has trusted it."
                 ),
                 .paragraph(
                     "Attention is a separate thing from state. A session that finished is not "
@@ -60,19 +69,22 @@ extension Guide {
                 ),
                 .topics([
                     GuideTopic("exclamationmark.triangle", "Errors stop the session",
-                               "When a turn dies on an API error - rate limit, overloaded, "
+                               "Claude Code reports when a turn dies on an API error - rate "
+                                   + "limit, overloaded, "
                                    + "billing, no network - the turn ends without finishing. The "
                                    + "tab goes red and calls you like any other unseen signal: "
                                    + "ring, badge, a float to the top and a notification. Every "
                                    + "kind of error looks the same here; the terminal has the "
-                                   + "details. Retrying clears it."),
+                                   + "details. Retrying clears it. Codex currently has no "
+                                   + "equivalent failure hook, so those failures remain visible "
+                                   + "only in its terminal output."),
                     GuideTopic("bell.badge", "Notifications",
                                "macOS notifications when a session needs input, hits an error, "
                                    + "or finishes while you are not looking at its tab. Clicking "
                                    + "one brings that tab up, wherever it is. Per-type toggles "
                                    + "and the sound are in Settings."),
                     GuideTopic("arrow.clockwise", "Resume after a restart",
-                               "Terminals do not survive a restart, but Claude sessions can: a "
+                               "Terminals do not survive a restart, but agent sessions can: a "
                                    + "restored tab with a session offers a Resume bar that types "
                                    + "the resume command for you. Settings can make it automatic; "
                                    + "the default asks, because nothing should type commands into "

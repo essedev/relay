@@ -16,10 +16,13 @@ public struct ResumeBinding: Codable, Equatable, Sendable {
         self.label = label
     }
 
-    /// Comando per riprendere la sessione. V1: solo Claude (`claude --resume <id>`); il valore
-    /// `agent` degli hook è il nome del binary.
+    /// Comando per riprendere la sessione. Claude usa un flag, Codex un sottocomando.
     public var resumeCommand: String {
-        "\(agent) --resume \(sessionId)"
+        switch agent {
+        case "claude": "claude --resume \(sessionId)"
+        case "codex": "codex resume \(sessionId)"
+        default: "\(agent) --resume \(sessionId)"
+        }
     }
 
     /// Un componente (`agent`/`sessionId`) è sicuro da interpolare nel comando iniettato nel pty:

@@ -94,23 +94,23 @@ extension AppController {
         }
     }
 
-    /// Messaggio della conferma: privilegia Claude per ogni stato di sessione viva - anche ferma
+    /// Messaggio della conferma: privilegia l'agente per ogni stato di sessione viva - anche ferma
     /// al prompt (`idle`) il processo è in foreground e la chiusura la interrompe; il proc_name
     /// grezzo sarebbe la versione ("2.1.200"), incomprensibile. `.unknown` = nessuna sessione nota
     /// in questa run (mai partita, chiusa da SessionEnd, o tab appena ripristinata: `resume` non
-    /// basta a dire "Claude", dopo un restore nel pty può girare tutt'altro): lì il nome del
-    /// processo è l'informazione più onesta. Niente promessa di ripresa: chiudere la tab butta
-    /// anche il suo `ResumeBinding`.
+    /// basta a identificare l'agente, dopo un restore nel pty può girare tutt'altro): lì il nome
+    /// del processo è l'informazione più onesta. Niente promessa di ripresa: chiudere la tab
+    /// butta anche il suo `ResumeBinding`.
     private func closeInfo(process: String, agentState: AgentState) -> String {
         switch agentState {
         case .running:
-            "Claude is working in this tab. Closing it will interrupt the session."
+            "An agent is working in this tab. Closing it will interrupt the session."
         case .needsInput:
-            "Claude is waiting for your reply. Closing it will interrupt the session."
+            "An agent is waiting for your reply. Closing it will interrupt the session."
         case .error:
-            "Claude stopped on an error here. Closing the tab drops the session for good."
+            "The agent stopped on an error here. Closing the tab drops the session for good."
         case .idle:
-            "This tab has an open Claude session. Closing it will interrupt it."
+            "This tab has an open agent session. Closing it will interrupt it."
         case .unknown:
             "\u{201C}\(process)\u{201D} is running. Closing the tab will terminate it."
         }

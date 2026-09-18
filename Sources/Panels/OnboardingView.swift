@@ -8,7 +8,7 @@ import WorkspaceModel
 /// della dashboard.
 public struct OnboardingView: View {
     let settings: AppSettings
-    let hooks: HookControls?
+    let hooks: [HookControls]
     let onClose: () -> Void
 
     @State private var model = OnboardingModel()
@@ -20,7 +20,7 @@ public struct OnboardingView: View {
 
     public init(
         settings: AppSettings,
-        hooks: HookControls?,
+        hooks: [HookControls],
         onClose: @escaping () -> Void
     ) {
         self.settings = settings

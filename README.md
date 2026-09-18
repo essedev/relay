@@ -22,7 +22,7 @@
 </p>
 
 Native macOS terminal for working with many coding agents in parallel: reliable agent state (via
-Claude Code hooks), workspaces that keep projects apart, and a triage view for when a dozen
+Claude Code and Codex hooks), workspaces that keep projects apart, and a triage view for when a dozen
 sessions are running at once. Fast and lightweight.
 
 Status: baseline complete and distributed via a Homebrew tap. Workspace -> pane -> tab -> terminal,
@@ -53,7 +53,7 @@ executables then live inside `Relay.app/Contents/MacOS`.
 
 ## What it does
 
-- **Agent state you can trust.** Badges come from Claude Code hooks, not from parsing output, so
+- **Agent state you can trust.** Badges come from Claude Code and Codex hooks, not from parsing output, so
   they stay right under a wall of build logs. Per tab, and aggregated per workspace.
 - **A three-step attention model.** A session that wants you is loud; one you have seen but not
   answered stays quiet in the background; replying clears it. Nothing stays lit forever, and
@@ -80,33 +80,44 @@ The full manual lives in **[docs/GUIDE.md](docs/GUIDE.md)**, and inside the app 
   <img src="docs/images/dashboard.png" alt="The triage dashboard, sessions grouped in four lanes by state" width="900">
 </p>
 
-## Agent state (Claude Code hooks)
+## Agent state (Claude Code and Codex hooks)
 
 Relay shows each agent's state as a badge on the tab and, aggregated, on the workspace in the
-sidebar (`running`, `needs_input`, `error`, done). State comes from Claude Code hooks, not from
+sidebar (`running`, `needs_input`, `error`, done). State comes from native agent hooks, not from
 parsing output.
 
 ```sh
-relay-cli hooks setup       # install the hooks into ~/.claude/settings.json (coexist with Otty)
-relay-cli hooks status      # check
-relay-cli hooks uninstall   # remove only Relay's hooks
+relay-cli hooks setup all       # install Claude Code and Codex hooks
+relay-cli hooks status all      # check both integrations
+relay-cli hooks uninstall all   # remove only Relay-managed hooks
 ```
 
-Then open Relay, start `claude` in a tab and the badges update. `needs_input` stays until you
-respond. The same thing is one click in Settings > Agents. Protocol and binding details in
-`docs/STATE_SCHEMA.md`.
+Then open Relay, start `claude` or `codex` in a tab and the badges update. `needs_input` stays until
+you respond. The same setup is available per agent in Settings > Agents. Replace `all` with
+`claude` or `codex` to manage just that agent; omitting the argument defaults to `claude`.
+
+Claude hooks are added to `~/.claude/settings.json`; Codex hooks go in `~/.codex/hooks.json`
+(or `$CODEX_HOME/hooks.json` when configured). Existing hooks are preserved. Use a Codex CLI
+version with [native hook support](https://developers.openai.com/codex/hooks), and review the
+configuration through `/hooks` after setup and whenever hook definitions change. The installed
+status checks the file, not Codex's trust decision. Protocol and binding details are in
+[docs/STATE_SCHEMA.md](docs/STATE_SCHEMA.md).
 
 A turn killed by an API error - rate limit, overloaded, billing, no network - ends without
-finishing, so it never reaches the "done" state. Relay catches it (`StopFailure`) and turns the tab
-red: ring, badge, a float to the top of the sidebar and a notification, like any other signal you
+finishing, so it never reaches the "done" state. Claude Code exposes `StopFailure`, which Relay
+catches to turn the tab red: ring, badge, a float to the top of the sidebar and a notification,
+like any other signal you
 have not seen. Every kind of error looks the same; the terminal has the details. Retrying clears
-it.
+it. Codex hooks currently expose no equivalent failure event, so exact Codex API failures remain
+visible in the terminal but cannot yet produce Relay's red error state; the badge can retain its
+last state until another hook arrives. Interrupting a Codex turn returns it to idle without a
+completion notification. After restarting Relay, the Resume bar supports both agents.
 
 With the app launched from the bundle you also get macOS notifications when an agent asks for
 input, hits an error, or finishes while you are not looking at the tab; clicking one brings that
 tab up. From `make run` (no bundle) notifications are disabled.
 
-To try the badges without a real Claude session, inside a Relay tab:
+To try the badges without a real agent session, inside a Relay tab:
 
 ```sh
 relay-cli simulate            # fake chat ("coding" scenario), real events on the socket
