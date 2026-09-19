@@ -116,6 +116,13 @@ resta visibile nel terminale, ma non può ancora produrre lo stato rosso di Rela
 conservare l'ultimo stato fino al prossimo hook. Interrompere un turno Codex lo riporta a idle
 senza notifica di completamento. Dopo un riavvio di Relay, la barra Resume supporta entrambi gli agenti.
 
+Se un resume finisce in `command not found`, in quella tab qualcosa stava aspettando input e ha
+preso il primo carattere come risposta: la barra Resume scrive nella shell esattamente come faresti
+tu, non aspetta il prompt. La riga fallita contiene ancora l'id di sessione completo, quindi il
+comando lo puoi rilanciare a mano. Per evitarlo, rispondi o silenzia qualunque cosa chieda
+all'avvio della shell; per il prompt di aggiornamento di oh-my-zsh è
+`zstyle ':omz:update' mode auto` in `~/.zshrc`.
+
 Con l'app avviata dal bundle arrivano anche le notifiche macOS quando un agente chiede input, va in
 errore o finisce mentre non stai guardando quella tab; cliccarne una porta la tab in primo piano. Da
 `make run` (senza bundle) le notifiche sono disattivate.

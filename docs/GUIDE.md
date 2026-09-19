@@ -155,6 +155,12 @@ has Mark as Read and Mark as Unread on the tab.
   can make it automatic; the default asks, because nothing should type commands into your shell
   unannounced.
 
+**Note:** If a resume ends in command not found, something in that tab was waiting for input and
+took the first character as its answer: a resume types into the shell exactly as you would, it does
+not wait for a prompt. The failed line still carries the whole session id, so you can run the
+command by hand. To stop it happening, answer or silence whatever asks at shell startup; for the
+oh-my-zsh update prompt that is zstyle ':omz:update' mode auto in ~/.zshrc.
+
 **Note:** Notifications need a bundle identifier, so they work in the installed app, not when
 running from a development build.
 

@@ -113,6 +113,12 @@ visible in the terminal but cannot yet produce Relay's red error state; the badg
 last state until another hook arrives. Interrupting a Codex turn returns it to idle without a
 completion notification. After restarting Relay, the Resume bar supports both agents.
 
+If a resume ends in `command not found`, something in that tab was waiting for input and took the
+first character as its answer: the Resume bar types into the shell exactly as you would, it does
+not wait for a prompt. The failed line still carries the whole session id, so you can run the
+command by hand. To stop it happening, answer or silence whatever asks at shell startup; for the
+oh-my-zsh update prompt that is `zstyle ':omz:update' mode auto` in `~/.zshrc`.
+
 With the app launched from the bundle you also get macOS notifications when an agent asks for
 input, hits an error, or finishes while you are not looking at the tab; clicking one brings that
 tab up. From `make run` (no bundle) notifications are disabled.
