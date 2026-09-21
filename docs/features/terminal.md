@@ -78,6 +78,19 @@ Cosa SwiftTerm non fa da solo, e come lo compensiamo. Il resto della guida sta i
   discendente ha già il focus", più un retry del `@FocusState` nella view (`.task`, il set in
   `onAppear` può cadere). Colore evidenziazione dal giallo ANSI del tema (`ansiColor(3)`, coerente con
   badge/ring).
+- **Teardown di una surface**: `SwiftTermSurface.teardown()` non si limita a `terminate()` di
+  SwiftTerm, che non chiude niente. `LocalProcess.terminate()` fa `io.close()` senza `.stop`: la
+  read pendente sul descrittore primario della pty non completa mai (nessun EOF finché un figlio
+  tiene aperto l'altro capo), il cleanup handler non gira, il descrittore resta aperto e la pty non
+  fa hangup; il SIGTERM che manda alla sola shell una zsh interattiva lo ignora. Il teardown vero lo
+  fa `PtySessionTeardown`: SIGHUP al process group in foreground e a quello della shell, poi
+  escalation a SIGTERM e SIGKILL, poi `waitpid` (senza, ogni shell morta resta zombie: `terminate()`
+  cancella il monitor che l'avrebbe raccolta). I target portano l'istante di avvio del loro leader e
+  l'escalation salta quelli che non corrispondono più: lo spazio pid gira in mezz'ora, e un segnale
+  differito indirizzato al solo pgid può finire sul gruppo di qualcun altro. Se un giorno SwiftTerm
+  accetta la patch upstream (`close(flags: .stop)` + reaping), di questo resta utile solo
+  l'escalation. Misure in `docs/research/PERF.md`, test su pty vere in
+  `PtySessionTeardownTests`.
 - Cap LRU surface: `SurfaceRegistry.enforceLRU` è un **soft cap**. Sfratta le meno recenti **solo se
   idle** (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente) e
   non protette: mai la visibile, le tab del workspace attivo, le tab con attenzione fresca

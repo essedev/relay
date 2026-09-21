@@ -250,6 +250,16 @@ workspace attivo, quelle con attenzione fresca, quelle usate negli ultimi ~30 mi
 
 Regole:
 
+- **Una tab possiede la sessione POSIX della sua pty.** Sono suoi la shell che `forkpty` ha reso
+  session leader e i process group nati sotto quel controlling terminal: il teardown li chiude
+  tutti. Un processo che si è staccato apposta (`setsid`, o un `nohup` che ha abbandonato la
+  sessione) esce da quel perimetro e non lo inseguiamo. È l'invariante che dice cosa "terminare una
+  tab" significa, e senza di lei il perimetro del kill sarebbe arbitrario.
+- **Il teardown lo fa Relay, non l'engine** (`TerminalEngine.PtySessionTeardown`): SIGHUP al gruppo
+  in foreground e a quello della shell, poi escalation a SIGTERM e SIGKILL, poi `waitpid`.
+  `LocalProcessTerminalView.terminate()` di SwiftTerm da solo non chiude niente, e senza questo
+  passaggio ogni tab chiusa lasciava dietro shell, agente e descrittore della pty. Il perché sta nel
+  tipo; i numeri del leak e la riproduzione in `docs/research/PERF.md`.
 - PTY ed emulatore restano vivi finché il processo figlio vive: mai uccidere un agente che lavora
   perché la sua tab è fuori schermo. È l'invariante che rende il cap un *soft* cap.
 - La creazione è sempre lazy: al restore nessuna view nasce; nasce al primo focus.
