@@ -35,10 +35,18 @@ extension Guide {
                         + "claude or codex to manage one agent; omitting it defaults to claude."
                 ),
                 .note(
+                    "A Relay release can add a hook, and a configuration written by an older "
+                        + "version would stay one event short without saying so. Settings and "
+                        + "relay-cli hooks status name the missing events, and Relay puts back "
+                        + "the ones Claude Code needs on its own at launch."
+                ),
+                .note(
                     "Use a Codex CLI version with native hook support. In Codex, review user "
                         + "hooks with /hooks after installation and whenever definitions change. "
-                        + "Installed means the configuration is present; Relay cannot check "
-                        + "whether Codex has trusted it."
+                        + "Because that trust has to be renewed, Relay never rewrites the Codex "
+                        + "configuration on its own: if it falls behind, Settings tells you and "
+                        + "the button becomes Update. Installed means the configuration is "
+                        + "present; Relay cannot check whether Codex has trusted it."
                 ),
                 .paragraph(
                     "Attention is a separate thing from state. A session that finished is not "
