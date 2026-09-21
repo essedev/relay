@@ -14,6 +14,19 @@ struct RelayHookSpec {
     }
 }
 
+/// Come stanno gli hook di Relay in un file di configurazione dell'agente. Il caso che conta è
+/// `drifted`: gli hook ci sono, li abbiamo scritti noi, ma lo spec è cresciuto da allora e
+/// nessuno lo dice. È successo davvero con `StopFailure` (v0.17.0): per 18 giorni lo stato
+/// `error` non è mai arrivato, quindi niente badge rosso, niente bump, niente notifica, su una
+/// macchina dove tutto il resto funzionava.
+public enum RelayHookState: Equatable, Sendable {
+    /// Nessun hook di Relay nel file: mai installati, o disinstallati.
+    case absent
+    /// Installati da una versione precedente e incompleti: `missing` sono gli eventi da rimettere.
+    case drifted(missing: [String])
+    case installed
+}
+
 /// Motore condiviso per i file hook JSON di Claude Code e Codex. Le trasformazioni preservano
 /// chiavi e hook dell'utente; il marker identifica esclusivamente le entry possedute da Relay.
 struct JSONHookInstaller {
@@ -50,10 +63,7 @@ struct JSONHookInstaller {
     }
 
     func status(settingsPath: String) -> Bool {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: settingsPath)),
-              let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return false }
-        return isInstalled(in: parsed)
+        state(settingsPath: settingsPath) == .installed
     }
 
     func command(for spec: RelayHookSpec, cliPath: String) -> String {
@@ -94,11 +104,34 @@ struct JSONHookInstaller {
     }
 
     func isInstalled(in settings: [String: Any]) -> Bool {
-        guard let hooks = settings["hooks"] as? [String: Any] else { return false }
-        return specs.allSatisfy { spec in
-            guard let entries = hooks[spec.event] as? [[String: Any]] else { return false }
-            return entries.contains(where: entryIsOurs)
+        state(in: settings) == .installed
+    }
+
+    func state(settingsPath: String) -> RelayHookState {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: settingsPath)),
+              let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return .absent }
+        return state(in: parsed)
+    }
+
+    /// Distingue "mai installati" da "installati e poi rimasti indietro". Guarda solo la presenza
+    /// del marker per evento, **non** il path del binario nel comando: due bundle legittimi (quello
+    /// in `/Applications` e un `make run-app` dal repo) scrivono path diversi, e considerarlo drift
+    /// li farebbe riscrivere il file a vicenda a ogni avvio.
+    func state(in settings: [String: Any]) -> RelayHookState {
+        let hooks = settings["hooks"] as? [String: Any] ?? [:]
+        var missing: [String] = []
+        var present = 0
+        for spec in specs {
+            let entries = hooks[spec.event] as? [[String: Any]] ?? []
+            if entries.contains(where: entryIsOurs) {
+                present += 1
+            } else {
+                missing.append(spec.event)
+            }
         }
+        if missing.isEmpty { return .installed }
+        return present > 0 ? .drifted(missing: missing) : .absent
     }
 
     func entryIsOurs(_ entry: [String: Any]) -> Bool {

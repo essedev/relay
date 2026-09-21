@@ -101,6 +101,7 @@ final class AppController: NSObject, NSApplicationDelegate {
 
         startPerfSamplerIfEnabled()
         setupNotificationsIfBundled()
+        repairDriftedClaudeHooks()
         updateController.checkOnLaunch()
         // Onboarding al primo avvio, mai in demo mode (lì l'app serve a mostrare, non a spiegare).
         if demoDriver == nil { showOnboardingIfFirstLaunch() }

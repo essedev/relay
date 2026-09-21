@@ -47,6 +47,12 @@ public struct CodexHookInstaller {
         Self.engine.status(settingsPath: settingsPath)
     }
 
+    /// Come `status`, ma distingue "mai installati" da "installati e rimasti indietro" e dice
+    /// quali eventi mancano.
+    public func state(settingsPath: String = defaultSettingsPath) -> RelayHookState {
+        Self.engine.state(settingsPath: settingsPath)
+    }
+
     static func merge(into settings: [String: Any], cliPath: String) -> [String: Any] {
         engine.merge(into: settings, cliPath: cliPath)
     }

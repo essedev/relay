@@ -180,3 +180,61 @@ private func makeTempHooksDir() throws -> String {
         .filter { $0.contains("relay-backup") }
     #expect(backups.count == ClaudeHookInstaller.maxBackups)
 }
+
+// MARK: - Drift degli hook
+
+/// Il caso reale: gli hook erano installati, poi lo spec è cresciuto (`StopFailure` in v0.17.0) e
+/// il file dell'utente è rimasto indietro. Distinguerlo da "mai installati" è ciò che permette di
+/// ripararlo da soli all'avvio senza toccare la configurazione di chi non ha mai detto di sì.
+@Test func stateTellsDriftApartFromNeverInstalled() {
+    #expect(ClaudeHookInstaller.state(in: [:]) == .absent)
+
+    let userOnly: [String: Any] = [
+        "hooks": ["Stop": [["hooks": [["type": "command", "command": "echo hi"]]]]],
+    ]
+    #expect(ClaudeHookInstaller.state(in: userOnly) == .absent)
+
+    let merged = ClaudeHookInstaller.merge(into: [:], cliPath: cli)
+    #expect(ClaudeHookInstaller.state(in: merged) == .installed)
+
+    var drifted = merged
+    var hooks = drifted["hooks"] as? [String: Any] ?? [:]
+    hooks.removeValue(forKey: "StopFailure")
+    drifted["hooks"] = hooks
+    #expect(ClaudeHookInstaller.state(in: drifted) == .drifted(missing: ["StopFailure"]))
+}
+
+/// Lo stato si legge anche dal file, ed è quello che l'app guarda all'avvio.
+@Test func stateOnDiskReportsTheMissingEvents() throws {
+    let dir = try makeTempHooksDir()
+    defer { try? FileManager.default.removeItem(atPath: dir) }
+    let settingsPath = "\(dir)/settings.json"
+
+    let installer = ClaudeHookInstaller()
+    #expect(installer.state(settingsPath: settingsPath) == .absent) // file assente
+    try installer.setup(cliPath: cli, settingsPath: settingsPath)
+    #expect(installer.state(settingsPath: settingsPath) == .installed)
+
+    var parsed = try #require(
+        JSONSerialization.jsonObject(
+            with: Data(contentsOf: URL(fileURLWithPath: settingsPath))
+        ) as? [String: Any]
+    )
+    var hooks = try #require(parsed["hooks"] as? [String: Any])
+    hooks.removeValue(forKey: "StopFailure")
+    hooks.removeValue(forKey: "PermissionRequest")
+    parsed["hooks"] = hooks
+    try JSONSerialization.data(withJSONObject: parsed).write(
+        to: URL(fileURLWithPath: settingsPath)
+    )
+
+    guard case let .drifted(missing) = installer.state(settingsPath: settingsPath) else {
+        Issue.record("atteso drift")
+        return
+    }
+    #expect(Set(missing) == ["PermissionRequest", "StopFailure"])
+
+    // Il setup è idempotente: rifarlo rimette esattamente gli eventi mancanti.
+    try installer.setup(cliPath: cli, settingsPath: settingsPath)
+    #expect(installer.state(settingsPath: settingsPath) == .installed)
+}

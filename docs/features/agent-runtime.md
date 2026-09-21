@@ -10,6 +10,17 @@ Claude per compatibilità. Settings > Agents e onboarding offrono un controllo p
 separati. Path: `~/.claude/settings.json` e `~/.codex/hooks.json` (oppure `CODEX_HOME/hooks.json`).
 Override di test: `RELAY_CLAUDE_SETTINGS` e `RELAY_CODEX_HOOKS`.
 
+**Drift**: gli hook si scrivono una volta, ma lo spec cresce con le versioni. `RelayHookState`
+distingue tre casi invece del booleano di prima: `absent` (mai installati), `drifted(missing:)`
+(li abbiamo scritti noi e da allora manca qualche evento), `installed`. Un drift di **Claude** lo
+ripara l'app da sola all'avvio (`repairDriftedClaudeHooks`): il setup è idempotente, fa il backup
+e l'utente ha già acconsentito a quel file. Il segnale in Settings non bastava: lo vede solo chi
+apre Settings, e `StopFailure` (aggiunto in v0.17.0) è rimasto fuori per 18 giorni su una macchina
+dove tutto il resto funzionava, quindi lo stato `error` non è mai arrivato. **Codex no**: i suoi
+hook vanno ri-approvati con `/hooks` a ogni cambio di definizione, e riscriverli in silenzio
+rischierebbe di spegnere anche quelli che funzionano; il suo drift resta segnalato e basta.
+`relay-cli hooks status` dice **quali** eventi mancano, non solo che qualcosa manca.
+
 Codex deve supportare gli hook nativi. Dopo il setup e a ogni modifica delle definizioni, l'utente
 deve rivedere il trust tramite `/hooks`; Relay verifica solo la presenza degli spec nel file.
 Se esistono anche hook inline in `config.toml`, Codex carica entrambi con un avviso: Relay non

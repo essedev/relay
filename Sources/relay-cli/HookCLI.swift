@@ -69,14 +69,27 @@ enum HookCLI {
 
     private static func status(_ target: Target) -> Int32 {
         if target == .claude || target == .all {
-            let installed = ClaudeHookInstaller().status()
-            print("Claude hooks: \(installed ? "installed" : "not installed")")
+            print("Claude hooks: \(describe(ClaudeHookInstaller().state()))")
         }
         if target == .codex || target == .all {
-            let installed = CodexHookInstaller().status()
-            print("Codex hooks: \(installed ? "installed" : "not installed")")
+            print("Codex hooks: \(describe(CodexHookInstaller().state()))")
         }
         return 0
+    }
+
+    /// Un booleano non bastava: "not installed" su una configurazione che funziona per sei hook
+    /// su otto non dice quale pezzo manca, e il pezzo mancante era l'unica sorgente dello stato
+    /// `error`.
+    private static func describe(_ state: RelayHookState) -> String {
+        switch state {
+        case .installed:
+            "installed"
+        case .absent:
+            "not installed"
+        case let .drifted(missing):
+            "out of date, missing \(missing.joined(separator: ", ")) "
+                + "(run: relay-cli hooks setup)"
+        }
     }
 
     private static func printUsage() {

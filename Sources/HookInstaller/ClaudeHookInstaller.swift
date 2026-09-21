@@ -51,6 +51,12 @@ public struct ClaudeHookInstaller {
         Self.engine.status(settingsPath: settingsPath)
     }
 
+    /// Come `status`, ma distingue "mai installati" da "installati e rimasti indietro" e dice
+    /// quali eventi mancano.
+    public func state(settingsPath: String = defaultSettingsPath) -> RelayHookState {
+        Self.engine.state(settingsPath: settingsPath)
+    }
+
     static func command(for spec: HookSpec, cliPath: String) -> String {
         engine.command(for: spec, cliPath: cliPath)
     }
@@ -65,6 +71,10 @@ public struct ClaudeHookInstaller {
 
     static func isInstalled(in settings: [String: Any]) -> Bool {
         engine.isInstalled(in: settings)
+    }
+
+    static func state(in settings: [String: Any]) -> RelayHookState {
+        engine.state(in: settings)
     }
 
     static func entryIsOurs(_ entry: [String: Any]) -> Bool {

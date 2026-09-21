@@ -45,14 +45,44 @@ extension AppController {
         panel.makeKeyAndOrderFront(nil)
     }
 
+    /// Il `relay-cli` accanto all'eseguibile corrente (nel bundle: `Contents/MacOS/relay-cli`; in
+    /// dev: la stessa dir di build). `nil` se non c'è: senza CLI non si installa niente.
+    func bundledCLIPath() -> String? {
+        guard let exec = Bundle.main.executableURL else { return nil }
+        let cli = exec.deletingLastPathComponent().appendingPathComponent("relay-cli").path
+        return FileManager.default.isExecutableFile(atPath: cli) ? cli : nil
+    }
+
+    /// Hook di Claude Code rimasti indietro: li ha scritti Relay e da allora lo spec è cresciuto.
+    /// Li rimettiamo a posto da soli all'avvio. Il setup è idempotente, fa il backup del file e
+    /// l'utente ha già acconsentito a quel path; l'alternativa era il segnale in Settings, che
+    /// però lo vede solo chi apre Settings: `StopFailure` è rimasto fuori per 18 giorni proprio
+    /// così, e in quei 18 giorni lo stato `error` non è mai arrivato.
+    ///
+    /// **Solo Claude.** Gli hook di Codex vanno ri-approvati con `/hooks` a ogni cambio di
+    /// definizione: riscriverli in silenzio rischierebbe di spegnere anche quelli che funzionano.
+    /// Il loro drift resta segnalato in Settings e da `relay-cli hooks status`.
+    func repairDriftedClaudeHooks() {
+        let installer = ClaudeHookInstaller()
+        guard case let .drifted(missing) = installer.state(), let cli = bundledCLIPath() else {
+            return
+        }
+        do {
+            try installer.setup(cliPath: cli)
+            let events = missing.joined(separator: ", ")
+            log.notice("claude hooks repaired, added: \(events, privacy: .public)")
+        } catch {
+            let reason = error.localizedDescription
+            log.error("claude hooks repair failed: \(reason, privacy: .public)")
+        }
+    }
+
     /// Controlli per installare/rimuovere gli hook Claude e Codex dalle impostazioni, usando il
     /// `relay-cli` accanto all'eseguibile corrente (nel bundle: `Contents/MacOS/relay-cli`; in dev:
     /// la stessa dir di build). Array vuoto se il cli non è raggiungibile: l'onboarding mostra il
     /// comando manuale e Settings non aggiunge i blocchi.
     func makeHookControls() -> [HookControls] {
-        guard let exec = Bundle.main.executableURL else { return [] }
-        let cli = exec.deletingLastPathComponent().appendingPathComponent("relay-cli").path
-        guard FileManager.default.isExecutableFile(atPath: cli) else { return [] }
+        guard let cli = bundledCLIPath() else { return [] }
         let claude = ClaudeHookInstaller()
         let codex = CodexHookInstaller()
         return [
