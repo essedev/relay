@@ -51,9 +51,11 @@ tab resta `running` per sempre. `SubagentStop` non è mappato di proposito (lo s
 non è il completamento del pane principale), e nemmeno `PostToolUseFailure` (un tool che fallisce
 dentro un turno che prosegue non è un errore di sessione).
 
-`ClaudeHookInstaller.isInstalled` richiede che **tutti** gli spec di questa tabella siano presenti,
-non almeno uno: quando la tabella cresce, un'installazione fatta da una versione precedente deve
-risultare incompleta, o l'utente non riceverebbe mai il nuovo hook. Il setup è idempotente.
+`ClaudeHookInstaller` richiede che **tutti** gli spec di questa tabella siano presenti, non almeno
+uno: quando la tabella cresce, un'installazione fatta da una versione precedente deve risultare
+incompleta, o l'utente non riceverebbe mai il nuovo hook. Quell'incompletezza ha un nome
+(`RelayHookState.drifted(missing:)`, che porta con sé gli eventi mancanti) e per Claude la ripara
+l'app all'avvio: il setup è idempotente. Vedi `features/agent-runtime.md`.
 
 **Tool a prompt bloccante**: il `PreToolUse` di `AskUserQuestion` e `ExitPlanMode` viene corretto
 in `needs_input` dal CLI (`ClaudeHookStateMapper`, che legge `hook_event_name` e `tool_name` dallo

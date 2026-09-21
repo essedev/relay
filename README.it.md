@@ -42,8 +42,11 @@ brew install --cask essedev/relay/relay-terminal
 
 Aggiornamenti: `brew update && brew upgrade --cask relay-terminal`. Il cask mette anche i comandi
 `relay` e `relay-cli` nel PATH, quelli che usano le sezioni qui sotto. Quando un aggiornamento aggiunge un
-hook (la 0.17.0 ne ha aggiunto uno, per gli errori API), Settings > Agents segnala gli hook come
-non installati finché non rilanci il setup: è idempotente e non tocca gli altri tuoi hook.
+hook (la 0.17.0 ne ha aggiunto uno, per gli errori API), Relay rimette a posto gli hook di Claude
+Code al primo avvio: il setup è idempotente, fa il backup del file e non tocca gli altri tuoi hook.
+Gli hook di Codex vengono solo segnalati, mai riscritti, perché Codex chiede di
+rivederli con `/hooks` ogni volta che cambiano le definizioni: `relay-cli hooks status codex` dice
+quali eventi mancano, e il setup li rimette.
 
 In alternativa scarica il `.dmg` dall'ultima
 [release](https://github.com/essedev/relay/releases/latest) e trascina Relay in Applications. Relay
@@ -245,8 +248,8 @@ Il resto è documentazione interna.
 - `docs/STATE_SCHEMA.md` - schema di persistence e protocollo eventi agente.
 - `docs/features/*.md` - un file per area, con le invarianti e le trappole già pagate:
   `attention.md`, `agent-runtime.md`, `terminal.md`, `sidebar.md`, `workspace-groups.md`,
-  `split-panes.md`, `windows.md`, `keyboard.md`, `workspace-naming.md`, `guide.md`,
-  `persistence.md`, `distribution.md`.
+  `split-panes.md`, `windows.md`, `keyboard.md`, `session-deactivation.md`,
+  `workspace-naming.md`, `guide.md`, `persistence.md`, `distribution.md`.
 - `CLAUDE.md` - guida operativa per l'agent, volutamente corta: rimanda ai file qui sopra.
 
 ## Licenza

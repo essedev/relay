@@ -541,6 +541,15 @@ il pump FIFO del coordinatore (un `AsyncStream` con un solo consumer sul MainAct
 per evento, che non preserva l'ordine di enqueue) e la guardia di monotonicità nello store, che
 scarta gli eventi più vecchi dell'ultimo applicato per tab (`WorkspaceStore.applyAgentState`).
 
+Raffica: con decine di sessioni gli hook si connettono nello stesso istante, e un evento perso non
+torna più (il CLI ingoia l'errore per contratto, quindi non lo saprebbe nessuno). Tre cose lo
+impediscono e vanno tenute insieme: backlog al massimo che il kernel onora (`kern.ipc.somaxconn`),
+`acceptConnection` che **svuota tutta la coda** a ogni risveglio della source, e nel client un retry
+breve sui soli errori transitori - mai su `ENOENT`, cioè quando Relay non è in esecuzione, dove non
+c'è niente da aspettare e ogni hook della macchina pagherebbe l'attesa. Misura prima del fix: 76
+eventi persi su 100 connessioni simultanee. Dettagli e trappola BSD sull'`O_NONBLOCK` ereditato
+dall'fd accettato in `docs/features/agent-runtime.md`.
+
 Robustezza del socket: il path è unico e condiviso da ogni processo Relay, quindi va difeso dal
 calpestamento tra istanze. Il receiver (a) prima di `unlink`+`bind` fa una `connect` di prova
 (`UnixSocket.isListening`): se un owner vivo risponde rifiuta (`addressInUse`), così una seconda
@@ -575,7 +584,12 @@ Regole (verificate a test):
 - il CLI dell'hook fallisce in silenzio (exit 0) per non rompere l'agente;
 - il path del CLI finisce nei comandi: da build di sviluppo è `.build/.../relay-cli`, dal `.app` è
   il `relay-cli` accanto all'eseguibile nel bundle (per gli utenti brew: Impostazioni > Agents
-  installa gli hook senza chiedere di trovarlo nel PATH).
+  installa gli hook senza chiedere di trovarlo nel PATH);
+- lo stato non è un booleano ma `RelayHookState`: `absent`, `drifted(missing:)` (li abbiamo scritti
+  noi e da allora lo spec è cresciuto), `installed`. Un drift di **Claude** lo ripara l'app
+  all'avvio (`repairDriftedClaudeHooks`); quello di **Codex** resta solo segnalato, perché i suoi
+  hook vanno ri-approvati con `/hooks` a ogni cambio di definizione. Il perché in
+  `docs/features/agent-runtime.md`.
 
 ## Aggregazione Stati E Badge
 
@@ -669,12 +683,24 @@ float derivato (vedi "Ordine della sidebar" sotto). Il sospeso (`pending`) mostr
 anello vuoto - nel badge, senza ri-bumpare né far scendere la riga.
 
 Lo store emette una `AgentNotification` (dato puro) via callback `onNotifiableTransition` -
-`WorkspaceModel` resta senza AppKit (riceve solo il `Bool appActive`). Il composition root
-(`NotificationCoordinator`) applica le preferenze utente (`AppSettings`: master, per-tipo, suono) e
-sopprime `needs_input` se `isVisible`, poi consegna via `UNUserNotificationCenter`. Il coordinatore
-è anche `UNUserNotificationCenterDelegate` e in `willPresent` ritorna `[.banner, .sound, .list]`:
-senza, macOS **sopprime i banner quando Relay è l'app in primo piano**, e noi notifichiamo apposta
-per le tab non in vista anche con l'app attiva. **Richiede il bundle `.app`** (serve un bundle id):
+`WorkspaceModel` resta senza AppKit (riceve solo il `Bool appActive`). Anche la decisione di
+**consegnare** è pura e testata (`NotificationPolicy.shouldDeliver`, in `WorkspaceModel`): prende le
+preferenze come valori (`AppSettings`: master, per-tipo, suono), sopprime tutte e tre le kind sulla
+tab in vista e compone il titolo per agente. Sta lì e non nel composition root per un motivo
+pratico: `RelayApp` non ha un test target, quindi ciò che decide e vive lì non è coperto da niente.
+Al `NotificationCoordinator` resta `UNUserNotificationCenter`, cioè solo I/O.
+
+**Una notifica viva per tab**: l'identifier è `relay.tab.<id>`, non un UUID per evento, quindi una
+tab che passa per `needs_input`, errore e completamento **sostituisce** il proprio banner invece di
+lasciarne tre; il `threadIdentifier` è il workspace, così il centro notifiche raggruppa per
+progetto. Il ritiro è simmetrico all'emissione: `WorkspaceStore.onAttentionCleared` scatta quando la
+tab non aspetta più niente (mark-read, dismiss, decadenza, `toggleUnread` che spegne, chiusura) e il
+composition root fa `removeDeliveredNotifications`. Senza, il banner sopravvive alla cosa che lo ha
+generato e cliccarlo mezza giornata dopo riporta in vista una conversazione già letta.
+
+Il coordinatore è anche `UNUserNotificationCenterDelegate` e in `willPresent` ritorna
+`[.banner, .sound, .list]`: senza, macOS **sopprime i banner quando Relay è l'app in primo piano**,
+e noi notifichiamo apposta per le tab non in vista anche con l'app attiva. **Richiede il bundle `.app`** (serve un bundle id):
 da `swift run` le notifiche sono disattivate, non è un errore.
 
 ### Dashboard delle sessioni
@@ -1092,6 +1118,13 @@ Costruito dopo ancora (split, finestre, nomina):
   LLM se c'è una chiave), check aggiornamenti,
   pannello Runtime Stats, ricerca nel terminale con evidenziazione, scroll fluido;
 - integrazione Codex tramite hook nativi, installer condiviso e resume specifico per agente.
+
+Costruito da ultimo (affidabilità di sessioni ed eventi):
+
+- il teardown di una tab termina davvero la sessione pty (shell, agente, albero MCP, descrittore) e
+  le sessioni agente si spengono a mano tenendo il resume (`docs/features/session-deactivation.md`);
+- la catena degli eventi non perde più sotto raffica di hook, il drift degli hook Claude si ripara
+  all'avvio e ogni tab tiene **una** notifica viva, ritirata quando l'attenzione si spegne.
 
 Da fare dopo:
 

@@ -4,116 +4,9 @@ Questo file traccia i cicli di lavoro e le decisioni prese durante l'analisi del
 agent-aware.
 
 I cicli 0-8 (analisi engine, V0, agent runtime, primo giro UI/UX) sono in
-`cycles-archive/CYCLES-0-8.md` e i cicli 9-11 (persistence, LRU, resume, bundle con notifiche,
-distribuzione) in `cycles-archive/CYCLES-9-11.md`: qui restano gli ultimi ~15, numerazione intatta.
-
-## Cycle 12 - Riordino libero di workspace e tab (drag gesture)
-
-### Obiettivo
-
-Poter spostare i workspace nella sidebar e le tab dentro un workspace **dove si vuole**, con un drag
-& drop fluido e un indicatore di dove cadrà la riga.
-
-### Il punto di partenza (e perché non bastava)
-
-Il drag dei workspace c'era già (`.draggable`/`.dropDestination` -> `moveWorkspace(_:onto:)`), ma
-"non teneva": due cause sommate. **Uno**, la sidebar mostra `orderedWorkspaces` (partizione derivata:
-pinned -> con attenzione -> resto), quindi dopo il drop il float rimescolava comunque - un non-pinned
-non poteva andare sopra un pinned, e un workspace che prendeva attenzione saltava in cima da solo.
-**Due**, il target del drop arrivava dall'ordine *visivo* ma l'insert avveniva sull'indice *canonico*:
-quando i due ordini divergevano, la riga finiva in un punto diverso da dove la lasciavi. Le tab, invece,
-non erano proprio riordinabili (nessun `moveTab`, nessun drag nella tab bar).
-
-### Decisioni
-
-- **Float invariato, drag reso onesto** (scelta dell'utente: tenere il float pin/attenzione). L'ordine
-  manuale ha effetto *dentro* il segmento di float; fra segmenti il float vince. Per non mentire,
-  l'indicatore di inserimento è **vincolato al segmento** del workspace trascinato (`segmentIndex(for:)`
-  in `WorkspaceStore`): la linea si muove solo tra le righe dello stesso gruppo. Quello che vedi è
-  quello che ottieni.
-- **Store puro e posizionale.** Rimpiazzato `moveWorkspace(_:onto:)` con `moveWorkspace(_:before:)`
-  (inserisce prima del target, `nil` = in fondo); aggiunti `moveTab(_:before:in:)` e
-  `Workspace.moveTab`. Le tab hanno un ordine unico, nessun float, quindi lì il riordino è pieno e
-  l'indicatore sempre affidabile. Tutto testato (logica pura).
-
-### La svolta sulla fluidità: via il drag di sistema
-
-Prima iterazione con `.onDrag`/`.onDrop` di SwiftUI: funzionava ma al rilascio la preview
-semitrasparente faceva **snap-back** (volava alla posizione originale prima di sparire), poi partiva
-lo scambio - a scatti. Causa: `onDrag` genera una drag image gestita dal sistema, su cui il controllo
-è minimo. Non è un bug da tunare, è il modello sbagliato per un reorder *in-app*.
-
-Seconda iterazione (adottata): niente drag di sistema. Trasciniamo la **riga vera** con un
-`DragGesture` + `.offset` (sollevata: opacity ridotta, zIndex alto) che segue il puntatore; una linea
-segnala l'inserimento; al rilascio lo scambio parte in `withAnimation` mentre l'offset torna a zero,
-così la riga si posa senza salti. Chiave tecnica: l'`.offset` è un trasform di *rendering*, non tocca
-il frame di *layout* - quindi i frame raccolti via `PreferenceKey` (in un coordinate space nominato)
-restano stabili durante il gesto e il calcolo dell'indice di inserimento non si sballa. Bonus:
-l'identità del trascinato vive in `@State`, niente pasteboard condivisa e niente drop incrociati
-sidebar/tab. Su macOS lo `ScrollView` non fa drag-scroll, quindi il `DragGesture` non confligge con
-lo scroll.
-
-Il meccanismo è generico (asse verticale/orizzontale) in `Panels/Reorderable`: `reorderableRow`,
-`reorderableContainer`, `ReorderInsertionLine`, condivisi da sidebar e tab bar.
-
-### Esito
-
-Riordino libero e fluido di workspace (dentro il segmento di float) e tab (pieno). Persistence gratis:
-lo snapshot serializza già l'ordine di `workspaces`/`tabs`, l'autosave scatta da sé. `Cmd+1..9` e
-`Cmd+J` leggono `orderedWorkspaces`, quindi restano coerenti. `make check` verde (150 test). Verifica
-del gesto a video con `make run`.
-
-## Cycle 13 - Ordine sidebar "lista chat" (bump reale, via il float)
-
-### Il problema
-
-Prendere un workspace salito in cima per un completamento e scriverci lo faceva **scivolare giù**
-sotto le mani: appena parte `running` il marker di attenzione si spegne (l'hai ripreso) e, siccome
-la posizione era un **float derivato** dall'attenzione (`orderedWorkspaces` partizionava per
-`needsAttention`), la riga usciva dal gruppo alto e cadeva. Fastidioso: la riga su cui lavori non
-deve muoversi.
-
-### La diagnosi
-
-Nella sidebar convivono due movimenti distinti, e il float li accoppiava sbagliando:
-
-- **In background** (una chat completa mentre guardi altrove -> sale): lo vuoi, è il senso del float.
-- **Sotto le mani** (interagisci con una chat -> si sposta): non lo vuoi.
-
-Il modello mentale giusto dell'utente non era "float" ma **lista chat** (Slack/WhatsApp): l'attività
-porta la riga in cima e *quello diventa il suo posto*; ci resta finché non la scavalca altra attività
-o non la sposti a mano; il pin è per fissarla. La ripresa non è un evento che deve riordinare.
-
-### La decisione (ribalta la scelta del Cycle 12)
-
-Il Cycle 12 aveva tenuto il "float invariato". Qui lo si smonta: **la posizione diventa un ordine
-reale e persistente**, non una proiezione dello stato.
-
-- `orderedWorkspaces` torna a `pinned + resto` in ordine **canonico**, niente partizione per
-  attenzione.
-- Un'attività **non vista** (completamento o entrata in `needs_input`) fa un **bump** reale:
-  `WorkspaceStore.bumpWorkspaceToTop` porta il workspace in cima ai non-pinned, mutando l'ordine
-  canonico (persistito). Gate su `!isVisible`, **simmetrico** al segnale forte (`unseen`) e alla
-  notifica: un solo criterio governa segnale, notifica e posizione.
-- La **ripresa** (`running`) e ogni evento sulla tab in vista **non** muovono nulla. `attention`
-  resta solo un segnale (badge/ring), scollegato dall'ordine; declassamento, dismiss e decadenza
-  spengono il segnale ma non fanno scendere la riga (scende solo col drag).
-- `SidebarDrop` scende da tre segmenti (pinned/attenzione/resto) a **due** (pinned/resto): il
-  segmento float non esiste più.
-
-### Il caso "mentre la guardi"
-
-Deciso oggettivamente che un completamento **sulla tab in vista non bumpa**: il bump è un richiamo
-verso qualcosa che non hai visto, e se lo stai già guardando è rumore (oltre a essere di nuovo un
-movimento sotto le mani). Stessa logica del segnale (`unseen` non visto / `pending` visto): un solo
-`isVisible` decide tutto. Il risultato netto: **la sidebar si muove solo per ciò che accade fuori
-dalla tua vista**.
-
-### Esito
-
-La riga su cui lavori sta ferma; il resto sale in background e ci resta. `make check` verde (226
-test), incluso `resumeDoesNotDropFromTop` (il caso esatto del bug: riprendi una riga in cima, ci
-scrivi, resta su).
+`cycles-archive/CYCLES-0-8.md`, i cicli 9-11 (persistence, LRU, resume, bundle con notifiche,
+distribuzione) in `cycles-archive/CYCLES-9-11.md` e i cicli 12-13 (riordino della sidebar e bump
+reale) in `cycles-archive/CYCLES-12-13.md`: qui restano gli ultimi ~15, numerazione intatta.
 
 ## Cycle 14 - Pulizia codebase, CI deterministica, move-tab
 
@@ -887,3 +780,116 @@ vincolo che leggere una tab disattivata non deve riaccenderla, che è il marker.
 `make check` verde, 532 test (+30 sul ciclo precedente): teardown su pty vere, iniezione del socket
 nell'env della surface, ordine e decadimento del marker di disattivazione. Non rilasciato: la
 versione resta 0.19.0.
+
+## Cycle 27 - La catena che perdeva in silenzio
+
+### Il problema
+
+Una notifica che non arriva non lascia traccia: nessun errore a schermo, nessuna riga rossa, solo
+una tab che resta `running` e un utente che se ne accorge mezz'ora dopo. Il giro parte da qui e
+percorre la catena intera - hook -> CLI -> socket -> receiver -> pump -> store -> reducer ->
+preferenze -> `UNUserNotificationCenter` - cercando i punti dove un pezzo può sparire senza dirlo.
+Ne sono usciti cinque, tutti dello stesso tipo: una perdita che il sistema non sa raccontare.
+
+### Il log non diceva niente (e il runtime nemmeno)
+
+`os_log` redige le stringhe interpolate per default: i tre log di errore del receiver stampavano
+`<private>`, quindi l'unica traccia di un evento agente perso non conteneva alcuna informazione.
+Un'istanza accesa da 5 giorni ne aveva 27, tutti indiagnosticabili. Ora l'errno si legge **prima**
+di qualunque altra chiamata (un'interpolazione può sovrascriverlo) e si stampa in chiaro: non è un
+dato dell'utente.
+
+Stessa classe di bug un livello sopra, trovata verificando il fix con un `RELAY_SOCKET` lungo: il
+catch che avvolge l'avvio del runtime logava `error.localizedDescription` interpolato, così un
+runtime **mai partito** (path oltre `sun_path`, runtime dir non scrivibile) era indistinguibile da
+un'app che semplicemente non riceve eventi. Il messaggio adesso dice perché.
+
+### La raffica: 76 eventi persi su 100
+
+Con decine di sessioni gli hook si connettono nello stesso istante. Il backlog del listener era 16
+e la read source accettava **una** connessione per risveglio: la coda restava piena e la `connect`
+del client veniva rifiutata. La CLI ingoia l'errore per contratto (un hook non deve mai rompere
+l'agente), quindi l'evento spariva senza lasciare niente: una tab bloccata su "running", la sua
+notifica mai consegnata. Misura prima del fix: **76 eventi persi su 100 connessioni simultanee**.
+
+Tre cose insieme, e vanno tenute insieme: backlog al massimo che il kernel onora
+(`kern.ipc.somaxconn`, 128), `accept` che **svuota tutta la coda** a ogni risveglio, e nel client un
+retry breve (10 ms, 30 ms) sui soli errori transitori. `ENOENT` - Relay non è in esecuzione - non è
+transitorio: lì non c'è niente da aspettare e ogni hook della macchina pagherebbe l'attesa per
+nulla.
+
+La trappola BSD costata di più: il loop di accept richiede un listener non bloccante, e su macOS
+l'fd accettato **eredita** `O_NONBLOCK` mentre `drain` legge in modo bloccante. Ogni fd va
+riportato a bloccante a mano, o la read torna `EAGAIN` ogni volta che i byte del client non sono
+ancora arrivati - e l'evento si perde invece di essere atteso.
+
+### Gli hook rimasti indietro
+
+Gli hook si scrivono una volta, ma lo spec cresce con le versioni. `StopFailure` è arrivato nella
+0.17.0 e il `settings.json` di chi aveva installato prima non l'ha mai ricevuto: per **18 giorni**
+lo stato `error` non ha avuto alcuna fonte su una macchina dove tutto il resto funzionava - nessun
+badge rosso, nessun bump, nessuna notifica. L'unico segnale era un booleano dentro un pannello di
+Settings che nessuno apre.
+
+`RelayHookState` distingue "mai installati" da "installati e rimasti indietro" e porta con sé gli
+eventi mancanti, così `relay-cli hooks status` dice **quali**, non solo che qualcosa manca. Il drift
+di Claude lo ripara l'app all'avvio: il setup è idempotente, fa il backup e l'utente ha già
+acconsentito a quel path. **Codex no**, ed è una scelta: i suoi hook vanno ri-approvati con `/hooks`
+a ogni cambio di definizione, e riscriverli in silenzio rischierebbe di spegnere anche quelli che
+funzionano. Il suo drift resta segnalato.
+
+### Una notifica viva per tab
+
+Ogni notifica usava un UUID nuovo come identifier, quindi una tab che andava in `needs_input`, poi
+in errore, poi completava lasciava **tre** voci, e niente le rimuoveva mai. Il centro notifiche
+cresceva con ogni transizione di ogni tab mai aperta, e cliccare un banner mezza giornata dopo
+riportava in vista una conversazione già letta - o una tab che non esisteva più.
+
+L'identifier è ora la tab (`relay.tab.<id>`): una tab **sostituisce** il proprio banner. Il
+`threadIdentifier` è il workspace, così il centro raggruppa per progetto. Il pezzo che mancava è il
+ritiro: `WorkspaceStore.onAttentionCleared` è il simmetrico di `onNotifiableTransition` - lo store
+lo emette quando la tab non aspetta più niente (mark-read, dismiss, decadenza, `toggleUnread` che
+spegne, chiusura della tab) e il composition root fa `removeDeliveredNotifications`. Una notifica
+non deve sopravvivere alla cosa che l'ha generata.
+
+### Il filtro che nessun test vedeva
+
+L'ultimo filtro prima del banner - preferenze, soppressione della tab che stai guardando, titolo
+per agente - viveva nel composition root, che **non ha un test target**: niente di tutto ciò era
+coperto. `NotificationPolicy` prende i toggle come valori e risponde se consegnare; al
+`NotificationCoordinator` resta `UNUserNotificationCenter`, cioè solo I/O. Il criterio per la
+collocazione non è estetico: ciò che decide sta dove si può testare, e `RelayApp` non lo è.
+
+Nel trasloco la guardia sulla tab in vista è passata da due kind a tutti e tre. Non è un cambio di
+comportamento: il reducer non emette mai un completamento per una tab in vista, quindi la regola era
+già quella - solo che dipendeva da quale chiamante la usava, e adesso non più.
+
+### Il filo conduttore
+
+Cinque fix, una sola forma: un pezzo della catena perde qualcosa e il sistema non ha modo di dirlo.
+Il log redatto, la `connect` rifiutata che la CLI ingoia per contratto, l'hook mancante visibile
+solo in un pannello, il banner che nessuno ritira, il filtro fuori da ogni test. Dove la perdita è
+silenziosa per costruzione - un hook non può rompere l'agente - la difesa non è un errore in più:
+è non perdere, e rendere leggibile la traccia di quando succede lo stesso.
+
+### Doc-pass dello stesso giro
+
+- `CYCLES.md` ha ruotato: i cicli 12-13 in `cycles-archive/CYCLES-12-13.md`, numerazione intatta.
+  Le loro decisioni vincolanti erano già assorbite in `sidebar.md` e `attention.md`.
+- `ARCHITECTURE.md` allineato in tre punti: la raffica nella Local Control API, il drift e la
+  riparazione al boot nell'Hook Installer, `NotificationPolicy` e il ritiro per tab nelle notifiche
+  macOS (il testo diceva ancora che il filtro vive nel composition root).
+- README (en/it): il paragrafo sull'aggiornamento che aggiunge un hook prometteva un setup da
+  rilanciare a mano, mentre per Claude ora è automatico; l'indice dei documenti di area aveva perso
+  `session-deactivation.md`.
+- `ROADMAP.md`: "Dove siamo" era ferma alla 0.19.0 con il lavoro del Cycle 26 dato per non
+  rilasciato, mentre la 0.20.0 lo contiene.
+- `STATE_SCHEMA.md`: l'incompletezza di un'installazione vecchia adesso ha un nome
+  (`RelayHookState.drifted`), e il file citava ancora solo il booleano.
+
+### Esito
+
+`make test` verde, 547 test (+15 sul ciclo precedente): raffica di 100 connessioni simultanee senza
+perdite, retry solo sui transitori, drift distinto da assente con gli eventi mancanti, ritiro della
+notifica sui cinque modi in cui l'attenzione si spegne, e la policy di consegna coperta per intero.
+Non rilasciato: la versione resta 0.20.0.

@@ -13,10 +13,13 @@ livelli con dashboard di triage, persistence del layout, cap LRU delle surface, 
 notifiche, gruppi in sidebar, nomina automatica dei workspace, guida in-app, **split v2 sul modello
 cmux** (i pane ospitano le tab, una strip per pane), **multi-window** e gli errori API come stato di
 prima classe per Claude Code (0.17.0). La 0.19.0 aggiunge Codex tramite hook nativi, con setup,
-notifiche e resume dedicati; il limite sugli errori API Codex è descritto sotto. Dopo la 0.19.0 e
-non ancora rilasciati: il teardown di una tab **termina davvero** la sessione pty (shell, agente,
-albero MCP, descrittore) e le sessioni agente si spengono a mano tenendo il resume. Storia e numeri
-in `docs/research/CYCLES.md`, Cycle 26.
+notifiche e resume dedicati; il limite sugli errori API Codex è descritto sotto. La **0.20.0**
+chiude il giro sulle sessioni: il teardown di una tab **termina davvero** la sessione pty (shell,
+agente, albero MCP, descrittore) e le sessioni agente si spengono a mano tenendo il resume
+(`docs/research/CYCLES.md`, Cycle 26). Dopo la 0.20.0 e non ancora rilasciato: la catena delle
+notifiche resa affidabile end-to-end - nessun evento perso sotto raffica di hook, drift degli hook
+Claude riparato all'avvio, una sola notifica viva per tab che si ritira quando l'attenzione si
+spegne (Cycle 27).
 
 ## Disattivazione automatica delle sessioni agente
 
@@ -60,7 +63,8 @@ Nessuno dei tre è iniziato; si prende quello che serve per primo.
 - Altri hook Claude Code non ancora sfruttati: il set è cresciuto molto dal mapping v1
   (`PermissionDenied`, `Notification` con matcher `idle_prompt`, `SubagentStart`, `PostCompact`,
   `PreModelSwitch`, `CwdChanged`). Nessuno urgente, `StopFailure` era l'unico che copriva un buco
-  vero, ma la lista va ripassata quando si tocca il mapping.
+  vero, ma la lista va ripassata quando si tocca il mapping. Aggiungerne uno ora costa meno: chi ha
+  installato con una versione precedente se lo vede riparare all'avvio (Cycle 27).
 - Export della timeline degli eventi agente; import di temi da config Ghostty.
 
 ## Generalizzazione multi-agente
