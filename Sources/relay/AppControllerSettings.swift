@@ -77,6 +77,16 @@ extension AppController {
         }
     }
 
+    /// `RelayHookState` (HookInstaller) nel suo equivalente per i pannelli: Panels non importa
+    /// l'installer, e il composition root è il posto dove i due mondi si incontrano.
+    static func hookStatus(_ state: RelayHookState) -> HookStatus {
+        switch state {
+        case .installed: .installed
+        case .absent: .absent
+        case let .drifted(missing): .outOfDate(missing: missing)
+        }
+    }
+
     /// Controlli per installare/rimuovere gli hook Claude e Codex dalle impostazioni, usando il
     /// `relay-cli` accanto all'eseguibile corrente (nel bundle: `Contents/MacOS/relay-cli`; in dev:
     /// la stessa dir di build). Array vuoto se il cli non è raggiungibile: l'onboarding mostra il
@@ -91,7 +101,7 @@ extension AppController {
                 title: "Claude Code hooks",
                 detail: "Relay reads agent state from Claude Code hooks. Installation appends "
                     + "to ~/.claude/settings.json and keeps existing hooks.",
-                isInstalled: { claude.status() },
+                status: { Self.hookStatus(claude.state()) },
                 install: { try claude.setup(cliPath: cli) },
                 uninstall: { try claude.uninstall() }
             ),
@@ -103,7 +113,7 @@ extension AppController {
                 note: "After installing, open /hooks in Codex to review and trust the user "
                     + "configuration; review again after hook definitions change. "
                     + "Codex hooks do not currently report API failures.",
-                isInstalled: { codex.status() },
+                status: { Self.hookStatus(codex.state()) },
                 install: { try codex.setup(cliPath: cli) },
                 uninstall: { try codex.uninstall() }
             ),

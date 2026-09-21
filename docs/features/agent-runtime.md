@@ -19,9 +19,10 @@ apre Settings, e `StopFailure` (aggiunto in v0.17.0) è rimasto fuori per 18 gio
 dove tutto il resto funzionava, quindi lo stato `error` non è mai arrivato. **Codex no**: i suoi
 hook vanno ri-approvati con `/hooks` a ogni cambio di definizione, e riscriverli in silenzio
 rischierebbe di spegnere anche quelli che funzionano; il suo drift resta segnalato e basta.
-A dirlo per intero è `relay-cli hooks status`, che nomina **quali** eventi mancano invece di dire
-solo che qualcosa manca; il blocco in Settings resta binario (installato / non installato), che per
-un drift è vero ma povero.
+Gli eventi mancanti li nominano sia `relay-cli hooks status` sia il blocco in Settings ("Out of
+date: missing ..." con il bottone che diventa **Update**): per Codex quello è l'unico posto dove
+il drift si vede, e leggerlo come "non installato" manderebbe a cercare nel posto sbagliato su una
+configurazione che di fatto funziona.
 
 Codex deve supportare gli hook nativi. Dopo il setup e a ogni modifica delle definizioni, l'utente
 deve rivedere il trust tramite `/hooks`; Relay verifica solo la presenza degli spec nel file.
