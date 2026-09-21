@@ -93,23 +93,12 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         }
     }
 
-    /// Filtra una transizione notificabile per preferenze e contesto, poi la consegna.
+    /// Filtra una transizione notificabile per preferenze e contesto, poi la consegna. La regola
+    /// vive in `NotificationPolicy` (pura, testata): qui resta solo l'I/O, perché questo modulo
+    /// non ha un test target.
     func handle(_ request: AgentNotification) {
-        guard settings.notificationsEnabled else { return }
-        switch request.kind {
-        case .needsInput:
-            guard settings.notifyOnNeedsInput else { return }
-            // `isVisible` include già "Relay in primo piano": se è vero la stai guardando, è
-            // rumore.
-            if request.isVisible { return }
-        case .completed:
-            guard settings.notifyOnCompleted else { return }
-        case .error:
-            guard settings.notifyOnError else { return }
-            // Come `needsInput`: se la tab è in vista con Relay davanti, l'errore lo stai già
-            // leggendo nel terminale.
-            if request.isVisible { return }
-        }
+        guard NotificationPolicy.shouldDeliver(request, given: settings.notificationPreferences)
+        else { return }
         deliver(request)
     }
 
@@ -124,7 +113,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
 
     private func deliver(_ request: AgentNotification) {
         let content = UNMutableNotificationContent()
-        content.title = Self.title(for: request.kind, agent: request.agent)
+        content.title = NotificationPolicy.title(for: request.kind, agent: request.agent)
         content.body = "\(request.workspaceName) / \(request.tabTitle)"
         content.userInfo = [
             UserInfoKey.workspaceID: request.workspaceID.uuidString,
@@ -154,19 +143,6 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
 
     private static func identifier(for tabID: UUID) -> String {
         "relay.tab.\(tabID.uuidString)"
-    }
-
-    private static func title(for kind: AgentNotificationKind, agent: String) -> String {
-        let name = switch agent.lowercased() {
-        case "claude": "Claude"
-        case "codex": "Codex"
-        default: agent.isEmpty ? "Agent" : agent
-        }
-        return switch kind {
-        case .needsInput: "\(name) needs a reply"
-        case .completed: "\(name) finished"
-        case .error: "\(name) stopped on an error"
-        }
     }
 
     /// "Default" = suono di notifica di sistema; gli altri sono i classici alert in

@@ -21,9 +21,12 @@ Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard
   `SessionEnd` (`/clear`, `exit`, logout). Sono azioni tue: notificarle seppellirebbe le altre.
   `needs_input` ed `error` notificano solo alla **entrata** nello stato, quindi una raffica di
   retry falliti riaccende il badge ogni volta ma suona una volta sola.
-  Il trigger è puro (`AgentStateReducer.notification`), lo store emette via
-  `onNotifiableTransition` e il `NotificationCoordinator` (solo se `Bundle.main.bundleIdentifier !=
-  nil`) filtra per preferenze e consegna. `isVisible = tab selezionata && NSApp.isActive`: se Relay è
+  Le due decisioni sono entrambe pure e testate: `AgentStateReducer.notification` dice **se** una
+  transizione merita una notifica, `NotificationPolicy.shouldDeliver` (con il titolo) dice **se
+  consegnarla**, date le preferenze. Stanno in `WorkspaceModel` per un motivo pratico: `RelayApp`
+  non ha un test target, quindi ciò che decide e vive lì non è coperto da niente. Lo store emette
+  via `onNotifiableTransition` e al `NotificationCoordinator` (solo se
+  `Bundle.main.bundleIdentifier != nil`) resta `UNUserNotificationCenter`, cioè solo I/O. `isVisible = tab selezionata && NSApp.isActive`: se Relay è
   in background notifica anche sulla tab selezionata. Il marker "completato" (`attention`, enum
   `AttentionLevel`) **non** si spegne al semplice ritorno in foreground né alla selezione della tab
   (altrimenti sparirebbe prima che tu lo veda; aprire una tab completata mostra il ring verde +

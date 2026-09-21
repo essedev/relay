@@ -257,6 +257,16 @@ public final class AppSettings {
         update(\.skippedUpdateVersion, version, key: Keys.skippedUpdateVersion)
     }
 
+    /// I toggle delle notifiche come valori, per `NotificationPolicy` (che è puro e testabile).
+    public var notificationPreferences: NotificationPolicy.Preferences {
+        NotificationPolicy.Preferences(
+            enabled: notificationsEnabled,
+            onNeedsInput: notifyOnNeedsInput,
+            onCompleted: notifyOnCompleted,
+            onError: notifyOnError
+        )
+    }
+
     public func setNotificationsEnabled(_ enabled: Bool) {
         update(\.notificationsEnabled, enabled, key: Keys.notificationsEnabled)
     }
