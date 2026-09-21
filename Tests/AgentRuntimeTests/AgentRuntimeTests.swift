@@ -187,3 +187,68 @@ private func sampleEvent(
         .decode(AgentStateEvent.self, from: Data(line.utf8))
     #expect(event.timestamp == Date(timeIntervalSince1970: 1000))
 }
+
+/// Contatore thread-safe usabile dai thread di `concurrentPerform` (un `actor` non si legge in
+/// contesto sincrono).
+private final class FailureCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var failures = 0
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return failures
+    }
+
+    func bump() {
+        lock.lock()
+        failures += 1
+        lock.unlock()
+    }
+}
+
+/// Regressione: con decine di sessioni agente gli hook si connettono a raffica. Il backlog era 16
+/// e la source accettava **una** connessione per risveglio, quindi la coda restava piena e la
+/// `connect` del client veniva respinta; la CLI ingoia l'errore per contratto, e l'evento spariva
+/// senza lasciare traccia (una tab bloccata su "running", la sua notifica mai arrivata).
+/// Misurato prima del fix: 76 eventi persi su 100.
+@Test func burstOfConcurrentHooksLosesNoEvent() async throws {
+    let path = uniqueSocketPath()
+    let box = ReceivedBox()
+    let receiver = AgentEventReceiver(path: path) { event in
+        Task { await box.add(event) }
+    }
+    try receiver.start()
+    defer { receiver.stop() }
+
+    let total = 200
+    let failures = FailureCount()
+    await withCheckedContinuation { continuation in
+        DispatchQueue.global().async {
+            DispatchQueue.concurrentPerform(iterations: total) { index in
+                do {
+                    try AgentEventClient.send(
+                        sampleEvent(sessionId: "burst-\(index)", state: .idle),
+                        to: path
+                    )
+                } catch {
+                    failures.bump()
+                }
+            }
+            continuation.resume()
+        }
+    }
+
+    #expect(failures.value == 0)
+    #expect(await waitUntil { await box.count() == total })
+}
+
+/// Il retry non deve costare niente quando Relay non è in esecuzione: lì la `connect` fallisce con
+/// `ENOENT` (il socket file non esiste), e aspettare fra i tentativi rallenterebbe **ogni** hook
+/// della macchina senza alcuna possibilità di successo.
+@Test func onlyTransientTransportErrorsAreRetried() {
+    #expect(AgentEventClient.isTransient(.connectFailed(ECONNREFUSED)))
+    #expect(AgentEventClient.isTransient(.writeFailed(EPIPE)))
+    #expect(!AgentEventClient.isTransient(.connectFailed(ENOENT)))
+    #expect(!AgentEventClient.isTransient(.pathTooLong("/tmp/x")))
+    #expect(!AgentEventClient.isTransient(.addressInUse))
+}

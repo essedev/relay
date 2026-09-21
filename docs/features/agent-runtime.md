@@ -35,6 +35,18 @@ migra né modifica quella configurazione. Contratto upstream:
   fuori orfanava il receiver e **congelava tutti i badge** sull'ultimo stato ricevuto (la causa dei
   badge idle/loading bloccati). Ri-binda solo se il file è davvero assente (se esiste, un'altra
   istanza ne ha uno vivo: no ping-pong).
+- **Raffica**: con decine di sessioni gli hook si connettono nello stesso istante, e un evento
+  perso non torna più (la CLI ingoia l'errore per contratto, quindi non lo saprebbe nessuno).
+  Tre cose lo impediscono, e vanno tenute insieme: backlog a 128 (`kern.ipc.somaxconn`, il massimo
+  che il kernel onora), `acceptConnection` che **svuota tutta la coda** a ogni risveglio della
+  source (accettarne una sola la lasciava piena), e nel client un retry breve (10 ms, 30 ms) sui
+  soli errori transitori. Misura prima: 76 eventi persi su 100 connessioni simultanee; ora zero.
+  Il retry **non** scatta su `ENOENT`, cioè quando Relay non è in esecuzione: lì non c'è niente da
+  aspettare e rallenterebbe ogni hook della macchina.
+  **Trappola BSD**: il listener è non bloccante per poter fare il loop di accept, e su macOS l'fd
+  accettato **eredita** `O_NONBLOCK`. `drain` legge in modo bloccante, quindi ogni fd accettato va
+  riportato a bloccante a mano: senza, la read torna `EAGAIN` ogni volta che i byte del client non
+  sono ancora arrivati e l'evento si perde invece di essere atteso.
 - Ordine degli eventi agente: ogni hook è un processo effimero con la sua connessione e il
   receiver drena in parallelo (un client bloccato non ferma gli altri), quindi il trasporto NON
   garantisce l'ordine. Lo ristabiliscono il pump FIFO in `AgentCoordinator` (AsyncStream, un solo

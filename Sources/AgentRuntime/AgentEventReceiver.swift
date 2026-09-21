@@ -22,6 +22,9 @@ public final class AgentEventReceiver: @unchecked Sendable {
         attributes: .concurrent
     )
     private let log = RelayLog.logger("agent-receiver")
+    /// Coda di connessioni in attesa di `accept`. 128 = `kern.ipc.somaxconn` su macOS, cioè il
+    /// massimo che il kernel onora: chiederne di più non serve a niente.
+    private static let backlog: Int32 = 128
 
     private var listenFD: Int32 = -1
     /// Vogliamo essere in ascolto (tra `start` e `stop`): guida il self-heal a ritentare anche dopo
@@ -88,10 +91,17 @@ public final class AgentEventReceiver: @unchecked Sendable {
             close(fd)
             throw UnixSocketError.bindFailed(errno)
         }
-        guard listen(fd, 16) == 0 else {
+        // Backlog al massimo che il kernel accetta (`kern.ipc.somaxconn`, 128 su macOS). Con
+        // decine di sessioni agente gli hook si connettono a raffica: quando la coda è piena la
+        // `connect` del client fallisce e l'evento è perso in silenzio, perché la CLI ingoia
+        // l'errore per contratto (un problema di Relay non deve rompere l'agente).
+        guard listen(fd, Self.backlog) == 0 else {
             close(fd)
             throw UnixSocketError.listenFailed(errno)
         }
+        // Listener non bloccante: serve ad `acceptConnection` per drenare tutta la coda in un
+        // giro solo (una `accept` bloccante al secondo giro fermerebbe la serial queue).
+        setNonBlocking(fd)
 
         listenFD = fd
         let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
@@ -153,18 +163,44 @@ public final class AgentEventReceiver: @unchecked Sendable {
         }
     }
 
+    /// Svuota **tutta** la coda di accept a ogni risveglio della source. Accettarne una sola per
+    /// evento lascia il backlog pieno sotto raffica, e un backlog pieno respinge la `connect` del
+    /// client: l'evento sparisce senza che nessuno se ne accorga.
     private func acceptConnection() {
-        let clientFD = accept(listenFD, nil, nil)
-        guard clientFD >= 0 else {
-            // fd esauriti o listen fd invalido: senza un segnale il badge si fermerebbe in
-            // silenzio. `privacy: .public`: un errno non è un dato dell'utente, e redatto il log
-            // non dice più di quanto direbbe il silenzio.
-            let reason = String(cString: strerror(errno))
-            log.error("agent receiver accept failed: \(reason, privacy: .public)")
-            return
+        while true {
+            let clientFD = accept(listenFD, nil, nil)
+            guard clientFD >= 0 else {
+                if errno == EINTR { continue }
+                // Coda svuotata: è la condizione di uscita normale del loop, non un errore.
+                if errno == EAGAIN || errno == EWOULDBLOCK { return }
+                // fd esauriti o listen fd invalido: senza un segnale il badge si fermerebbe in
+                // silenzio. `privacy: .public`: un errno non è un dato dell'utente, e redatto il
+                // log non dice più di quanto direbbe il silenzio.
+                let reason = String(cString: strerror(errno))
+                log.error("agent receiver accept failed: \(reason, privacy: .public)")
+                return
+            }
+            // Su BSD/macOS l'fd accettato **eredita** O_NONBLOCK dal listener, che abbiamo reso
+            // non bloccante per il loop qui sopra. `drain` legge in modo bloccante: senza questo
+            // ripristino la read tornerebbe EAGAIN ogni volta che i byte del client non sono
+            // ancora arrivati, e l'evento andrebbe perso invece che atteso.
+            setBlocking(clientFD)
+            // Connessioni effimere (una linea e chiudi): leggo fino a EOF fuori dalla accept
+            // queue.
+            readQueue.async { [weak self] in self?.drain(clientFD) }
         }
-        // Connessioni effimere (una linea e chiudi): leggo fino a EOF fuori dalla accept queue.
-        readQueue.async { [weak self] in self?.drain(clientFD) }
+    }
+
+    private func setNonBlocking(_ fd: Int32) {
+        let flags = fcntl(fd, F_GETFL)
+        guard flags >= 0 else { return }
+        _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+    }
+
+    private func setBlocking(_ fd: Int32) {
+        let flags = fcntl(fd, F_GETFL)
+        guard flags >= 0 else { return }
+        _ = fcntl(fd, F_SETFL, flags & ~O_NONBLOCK)
     }
 
     private func drain(_ fd: Int32) {
