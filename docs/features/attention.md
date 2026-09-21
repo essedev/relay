@@ -73,7 +73,16 @@ Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard
   `UNUserNotificationCenterDelegate` e forza `willPresent -> [.banner,.sound,.list]`: **senza, i
   banner sono soppressi quando Relay è frontmost**. Al primo avvio dal bundle macOS chiede il
   permesso una volta; una firma ad-hoc che cambia a ogni reinstall può farlo decadere (log
-  `auth status` al boot: 2 = authorized). **Click sulla notifica**: riporta in vista la tab che
+  `auth status` al boot: 2 = authorized). **Una notifica viva per tab**: l'identifier è
+  `relay.tab.<id>`, non un UUID per evento, quindi una tab che va in needs_input, poi in errore,
+  poi completa **sostituisce** il proprio banner invece di lasciarne tre; il `threadIdentifier` è
+  il workspace, così il centro notifiche li raggruppa per progetto invece di impilarne decine.
+  Il ritiro passa da `WorkspaceStore.onAttentionCleared`, simmetrico di `onNotifiableTransition`:
+  lo store lo emette quando la tab non aspetta più niente (mark-read, dismiss, decadenza,
+  `toggleUnread` che spegne, chiusura tab) e il composition root fa `removeDeliveredNotifications`.
+  Senza, il banner sopravviveva alla cosa che lo aveva generato e cliccarlo mezza giornata dopo
+  riportava in vista una conversazione già letta, o una tab che non c'era più.
+  **Click sulla notifica**: riporta in vista la tab che
   l'ha generata. `AgentNotification` porta `tabID`/`workspaceID`, che il coordinatore mette nel
   `userInfo` del contenuto; alla ricezione (`didReceive response`, azione di default) legge gli id
   e delega a `AppController.activateTab` (seleziona workspace+tab, de-archivia se serve, porta la

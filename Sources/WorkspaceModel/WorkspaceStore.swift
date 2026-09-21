@@ -59,6 +59,13 @@ public final class WorkspaceStore {
     /// timer (AppKit/dispatch), che lo store puro non ha. `@ObservationIgnored`: hook imperativo.
     @ObservationIgnored public var onVisibleCompletion: ((UUID) -> Void)?
 
+    /// Simmetrico di `onNotifiableTransition`: la tab non aspetta più niente (l'hai vista, l'hai
+    /// dismessa, il sospeso è decaduto, l'hai chiusa), quindi la sua notifica macOS non ha più
+    /// niente da dire e il composition root la ritira dal centro notifiche. Senza, un banner
+    /// sopravvive alla cosa che lo ha generato e il centro notifiche accumula una voce per ogni
+    /// tab che ha mai chiamato. `@ObservationIgnored`: hook imperativo.
+    @ObservationIgnored public var onAttentionCleared: ((UUID) -> Void)?
+
     /// Soglia anti-stantio per gli eventi agente: un evento con `timestamp` anteriore viene
     /// scartato (vedi `applyAgentState`). Il composition root la timbra all'avvio. Serve perché il
     /// `RELAY_TAB_ID` è stabile tra i riavvii: un evento generato prima del restart (`SessionEnd`
@@ -286,6 +293,8 @@ public final class WorkspaceStore {
     @discardableResult
     public func closeTab(_ tabID: UUID, in workspace: Workspace) -> UUID? {
         let removed = workspace.removeTab(tabID)
+        // La tab non esiste più: un banner che la riapre porterebbe da nessuna parte.
+        if removed != nil { onAttentionCleared?(tabID) }
         if removed != nil, workspace.tabs.isEmpty {
             closeWorkspace(workspace.id)
         }

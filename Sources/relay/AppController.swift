@@ -171,6 +171,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         coordinator.onActivate = { [weak self] workspaceID, tabID in
             self?.activateTab(workspaceID: workspaceID, tabID: tabID)
         }
+        store.onAttentionCleared = { [weak self] tabID in
+            self?.notifications?.clear(tabID: tabID)
+        }
         notifications = coordinator
     }
 

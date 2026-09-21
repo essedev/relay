@@ -186,7 +186,10 @@ public extension WorkspaceStore {
     /// flash scatta). No-op se la tab non esiste o non è `unseen` (l'utente ha già interagito,
     /// ripreso o dismesso nel frattempo): idempotente, coerente con `Tab.markSeen`.
     func markSeen(_ tabID: UUID) {
-        tab(id: tabID)?.markSeen()
+        guard let tab = tab(id: tabID), tab.attention == .unseen else { return }
+        tab.markSeen()
+        // L'hai visto: il banner macOS non ha piu' niente da dire.
+        onAttentionCleared?(tabID)
     }
 
     /// Dismiss esplicito dell'attenzione di una tab ("era done, niente da fare"): spegne il
@@ -196,6 +199,7 @@ public extension WorkspaceStore {
         guard let tab = tab(id: tabID), tab.attention != .none else { return false }
         tab.attention = .none
         tab.attentionSince = nil
+        onAttentionCleared?(tabID)
         return true
     }
 
@@ -209,6 +213,7 @@ public extension WorkspaceStore {
         if tab.attention == .unseen {
             tab.attention = .none
             tab.attentionSince = nil
+            onAttentionCleared?(tabID)
         } else {
             tab.markUnread()
         }
@@ -227,6 +232,7 @@ public extension WorkspaceStore {
                   (tab.attentionSince ?? tab.lastEventAt ?? .distantPast) < cutoff else { continue }
             tab.attention = .none
             tab.attentionSince = nil
+            onAttentionCleared?(tab.id)
             decayed += 1
         }
         return decayed

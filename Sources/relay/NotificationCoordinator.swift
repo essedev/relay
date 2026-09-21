@@ -113,6 +113,15 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         deliver(request)
     }
 
+    /// La tab non aspetta più niente (vista, dismessa, decaduta, chiusa): ritira il suo banner.
+    /// Senza, il banner sopravvive alla cosa che lo ha generato, e cliccarlo mezza giornata dopo
+    /// riporta in vista una conversazione che hai già letto o una tab che non c'è più.
+    func clear(tabID: UUID) {
+        let ids = [Self.identifier(for: tabID)]
+        center.removeDeliveredNotifications(withIdentifiers: ids)
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+    }
+
     private func deliver(_ request: AgentNotification) {
         let content = UNMutableNotificationContent()
         content.title = Self.title(for: request.kind, agent: request.agent)
@@ -121,12 +130,18 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             UserInfoKey.workspaceID: request.workspaceID.uuidString,
             UserInfoKey.tabID: request.tabID.uuidString,
         ]
+        // Raggruppa per workspace nel centro notifiche: con decine di sessioni la lista piatta è
+        // illeggibile, e il workspace è l'unità con cui l'utente ragiona.
+        content.threadIdentifier = request.workspaceID.uuidString
         if settings.notificationSound {
             content.sound = Self.sound(named: settings.notificationSoundName)
         }
         log.notice("deliver: \(content.title, privacy: .public)") // solo il tipo, non il contenuto
+        // Identità **per tab**, non per evento: una tab che va in needs_input, poi in errore, poi
+        // completa sostituisce il proprio banner invece di lasciarne tre. Con un UUID per evento
+        // il centro notifiche accumulava una voce per ogni transizione di ogni tab mai aperta.
         center.add(UNNotificationRequest(
-            identifier: UUID().uuidString,
+            identifier: Self.identifier(for: request.tabID),
             content: content,
             trigger: nil
         )) { [weak self] error in
@@ -135,6 +150,10 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
                 self?.log.error("add failed: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    private static func identifier(for tabID: UUID) -> String {
+        "relay.tab.\(tabID.uuidString)"
     }
 
     private static func title(for kind: AgentNotificationKind, agent: String) -> String {
