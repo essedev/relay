@@ -240,14 +240,11 @@ The rest is internal and in Italian (the English-facing surface is this README a
 - `docs/research/CYCLES.md` - the work log, one entry per round (older ones in `cycles-archive/`).
 - `docs/CONVENTIONS.md` - code, test and process rules.
 - `docs/STATE_SCHEMA.md` - persistence schema and agent event protocol.
-- `docs/features/*.md` - one file per area, with the invariants and the traps already paid for:
-  `attention.md`, `agent-runtime.md`, `terminal.md`, `sidebar.md`, `workspace-groups.md`,
-  `split-panes.md`, `windows.md`, `keyboard.md`, `session-deactivation.md`,
-  `workspace-naming.md`, `guide.md`, `persistence.md`, `distribution.md`.
+- [`docs/features/`](docs/features) - one file per area, with the invariants and the traps already
+  paid for. The folder is the index: a list here goes stale the next time an area is added.
 - `CLAUDE.md` - operational guide for the agent, deliberately short: it points at the files above.
 
 ## License
 
-Relay is [MIT licensed](LICENSE). It bundles SwiftTerm (MIT) as its terminal engine and
-swift-argument-parser (Apache-2.0); their notices are in [NOTICE](NOTICE), shipped inside the app
-under `Relay.app/Contents/Resources`.
+Relay is [MIT licensed](LICENSE). It bundles SwiftTerm (MIT) as its terminal engine; its notice is
+in [NOTICE](NOTICE), shipped inside the app under `Relay.app/Contents/Resources`.

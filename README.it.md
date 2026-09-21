@@ -246,14 +246,11 @@ Il resto è documentazione interna.
 - `docs/research/CYCLES.md` - il log dei cicli di lavoro (i più vecchi in `cycles-archive/`).
 - `docs/CONVENTIONS.md` - regole di codice, test e processo.
 - `docs/STATE_SCHEMA.md` - schema di persistence e protocollo eventi agente.
-- `docs/features/*.md` - un file per area, con le invarianti e le trappole già pagate:
-  `attention.md`, `agent-runtime.md`, `terminal.md`, `sidebar.md`, `workspace-groups.md`,
-  `split-panes.md`, `windows.md`, `keyboard.md`, `session-deactivation.md`,
-  `workspace-naming.md`, `guide.md`, `persistence.md`, `distribution.md`.
+- [`docs/features/`](docs/features) - un file per area, con le invarianti e le trappole già pagate.
+  L'indice è la cartella: un elenco qui invecchia alla prima area che si aggiunge.
 - `CLAUDE.md` - guida operativa per l'agent, volutamente corta: rimanda ai file qui sopra.
 
 ## Licenza
 
-Relay è [licenziata MIT](LICENSE). Include SwiftTerm (MIT) come engine del terminale e
-swift-argument-parser (Apache-2.0); le loro notice stanno in [NOTICE](NOTICE), che viaggia dentro
-l'app sotto `Relay.app/Contents/Resources`.
+Relay è [licenziata MIT](LICENSE). Include SwiftTerm (MIT) come engine del terminale; la sua
+notice sta in [NOTICE](NOTICE), che viaggia dentro l'app sotto `Relay.app/Contents/Resources`.

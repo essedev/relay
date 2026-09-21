@@ -168,8 +168,10 @@ Cresciuto poi, con la codebase:
   dettagli che farebbero crescere `CLAUDE.md`.
 - `docs/research/*`: materiale storico della fase di analisi, più due file vivi (`CYCLES.md`,
   il diario delle decisioni, e `PERF.md`, i numeri di performance).
-- `LICENSE` + `NOTICE`: MIT, con le notice delle dipendenze bundleate (SwiftTerm MIT,
-  swift-argument-parser Apache-2.0). `NOTICE` viaggia dentro il `.app`: è un obbligo della MIT
-  di SwiftTerm, non un vezzo.
+- `LICENSE` + `NOTICE`: MIT, con le notice delle dipendenze **davvero distribuite** (oggi solo
+  SwiftTerm, MIT). `NOTICE` viaggia dentro il `.app`: è un obbligo della MIT di SwiftTerm, non un
+  vezzo. Una dipendenza transitiva che non finisce nei binari non ci va: swift-argument-parser
+  serve a un eseguibile di SwiftTerm che non costruiamo, e infatti nei nostri binari non ha un
+  simbolo (`nm .build/release/relay | grep -i argumentparser`).
 
 Doc e codice cambiano nello stesso commit, o la doc è troppo dettagliata.
