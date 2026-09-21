@@ -42,24 +42,30 @@ decine di sessioni la registry sta stabilmente a 3x il cap e la memoria è quell
 delle surface: ~200 MB e ~9 processi per sessione contro 0,3-0,5 MB per surface idle. Il cap è
 tarato sull'unità di misura sbagliata per questo problema e **non va esteso**.
 
-La strada, in ordine, perché ogni passo abilita il successivo:
+La strada, in due passi:
 
-1. **Transcript recuperabile**: al teardown di una tab con sessione, resa testuale dello scrollback
-   su disco accanto al `ResumeBinding`; al focus si legge come contenuto storico, senza pty e senza
-   agente. Separa "rileggere il lavoro" da "tenere vivo il processo", che oggi sono la stessa cosa
-   solo perché lo scrollback vive nel processo. Rende meno distruttivo anche lo sfratto LRU attuale.
-2. **Disattivazione in blocco**: azione su un workspace o su una selezione della dashboard, con
-   preview di cosa si interrompe e cosa resta recuperabile. Il comando per singola tab da solo
-   impone decine di decisioni identiche. Trappola da chiudere: uccidere l'agente fa scattare il suo
-   `SessionEnd`, che azzera il `resume` da cui la disattivazione dipende; la soppressione va legata
-   all'**istanza** del processo, non alla tab, o un evento in ritardo colpisce una sessione già
-   ripartita. Leggere una tab disattivata non deve riaccenderla, nemmeno con `autoResumeAgents`.
-3. **Automatismo**, per ultimo e non a tempo: ammissibilità (binding coerente con l'istanza viva,
-   transcript salvato, nessun lavoro accessorio non classificabile), necessità (pressione di memoria
-   sostenuta), priorità (lì sì, tempo dall'ultima interazione), con isteresi. `idle` è un
-   prerequisito, non un'autorizzazione: nella stessa tab può girare un dev server.
+1. **Disattivazione esplicita**: azione su una tab, su un workspace o su una selezione della
+   dashboard, con preview di cosa si interrompe. Uccide la sessione e tiene il `ResumeBinding`; al
+   focus la `ResumeBar` la rimette in piedi. Due cose da chiudere: uccidere l'agente fa scattare il
+   suo `SessionEnd`, che azzera il `resume` da cui la disattivazione dipende, e la soppressione va
+   legata all'**istanza** del processo (non alla tab, o un evento in ritardo colpisce una sessione
+   già ripartita); e una tab disattivata non deve riaccendersi da sola, perché `autoResumeAgents`
+   esiste per il riavvio, che è involontario, mentre una disattivazione è voluta e il suo resume
+   deve restare deliberato.
+2. **Automatismo**, per ultimo e non a tempo: ammissibilità (binding coerente con l'istanza viva,
+   nessun lavoro accessorio non classificabile), necessità (pressione di memoria sostenuta),
+   priorità (lì sì, tempo dall'ultima interazione), con isteresi. `idle` è un prerequisito, non
+   un'autorizzazione: nella stessa tab può girare un dev server.
 
 Il nome è "disattiva", non "iberna": ibernare promette una continuità di stato che `--resume` non dà.
+
+**Scartato: salvare il transcript al teardown.** Sembrava il passo abilitante (disattivare senza
+perdere il verbale del lavoro), ma la conversazione è già persistita due volte fuori da Relay: il
+resume la rimostra, e il record completo sta nei file di sessione dell'agente. Le tab senza agente
+perdono già lo scrollback a ogni sfratto LRU, quindi la disattivazione non introduce una perdita
+nuova. In più scrivere il buffer di un terminale su disco mette a riposo token, dump di env e URL
+con credenziali: è una decisione di sicurezza, e qui non la ripaga niente. Resta vero solo il
+vincolo che leggere una tab disattivata non deve riaccenderla, che è un marker sulla tab.
 
 ## Prossimo giro (a scelta)
 
