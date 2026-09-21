@@ -9,6 +9,44 @@ import WorkspaceModel
 // tab ha una surface sola, ovunque sia montata.
 
 extension AppController {
+    /// Aggiorna il titolo nativo di **ogni** finestra (nascosto in finestra, usato da Mission
+    /// Control/Cmd+Tab): ognuna nomina il workspace che mostra. La strip visibile (ContextTitleBar)
+    /// legge la stessa logica via Observation.
+    func observeWindowTitle() {
+        withObservationTracking {
+            for (windowID, controller) in windowControllers {
+                let workspace = store.selectedWorkspace(in: windowID)
+                controller.window.title = WindowTitle.compose(
+                    workspace: workspace, tab: workspace?.selectedTab
+                )
+            }
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeWindowTitle() }
+        }
+    }
+
+    // MARK: - Tema della finestra
+
+    /// L'appearance AppKit segue il tema (darkAqua/aqua): i controlli di sistema (liste, header,
+    /// bottoni) restano leggibili su qualunque background. Title bar trasparente sul background
+    /// del tema, così la strip coi semafori è integrata. Si ri-arma sui cambi (Observation).
+    func observeWindowTheme() {
+        withObservationTracking {
+            applyWindowChrome(settings.theme)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeWindowTheme() }
+        }
+    }
+
+    func applyWindowChrome(_ theme: RelayTheme) {
+        for controller in windowControllers.values {
+            controller.applyChrome(theme)
+        }
+        for target in [settingsWindow, aboutWindow, statsWindow].compactMap(\.self) {
+            target.applyRelayChrome(theme)
+        }
+    }
+
     /// Costruisce la finestra di un `RelayWindow` e ne aggancia gli eventi allo store. Ogni
     /// finestra
     /// ha il suo split e i suoi overlay, ma **condivide** store, settings e `SurfaceRegistry`.
