@@ -11,7 +11,9 @@ resto è archivio della fase di analisi.
 
 - **`CYCLES.md`** - il diario decisionale, un'entrata per ciclo di lavoro. Parte dal Cycle 0
   (analisi engine, diagnosi lag cmux, benchmark) e continua a crescere: è il posto dove finisce il
-  "perché" di ogni giro. Linkato da `CLAUDE.md` e dal README come riferimento corrente.
+  "perché" di ogni giro. Tiene gli ultimi ~15 cicli; i più vecchi ruotano in
+  `cycles-archive/`, numerazione intatta. Linkato da `CLAUDE.md` e dal README come riferimento
+  corrente.
 - **`PERF.md`** - le misure di performance dietro ai budget di `../ARCHITECTURE.md` e la taratura
   del cap LRU, con le istruzioni per rieseguirle (`RELAY_PERF=1`).
 

@@ -13,6 +13,9 @@ sessioni aperte la memoria è tutta lì e il cap non la tocca. **Il cap non va e
 sull'unità di misura delle surface, non degli agenti, e sfrattare una sessione senza dirlo sarebbe
 una cosa diversa da sfrattare un renderer.
 
+Il nome è "disattiva", non "iberna": ibernare prometterebbe una continuità di stato che
+`--resume` non dà (la sessione riparte, non riprende da dove stava il processo).
+
 ## Le due trappole
 
 **1. L'ordine.** Prima si marca la tab nello store (`WorkspaceStore.deactivate`), poi si butta la

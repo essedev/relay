@@ -13,59 +13,27 @@ livelli con dashboard di triage, persistence del layout, cap LRU delle surface, 
 notifiche, gruppi in sidebar, nomina automatica dei workspace, guida in-app, **split v2 sul modello
 cmux** (i pane ospitano le tab, una strip per pane), **multi-window** e gli errori API come stato di
 prima classe per Claude Code (0.17.0). La 0.19.0 aggiunge Codex tramite hook nativi, con setup,
-notifiche e resume dedicati; il limite sugli errori API Codex è descritto sotto.
+notifiche e resume dedicati; il limite sugli errori API Codex è descritto sotto. Dopo la 0.19.0 e
+non ancora rilasciati: il teardown di una tab **termina davvero** la sessione pty (shell, agente,
+albero MCP, descrittore) e le sessioni agente si spengono a mano tenendo il resume. Storia e numeri
+in `docs/research/CYCLES.md`, Cycle 26.
 
-## Da chiudere subito: il teardown non termina niente
+## Disattivazione automatica delle sessioni agente
 
-Non è una feature, è un bug di correttezza misurato (numeri e metodo in
-`docs/research/PERF.md`, sezione sul leak). Chiudere una tab, un pane o un workspace lascia vivi la
-shell, l'eventuale agente col suo albero MCP e il descrittore primario della pty, per sempre finché Relay non
-muore. Vale anche per una tab con la shell ferma al prompt, e vale per lo sfratto LRU. L'alert di
-conferma promette "will be terminated" e oggi è falso.
+La disattivazione **a mano** c'è e regge il caso d'uso (`docs/features/session-deactivation.md`):
+spegne la sessione, tiene il `ResumeBinding`, la tab torna in piedi dalla barra di resume. Manca
+l'automatismo, che è il pezzo delicato e **non va fatto a tempo**. Tre condizioni separate:
 
-1. **Hangup esplicito della sessione pty** nel teardown: SIGHUP al process group in foreground e a
-   quello della shell, poi `terminate()`, poi escalation a SIGKILL sui superstiti e `waitpid` (oggi
-   le shell che muoiono restano zombie). Con l'invariante scritta: **una tab possiede la sessione
-   POSIX della sua pty**, che è il criterio per `nohup`, `disown` e `setsid`.
-2. **Test di regressione**: `FakeEngine` non vede il teardown, serve un test che apra e chiuda pty
-   vere e verifichi fd, processi e zombie a zero. È il buco che ha lasciato passare questo.
-3. **PR upstream a SwiftTerm**: `LocalProcess.terminate()` chiude la `DispatchIO` senza `.stop`, la
-   read pendente sul descrittore primario non completa mai e il cleanup handler non chiude l'fd; in più
-   `childStopped()` cancella il `DispatchSourceProcess` che avrebbe fatto `waitpid`. Quando la patch
-   è mergiata e il pin aggiornato, il fix locale si riduce alla sola escalation (rete di sicurezza
-   per i processi che ignorano SIGHUP).
+- **ammissibilità**: binding coerente con l'istanza viva, nessun lavoro accessorio non
+  classificabile. `idle` è un prerequisito, non un'autorizzazione: nella stessa tab può girare un
+  dev server;
+- **necessità**: pressione di memoria sostenuta, non una soglia istantanea;
+- **priorità**: lì sì, tempo dall'ultima interazione, con isteresi.
 
-## Disattivazione delle sessioni agente
-
-Il cap LRU non sfratta mai una tab con un agente vivo (scelta deliberata, Cycle 9 e 15), quindi con
-decine di sessioni la registry sta stabilmente a 3x il cap e la memoria è quella degli agenti, non
-delle surface: ~200 MB e ~9 processi per sessione contro 0,3-0,5 MB per surface idle. Il cap è
-tarato sull'unità di misura sbagliata per questo problema e **non va esteso**.
-
-La strada, in due passi:
-
-1. **Disattivazione esplicita**: azione su una tab, su un workspace o su una selezione della
-   dashboard, con preview di cosa si interrompe. Uccide la sessione e tiene il `ResumeBinding`; al
-   focus la `ResumeBar` la rimette in piedi. Due cose da chiudere: uccidere l'agente fa scattare il
-   suo `SessionEnd`, che azzera il `resume` da cui la disattivazione dipende, e la soppressione va
-   legata all'**istanza** del processo (non alla tab, o un evento in ritardo colpisce una sessione
-   già ripartita); e una tab disattivata non deve riaccendersi da sola, perché `autoResumeAgents`
-   esiste per il riavvio, che è involontario, mentre una disattivazione è voluta e il suo resume
-   deve restare deliberato.
-2. **Automatismo**, per ultimo e non a tempo: ammissibilità (binding coerente con l'istanza viva,
-   nessun lavoro accessorio non classificabile), necessità (pressione di memoria sostenuta),
-   priorità (lì sì, tempo dall'ultima interazione), con isteresi. `idle` è un prerequisito, non
-   un'autorizzazione: nella stessa tab può girare un dev server.
-
-Il nome è "disattiva", non "iberna": ibernare promette una continuità di stato che `--resume` non dà.
-
-**Scartato: salvare il transcript al teardown.** Sembrava il passo abilitante (disattivare senza
-perdere il verbale del lavoro), ma la conversazione è già persistita due volte fuori da Relay: il
-resume la rimostra, e il record completo sta nei file di sessione dell'agente. Le tab senza agente
-perdono già lo scrollback a ogni sfratto LRU, quindi la disattivazione non introduce una perdita
-nuova. In più scrivere il buffer di un terminale su disco mette a riposo token, dump di env e URL
-con credenziali: è una decisione di sicurezza, e qui non la ripaga niente. Resta vero solo il
-vincolo che leggere una tab disattivata non deve riaccenderla, che è un marker sulla tab.
+Il cap LRU resta fuori da questa partita: non sfratta mai una tab con processi vivi (scelta
+deliberata, Cycle 9 e 15) ed è tarato sull'unità di misura delle surface, non degli agenti. **Non
+va esteso.** Resta scartato anche il salvataggio del transcript al teardown, che sembrava il passo
+abilitante: il perché sta in `docs/research/CYCLES.md`, Cycle 26.
 
 ## Prossimo giro (a scelta)
 
@@ -83,6 +51,10 @@ Nessuno dei tre è iniziato; si prende quello che serve per primo.
 - Dashboard oltre le due viste attuali: azioni inline (resume/chiudi) sulle card, contatore
   aggregato nell'header del pannello (quelli per corsia nel kanban ci sono già), preview delle
   ultime righe (richiede surface vive).
+- PR upstream a SwiftTerm sul teardown: `LocalProcess.terminate()` chiude la `DispatchIO` senza
+  `.stop` (la read sul descrittore primario non completa mai) e `childStopped()` cancella il
+  `DispatchSourceProcess` che avrebbe fatto `waitpid`. Con la patch mergiata e il pin aggiornato, di
+  `PtySessionTeardown` resta utile solo l'escalation, rete di sicurezza per chi ignora SIGHUP.
 - Zoom del pane ed equalize dei divider.
 - Rename del workspace dalla menu bar (oggi solo dal contestuale della sidebar).
 - Altri hook Claude Code non ancora sfruttati: il set è cresciuto molto dal mapping v1

@@ -165,7 +165,8 @@ GroupSnapshot     { id, name, colorIndex, collapsed, pinned }
 WorkspaceSnapshot { id, windowID, groupID?, name, nameOrigin, rootPath?, pinned, archived,
                     selectedTabID?, tabs: [TabSnapshot], splitLayout?: SplitNode,
                     focusedPaneID? }
-TabSnapshot       { id, title, hasCustomTitle, currentDirectory?, resume?, pendingSince? }
+TabSnapshot       { id, title, hasCustomTitle, currentDirectory?, resume?, pendingSince?,
+                    deactivated }
 ResumeBinding     { agent, sessionId, label }
 SplitNode         = { pane: SplitPane } | { split: { id, axis, ratio, first, second } }
 SplitPane         { id, tabIDs: [UUID], selectedTabID? }
@@ -185,6 +186,7 @@ chiave mancante farebbe fallire il decode, cioè butterebbe il layout dell'utent
 | `splitLayout` | `nil` -> pane radice con tutte le tab | layout pre split |
 | `focusedPaneID` | `nil` -> il pane della selezione | layout pre modello cmux |
 | `pendingSince` | `nil` (nessun sospeso) | layout pre attenzione a tre livelli |
+| `deactivated` | `false` (tab normale) | layout pre disattivazione delle sessioni |
 
 I gruppi sono salvati come **solo aspetto** (nome, colore, collassato, pinnato): l'appartenenza vive
 su `WorkspaceSnapshot.groupID`, quindi non c'è una lista di membri da validare al restore. Due
