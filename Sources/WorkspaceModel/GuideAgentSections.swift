@@ -89,6 +89,17 @@ extension Guide {
                                    + "the resume command for you. Settings can make it automatic; "
                                    + "the default asks, because nothing should type commands into "
                                    + "your shell unannounced."),
+                    GuideTopic("moon.zzz", "Deactivate a session",
+                               "An agent session costs a couple of hundred megabytes and a "
+                                   + "handful of processes, and Relay never evicts a tab that "
+                                   + "still has one running. Deactivate Sessions, in the "
+                                   + "Workspace menu or on a sidebar row, stops them and keeps "
+                                   + "the way back: the tabs stay where they are and reopening "
+                                   + "one offers to resume. Tabs on screen and agents that are "
+                                   + "working are left alone, and the confirmation says so. A "
+                                   + "deactivated tab never resumes on its own, even with "
+                                   + "automatic resume on: you can open it to look without "
+                                   + "starting it again."),
                 ]),
                 .note(
                     "If a resume ends in command not found, something in that tab was waiting "

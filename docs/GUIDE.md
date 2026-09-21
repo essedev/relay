@@ -154,6 +154,12 @@ has Mark as Read and Mark as Unread on the tab.
   restored tab with a session offers a Resume bar that types the resume command for you. Settings
   can make it automatic; the default asks, because nothing should type commands into your shell
   unannounced.
+- **Deactivate a session** - An agent session costs a couple of hundred megabytes and a handful of
+  processes, and Relay never evicts a tab that still has one running. Deactivate Sessions, in the
+  Workspace menu or on a sidebar row, stops them and keeps the way back: the tabs stay where they
+  are and reopening one offers to resume. Tabs on screen and agents that are working are left alone,
+  and the confirmation says so. A deactivated tab never resumes on its own, even with automatic
+  resume on: you can open it to look without starting it again.
 
 **Note:** If a resume ends in command not found, something in that tab was waiting for input and
 took the first character as its answer: a resume types into the shell exactly as you would, it does
