@@ -255,14 +255,6 @@ public final class Workspace: Identifiable {
     func setRatio(_ ratio: Double, forBranch branchID: UUID) {
         layout = layout.settingRatio(ratio, forBranch: branchID)
     }
-
-    /// Adotta una tab creata fuori dal layout (restore di casi limite). Interno al modulo.
-    func adoptTab(_ tab: Tab, inPane paneID: UUID? = nil, select: Bool = false) {
-        guard !layout.contains(tabID: tab.id) else { return }
-        if !tabs.contains(where: { $0.id == tab.id }) { tabs.append(tab) }
-        let home = paneID.flatMap { layout.pane($0) != nil ? $0 : nil } ?? focusedPaneID
-        layout = layout.updatingPane(home) { $0.insert(tab.id, select: select) }
-    }
 }
 
 extension Array {
