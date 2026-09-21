@@ -836,7 +836,10 @@ eventi mancanti, così `relay-cli hooks status` dice **quali**, non solo che qua
 di Claude lo ripara l'app all'avvio: il setup è idempotente, fa il backup e l'utente ha già
 acconsentito a quel path. **Codex no**, ed è una scelta: i suoi hook vanno ri-approvati con `/hooks`
 a ogni cambio di definizione, e riscriverli in silenzio rischierebbe di spegnere anche quelli che
-funzionano. Il suo drift resta segnalato.
+funzionano. Il suo drift resta segnalato, e proprio per questo anche il blocco in Settings ha
+smesso di essere binario: "Out of date: missing ..." col bottone **Update**, perché per Codex
+quello è l'unico posto dove il drift si vede, e "non installato" su una configurazione che
+funziona per sei hook su otto manda a cercare nel posto sbagliato.
 
 ### Una notifica viva per tab
 
@@ -889,7 +892,12 @@ silenziosa per costruzione - un hook non può rompere l'agente - la difesa non �
 
 ### Esito
 
-`make test` verde, 547 test (+15 sul ciclo precedente): raffica di 100 connessioni simultanee senza
+`make check` verde, 549 test (+17 sul ciclo precedente): raffica di 100 connessioni simultanee senza
 perdite, retry solo sui transitori, drift distinto da assente con gli eventi mancanti, ritiro della
 notifica sui cinque modi in cui l'attenzione si spegne, e la policy di consegna coperta per intero.
+Verifica sull'app vera, non solo unit: istanza isolata (socket e layout temporanei), 470 eventi su
+470 consegnati a 10, 20, 40, 100 e 300 connessioni simultanee, zero `read failed`; contro
+l'istanza viva pre-fix lo stesso test perdeva 8/10, 20/20 e 36/40. Il drift provato end to end:
+`out of date, missing StopFailure` diventa `installed` dopo un boot, con
+`claude hooks repaired, added: StopFailure` nel log.
 Non rilasciato: la versione resta 0.20.0.
