@@ -27,8 +27,9 @@ sessions are running at once. Fast and lightweight.
 
 Status: baseline complete and distributed via a Homebrew tap. Workspace -> pane -> tab -> terminal,
 agent runtime with badges and notifications, split panes and multiple windows, layout persistence,
-assisted resume, kanban triage dashboard, workspace groups and archive, automatic workspace naming
-(no setup needed, an LLM if you want better names), onboarding, an in-app guide, twelve themes.
+assisted resume, session deactivation, kanban triage dashboard, workspace groups and archive,
+automatic workspace naming (no setup needed, an LLM if you want better names), onboarding, an
+in-app guide, twelve themes.
 Engine v1 is SwiftTerm behind the
 `TerminalEngine` abstraction (libghostty a future backend). Decisions, benchmarks and research logs
 live in `docs/research/` (`CYCLES.md`).
@@ -112,6 +113,14 @@ it. Codex hooks currently expose no equivalent failure event, so exact Codex API
 visible in the terminal but cannot yet produce Relay's red error state; the badge can retain its
 last state until another hook arrives. Interrupting a Codex turn returns it to idle without a
 completion notification. After restarting Relay, the Resume bar supports both agents.
+
+A session you are not coming back to soon does not have to keep running: **Deactivate Sessions**,
+in the Workspace menu or on a sidebar row, stops the agents of a workspace and keeps the way back.
+The tabs stay where they are, and reopening one offers to resume. Tabs on screen and agents that are
+working are left alone, and the confirmation says how many and why. A deactivated tab never resumes
+on its own, even with automatic resume on, so you can open it to look without starting it again.
+An agent session costs a couple of hundred megabytes and a handful of processes once its MCP servers
+are counted, and Relay never evicts a tab that still has one running.
 
 If a resume ends in `command not found`, something in that tab was waiting for input and took the
 first character as its answer: the Resume bar types into the shell exactly as you would, it does

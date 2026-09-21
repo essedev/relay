@@ -27,8 +27,9 @@ girano dodici sessioni insieme. Veloce e leggero.
 
 Stato: baseline chiuso e distribuito via Homebrew tap. Workspace -> pane -> tab -> terminale, agent
 runtime con badge e notifiche, split panes e multi-finestra, persistence del layout, resume
-assistito, dashboard di triage kanban, gruppi e archivio dei workspace, nomina automatica dei
-workspace (senza configurare niente, con un LLM se vuoi nomi migliori), onboarding, guida in-app,
+assistito, disattivazione delle sessioni, dashboard di triage kanban, gruppi e archivio dei
+workspace, nomina automatica dei workspace (senza configurare niente, con un LLM se vuoi nomi
+migliori), onboarding, guida in-app,
 dodici temi. Engine v1 SwiftTerm dietro l'astrazione
 `TerminalEngine` (libghostty backend futuro). Decisioni, benchmark e log della ricerca:
 `docs/research/` (`CYCLES.md`).
@@ -115,6 +116,14 @@ lo spegne. Gli hook Codex non espongono ancora un evento di fallimento equivalen
 resta visibile nel terminale, ma non può ancora produrre lo stato rosso di Relay; il badge può
 conservare l'ultimo stato fino al prossimo hook. Interrompere un turno Codex lo riporta a idle
 senza notifica di completamento. Dopo un riavvio di Relay, la barra Resume supporta entrambi gli agenti.
+
+Una sessione a cui non torni a breve non deve restare accesa: **Deactivate Sessions**, nel menu
+Workspace o sulla riga in sidebar, spegne gli agenti di un workspace tenendo la via del ritorno. Le
+tab restano dove sono e riaprendone una ti propone il resume. Le tab a schermo e gli agenti al
+lavoro restano fuori, e la conferma dice quante e perché. Una tab disattivata non riparte mai da
+sola, nemmeno col resume automatico acceso: puoi aprirla per guardarla senza riavviarla. Una
+sessione agente costa un paio di centinaia di megabyte e una manciata di processi coi suoi server
+MCP, e Relay non sfratta mai una tab che ne ha una viva.
 
 Se un resume finisce in `command not found`, in quella tab qualcosa stava aspettando input e ha
 preso il primo carattere come risposta: la barra Resume scrive nella shell esattamente come faresti
