@@ -148,7 +148,8 @@ public final class AgentEventReceiver: @unchecked Sendable {
             log.info("agent receiver rebound")
         } catch {
             // listenFD resta -1; il watch è ancora armato e ritenta al prossimo cambio della dir.
-            log.error("agent receiver rebind failed: \(error.localizedDescription)")
+            let reason = error.localizedDescription
+            log.error("agent receiver rebind failed: \(reason, privacy: .public)")
         }
     }
 
@@ -156,8 +157,10 @@ public final class AgentEventReceiver: @unchecked Sendable {
         let clientFD = accept(listenFD, nil, nil)
         guard clientFD >= 0 else {
             // fd esauriti o listen fd invalido: senza un segnale il badge si fermerebbe in
-            // silenzio.
-            log.error("agent receiver accept failed: \(String(cString: strerror(errno)))")
+            // silenzio. `privacy: .public`: un errno non è un dato dell'utente, e redatto il log
+            // non dice più di quanto direbbe il silenzio.
+            let reason = String(cString: strerror(errno))
+            log.error("agent receiver accept failed: \(reason, privacy: .public)")
             return
         }
         // Connessioni effimere (una linea e chiudi): leggo fino a EOF fuori dalla accept queue.
@@ -177,8 +180,12 @@ public final class AgentEventReceiver: @unchecked Sendable {
             } else if errno == EINTR {
                 continue // interrotto da un segnale: riprova, non è una fine.
             } else {
-                // Errore di trasporto reale: senza log sarebbe indistinguibile da un EOF pulito.
-                log.error("agent receiver read failed: \(String(cString: strerror(errno)))")
+                // Errore di trasporto reale: senza log sarebbe indistinguibile da un EOF
+                // pulito. L'errno va letto **prima** di qualunque altra chiamata (la
+                // interpolazione stessa può sovrascriverlo) e stampato in chiaro: è l'unico
+                // indizio su un evento perso.
+                let reason = String(cString: strerror(errno))
+                log.error("agent receiver read failed: \(reason, privacy: .public)")
                 break
             }
         }
