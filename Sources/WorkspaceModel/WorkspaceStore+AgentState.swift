@@ -127,11 +127,56 @@ public extension WorkspaceStore {
         sessionId: String,
         state: AgentState
     ) {
-        if state == .unknown {
+        guard state != .unknown else {
+            // `SessionEnd` di una sessione che abbiamo spento noi: il binding è il punto a cui
+            // tornare, non un residuo da pulire. Fuori da una disattivazione resta il
+            // comportamento di sempre (sessione finita = niente da riprendere).
+            guard !tab.deactivated else { return }
             tab.resume = nil
-        } else if ResumeBinding.isSafeComponent(sessionId), ResumeBinding.isSafeComponent(agent) {
-            tab.resume = ResumeBinding(agent: agent, sessionId: sessionId, label: tab.title)
+            return
         }
+        // Stato vivo. La disattivazione decade solo per una sessione **diversa** da quella spenta:
+        // gli ultimi hook della sessione morente arrivano dopo il kill, e uno `Stop` in ritardo
+        // rimetterebbe in piedi da sola una tab appena disattivata. Una sessione ripresa dalla
+        // barra passa dallo stesso `sessionId`, e lì è la UI a togliere il marker.
+        if tab.deactivated, !sessionId.isEmpty, sessionId != tab.resume?.sessionId {
+            tab.deactivated = false
+        }
+        guard ResumeBinding.isSafeComponent(sessionId), ResumeBinding.isSafeComponent(agent)
+        else { return }
+        tab.resume = ResumeBinding(agent: agent, sessionId: sessionId, label: tab.title)
+    }
+
+    // MARK: - Disattivazione delle sessioni
+
+    /// Spegne le sessioni delle tab indicate **tenendo il loro `ResumeBinding`**: la tab resta
+    /// dov'è, con lo stesso nome e la stessa cwd, e torna nello stato in cui la trovi dopo un
+    /// riavvio (nessuna sessione viva, un resume da proporre). Marca e basta: uccidere il processo
+    /// tocca a chi possiede le surface, e deve farlo **dopo**, o il `SessionEnd` dell'agente
+    /// morente troverebbe la tab ancora normale e ne azzererebbe il binding.
+    ///
+    /// Salta le tab senza binding: spegnerle non lascerebbe niente a cui tornare. Le altre
+    /// esclusioni (a schermo, agente al lavoro) le decide il chiamante, che ha le informazioni:
+    /// vedi `Tab.deactivationBlock(isOnScreen:)`.
+    ///
+    /// Ritorna gli id davvero disattivati, così il chiamante sa quali surface buttare.
+    @discardableResult
+    func deactivate(_ tabIDs: Set<UUID>) -> [UUID] {
+        var done: [UUID] = []
+        for workspace in workspaces {
+            for tab in workspace.tabs where tabIDs.contains(tab.id) && tab.resume != nil {
+                tab.deactivated = true
+                tab.agentState = .unknown
+                done.append(tab.id)
+            }
+        }
+        return done
+    }
+
+    /// La tab è tornata viva per volontà dell'utente (resume dalla barra, o dismiss): il marker di
+    /// disattivazione non ha più ragione d'essere.
+    func clearDeactivation(_ tabID: UUID) {
+        tab(id: tabID)?.deactivated = false
     }
 
     // MARK: - Attenzione (mark-read, dismiss e decadenza)

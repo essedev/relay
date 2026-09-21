@@ -31,6 +31,9 @@ struct WorkspaceRow: View {
     /// Sposta il workspace in una finestra nuova. `nil` = non mostrare la voce (è l'unico della sua
     /// finestra: la lascerebbe vuota, e lo store lo rifiuterebbe).
     let onMoveToNewWindow: (() -> Void)?
+    /// Spegne tutte le sessioni disattivabili del workspace tenendone i resume binding. `nil` =
+    /// non mostrare la voce (nessuna tab ha una sessione a cui tornare).
+    let onDeactivateSessions: (() -> Void)?
     let onClose: () -> Void
 
     @State private var hovered = false
@@ -128,6 +131,11 @@ struct WorkspaceRow: View {
                 // Ci va con le sue tab e le sue sessioni vive: le finestre partizionano i
                 // workspace, non li duplicano.
                 Button("Move to New Window", action: onMoveToNewWindow)
+            }
+            if let onDeactivateSessions {
+                // Spegne gli agenti del workspace tenendo i binding: e' l'azione che serve
+                // davvero, perche' una per tab imporrebbe decine di decisioni identiche.
+                Button("Deactivate Sessions", action: onDeactivateSessions)
             }
             Button("Close", role: .destructive, action: onClose)
         }

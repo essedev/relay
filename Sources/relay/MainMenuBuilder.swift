@@ -198,6 +198,12 @@ enum MainMenuBuilder {
             item("Pin", #selector(AppController.toggleSelectedWorkspacePin(_:)), target),
             item("Archive", #selector(AppController.toggleSelectedWorkspaceArchive(_:)), target),
             item("Mark as Read", #selector(AppController.toggleSelectedTabUnread(_:)), target),
+            // Spegne gli agenti del workspace tenendone i resume binding: in menu bar perche' e'
+            // l'azione che si fa su molte tab insieme, non un dettaglio di una riga.
+            item(
+                "Deactivate Sessions",
+                #selector(AppController.deactivateSelectedWorkspaceSessions(_:)), target
+            ),
             .separator(),
             actionItem(.toggleGroup, settings, target),
             item(

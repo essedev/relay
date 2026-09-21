@@ -120,6 +120,19 @@ public final class SurfaceRegistry {
         surfaces[tabID]?.endSearch()
     }
 
+    /// Butta la surface di una tab che **esiste ancora**: è la disattivazione di una sessione,
+    /// l'unico teardown che non nasce dalla scomparsa della tab né dal cap. La tab torna
+    /// `unrealized` e la surface rinasce al prossimo focus, con una shell fresca nella sua cwd.
+    /// No-op se non era realizzata.
+    ///
+    /// Il chiamante deve essersi già assicurato che la tab non sia montata da nessuna parte
+    /// (`WorkspaceStore.isMounted`): togliere la surface da sotto una view a schermo lascerebbe un
+    /// terminale morto davanti agli occhi.
+    public func release(_ tabID: UUID) {
+        guard let surface = surfaces[tabID] else { return }
+        evict(tabID, surface)
+    }
+
     /// Tiene vive solo le surface delle tab ancora esistenti; fa teardown delle altre.
     public func retain(_ aliveTabIDs: Set<UUID>) {
         for (id, surface) in surfaces where !aliveTabIDs.contains(id) {

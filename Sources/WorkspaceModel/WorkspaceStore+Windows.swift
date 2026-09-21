@@ -17,6 +17,19 @@ public extension WorkspaceStore {
         !occludedWindowIDs.contains(windowID)
     }
 
+    /// La tab ha un terminale **montato** in qualche finestra: è la selezionata di un pane del
+    /// workspace che quella finestra sta mostrando. Diverso da `isWindowVisible` e dalla nozione
+    /// di "la stai guardando" degli eventi agente, che pesano anche occlusione e app in primo
+    /// piano: qui conta solo che ci sia una view attaccata, perché buttarle la surface sotto
+    /// lascerebbe un terminale morto a schermo. È lo stesso criterio con cui la LRU protegge le
+    /// tab montate.
+    func isMounted(_ tabID: UUID) -> Bool {
+        windows.contains { window in
+            guard let workspace = selectedWorkspace(in: window.id) else { return false }
+            return workspace.isVisible(tabID)
+        }
+    }
+
     /// Segna la finestra come key e la porta in testa alla cronologia di attivazione (guida il
     /// rimpatrio dei workspace quando una finestra chiude). No-op se non esiste.
     func activateWindow(_ windowID: UUID) {

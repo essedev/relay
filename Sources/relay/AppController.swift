@@ -12,7 +12,7 @@ import WorkspaceModel
 
 @MainActor
 final class AppController: NSObject, NSApplicationDelegate {
-    private let log = RelayLog.logger("app")
+    let log = RelayLog.logger("app") // internal: lo usa anche l'extension delle sessioni
     let store = WorkspaceStore()
     let settings = AppSettings() // internal: letto dal monitor/menu delle scorciatoie
     private let engine: TerminalEngine = SwiftTermEngine()
@@ -20,10 +20,9 @@ final class AppController: NSObject, NSApplicationDelegate {
     private lazy var layoutStore = LayoutStore(path: RelayRuntimePaths.layoutPath)
     /// **Una sola** registry per tutta l'app, condivisa fra le finestre: una tab ha una surface
     /// sola ovunque sia montata, e il cap LRU ragiona sul totale vivo, non per finestra.
-    private lazy var registry = SurfaceRegistry(
-        engine: engine,
-        socketPath: RelayRuntimePaths.socketPath
-    )
+    /// Internal: la disattivazione delle sessioni (`AppControllerSessions`) butta le surface da
+    /// qui, ed è l'unico teardown che non passa dal reconcile.
+    lazy var registry = SurfaceRegistry(engine: engine, socketPath: RelayRuntimePaths.socketPath)
     /// Le finestre vive, per `RelayWindow.id`. Internal: le extension lavorano su quella key.
     var windowControllers: [UUID: RelayWindowController] = [:]
 
@@ -124,6 +123,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                 self?.moveWorkspaceToNewWindow(workspace)
             },
             onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
+            onDeactivateSessions: { [weak self] in self?.requestDeactivateWorkspace($0) },
             onRegenerateWorkspaceName: { [weak self] workspace in
                 self?.regenerateWorkspaceName(workspace.id)
             },

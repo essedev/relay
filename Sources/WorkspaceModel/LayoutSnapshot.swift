@@ -179,6 +179,10 @@ public struct TabSnapshot: Codable, Equatable {
     /// `pending` con questa età (dashboard, decadenza). `nil` = niente sospeso. Campo additivo
     /// (assente nei layout vecchi -> nil), per questo non ha richiesto un bump di versione.
     public var pendingSince: Date?
+    /// La sessione è stata spenta di proposito (vedi `Tab.deactivated`): sopravvive al riavvio,
+    /// altrimenti al primo focus `autoResumeAgents` rimetterebbe in piedi proprio le sessioni che
+    /// avevi spento. Campo additivo, letto con un default (vedi `init(from:)`).
+    public var deactivated: Bool
 
     public init(
         id: UUID,
@@ -186,7 +190,8 @@ public struct TabSnapshot: Codable, Equatable {
         hasCustomTitle: Bool,
         currentDirectory: String?,
         resume: ResumeBinding? = nil,
-        pendingSince: Date? = nil
+        pendingSince: Date? = nil,
+        deactivated: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -194,5 +199,20 @@ public struct TabSnapshot: Codable, Equatable {
         self.currentDirectory = currentDirectory
         self.resume = resume
         self.pendingSince = pendingSince
+        self.deactivated = deactivated
+    }
+
+    /// Decode tollerante per lo stesso motivo di `WorkspaceSnapshot`: `deactivated` è additivo e la
+    /// sintesi lo esigerebbe come chiave, facendo fallire il decode dell'intero layout salvato
+    /// prima della feature. Encode resta sintetizzato.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        hasCustomTitle = try container.decode(Bool.self, forKey: .hasCustomTitle)
+        currentDirectory = try container.decodeIfPresent(String.self, forKey: .currentDirectory)
+        resume = try container.decodeIfPresent(ResumeBinding.self, forKey: .resume)
+        pendingSince = try container.decodeIfPresent(Date.self, forKey: .pendingSince)
+        deactivated = try container.decodeIfPresent(Bool.self, forKey: .deactivated) ?? false
     }
 }

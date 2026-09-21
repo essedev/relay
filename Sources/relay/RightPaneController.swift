@@ -187,15 +187,20 @@ final class RightPaneController: NSViewController {
 
     private func renderResumeBar() {
         guard let tab = store.selectedWorkspace(in: windowID)?.selectedTab,
-              tab.pendingResume, let binding = tab.resume
+              let binding = tab.resume
         else {
             removeResumeBar()
             return
         }
-        // Auto-resume (opt-in): inietta da solo, con un piccolo ritardo per far arrivare la shell
-        // al prompt. Altrimenti mostra la barra e lascia decidere all'utente.
-        if settings.autoResumeAgents {
+        // La decisione (niente / barra / iniezione) è pura e vive sul model: qui si esegue.
+        switch tab.resumePresentation(autoResume: settings.autoResumeAgents) {
+        case .none:
             removeResumeBar()
+        case .bar:
+            showResumeBar(binding: binding, tab: tab)
+        case .inject:
+            removeResumeBar()
+            // Piccolo ritardo per far arrivare la shell al prompt.
             let command = binding.resumeCommand
             let tabID = tab.id
             tab.resume = nil // best-effort, evita ri-innesco
@@ -203,9 +208,7 @@ final class RightPaneController: NSViewController {
                 try? await Task.sleep(for: .milliseconds(400))
                 self?.area.sendText(to: tabID, command + "\n")
             }
-            return
         }
-        showResumeBar(binding: binding, tab: tab)
     }
 
     private func showResumeBar(binding: ResumeBinding, tab: WorkspaceModel.Tab) {
@@ -216,9 +219,13 @@ final class RightPaneController: NSViewController {
             theme: settings.theme,
             onResume: { [weak self] in
                 self?.area.sendText(to: tabID, binding.resumeCommand + "\n")
+                self?.store.clearDeactivation(tabID)
                 tab.resume = nil
             },
-            onDismiss: { tab.resume = nil }
+            onDismiss: { [weak self] in
+                self?.store.clearDeactivation(tabID)
+                tab.resume = nil
+            }
         )
         let host = NSHostingView(rootView: bar)
         host.translatesAutoresizingMaskIntoConstraints = false

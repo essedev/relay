@@ -36,7 +36,10 @@ public extension WorkspaceStore {
                             // clock del marker (`attentionSince`), non `lastEventAt`.
                             pendingSince: tab.attention == .none
                                 ? nil
-                                : (tab.attentionSince ?? tab.lastEventAt)
+                                : (tab.attentionSince ?? tab.lastEventAt),
+                            // Sopravvive al riavvio: se no, al primo focus `autoResumeAgents`
+                            // rimetterebbe in piedi proprio le sessioni che avevi spento.
+                            deactivated: tab.deactivated
                         )
                     }
                 )
@@ -87,7 +90,8 @@ public extension WorkspaceStore {
                     attention: tab.pendingSince == nil ? .none : .pending,
                     lastEventAt: tab.pendingSince, // età reale dell'evento (ordinamento dashboard)
                     attentionSince: tab.pendingSince == nil ? nil : now, // clock decay dal boot
-                    resume: tab.resume
+                    resume: tab.resume,
+                    deactivated: tab.deactivated
                 )
             }
             // La selezione salvata potrebbe puntare a una tab inesistente (file editato a mano,

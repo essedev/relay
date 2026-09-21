@@ -119,6 +119,9 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
   overlay full-window, ciclo di vita di una `NSWindow`, multi-window.
 - `docs/features/keyboard.md` - il local monitor come unico trigger delle azioni rimappabili,
   shortcut numerici, testo composto con `Option`.
+- `docs/features/session-deactivation.md` - spegnere l'agente di una tab tenendo il `ResumeBinding`:
+  marcare prima di buttare la surface (o il `SessionEnd` azzera il binding), niente auto-resume su
+  una tab disattivata, chi resta fuori e perché.
 - `docs/features/workspace-naming.md` - nomina automatica: due fonti (regola locale di default, LLM
   se c'è la chiave) con gli stessi trigger, contesto, single-flight, `NameOrigin`, API key su file
   0600, default OpenRouter.

@@ -29,7 +29,8 @@ extension AppController {
             closeTab: { [weak self] tab, workspace in self?.requestCloseTab(tab, in: workspace) },
             moveTabToNewWorkspace: { [weak self] tab, workspace in
                 self?.moveTabToNewWorkspace(tab, from: workspace)
-            }
+            },
+            deactivateTab: { [weak self] tab in self?.requestDeactivateTab(tab) }
         )
     }
 

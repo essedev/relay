@@ -35,6 +35,26 @@ import Testing
 }
 
 @MainActor
+@Test func releasingASurfaceTearsItDownAndTheNextVisitBuildsANewOne() {
+    let engine = RecordingEngine()
+    let registry = SurfaceRegistry(engine: engine)
+    let tabID = UUID()
+
+    let first = registry.surface(for: tabID, cwd: nil, onTitle: { _ in }, onDirectory: { _ in })
+    #expect(registry.liveSurfaceCount == 1)
+
+    registry.release(tabID)
+    #expect(registry.liveSurfaceCount == 0)
+    #expect((first as? RecordingSurface)?.wasTornDown == true)
+
+    let second = registry.surface(for: tabID, cwd: nil, onTitle: { _ in }, onDirectory: { _ in })
+    #expect(registry.liveSurfaceCount == 1)
+    #expect(first !== second)
+    registry.release(tabID) // idempotente su una tab già rilasciata
+    registry.release(tabID)
+}
+
+@MainActor
 private final class RecordingEngine: TerminalEngine {
     var lastEnv: [String: String] = [:]
 

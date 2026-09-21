@@ -23,6 +23,7 @@ public struct SidebarView: View {
     let windowID: UUID
     let onNewWorkspace: () -> Void
     let onCloseWorkspace: (Workspace) -> Void
+    let onDeactivateSessions: (Workspace) -> Void
     /// Sposta un workspace in una finestra nuova: la `NSWindow` la crea il composition root.
     let onMoveWorkspaceToNewWindow: (Workspace) -> Void
     /// Rigenera il nome del workspace. Non è `store.markNameRegenerable`: quello lo rimette solo in
@@ -65,6 +66,7 @@ public struct SidebarView: View {
         windowID: UUID,
         onNewWorkspace: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
+        onDeactivateSessions: @escaping (Workspace) -> Void,
         onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
         onRegenerateName: @escaping (Workspace) -> Void,
         updateConfig: SidebarUpdateConfig? = nil,
@@ -75,6 +77,7 @@ public struct SidebarView: View {
         self.windowID = windowID
         self.onNewWorkspace = onNewWorkspace
         self.onCloseWorkspace = onCloseWorkspace
+        self.onDeactivateSessions = onDeactivateSessions
         self.onMoveWorkspaceToNewWindow = onMoveWorkspaceToNewWindow
         self.onRegenerateName = onRegenerateName
         self.updateConfig = updateConfig
@@ -303,6 +306,9 @@ public struct SidebarView: View {
             // Solo se la finestra ha altro da mostrare dopo: altrimenti resterebbe vuota.
             onMoveToNewWindow: store.workspaces(in: windowID).count > 1
                 ? { onMoveWorkspaceToNewWindow(workspace) }
+                : nil,
+            onDeactivateSessions: workspace.tabs.contains { $0.resume != nil }
+                ? { onDeactivateSessions(workspace) }
                 : nil,
             onClose: { onCloseWorkspace(workspace) }
         )

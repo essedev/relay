@@ -42,6 +42,21 @@ public final class Tab: Identifiable {
     /// restore per proporre il resume. `nil` se non c'è (mai stato un agente, o sessione chiusa).
     public var resume: ResumeBinding?
 
+    /// La sessione di questa tab è stata spenta **di proposito** (comando di disattivazione), non
+    /// dalla chiusura dell'app né da un crash. Persistito, e con due effetti:
+    ///
+    /// 1. il `SessionEnd` dell'agente che stiamo uccidendo non azzera il `resume` (lo azzererebbe
+    ///    come una sessione finita normalmente, buttando via proprio il binding che serve a
+    ///    tornare indietro);
+    /// 2. la tab **non riparte da sola** al focus, nemmeno con `autoResumeAgents` acceso.
+    ///    L'auto-resume esiste per il riavvio, che è involontario; una disattivazione è voluta e il
+    ///    suo resume deve restare deliberato, o aprire una tab per leggerla rimetterebbe in piedi
+    ///    l'agente che avevi appena spento.
+    ///
+    /// Si spegne appena la tab torna viva: resume, dismiss, o un evento agente di una sessione
+    /// nuova.
+    public var deactivated: Bool
+
     public init(
         id: UUID = UUID(),
         title: String = Tab.defaultTitle,
@@ -51,8 +66,10 @@ public final class Tab: Identifiable {
         attention: AttentionLevel = .none,
         lastEventAt: Date? = nil,
         attentionSince: Date? = nil,
-        resume: ResumeBinding? = nil
+        resume: ResumeBinding? = nil,
+        deactivated: Bool = false
     ) {
+        self.deactivated = deactivated
         self.id = id
         self.title = title
         self.hasCustomTitle = hasCustomTitle
@@ -108,4 +125,48 @@ public final class Tab: Identifiable {
     public var pendingResume: Bool {
         resume != nil && agentState == .unknown
     }
+
+    /// Cosa proporre al focus di questa tab per la sua sessione: niente, la barra, o l'iniezione
+    /// automatica del comando di resume. Puro e qui perché è una decisione, non una view: il
+    /// composition root la esegue, non la prende.
+    public func resumePresentation(autoResume: Bool) -> ResumePresentation {
+        guard pendingResume else { return .none }
+        // Mai auto-resume su una tab disattivata: `autoResume` esiste per il riavvio, che è
+        // involontario, mentre una disattivazione è voluta e il suo resume deve restare
+        // deliberato. Senza questa riga, aprire una tab spenta anche solo per leggerla
+        // rimetterebbe in piedi l'agente appena spento.
+        return autoResume && !deactivated ? .inject : .bar
+    }
+
+    /// Perché questa tab non si può disattivare, `nil` se si può. Il chiamante passa
+    /// `isOnScreen` perché è l'unico a saperlo (dipende dai pane montati, non dal model).
+    public func deactivationBlock(isOnScreen: Bool) -> DeactivationBlock? {
+        if isOnScreen { return .onScreen }
+        if agentState == .running { return .working }
+        if resume == nil { return .noSession }
+        return nil
+    }
+}
+
+/// Cosa la tab propone al focus per riprendere la sua sessione.
+public enum ResumePresentation: Equatable, Sendable {
+    /// Niente da riprendere (nessun binding, o una sessione già viva).
+    case none
+    /// La barra, che aspetta un gesto dell'utente.
+    case bar
+    /// Il comando iniettato da solo nel pty (`autoResumeAgents`).
+    case inject
+}
+
+/// Perché una tab resta fuori da una disattivazione. Serve alla preview: dire "3 tab su 7" senza
+/// dire quali e perché trasformerebbe un'azione distruttiva in una scommessa.
+public enum DeactivationBlock: Equatable, Sendable, CaseIterable {
+    /// Nessuna sessione da riprendere: spegnerla non lascerebbe niente a cui tornare, e la tab non
+    /// costa quello che costa un agente.
+    case noSession
+    /// L'agente sta lavorando adesso. Per interrompere c'è la chiusura, che lo dice.
+    case working
+    /// È a schermo in una finestra: spegnerla lascerebbe un terminale morto davanti agli occhi,
+    /// stesso motivo per cui la LRU non sfratta mai una tab montata.
+    case onScreen
 }
