@@ -109,9 +109,19 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         terminal.startProcess(executable: shell, environment: env, currentDirectory: cwd)
     }
 
+    /// Chiude la tab **e la sessione POSIX della sua pty**: `terminal.terminate()` da solo non
+    /// uccide niente (vedi `PtySessionTeardown` per il perché). L'ordine conta: i target si
+    /// catturano prima di `terminate()`, che azzera `childfd`.
     func teardown() {
         guard started else { return }
+        let shellPid = terminal.process.shellPid
+        let targets = PtySessionTeardown.targets(
+            shellPid: shellPid,
+            childfd: terminal.process.childfd
+        )
+        PtySessionTeardown.hangUp(targets)
         terminal.terminate()
+        PtySessionTeardown.escalateAfterGrace(targets, reaping: shellPid)
     }
 
     /// Scrive testo nello stdin del processo (resume dell'agente). `process.send` va al PTY, come

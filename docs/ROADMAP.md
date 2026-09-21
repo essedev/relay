@@ -19,7 +19,7 @@ notifiche e resume dedicati; il limite sugli errori API Codex è descritto sotto
 
 Non è una feature, è un bug di correttezza misurato (numeri e metodo in
 `docs/research/PERF.md`, sezione sul leak). Chiudere una tab, un pane o un workspace lascia vivi la
-shell, l'eventuale agente col suo albero MCP e il master fd della pty, per sempre finché Relay non
+shell, l'eventuale agente col suo albero MCP e il descrittore primario della pty, per sempre finché Relay non
 muore. Vale anche per una tab con la shell ferma al prompt, e vale per lo sfratto LRU. L'alert di
 conferma promette "will be terminated" e oggi è falso.
 
@@ -30,7 +30,7 @@ conferma promette "will be terminated" e oggi è falso.
 2. **Test di regressione**: `FakeEngine` non vede il teardown, serve un test che apra e chiuda pty
    vere e verifichi fd, processi e zombie a zero. È il buco che ha lasciato passare questo.
 3. **PR upstream a SwiftTerm**: `LocalProcess.terminate()` chiude la `DispatchIO` senza `.stop`, la
-   read pendente sul master non completa mai e il cleanup handler non chiude l'fd; in più
+   read pendente sul descrittore primario non completa mai e il cleanup handler non chiude l'fd; in più
    `childStopped()` cancella il `DispatchSourceProcess` che avrebbe fatto `waitpid`. Quando la patch
    è mergiata e il pin aggiornato, il fix locale si riduce alla sola escalation (rete di sicurezza
    per i processi che ignorano SIGHUP).

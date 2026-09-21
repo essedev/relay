@@ -124,7 +124,7 @@ Harness che replica `LocalProcess.terminate()` di SwiftTerm alla lettera:
 
 La terza colonna è quella che spiega i numeri: **anche una tab con la shell ferma al prompt leaka**,
 non serve un agente vivo. `io.close()` senza `.stop` aspetta il completamento della read pendente sul
-master, che su una pty non arriva mai: il cleanup handler non gira e il fd non si chiude, quindi non
+descrittore primario, che su una pty non arriva mai: il cleanup handler non gira e il fd non si chiude, quindi non
 c'è hangup. Il `SIGTERM` alla sola shell una zsh interattiva lo ignora (misurato).
 
 ### Costo in memoria
