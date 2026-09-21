@@ -15,6 +15,52 @@ cmux** (i pane ospitano le tab, una strip per pane), **multi-window** e gli erro
 prima classe per Claude Code (0.17.0). La 0.19.0 aggiunge Codex tramite hook nativi, con setup,
 notifiche e resume dedicati; il limite sugli errori API Codex è descritto sotto.
 
+## Da chiudere subito: il teardown non termina niente
+
+Non è una feature, è un bug di correttezza misurato (numeri e metodo in
+`docs/research/PERF.md`, sezione sul leak). Chiudere una tab, un pane o un workspace lascia vivi la
+shell, l'eventuale agente col suo albero MCP e il master fd della pty, per sempre finché Relay non
+muore. Vale anche per una tab con la shell ferma al prompt, e vale per lo sfratto LRU. L'alert di
+conferma promette "will be terminated" e oggi è falso.
+
+1. **Hangup esplicito della sessione pty** nel teardown: SIGHUP al process group in foreground e a
+   quello della shell, poi `terminate()`, poi escalation a SIGKILL sui superstiti e `waitpid` (oggi
+   le shell che muoiono restano zombie). Con l'invariante scritta: **una tab possiede la sessione
+   POSIX della sua pty**, che è il criterio per `nohup`, `disown` e `setsid`.
+2. **Test di regressione**: `FakeEngine` non vede il teardown, serve un test che apra e chiuda pty
+   vere e verifichi fd, processi e zombie a zero. È il buco che ha lasciato passare questo.
+3. **PR upstream a SwiftTerm**: `LocalProcess.terminate()` chiude la `DispatchIO` senza `.stop`, la
+   read pendente sul master non completa mai e il cleanup handler non chiude l'fd; in più
+   `childStopped()` cancella il `DispatchSourceProcess` che avrebbe fatto `waitpid`. Quando la patch
+   è mergiata e il pin aggiornato, il fix locale si riduce alla sola escalation (rete di sicurezza
+   per i processi che ignorano SIGHUP).
+
+## Disattivazione delle sessioni agente
+
+Il cap LRU non sfratta mai una tab con un agente vivo (scelta deliberata, Cycle 9 e 15), quindi con
+decine di sessioni la registry sta stabilmente a 3x il cap e la memoria è quella degli agenti, non
+delle surface: ~200 MB e ~9 processi per sessione contro 0,3-0,5 MB per surface idle. Il cap è
+tarato sull'unità di misura sbagliata per questo problema e **non va esteso**.
+
+La strada, in ordine, perché ogni passo abilita il successivo:
+
+1. **Transcript recuperabile**: al teardown di una tab con sessione, resa testuale dello scrollback
+   su disco accanto al `ResumeBinding`; al focus si legge come contenuto storico, senza pty e senza
+   agente. Separa "rileggere il lavoro" da "tenere vivo il processo", che oggi sono la stessa cosa
+   solo perché lo scrollback vive nel processo. Rende meno distruttivo anche lo sfratto LRU attuale.
+2. **Disattivazione in blocco**: azione su un workspace o su una selezione della dashboard, con
+   preview di cosa si interrompe e cosa resta recuperabile. Il comando per singola tab da solo
+   impone decine di decisioni identiche. Trappola da chiudere: uccidere l'agente fa scattare il suo
+   `SessionEnd`, che azzera il `resume` da cui la disattivazione dipende; la soppressione va legata
+   all'**istanza** del processo, non alla tab, o un evento in ritardo colpisce una sessione già
+   ripartita. Leggere una tab disattivata non deve riaccenderla, nemmeno con `autoResumeAgents`.
+3. **Automatismo**, per ultimo e non a tempo: ammissibilità (binding coerente con l'istanza viva,
+   transcript salvato, nessun lavoro accessorio non classificabile), necessità (pressione di memoria
+   sostenuta), priorità (lì sì, tempo dall'ultima interazione), con isteresi. `idle` è un
+   prerequisito, non un'autorizzazione: nella stessa tab può girare un dev server.
+
+Il nome è "disattiva", non "iberna": ibernare promette una continuità di stato che `--resume` non dà.
+
 ## Prossimo giro (a scelta)
 
 Nessuno dei tre è iniziato; si prende quello che serve per primo.

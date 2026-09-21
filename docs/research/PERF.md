@@ -1,6 +1,7 @@
-# Misure di performance (Milestone 3)
+# Misure di performance
 
-I numeri dietro ai budget di `ARCHITECTURE.md` (sezione "Budget v1") e la taratura del cap LRU.
+I numeri dietro ai budget di `ARCHITECTURE.md` (sezione "Budget v1") e la taratura del cap LRU
+(Milestone 3), più le misure di consumo sotto carico reale (leak di processi e fd alla chiusura).
 Ri-eseguibili con la strumentazione integrata (`RELAY_PERF=1`, vedi sotto). Macchina di misura:
 MacBook, build **release** (`swift build -c release`), 2 luglio 2026.
 
@@ -69,3 +70,82 @@ cap non è quindi un limite di memoria stretto ma una diga contro la crescita il
 generoso è coerente col principio "meglio sforare il cap che uccidere un processo" (l'eviction è
 distruttiva: perde lo scrollback). Il knob `RELAY_SURFACE_CAP` resta per ri-tarare se in futuro le
 misure su sessioni reali (scrollback pieno) lo richiederanno.
+
+## Leak di processi e fd alla chiusura (settembre 2026)
+
+Misure su uso reale, non su demo: la macchina di misura è la stessa su cui Relay gira tutto il
+giorno con decine di sessioni Claude Code in parallelo.
+
+### Stato osservato
+
+Relay in esecuzione da 5 giorni, con **51 tab** nel layout:
+
+| grandezza | valore |
+| --- | --- |
+| shell figlie dirette del processo Relay | 132 (di cui 2 zombie) |
+| fd `/dev/ptmx` aperti | 125, su 146 fd numerici totali |
+| processi nell'albero sotto Relay | 561 |
+| sessioni `claude` vive | 33, per 6,1 GB di RSS |
+| discendenti medi per sessione agente | 8,8 (i server MCP) |
+
+Almeno 81 shell erano residui di tab non più esistenti. Il `RLIMIT_NOFILE` ereditato dalle shell è
+1.048.576: l'esaurimento degli fd **non** è il muro vicino, il costo è nei processi.
+
+### Riproduzione
+
+Istanza isolata (`RELAY_SOCKET`/`RELAY_LAYOUT` in una dir temporanea), binario rinominato per non
+colpire per sbaglio il Relay vero, pilotata via voci di menu (mirate al processo, a differenza dei
+keystroke di System Events che vanno al frontmost):
+
+```text
+avvio                        tab/ws=1/1   shell=1   ptmx=1
+New Tab x5                   tab/ws=6/1   shell=6   ptmx=6
+Close Tab x5                 tab/ws=1/1   shell=6   ptmx=6
+New Tab x3 + Split + 2 tab   tab/ws=7/1   shell=12  ptmx=12
+Close Pane                   tab/ws=4/1   shell=12  ptmx=12
+New Workspace + 3 tab        tab/ws=8/2   shell=16  ptmx=16
+Close Workspace              tab/ws=4/1   shell=16  ptmx=16
+```
+
+Tutte e tre le strade di chiusura leakano, nessuna rilascia niente. Su cicli ripetuti la crescita è
+lineare ed esatta: +10 tab aperte-e-chiuse = +10 shell, +10 ptmx, +10 fd, zero rilasciati. Uccidendo
+il processo Relay il kernel chiude gli fd, la pty fa hangup e tutto muore in un secondo: per questo
+il leak si vede solo con Relay vivo e si accumula per giorni.
+
+### Causa, isolata su pty reale
+
+Harness che replica `LocalProcess.terminate()` di SwiftTerm alla lettera:
+
+| teardown | figlio in foreground | figlio in background | nessun figlio |
+| --- | --- | --- | --- |
+| `io.close()` + SIGTERM (SwiftTerm) | shell viva, fd aperto | shell viva, fd aperto | shell viva, fd aperto |
+| `io.close(flags: .stop)` + SIGTERM | tutto morto, fd chiuso | idem | idem |
+| SIGHUP a pgrp fg + pgrp shell, poi terminate | tutto morto, fd chiuso | idem | idem |
+
+La terza colonna è quella che spiega i numeri: **anche una tab con la shell ferma al prompt leaka**,
+non serve un agente vivo. `io.close()` senza `.stop` aspetta il completamento della read pendente sul
+master, che su una pty non arriva mai: il cleanup handler non gira e il fd non si chiude, quindi non
+c'è hangup. Il `SIGTERM` alla sola shell una zsh interattiva lo ignora (misurato).
+
+### Costo in memoria
+
+- RSS di Relay: **+0,15 MB per tab persa** (88 -> 94 MB su 40 cicli apri-chiudi). L'emulatore e la
+  view vengono liberati davvero; restano fd e canale DispatchIO. La memoria di Relay non è il
+  problema.
+- Il costo vero è nei processi superstiti: ~0,5-1,3 MB per shell, ~200 MB per sessione `claude`,
+  più il suo albero MCP.
+- Stato della macchina al momento della misura (32 GB): 0,07 GB di RAM libera, compressor a 11,16 GB
+  residenti per 51,3 GB logici, swap a 16,6 GB su 17,4. `memory_pressure` riportava "54% free", che
+  è fuorviante perché conta inactive e purgeable.
+
+### Cosa invece non cresce
+
+Verificato: `recency`/`lastTouchedAt` (puliti in `evict`), `completionFlashTimers` (si
+auto-rimuovono), `activationOrder` (potato alla chiusura finestra), gli stati per-workspace di
+`NamingController` (`prune`), le connessioni del receiver (effimere), `~/.relay` (152 KB in tutto),
+UserDefaults. Gli 8 `withObservationTracking` si ri-armano 1:1.
+
+`enforceLRU` gira a ogni render e fa una `proc_listchildpids` per candidata, e siccome il cap non è
+raggiungibile la sweep si ripete all'infinito: **non è un hot spot**. 6,1 µs per chiamata, e in un
+`sample` di 3s del processo vero non compare un solo frame di `enforceLRU` o `hasRunningChildren`
+(main thread fermo in `mach_msg` nel 90% dei campioni).
