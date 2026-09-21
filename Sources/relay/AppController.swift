@@ -20,7 +20,10 @@ final class AppController: NSObject, NSApplicationDelegate {
     private lazy var layoutStore = LayoutStore(path: RelayRuntimePaths.layoutPath)
     /// **Una sola** registry per tutta l'app, condivisa fra le finestre: una tab ha una surface
     /// sola ovunque sia montata, e il cap LRU ragiona sul totale vivo, non per finestra.
-    private lazy var registry = SurfaceRegistry(engine: engine)
+    private lazy var registry = SurfaceRegistry(
+        engine: engine,
+        socketPath: RelayRuntimePaths.socketPath
+    )
     /// Le finestre vive, per `RelayWindow.id`. Internal: le extension lavorano su quella key.
     var windowControllers: [UUID: RelayWindowController] = [:]
 

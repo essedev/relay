@@ -11,6 +11,12 @@ import TerminalEngine
 @MainActor
 public final class SurfaceRegistry {
     private let engine: TerminalEngine
+    /// Path del socket su cui questa istanza riceve gli eventi agente, iniettato nell'ambiente
+    /// delle shell. Senza, l'hook userebbe il default e un'istanza di sviluppo (avviata con
+    /// `RELAY_SOCKET` suo) manderebbe i suoi eventi al Relay di tutti i giorni: le sue tab non
+    /// prenderebbero mai uno stato, e quello vero riceverebbe eventi di tab che non ha.
+    /// Il path arriva dal composition root perché questo modulo non dipende da `AgentRuntime`.
+    private let socketPath: String?
     private var surfaces: [UUID: TerminalSurfaceHandle] = [:]
     /// Ordine di accesso per la LRU: primo = più recente. Aggiornato a ogni `surface(for:)`.
     private var recency: [UUID] = []
@@ -18,8 +24,9 @@ public final class SurfaceRegistry {
     private var theme: RelayTheme = .relayDark
     private static let recentUseGraceInterval: TimeInterval = 30 * 60
 
-    public init(engine: TerminalEngine) {
+    public init(engine: TerminalEngine, socketPath: String? = nil) {
         self.engine = engine
+        self.socketPath = socketPath
     }
 
     /// Numero di surface attualmente vive (PTY + emulatore in memoria). Guida le misure di memoria
@@ -42,14 +49,14 @@ public final class SurfaceRegistry {
         // rimanda nell'evento, così il coordinatore sa quale tab aggiornare (nessun parsing
         // output). RELAY_RUN_ID lega la sessione a *questa* run dell'app: lo store scarta gli
         // eventi di run diverse (sessioni orfane sopravvissute a un riavvio).
-        let surface = engine.makeSurface(
-            cwd: cwd,
-            shell: nil,
-            env: [
-                "RELAY_TAB_ID": tabID.uuidString,
-                "RELAY_RUN_ID": RelayRunID.current,
-            ]
-        )
+        var env = [
+            "RELAY_TAB_ID": tabID.uuidString,
+            "RELAY_RUN_ID": RelayRunID.current,
+        ]
+        // La shell di una surface non eredita l'ambiente dell'app (l'engine ne costruisce uno
+        // minimo): il socket va passato a mano, o l'hook ricade sul default.
+        if let socketPath { env["RELAY_SOCKET"] = socketPath }
+        let surface = engine.makeSurface(cwd: cwd, shell: nil, env: env)
         surface.onTitleChanged = onTitle
         surface.onDirectoryChanged = onDirectory
         surface.apply(theme: theme)

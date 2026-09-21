@@ -21,6 +21,11 @@ migra né modifica quella configurazione. Contratto upstream:
 - Agent binding: `RELAY_TAB_ID` (= `Tab.id`) è iniettato nell'env della surface e torna dall'hook
   come `paneId`; accanto viaggia `RELAY_RUN_ID` (`Core.RelayRunID`, nonce per processo), che torna
   come `runId` e identifica la **run** dell'app che ha creato la surface (vedi fence di run sotto).
+  Con loro viaggia anche `RELAY_SOCKET`, il path su cui **questa** istanza ascolta: la shell di una
+  surface non eredita l'ambiente dell'app (l'engine ne costruisce uno minimo), quindi senza
+  passarlo a mano l'hook ricadrebbe sul default e un'istanza di sviluppo (avviata con un socket
+  suo, come fa `scripts/screenshots.sh`) manderebbe i suoi eventi al Relay di tutti i giorni: le
+  sue tab non prenderebbero mai uno stato, e quello vero riceverebbe eventi di tab che non ha.
   Il socket è `~/.relay/relay.sock` (override `RELAY_SOCKET`); un socket stantio
   (owner morto) è rimosso da `unlink` prima del `bind`, quindi non blocca il riavvio. **No-stomp**:
   prima di `unlink`+`bind` il receiver fa una `connect` di prova (`UnixSocket.isListening`); se un
