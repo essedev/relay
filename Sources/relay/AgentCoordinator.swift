@@ -46,7 +46,11 @@ final class AgentCoordinator {
             }
             log.info("agent runtime listening on \(socketPath, privacy: .public)")
         } catch {
-            log.error("agent coordinator failed to start: \(error.localizedDescription)")
+            // Pubblico come gli errori del receiver: senza il motivo, un runtime che non parte
+            // (path del socket troppo lungo, dir non scrivibile) è indistinguibile da un'app
+            // che semplicemente non riceve eventi.
+            let reason = error.localizedDescription
+            log.error("agent coordinator failed to start: \(reason, privacy: .public)")
         }
     }
 
