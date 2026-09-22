@@ -16,10 +16,9 @@ prima classe per Claude Code (0.17.0). La 0.19.0 aggiunge Codex tramite hook nat
 notifiche e resume dedicati; il limite sugli errori API Codex è descritto sotto. La **0.20.0**
 chiude il giro sulle sessioni: il teardown di una tab **termina davvero** la sessione pty (shell,
 agente, albero MCP, descrittore) e le sessioni agente si spengono a mano tenendo il resume
-(`docs/research/CYCLES.md`, Cycle 26). Dopo la 0.20.0 e non ancora rilasciato: la catena delle
-notifiche resa affidabile end-to-end - nessun evento perso sotto raffica di hook, drift degli hook
-Claude riparato all'avvio, una sola notifica viva per tab che si ritira quando l'attenzione si
-spegne (Cycle 27).
+(`docs/research/CYCLES.md`, Cycle 26). La **0.21.0** rende affidabile la catena delle notifiche
+end-to-end: nessun evento perso sotto raffica di hook, drift degli hook Claude riparato all'avvio,
+una sola notifica viva per tab che si ritira quando l'attenzione si spegne (Cycle 27).
 
 ## Disattivazione automatica delle sessioni agente
 

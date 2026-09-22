@@ -900,4 +900,4 @@ Verifica sull'app vera, non solo unit: istanza isolata (socket e layout temporan
 l'istanza viva pre-fix lo stesso test perdeva 8/10, 20/20 e 36/40. Il drift provato end to end:
 `out of date, missing StopFailure` diventa `installed` dopo un boot, con
 `claude hooks repaired, added: StopFailure` nel log.
-Non rilasciato: la versione resta 0.20.0.
+Rilasciato nella 0.21.0.
