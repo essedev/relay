@@ -35,10 +35,11 @@ Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLA
   nella guida.
 - Nomina automatica workspace (LLM OpenAI-compatible): un workspace nato come placeholder o da
   cartella (`NameOrigin.default`) viene rinominato al primo segnale utile da quello che ci fai. La
-  logica pura sta in `Core.WorkspaceNaming` (costruzione prompt dai segnali cwd/comando/agente,
+  logica pura sta in `Core.WorkspaceNaming` (costruzione prompt dai segnali cwd/comando/agente/chat,
   parsing, sanitizzazione: strip virgolette/markdown, cap ~28 char al confine di parola, reject dei
   generici; testata) e in `Core.NamingTriggerPolicy` (la state-machine pura che decide *quando* il
-  segnale è abbastanza forte: streak del comando + stabilizzazione cwd, con soglie; testata). Il
+  segnale è abbastanza forte: attesa del titolo di chat, streak del comando, stabilizzazione cwd,
+  con soglie; testata). Il
   `NamingController` (RelayApp, **unico punto che tocca la rete** per questa
   feature) osserva l'eleggibilità (`settings.workspaceNamingEnabled` + esiste un `.default` +
   `credentials.hasKey()`) e, quando serve, fa girare un **poll** (timer ~3s) sui workspace

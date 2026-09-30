@@ -901,3 +901,34 @@ l'istanza viva pre-fix lo stesso test perdeva 8/10, 20/20 e 36/40. Il drift prov
 `out of date, missing StopFailure` diventa `installed` dopo un boot, con
 `claude hooks repaired, added: StopFailure` nel log.
 Rilasciato nella 0.21.0.
+
+## Cycle 28 - Il titolo della chat come segnale di nomina
+
+### Il problema
+
+Un agente lanciato dalla home non aveva niente da cui prendere un nome: la cwd è la home, che
+`WorkspaceNaming.prompt` scarta perché non identifica niente, e il comando `claude` dava "Claude".
+Il segnale c'era già: il titolo OSC che Claude Code scrive sulla tab (`✳ <argomento>`), che la
+sidebar mostra come sottotitolo.
+
+### La scelta
+
+Il titolo della chat è un quarto segnale, letto **solo** dalle tab con una sessione agente (altrove
+il titolo è della shell) e ripulito da `WorkspaceNaming.chatTitle`: via il glifo, scartati
+`✳ Claude Code`, `user@host:path` e la riga di comando. **Non vince sulla cartella**: la cartella
+nomina il progetto, la chat il task, e un nome preso dalla prima conversazione invecchia alla
+seconda. Il prompt usa la chat solo quando la cartella è generica o manca; senza chiave
+`localNames` la mette fra cartella e comando.
+
+Il costo è il timing. Claude scrive il titolo dopo il primo prompt, in modo asincrono, e la nomina
+è one-shot: `NamingTriggerPolicy` con una sessione senza titolo aspetta fino a
+`chatTitleGraceSeconds` (60s) e poi nomina senza. Chi non scrive titoli (versioni vecchie, Codex)
+paga solo quel ritardo. Limite noto: in una cartella generica il trigger cwd scatta dopo 10s, di
+solito prima che l'agente parta, e lì la chat entra solo col "Regenerate name". Il titolo è
+contenuto dell'utente: con la chiave va all'endpoint configurato, ed è detto in Settings e nella
+guida. Dettagli in `docs/features/workspace-naming.md`.
+
+### Esito
+
+15 test nuovi su pulizia del titolo, prompt, derivazione locale e attesa della policy. Guida e
+`docs/GUIDE.md` rigenerati nello stesso commit. Rilasciato nella 0.22.0.

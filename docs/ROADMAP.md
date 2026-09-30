@@ -18,7 +18,8 @@ chiude il giro sulle sessioni: il teardown di una tab **termina davvero** la ses
 agente, albero MCP, descrittore) e le sessioni agente si spengono a mano tenendo il resume
 (`docs/research/CYCLES.md`, Cycle 26). La **0.21.0** rende affidabile la catena delle notifiche
 end-to-end: nessun evento perso sotto raffica di hook, drift degli hook Claude riparato all'avvio,
-una sola notifica viva per tab che si ritira quando l'attenzione si spegne (Cycle 27).
+una sola notifica viva per tab che si ritira quando l'attenzione si spegne (Cycle 27). La
+**0.22.0** usa il titolo della chat dell'agente come segnale di nomina (Cycle 28).
 
 ## Disattivazione automatica delle sessioni agente
 

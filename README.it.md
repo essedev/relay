@@ -156,7 +156,7 @@ quella già aperta, altrimenti il flag viene ignorato e torna avanti la finestra
 
 Un workspace senza cartella si chiama "Workspace 3", che smette di essere utile al terzo. Relay lo
 rinomina in base a cosa sta facendo: la cartella, un comando in esecuzione in una delle sue tab, una
-sessione agente attiva. Il nome pulsa mentre lo si sta cercando.
+sessione agente attiva e il titolo della sua chat. Il nome pulsa mentre lo si sta cercando.
 
 Funziona senza configurare niente: il nome si deriva da quei segnali ("yellow-hub" diventa "Yellow
 Hub", "npm run dev" diventa "Npm Dev"). Aggiungi una API key in **Settings > Agents > Workspace

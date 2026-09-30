@@ -151,7 +151,7 @@ running Relay first or the demo flag is ignored and the existing window just com
 
 A workspace with no folder is "Workspace 3", which stops being useful at the third one. Relay
 renames it after what it is doing - the folder, a command running in one of its tabs, an active
-agent session. The name pulses while it is being worked out.
+agent session and the title of its chat. The name pulses while it is being worked out.
 
 This works with no setup: names are derived from those signals ("yellow-hub" becomes "Yellow Hub",
 "npm run dev" becomes "Npm Dev"). Add an API key in **Settings > Agents > Workspace naming** and a
