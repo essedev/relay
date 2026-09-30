@@ -27,11 +27,11 @@ enum NamingFailure: Equatable {
 /// Modello: un workspace `.default` (placeholder o nome-cartella) è "eleggibile"; un poll leggero
 /// osserva **tutte le sue tab** e, al primo segnale utile, produce un nome e lo applica
 /// (`applyGeneratedName`, che degrada a no-op se nel frattempo l'utente ha rinominato a mano). Tre
-/// segnali, dal più forte: agente attivo (Claude in `running`/`needs_input`) -> subito; comando in
-/// foreground stabile (es. `brew update`) -> dopo qualche tick; cwd stabilizzata fuori dalla home
-/// -> dopo ~10s. La cwd viene dalla shell **viva** (closure iniettata, precedenza in
-/// `Core.CurrentDirectory`), non da `tab.currentDirectory` (solo OSC 7, che zsh in Relay non
-/// emette).
+/// segnali, dal più forte: sessione agente -> appena la chat ha un titolo (o dopo un'attesa
+/// massima); comando in foreground stabile (es. `brew update`) -> dopo qualche tick; cwd
+/// stabilizzata fuori dalla home -> dopo ~10s. La cwd viene dalla shell **viva** (closure
+/// iniettata, precedenza in `Core.CurrentDirectory`), non da `tab.currentDirectory` (solo OSC 7,
+/// che zsh in Relay non emette).
 ///
 /// **Chi scrive il nome**: con una API key un modello OpenAI-compatible (single-flight per
 /// workspace, max 2 tentativi distanziati da un cooldown, poi si ripiega sul nome derivato); senza,
@@ -222,16 +222,26 @@ final class NamingController {
     /// shell ferma mentre l'agente gira accanto). La scelta della tab più informativa e il fallback
     /// alla cartella del workspace sono puri (`WorkspaceNaming.signals`).
     ///
+    /// Una tab ha una sessione agente da quando arriva il primo evento hook (`SessionStart` ->
+    /// idle) finché il `SessionEnd` non la riporta a `.unknown`: anche da ferma, perché è lì che
+    /// Claude aspetta il primo prompt da cui nascerà il titolo della chat. Il titolo si legge
+    /// **solo** da queste tab: altrove il titolo OSC è della shell (prompt o riga di comando) e non
+    /// dice di cosa ti occupi.
+    ///
     /// Il costo (due letture di processo per tab) è confinato ai soli workspace ancora `.default`:
     /// quando sono tutti nominati il poll non gira nemmeno.
     func collectSignals(for workspace: Workspace) -> WorkspaceNameSignals {
         let observed = workspace.tabs.map { tab in
-            let agentActive = tab.agentState == .running || tab.agentState == .needsInput
+            let hasSession = tab.agentState != .unknown
+            let command = WorkspaceNaming.command(fromArgv: foregroundCommandLine(tab.id))
             return TabNamingSignal(
                 isVisible: workspace.isVisible(tab.id),
-                agent: agentActive ? "claude" : nil,
-                command: WorkspaceNaming.command(fromArgv: foregroundCommandLine(tab.id)),
-                directory: currentDirectory(tab.id)
+                agent: hasSession ? "claude" : nil,
+                command: command,
+                directory: currentDirectory(tab.id),
+                chatTitle: hasSession
+                    ? WorkspaceNaming.chatTitle(fromTerminalTitle: tab.title, command: command)
+                    : nil
             )
         }
         return WorkspaceNaming.signals(from: observed, workspaceRoot: workspace.rootPath)

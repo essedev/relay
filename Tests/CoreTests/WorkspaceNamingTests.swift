@@ -32,6 +32,51 @@ private let home = "/Users/dev"
     #expect(try #require(result?.count) <= 80)
 }
 
+// MARK: - chatTitle(fromTerminalTitle:command:)
+
+@Test func chatTitleStripsTheAgentStatusGlyph() {
+    // Da fermo `✳`, mentre lavora un glifo che gira: il titolo è quel che segue.
+    #expect(WorkspaceNaming.chatTitle(fromTerminalTitle: "✳ Timesheet bridge a OMP")
+        == "Timesheet bridge a OMP")
+    #expect(WorkspaceNaming.chatTitle(fromTerminalTitle: "◑ Architettura modelli")
+        == "Architettura modelli")
+    #expect(WorkspaceNaming.chatTitle(fromTerminalTitle: "⠂ Piano  di\tmigrazione")
+        == "Piano di migrazione")
+}
+
+@Test func chatTitleIsNilBeforeTheChatHasATopic() {
+    #expect(WorkspaceNaming.chatTitle(fromTerminalTitle: "✳ Claude Code") == nil)
+    #expect(WorkspaceNaming.chatTitle(fromTerminalTitle: "shell") == nil)
+    #expect(WorkspaceNaming.chatTitle(fromTerminalTitle: "✳ ") == nil)
+    #expect(WorkspaceNaming.chatTitle(fromTerminalTitle: "") == nil)
+}
+
+@Test func chatTitleIgnoresTheShellPromptTitle() {
+    #expect(WorkspaceNaming.chatTitle(
+        fromTerminalTitle: "dev@MacBook-Pro:~/Development/Projects/relay"
+    ) == nil)
+    // Un ":" in un argomento vero non basta a scartarlo.
+    #expect(WorkspaceNaming.chatTitle(fromTerminalTitle: "Fix: login con SSO")
+        == "Fix: login con SSO")
+}
+
+@Test func chatTitleIgnoresTheCommandLineTheShellWroteAsTitle() {
+    #expect(WorkspaceNaming.chatTitle(
+        fromTerminalTitle: "claude --resume", command: "claude --resume abc"
+    ) == nil)
+    // Col glifo il titolo l'ha scritto l'agente: un argomento che comincia per "Claude" resta.
+    #expect(WorkspaceNaming.chatTitle(
+        fromTerminalTitle: "✳ Claude hooks e settings", command: "claude"
+    ) == "Claude hooks e settings")
+}
+
+@Test func chatTitleIsCapped() throws {
+    let long = "✳ " + String(repeating: "parola ", count: 30)
+    let title = try #require(WorkspaceNaming.chatTitle(fromTerminalTitle: long))
+    #expect(title.count <= WorkspaceNaming.maxChatTitleLength)
+    #expect(!title.hasSuffix(" "))
+}
+
 // MARK: - signals(from:workspaceRoot:)
 
 @Test func signalsPreferTheTabWithAnActiveAgent() {
@@ -43,6 +88,16 @@ private let home = "/Users/dev"
     #expect(result.agent == "claude")
     // I segnali vengono tutti dalla stessa tab: la cwd è quella dell'agente, non della visibile.
     #expect(result.directory == "/Users/dev/relay")
+}
+
+@Test func signalsTakeTheChatTitleFromTheAgentTab() {
+    let tabs = [
+        TabNamingSignal(isVisible: true, command: "make test", directory: "/Users/dev/relay"),
+        TabNamingSignal(agent: "claude", directory: "/Users/dev", chatTitle: "Piano migrazione"),
+    ]
+    let result = WorkspaceNaming.signals(from: tabs)
+    #expect(result.chatTitle == "Piano migrazione")
+    #expect(result.directory == "/Users/dev")
 }
 
 @Test func signalsPreferACommandOverABareDirectory() {
@@ -125,6 +180,25 @@ private let home = "/Users/dev"
     let signals = WorkspaceNameSignals(directory: "/Users/dev/relay", agent: "claude")
     let result = WorkspaceNaming.prompt(for: signals, homePath: home)
     #expect(try #require(result?.user.contains("Agent: claude")))
+}
+
+@Test func promptIncludesTheChatTitle() throws {
+    let signals = WorkspaceNameSignals(
+        directory: "/Users/dev/app", agent: "claude", chatTitle: "Timesheet bridge a OMP"
+    )
+    let result = try #require(WorkspaceNaming.prompt(for: signals, homePath: home))
+    #expect(result.user.contains("Directory: app"))
+    #expect(result.user.contains("Chat: Timesheet bridge a OMP"))
+    // La cartella specifica resta il nome del progetto: la chat entra solo se è generica.
+    #expect(result.system.contains("only when the directory is generic"))
+}
+
+@Test func promptBuiltFromTheChatTitleAloneInHome() throws {
+    // Agente lanciato dalla home: prima non c'era niente da cui nominare.
+    let signals = WorkspaceNameSignals(directory: home, chatTitle: "Piano di migrazione")
+    let result = try #require(WorkspaceNaming.prompt(for: signals, homePath: home))
+    #expect(result.user.contains("Chat: Piano di migrazione"))
+    #expect(!result.user.contains("Directory:"))
 }
 
 @Test func promptAsksForADifferentNameWhenAvoiding() throws {

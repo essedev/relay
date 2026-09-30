@@ -177,8 +177,9 @@ extension Guide {
                     "A workspace opened without a folder is called \u{201C}Workspace 3\u{201D}, "
                         + "which tells you nothing when there are nine of them. Relay renames it "
                         + "after what it is actually doing: the folder you cd into, a command "
-                        + "running in one of its tabs, an active agent session. The name pulses "
-                        + "while it is being worked out."
+                        + "running in one of its tabs, an agent session and the topic of its "
+                        + "chat. With an agent in the tab Relay waits for the chat to get its "
+                        + "title, up to a minute. The name pulses while it is being worked out."
                 ),
                 .paragraph(
                     "Out of the box the name is derived from those signals - "
@@ -204,7 +205,9 @@ extension Guide {
                     "The key is stored in a file only you can read, not in the preferences "
                         + "plist. A name is a couple of hundred tokens on a cheap default model, "
                         + "but it is your account - and the derived names cost nothing, so the "
-                        + "key is an upgrade, not a requirement."
+                        + "key is an upgrade, not a requirement. The model sees the folder's "
+                        + "name (not its path), the running command and the agent chat's title, "
+                        + "nothing else."
                 ),
             ]
         )

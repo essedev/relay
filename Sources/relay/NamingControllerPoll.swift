@@ -93,7 +93,7 @@ extension NamingController {
     }
 
     /// Osserva il workspace e delega la decisione alla `NamingTriggerPolicy` pura; se decide di
-    /// nominare, produce il nome. La priorità dei segnali (agente > comando stabile > cwd
+    /// nominare, produce il nome. La priorità dei segnali (sessione agente > comando stabile > cwd
     /// stabilizzata) vive nella policy, la scelta della tab da cui leggerli in `collectSignals`.
     ///
     /// Con una API key il nome lo chiede il modello; senza, lo deriva `WorkspaceNaming.localNames`
@@ -103,6 +103,7 @@ extension NamingController {
         var policy = policies[workspace.id] ?? NamingTriggerPolicy()
         let decision = policy.observe(
             agent: observed.agent,
+            chatTitle: observed.chatTitle,
             command: observed.command,
             cwd: observed.directory,
             now: now

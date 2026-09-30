@@ -7,17 +7,53 @@ private let t0 = Date(timeIntervalSince1970: 1_000_000)
 
 // MARK: - Agente attivo
 
-@Test func agentActiveNamesImmediately() {
+@Test func agentWithAChatTitleNamesImmediately() {
     var policy = NamingTriggerPolicy()
     let decision = policy.observe(
         agent: "claude",
-        command: "vim main.swift",
+        chatTitle: "Timesheet bridge",
+        command: "claude",
         cwd: "/x/proj",
         now: t0
     )
     #expect(decision == .name(WorkspaceNameSignals(
-        directory: "/x/proj", command: "vim main.swift", agent: "claude"
+        directory: "/x/proj", command: "claude", agent: "claude", chatTitle: "Timesheet bridge"
     )))
+}
+
+@Test func agentWithoutAChatTitleWaitsForIt() {
+    // Claude scrive il titolo dopo il primo prompt: nominare all'avvio perderebbe il segnale.
+    var policy = NamingTriggerPolicy()
+    #expect(policy.observe(agent: "claude", command: "claude", cwd: "/x", now: t0) == .wait)
+    let soon = t0.addingTimeInterval(9)
+    #expect(policy.observe(
+        agent: "claude", chatTitle: "Piano migrazione", command: "claude", cwd: "/x", now: soon
+    ) == .name(WorkspaceNameSignals(
+        directory: "/x", command: "claude", agent: "claude", chatTitle: "Piano migrazione"
+    )))
+}
+
+@Test func agentWithoutAChatTitleNamesAfterTheGrace() {
+    var policy = NamingTriggerPolicy(thresholds: .init(chatTitleGraceSeconds: 60))
+    #expect(policy.observe(agent: "claude", command: "claude", cwd: "/x", now: t0) == .wait)
+    #expect(policy.observe(
+        agent: "claude", command: "claude", cwd: "/x", now: t0.addingTimeInterval(59)
+    ) == .wait)
+    #expect(policy.observe(
+        agent: "claude", command: "claude", cwd: "/x", now: t0.addingTimeInterval(60)
+    ) == .name(WorkspaceNameSignals(directory: "/x", command: "claude", agent: "claude")))
+}
+
+@Test func agentGraceRestartsWhenTheSessionEnds() {
+    var policy = NamingTriggerPolicy(thresholds: .init(chatTitleGraceSeconds: 60))
+    _ = policy.observe(agent: "claude", command: nil, cwd: nil, now: t0)
+    // La sessione finisce: l'attesa non si accumula a cavallo di due sessioni.
+    _ = policy.observe(agent: nil, command: nil, cwd: nil, now: t0.addingTimeInterval(30))
+    let restart = t0.addingTimeInterval(40)
+    #expect(policy.observe(agent: "claude", command: nil, cwd: nil, now: restart) == .wait)
+    #expect(policy.observe(
+        agent: "claude", command: nil, cwd: nil, now: t0.addingTimeInterval(70)
+    ) == .wait)
 }
 
 @Test func agentTickDoesNotMutateCommandStreak() {

@@ -14,6 +14,25 @@ Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLA
   non sa fare: espandere sigle (brew -> Homebrew), fondere cartella e comando in una frase, e dare
   un nome **diverso** quando lo si rigenera. Il locale è anche il **ripiego** quando la richiesta
   al modello ha esaurito i tentativi: meglio "Yellow Hub" che "Workspace 3" per sempre.
+- **Titolo della chat come quarto segnale.** Il titolo OSC di una tab con una sessione agente
+  (`agentState != .unknown`, da `SessionStart` a `SessionEnd`) è il titolo della chat: Claude Code
+  scrive `✳ <argomento>` da fermo e un glifo che gira mentre lavora. `WorkspaceNaming.chatTitle`
+  toglie il glifo e scarta quel che non è un argomento: `✳ Claude Code` (prima del primo prompt),
+  `user@host:path` e la riga di comando che la shell mette come titolo; col glifo il confronto col
+  comando si salta, perché il titolo l'ha scritto l'agente. Il titolo si legge **solo** dalle tab con
+  sessione: altrove è della shell. Al modello va come riga `Chat:`, e il prompt dice di nominare dal
+  progetto quando la cartella è specifica e usare la chat solo se è generica o manca. **Perché non
+  vince sulla cartella**: la sidebar mostra già il titolo della chat come sottotitolo, e un nome
+  preso dalla prima conversazione invecchia alla seconda. Il guadagno vero è l'agente lanciato
+  dalla home: prima `prompt` tornava `nil` e il comando `claude` dava "Claude". Senza chiave la
+  chat sta **tra** cartella e comando in `localNames` (prima frase, niente Title Case), perché una
+  regola non sa dire se una cartella è generica. **Timing**: Claude scrive il titolo dopo il primo
+  prompt, in modo asincrono, e la nomina è one-shot; con una sessione e senza titolo la policy
+  aspetta fino a `chatTitleGraceSeconds` (60s dalla prima osservazione della sessione), poi nomina
+  senza. **Limite noto**: in una cartella generica il trigger cwd nomina dopo 10s, di solito prima
+  che l'agente parta; lì la chat entra solo col "Regenerate name". **Privacy**: il titolo della
+  chat è contenuto dell'utente e con la chiave va all'endpoint configurato, detto in Settings e
+  nella guida.
 - Nomina automatica workspace (LLM OpenAI-compatible): un workspace nato come placeholder o da
   cartella (`NameOrigin.default`) viene rinominato al primo segnale utile da quello che ci fai. La
   logica pura sta in `Core.WorkspaceNaming` (costruzione prompt dai segnali cwd/comando/agente,
@@ -26,11 +45,11 @@ Come un workspace prende un nome da solo. Il resto della guida sta in `../../CLA
   `.default`. Il contesto si raccoglie su **tutte le tab** del workspace, non sulla selezionata: la
   tab in vista è spesso una shell ferma mentre l'agente gira in quella accanto, ed è il workspace
   che si nomina. `Core.WorkspaceNaming.signals` (puro, testato) sceglie **una** tab - la più
-  informativa (agente > comando > cwd, a parità vince quella a schermo) - e ne prende i segnali
-  **interi**: mescolare il comando di una tab con la cwd di un'altra descriverebbe un'attività che
+  informativa (sessione agente > comando > cwd, a parità vince quella a schermo) - e ne prende i
+  segnali **interi**: mescolare il comando di una tab con la cwd di un'altra descriverebbe un'attività che
   non esiste. Se la tab scelta non ha cwd (mai realizzata: restore, sfratto LRU) si ricade sul
-  `rootPath` del workspace. Tre trigger, dal più forte: agente attivo (`running`/`needs_input`) ->
-  subito; comando in foreground stabile per 2 tick (argv via `TerminalSurfaceHandle
+  `rootPath` del workspace. Tre trigger, dal più forte: sessione agente -> appena la chat ha un
+  titolo, o dopo 60s senza (vedi sopra); comando in foreground stabile per 2 tick (argv via `TerminalSurfaceHandle
   .foregroundCommandLine`, letta con `KERN_PROCARGS2`) -> es. "Homebrew Update"; cwd stabile fuori
   dalla home per ~10s -> es. "Yellow Hub". **La cwd è quella della shell viva**
   (`WorkspaceAreaController.currentDirectory`, precedenza `Core.CurrentDirectory` = viva -> OSC 7 ->

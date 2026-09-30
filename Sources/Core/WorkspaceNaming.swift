@@ -1,17 +1,27 @@
 import Foundation
 
 /// Segnali grezzi da cui derivare il nome di un workspace: la working directory corrente, il
-/// comando in foreground, l'eventuale agente attivo. Tutti opzionali; `WorkspaceNaming.prompt`
-/// decide se bastano a chiedere un nome.
+/// comando in foreground, l'eventuale sessione agente e il titolo della sua chat. Tutti opzionali;
+/// `WorkspaceNaming.prompt` decide se bastano a chiedere un nome.
 public struct WorkspaceNameSignals: Equatable, Sendable {
     public var directory: String?
     public var command: String?
     public var agent: String?
+    /// Titolo della chat dell'agente (il titolo OSC che Claude Code imposta, già ripulito da
+    /// `WorkspaceNaming.chatTitle`). Dice di cosa si parla, non in che progetto: per questo nel
+    /// prompt affianca la cartella invece di sostituirla.
+    public var chatTitle: String?
 
-    public init(directory: String? = nil, command: String? = nil, agent: String? = nil) {
+    public init(
+        directory: String? = nil,
+        command: String? = nil,
+        agent: String? = nil,
+        chatTitle: String? = nil
+    ) {
         self.directory = directory
         self.command = command
         self.agent = agent
+        self.chatTitle = chatTitle
     }
 }
 
@@ -24,17 +34,20 @@ public struct TabNamingSignal: Equatable, Sendable {
     public var agent: String?
     public var command: String?
     public var directory: String?
+    public var chatTitle: String?
 
     public init(
         isVisible: Bool = false,
         agent: String? = nil,
         command: String? = nil,
-        directory: String? = nil
+        directory: String? = nil,
+        chatTitle: String? = nil
     ) {
         self.isVisible = isVisible
         self.agent = agent
         self.command = command
         self.directory = directory
+        self.chatTitle = chatTitle
     }
 }
 
@@ -60,6 +73,16 @@ public enum WorkspaceNaming {
         "folder", "session", "unknown", "name", "prompt", "command",
     ]
 
+    /// Titoli che un agente mostra prima di avere un argomento (`✳ Claude Code` all'avvio) e il
+    /// placeholder di una tab senza OSC: non dicono di cosa parla la chat.
+    private static let genericChatTitles: Set<String> = [
+        "shell", "claude", "claude code", "codex", "codex cli",
+    ]
+
+    /// Tetto del titolo di chat spedito al modello: i titoli di Claude sono corti, ma il titolo OSC
+    /// lo scrive chiunque.
+    static let maxChatTitleLength = 80
+
     /// Deriva un comando leggibile dall'argv del processo in foreground. `nil` se non c'è argv, se
     /// è
     /// una shell interattiva nuda (sei al prompt), o se resta vuoto. Prende il basename
@@ -76,6 +99,47 @@ public enum WorkspaceNaming {
         let capped = joined.count > 80 ? String(joined.prefix(80)) : joined
         let trimmed = capped.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Il titolo della chat da un titolo di terminale (OSC 0/2) di una tab con una sessione agente.
+    /// `nil` se non dice niente sull'argomento.
+    ///
+    /// Claude Code scrive `✳ <argomento>` da fermo e un glifo che gira (`◐`, `⠂`) mentre lavora: il
+    /// glifo in testa va via. Prima che la chat abbia un argomento il titolo è `✳ Claude Code`
+    /// (generico), e prima ancora può essere quello della shell: `user@host:path` al prompt o la
+    /// riga di comando lanciata. Il glifo è anche la prova che il titolo l'ha scritto l'agente:
+    /// quando c'è, il confronto col comando in foreground si salta, o un argomento che comincia
+    /// per "Claude" verrebbe scambiato per il comando `claude`.
+    public static func chatTitle(fromTerminalTitle raw: String, command: String? = nil) -> String? {
+        let scalars = raw.unicodeScalars
+        let body = scalars.drop { !CharacterSet.alphanumerics.contains($0) }
+        let hadGlyph = body.count < scalars.count
+            && !scalars.prefix(scalars.count - body.count).allSatisfy {
+                CharacterSet.whitespaces.contains($0)
+            }
+        let title = String(String.UnicodeScalarView(body))
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        guard !title.isEmpty, !genericChatTitles.contains(title.lowercased()),
+              !isShellPromptTitle(title) else { return nil }
+        if !hadGlyph, let command, echoesCommand(title, command: command) { return nil }
+        guard title.count > maxChatTitleLength else { return title }
+        return truncateAtWordBoundary(title, limit: maxChatTitleLength)
+    }
+
+    /// `user@host:~/path`: il titolo che la shell mette al prompt, non un argomento.
+    private static func isShellPromptTitle(_ title: String) -> Bool {
+        guard let colon = title.firstIndex(of: ":") else { return false }
+        let head = title[..<colon]
+        return head.contains("@") && !head.contains(where: \.isWhitespace)
+    }
+
+    /// La shell che intitola la tab col comando lanciato (`claude --resume`): stesso eseguibile.
+    private static func echoesCommand(_ title: String, command: String) -> Bool {
+        let first = { (text: String) in
+            text.split(separator: " ").first.map { ($0 as NSString).lastPathComponent.lowercased() }
+        }
+        return first(title) != nil && first(title) == first(command)
     }
 
     /// Fonde le osservazioni delle tab di un workspace in un solo set di segnali. Sceglie **una**
@@ -100,12 +164,13 @@ public enum WorkspaceNaming {
         return WorkspaceNameSignals(
             directory: best?.directory ?? workspaceRoot,
             command: best?.command,
-            agent: best?.agent
+            agent: best?.agent,
+            chatTitle: best?.chatTitle
         )
     }
 
-    /// Quanto una tab è informativa per la nomina. Ordine fisso, non pesi da tarare: un agente
-    /// attivo dice di cosa ti stai occupando, un comando dice cosa stai facendo, la cwd solo dove
+    /// Quanto una tab è informativa per la nomina. Ordine fisso, non pesi da tarare: una sessione
+    /// agente dice di cosa ti stai occupando, un comando dice cosa stai facendo, la cwd solo dove
     /// sei.
     private static func strength(_ tab: TabNamingSignal) -> Int {
         if tab.agent != nil { return 3 }
@@ -115,8 +180,14 @@ public enum WorkspaceNaming {
     }
 
     /// Costruisce i messaggi (system + user) per la chat completion. `nil` se i segnali non bastano
-    /// a nominare qualcosa: nessun comando **e** directory assente o coincidente con la home (un
-    /// workspace fermo in home senza attività non ha un "argomento" da cui derivare un nome).
+    /// a nominare qualcosa: nessun comando, nessun titolo di chat **e** directory assente o
+    /// coincidente con la home (un workspace fermo in home senza attività non ha un "argomento" da
+    /// cui derivare un nome).
+    ///
+    /// La cartella dice il progetto, la chat dice il task: il prompt chiede di nominare il progetto
+    /// e di usare la chat solo quando la cartella è generica o manca. Nominare dalla chat quando la
+    /// cartella basta duplicherebbe il sottotitolo della sidebar (che mostra già il titolo della
+    /// chat) e legherebbe il workspace all'argomento della prima conversazione.
     ///
     /// `avoiding` è il nome corrente da non ripetere, e lo passa solo il "Regenerate name" manuale:
     /// il prompt è deterministico (`temperature: 0`), quindi a contesto invariato il modello
@@ -129,17 +200,23 @@ public enum WorkspaceNaming {
         let directoryLabel = directoryHint(signals.directory, homePath: homePath)
         let command = signals.command?.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasCommand = !(command?.isEmpty ?? true)
-        guard directoryLabel != nil || hasCommand else { return nil }
+        let chat = signals.chatTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasChat = !(chat?.isEmpty ?? true)
+        guard directoryLabel != nil || hasCommand || hasChat else { return nil }
 
         let system = """
-        You name developer terminal workspaces. Given a working directory and/or a running \
-        command, reply with a short, human-friendly name of 1 to 3 words in Title Case. \
+        You name developer terminal workspaces. You get some of: the working directory, the \
+        running command, the title of the coding-agent chat in progress. Reply with a short, \
+        human-friendly name of 1 to 3 words in Title Case. \
+        A specific directory names the project: name the workspace after it. Use the chat title \
+        only when the directory is generic (e.g. app, src, backend, tmp) or missing. \
         Ignore version suffixes (e.g. -v2, .1) and file extensions. \
         Reply with ONLY the name: no quotes, no punctuation, no explanation.
         """
         var lines: [String] = []
         if let directoryLabel { lines.append("Directory: \(directoryLabel)") }
         if hasCommand, let command { lines.append("Command: \(command)") }
+        if hasChat, let chat { lines.append("Chat: \(chat)") }
         let agent = signals.agent?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let agent, !agent.isEmpty { lines.append("Agent: \(agent)") }
         let avoid = currentName?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -152,9 +229,14 @@ public enum WorkspaceNaming {
     // MARK: - Nomi senza modello
 
     /// Nomi derivabili dai segnali **senza chiedere niente a nessuno**, in ordine di preferenza:
-    /// prima la cartella (identifica il progetto e non cambia sotto i piedi), poi il comando (dice
-    /// cosa stai facendo, ma passa). Lista vuota = gli stessi segnali per cui `prompt` torna `nil`,
-    /// cioè non c'è niente da cui nominare.
+    /// prima la cartella (identifica il progetto e non cambia sotto i piedi), poi il titolo della
+    /// chat, poi il comando (dice cosa stai facendo, ma passa). Lista vuota = gli stessi segnali
+    /// per cui `prompt` torna `nil`, cioè non c'è niente da cui nominare.
+    ///
+    /// La chat viene prima del comando perché in una tab con un agente il comando è l'agente
+    /// stesso (`claude` -> "Claude"), che non distingue un workspace dall'altro. Una regola non sa
+    /// dire se una cartella è generica, quindi qui la chat non scavalca mai la cartella: conta
+    /// quando la cartella non c'è, cioè sei in home.
     ///
     /// Esiste perché al modello arrivano tre righe scarne (`Directory: hub`, `Command: brew
     /// update`, `Agent: claude`): su un input così povero il grosso del lavoro è meccanico -
@@ -167,6 +249,9 @@ public enum WorkspaceNaming {
         if let directory = directoryHint(signals.directory, homePath: homePath) {
             candidates.append(titleCased(directory, maxWords: 3))
         }
+        if let chat = signals.chatTitle {
+            candidates.append(firstClause(chat))
+        }
         if let command = signals.command {
             candidates.append(titleCased(commandWords(command), maxWords: 2))
         }
@@ -176,6 +261,14 @@ public enum WorkspaceNaming {
         return candidates
             .compactMap(sanitize)
             .filter { seen.insert($0.lowercased()).inserted }
+    }
+
+    /// La prima frase di un titolo di chat, senza Title Case: è già prosa scritta da qualcuno, e
+    /// "Architettura modelli Anthropic, OpenAI e cinesi" -> "Architettura modelli Anthropic" (poi
+    /// `sanitize` taglia al tetto sul confine di parola).
+    private static func firstClause(_ title: String) -> String {
+        let clause = title.split(whereSeparator: { ",;|".contains($0) }).first.map(String.init)
+        return (clause ?? title).trimmingCharacters(in: .whitespaces)
     }
 
     /// Parole utili di una riga di comando: niente flag, niente sottocomandi-guscio (`npm **run**

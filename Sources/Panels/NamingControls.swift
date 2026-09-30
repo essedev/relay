@@ -66,10 +66,11 @@ struct WorkspaceNamingBlock: View {
                 .font(Theme.Typography.title)
                 .foregroundStyle(colors.foreground)
             Text("Relay names a workspace from what you do in it: the directory you cd into, a "
-                + "command you run, a Claude session. It works with no setup - names are derived "
-                + "from those signals. Add an API key and an OpenAI-compatible model writes them "
-                + "instead: better names, and \u{201C}Regenerate name\u{201D} gives you a "
-                + "different one. Manually renamed workspaces are never touched.")
+                + "command you run, a Claude session and its chat title. It works with no setup - "
+                + "names are derived from those signals. Add an API key and an OpenAI-compatible "
+                + "model writes them instead: better names, and \u{201C}Regenerate name\u{201D} "
+                + "gives you a different one. The model sees the folder name, the command and the "
+                + "chat title. Manually renamed workspaces are never touched.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
                 .fixedSize(horizontal: false, vertical: true)

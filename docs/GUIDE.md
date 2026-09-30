@@ -202,7 +202,9 @@ has unloaded to save memory are listed like any other.
 
 A workspace opened without a folder is called “Workspace 3”, which tells you nothing when there are
 nine of them. Relay renames it after what it is actually doing: the folder you cd into, a command
-running in one of its tabs, an active agent session. The name pulses while it is being worked out.
+running in one of its tabs, an agent session and the topic of its chat. With an agent in the tab
+Relay waits for the chat to get its title, up to a minute. The name pulses while it is being worked
+out.
 
 Out of the box the name is derived from those signals - “yellow-hub” becomes “Yellow Hub”, “npm run
 dev” becomes “Npm Dev”. No key, no network, no wait.
@@ -218,7 +220,8 @@ placeholder or a folder name is fair game, and once named the workspace is left 
 
 **Note:** The key is stored in a file only you can read, not in the preferences plist. A name is a
 couple of hundred tokens on a cheap default model, but it is your account - and the derived names
-cost nothing, so the key is an upgrade, not a requirement.
+cost nothing, so the key is an upgrade, not a requirement. The model sees the folder's name (not its
+path), the running command and the agent chat's title, nothing else.
 
 <a id="keyboard"></a>
 

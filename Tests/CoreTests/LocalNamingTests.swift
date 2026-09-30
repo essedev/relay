@@ -7,9 +7,14 @@ import Testing
 
 private let home = "/Users/dev"
 
-private func names(directory: String? = nil, command: String? = nil) -> [String] {
+private func names(
+    directory: String? = nil,
+    command: String? = nil,
+    chat: String? = nil
+) -> [String] {
     WorkspaceNaming.localNames(
-        for: WorkspaceNameSignals(directory: directory, command: command), homePath: home
+        for: WorkspaceNameSignals(directory: directory, command: command, chatTitle: chat),
+        homePath: home
     )
 }
 
@@ -71,4 +76,24 @@ private func names(directory: String? = nil, command: String? = nil) -> [String]
 
 @Test func localNamesDoNotRepeatTheSameNameTwice() {
     #expect(names(directory: "/Users/dev/src/relay", command: "relay") == ["Relay"])
+}
+
+/// Una regola non sa dire se una cartella è generica: la chat non la scavalca mai, e viene prima
+/// del comando, che in una tab con un agente è l'agente stesso.
+@Test func localNamesRankTheChatBetweenFolderAndCommand() {
+    #expect(names(directory: "/Users/dev/src/acme-web", command: "claude", chat: "Piano migrazione")
+        == ["Acme Web", "Piano migrazione", "Claude"])
+}
+
+/// Agente lanciato dalla home: la chat è l'unico segnale che dice qualcosa.
+@Test func localNameFromTheChatInHome() {
+    #expect(names(directory: home, command: "claude", chat: "Timesheet bridge a OMP").first
+        == "Timesheet bridge a OMP")
+}
+
+/// Prosa, non uno slug: niente Title Case, prima frase, tetto al confine di parola.
+@Test func localNameFromTheChatTakesTheFirstClause() {
+    #expect(names(chat: "Architettura modelli Anthropic, OpenAI e cinesi").first
+        == "Architettura modelli")
+    #expect(names(chat: "Analizza chat | amd-hackathon").first == "Analizza chat")
 }
