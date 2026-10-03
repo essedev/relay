@@ -260,6 +260,22 @@ private func survivors(ofSession shellPid: pid_t) -> [pid_t] {
     #expect(!isGoneOrZombie(session.shellPid))
 }
 
+@Test func hangUpAtQuitReachesEveryMemberWithoutWaiting() throws {
+    // Il gradino dell'uscita: un SIGHUP a tutta la sessione, non solo ai due gruppi che
+    // `PtySessionTeardown` vede da una pty viva. `; true` impedisce a `sh` di fare exec di `sleep`.
+    let session = try #require(PtySession.spawn(running: #"sh -c "sleep 120; true""#))
+    defer { session.forceCleanup() }
+    let agent = try #require(session.foregroundLeader())
+    // `sh` è già in foreground ma il suo `sleep` può non essere ancora nato.
+    #expect(waitUntil { survivors(ofSession: session.shellPid).count == 3 })
+
+    let reached = try PtySessionReaper.hangUp([record(of: session)])
+
+    #expect(reached == 3) // zsh, sh, sleep
+    #expect(waitUntil { survivors(ofSession: session.shellPid).isEmpty })
+    #expect(waitUntil { isGoneOrZombie(agent) })
+}
+
 // MARK: - Registro e teardown di una surface vera
 
 @MainActor

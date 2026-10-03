@@ -116,6 +116,17 @@ public enum PtySessionReaper {
         return outcome
     }
 
+    // MARK: - Uscita
+
+    /// Il primo gradino, da solo: SIGHUP a ogni membro delle sessioni date, senza attese. È ciò che
+    /// fa l'app all'uscita, dove non si può bloccare: chi gestisce il segnale esce subito (i server
+    /// MCP, misurato), e chi lo ignora lo chiude il prossimo lancio. Ritorna i processi raggiunti.
+    @discardableResult
+    public static func hangUp(_ sessions: [PtySessionRecord]) -> Int {
+        guard !sessions.isEmpty else { return 0 }
+        return signal(members(of: sessions, trusted: []), SIGHUP)
+    }
+
     // MARK: - Decisione (pura)
 
     /// I membri di una sessione registrata che abbiamo il diritto di segnalare. Puro: la tabella

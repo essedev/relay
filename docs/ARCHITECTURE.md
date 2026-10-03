@@ -277,7 +277,10 @@ Regole:
   avvio), oppure il processo è nella fotografia dei membri (identità esatta, rinfrescata ogni 30 s
   mentre l'app vive) o è figlio vivo di un membro provato. Mai pid <= 1, mai un altro utente, mai
   Relay stesso. Il restore riparte da `unrealized` + resume command, e nessun resume parte accanto
-  al suo orfano (scriverebbero in due sullo stesso transcript).
+  al suo orfano (scriverebbero in due sullo stesso transcript). All'uscita normale
+  `applicationWillTerminate`, dopo lo stop del receiver, fotografa i membri e manda SIGHUP a ogni
+  processo delle sessioni vive senza attendere: chi lo gestisce (i server MCP) esce subito, chi lo
+  ignora lo chiude il lancio successivo, che resta la garanzia (un crash non passa di lì).
 
 Con SwiftTerm l'unità viva è `LocalProcessTerminalView` (NSView + PTY): view, emulatore e processo
 sono lo stesso oggetto, e la libreria non permette di scollegare la view tenendo l'emulatore. È il

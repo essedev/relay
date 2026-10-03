@@ -198,6 +198,11 @@ public final class PtySessionLedger {
         refreshTimer = timer
     }
 
+    public func stopRefreshing() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+    }
+
     /// Scrive il file della run in modo atomico; senza sessioni lo toglie, perché un file vuoto non
     /// ha niente da dire al prossimo lancio. Best-effort ma non silenzioso: un registro che non si
     /// scrive vuol dire orfani non recuperabili, e va detto nel log.

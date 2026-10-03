@@ -92,11 +92,14 @@ Cosa SwiftTerm non fa da solo, e come lo compensiamo. Il resto della guida sta i
   l'escalation. Misure in `docs/research/PERF.md`, test su pty vere in
   `PtySessionTeardownTests`.
 - **Sessioni oltre la vita dell'app**: uscita e crash non passano dal teardown, e un agente bloccato
-  sopravvive all'hangup del kernel. Le chiude al lancio successivo `PtySessionReaper`, leggendo il
-  registro (`PtySessionLedger`, `~/.relay/sessions`, override `RELAY_SESSIONS`). Trappole già
-  pagate:
+  sopravvive all'hangup del kernel. All'uscita normale l'app manda SIGHUP a ogni processo delle
+  sue sessioni senza attendere; la garanzia è il lancio successivo, dove `PtySessionReaper` le
+  chiude leggendo il registro (`PtySessionLedger`, `~/.relay/sessions`, override
+  `RELAY_SESSIONS`). Trappole già pagate:
   - la voce del registro si toglie in fondo all'escalation, non al `teardown()`: altrimenti una
     sessione chiusa poco prima di uscire non la ritrova nessuno;
+  - all'uscita la fotografia dei membri si prende **prima** del SIGHUP: se la shell muore e
+    l'agente no, al lancio dopo è l'unica prova che l'agente era nostro;
   - **l'ambiente degli altri processi non è leggibile**: macOS toglie l'env da `KERN_PROCARGS2`
     anche per i processi dello stesso utente (verificato su Darwin 25), quindi `RELAY_RUN_ID` non
     può fare da prova. Per questo esiste la fotografia dei membri;

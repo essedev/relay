@@ -96,12 +96,13 @@ extension Guide {
                                    + "restored tab with a session offers a Resume bar that types "
                                    + "the resume command for you. Settings can make it automatic; "
                                    + "the default asks, because nothing should type commands into "
-                                   + "your shell unannounced. Anything a previous run left "
-                                   + "running in a tab, such as an agent stuck past the hangup or "
-                                   + "a session left behind by a crash, is stopped at launch "
-                                   + "before anything resumes, so a session never runs twice. A "
-                                   + "job that has to outlive Relay belongs outside its tabs, in "
-                                   + "tmux for example."),
+                                   + "your shell unannounced. Quitting hangs up every session "
+                                   + "Relay started, and anything still running from a previous "
+                                   + "run, such as an agent stuck past the hangup or a session "
+                                   + "left behind by a crash, is stopped at launch before anything "
+                                   + "resumes, so a session never runs twice. A job that has to "
+                                   + "outlive Relay belongs outside its tabs, in tmux for "
+                                   + "example."),
                     GuideTopic("moon.zzz", "Deactivate a session",
                                "An agent session costs a couple of hundred megabytes and a "
                                    + "handful of processes, and Relay never evicts a tab that "

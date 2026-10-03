@@ -244,6 +244,8 @@ final class AppController: NSObject, NSApplicationDelegate {
         // azzerando i resume binding proprio nello snapshot finale.
         agentCoordinator.stop()
         autosave?.flush() // flush sincrono finale (il debounce potrebbe non essere scaduto)
+        // Dopo lo stop del receiver: i SessionEnd che il SIGHUP fa partire non devono arrivare.
+        hangUpLiveSessions()
         perf?.stop()
         namingController?.stop()
         demoDriver?.stop()

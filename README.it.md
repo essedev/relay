@@ -120,9 +120,10 @@ resta visibile nel terminale, ma non può ancora produrre lo stato rosso di Rela
 conservare l'ultimo stato fino al prossimo hook. Interrompere un turno Codex lo riporta a idle
 senza notifica di completamento. Dopo un riavvio di Relay, la barra Resume supporta entrambi gli agenti.
 
-Quello che una run precedente ha lasciato acceso in una tab, come un agente bloccato oltre l'hangup
-o una sessione rimasta indietro da un crash, si chiude all'avvio prima di qualsiasi resume, così una
-sessione non gira mai due volte sullo stesso transcript. Un job che deve sopravvivere a Relay va
+Uscire da Relay manda l'hangup a ogni sessione che ha aperto, e quello che una run precedente ha
+lasciato acceso, come un agente bloccato oltre l'hangup o una sessione rimasta indietro da un crash,
+si chiude all'avvio prima di qualsiasi resume, così una sessione non gira mai due volte sullo stesso
+transcript. Un job che deve sopravvivere a Relay va
 fuori dalle sue tab (tmux, un job launchd): se resta nella sessione di una tab, si chiude al lancio
 successivo.
 
