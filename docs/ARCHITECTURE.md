@@ -191,7 +191,8 @@ repo/
     AgentRuntime/       socket receiver + client, runtime paths; puro, niente AppKit
     WorkspaceModel/     store workspace/tab, reducer stati, attention, persistence, settings,
                         contenuto della guida utente (dato, reso in due modi: vedi sotto)
-    TerminalEngine/     backend SwiftTerm dietro un'astrazione, surface lifecycle
+    TerminalEngine/     backend SwiftTerm dietro un'astrazione, surface lifecycle, sessioni pty
+                        (teardown, registro su disco, reaper degli orfani)
     TerminalHostUI/     AppKit: host view, surface registry (lazy + LRU), attention ring
     Panels/             SwiftUI: sidebar, strip dei pane, dashboard, settings, guida, stats, badge
     HookInstaller/      installer JSON Claude/Codex + mapping hook -> stato
@@ -265,7 +266,18 @@ Regole:
 - La creazione è sempre lazy: al restore nessuna view nasce; nasce al primo focus.
 - Il cap di scrollback per surface è **10.000 righe** (i transcript lunghi di Claude non devono
   gonfiare la memoria di ogni tab viva, ma la ricerca deve vedere lo storico della sessione).
-- La chiusura dell'app termina i PTY: il restore riparte da `unrealized` + resume command.
+- **L'invariante vale anche oltre la vita dell'app.** Uscire o crashare non passa dal teardown, e
+  l'hangup del kernel non basta: un agente bloccato lo ignora (misurati 52 orfani vivi fino a 17
+  giorni, `docs/research/PERF.md`). Ogni shell avviata entra in un registro su disco
+  (`TerminalEngine.PtySessionLedger`, un file per run in `~/.relay/sessions`, formato in
+  `STATE_SCHEMA.md`) e ne esce solo a escalation del teardown finita. Al lancio, **prima del
+  restore**, `PtySessionReaper` chiude le sessioni delle run il cui Relay non è più vivo: SIGHUP,
+  attesa breve (1 s, finisce prima se muoiono tutti), SIGKILL ai superstiti. Un processo si segnala
+  solo con una prova di appartenenza: la shell registrata è ancora viva (pid **e** istante di
+  avvio), oppure il processo è nella fotografia dei membri (identità esatta, rinfrescata ogni 30 s
+  mentre l'app vive) o è figlio vivo di un membro provato. Mai pid <= 1, mai un altro utente, mai
+  Relay stesso. Il restore riparte da `unrealized` + resume command, e nessun resume parte accanto
+  al suo orfano (scriverebbero in due sullo stesso transcript).
 
 Con SwiftTerm l'unità viva è `LocalProcessTerminalView` (NSView + PTY): view, emulatore e processo
 sono lo stesso oggetto, e la libreria non permette di scollegare la view tenendo l'emulatore. È il
@@ -869,7 +881,10 @@ Ripristinare la sessione di un agente dopo un riavvio (il PTY muore, la sessione
   gli hook eseguiti prima del boot, il **fence di run** (`runID` = `RELAY_RUN_ID`, nonce per
   processo) scarta quelli eseguiti dopo ma nati da una run precedente (claude orfani sopravvissuti al
   riavvio). Senza, uno `Stop` orfano toglieva la tab da `unknown` o un `SessionEnd` azzerava il
-  binding, e la barra non compariva.
+  binding, e la barra non compariva. Gli orfani li chiude ora il reaper al lancio, prima che il
+  receiver parta (vedi Lifecycle Della Surface): floor e fence restano come seconda linea, per le
+  sessioni che il registro non conosce (aperte da una versione precedente, o con il file non
+  scrivibile) e per gli hook che un orfano lancia mentre muore.
 - Al restore la tab è `pendingResume` (binding presente + `agentState == unknown`). Al **primo
   focus** (lazy, un agente alla volta, non un big-bang al boot) `RightPaneController` mostra la barra
   `ResumeBar` (Panels) overlaid sul terminale: `Resume` inietta `claude --resume <id>` oppure
@@ -905,6 +920,7 @@ User input -> focused pane -> TerminalEngine surface / PTY -> processo -> output
 
 ```text
 App launch
+  -> PtySessionReaper.reapOrphans (sessioni di run morte: prima di tutto il resto)
   -> LayoutStore.load() (file mancante/corrotto -> seed default)
   -> WorkspaceStore.restore(from:) (tutti i pane unrealized)
   -> LayoutAutosave.start() (salvataggio debounced sui cambi successivi)

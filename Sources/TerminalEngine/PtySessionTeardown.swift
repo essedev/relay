@@ -100,15 +100,27 @@ public enum PtySessionTeardown {
     /// shell a ogni giro. Non blocca la chiusura: la tab sparisce subito, la sessione si spegne
     /// dietro. Le attese sono generose di proposito, il SIGHUP è quasi sempre l'unico segnale che
     /// serve e l'escalation è la rete per chi lo ignora.
+    ///
+    /// `completion` corre a scala finita: è lì che la sessione esce dal registro
+    /// (`PtySessionLedger.forget`). Prima sarebbe presto, perché se Relay esce durante l'attesa la
+    /// sessione non ha ancora preso il SIGKILL e il prossimo lancio deve poterla ritrovare.
     @MainActor
-    public static func escalateAfterGrace(_ targets: [Target], reaping shellPid: pid_t) {
-        guard !targets.isEmpty || shellPid > 1 else { return }
+    public static func escalateAfterGrace(
+        _ targets: [Target],
+        reaping shellPid: pid_t,
+        completion: @escaping @MainActor () -> Void = {}
+    ) {
+        guard !targets.isEmpty || shellPid > 1 else {
+            completion()
+            return
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + terminateGrace) {
             escalate(targets, signal: SIGTERM)
             reap(shellPid)
             DispatchQueue.main.asyncAfter(deadline: .now() + killGrace) {
                 escalate(targets, signal: SIGKILL)
                 reap(shellPid)
+                completion()
             }
         }
     }

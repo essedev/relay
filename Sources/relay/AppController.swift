@@ -15,7 +15,10 @@ final class AppController: NSObject, NSApplicationDelegate {
     let log = RelayLog.logger("app") // internal: lo usa anche l'extension delle sessioni
     let store = WorkspaceStore()
     let settings = AppSettings() // internal: letto dal monitor/menu delle scorciatoie
-    private let engine: TerminalEngine = SwiftTermEngine()
+    /// Registro su disco delle shell aperte da questa run: chi sopravvive a un'uscita o a un crash
+    /// lo chiude il lancio successivo (`AppControllerOrphans`). Internal: lo legge quell'extension.
+    let sessionLedger = PtySessionLedger(directory: RelayRuntimePaths.sessionLedgerDirectory)
+    private lazy var engine: TerminalEngine = SwiftTermEngine(ledger: sessionLedger)
     private lazy var agentCoordinator = AgentCoordinator(store: store)
     private lazy var layoutStore = LayoutStore(path: RelayRuntimePaths.layoutPath)
     /// **Una sola** registry per tutta l'app, condivisa fra le finestre: una tab ha una surface
@@ -81,6 +84,10 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_: Notification) {
         log.info("relay launched")
+        // Prima di tutto il resto: nessuna sessione si ripristina accanto al suo orfano. Da lì in
+        // poi le sessioni di questa run tengono aggiornata la loro prova, per il caso del crash.
+        reapOrphanedSessions()
+        sessionLedger.startRefreshing()
         observeKeybindings()
         installNavigationKeyMonitor()
         configureStoreForRun()

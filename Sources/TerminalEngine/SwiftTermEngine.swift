@@ -8,14 +8,20 @@ import SwiftTerm
 /// SwiftTerm: nessun tipo SwiftTerm esce da questo modulo.
 @MainActor
 public final class SwiftTermEngine: TerminalEngine {
-    public init() {}
+    /// Dove le surface registrano la shell che avviano e da dove la tolgono a sessione chiusa.
+    /// `nil` nei test e negli usi che non devono lasciare traccia su disco.
+    private let ledger: PtySessionLedger?
+
+    public init(ledger: PtySessionLedger? = nil) {
+        self.ledger = ledger
+    }
 
     public func makeSurface(
         cwd: String?,
         shell: String?,
         env: [String: String]
     ) -> TerminalSurfaceHandle {
-        SwiftTermSurface(cwd: cwd, shell: shell, env: env)
+        SwiftTermSurface(cwd: cwd, shell: shell, env: env, ledger: ledger)
     }
 }
 
@@ -29,16 +35,18 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
     private let cwd: String?
     private let shell: String
     private let extraEnv: [String: String]
+    private let ledger: PtySessionLedger?
     private var started = false
 
     var view: NSView {
         terminal
     }
 
-    init(cwd: String?, shell: String?, env: [String: String]) {
+    init(cwd: String?, shell: String?, env: [String: String], ledger: PtySessionLedger?) {
         self.cwd = cwd
         self.shell = shell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         extraEnv = env
+        self.ledger = ledger
         terminal = RelayTerminalView(frame: .zero)
         super.init()
         terminal.processDelegate = self
@@ -107,11 +115,18 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
             env.append("\(key)=\(value)")
         }
         terminal.startProcess(executable: shell, environment: env, currentDirectory: cwd)
+        // Il fork è sincrono: il pid c'è già, e l'istante di avvio letto adesso è quello che la
+        // shell terrà anche dopo l'exec.
+        ledger?.record(
+            shellPid: terminal.process.shellPid,
+            tabID: extraEnv[PtySessionLedger.tabEnvironmentKey]
+        )
     }
 
     /// Chiude la tab **e la sessione POSIX della sua pty**: `terminal.terminate()` da solo non
     /// uccide niente (vedi `PtySessionTeardown` per il perché). L'ordine conta: i target si
-    /// catturano prima di `terminate()`, che azzera `childfd`.
+    /// catturano prima di `terminate()`, che azzera `childfd`. La voce del registro si toglie
+    /// solo a escalation finita: se Relay esce prima, la sessione la chiude il prossimo lancio.
     func teardown() {
         guard started else { return }
         let shellPid = terminal.process.shellPid
@@ -121,7 +136,9 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         )
         PtySessionTeardown.hangUp(targets)
         terminal.terminate()
-        PtySessionTeardown.escalateAfterGrace(targets, reaping: shellPid)
+        PtySessionTeardown.escalateAfterGrace(targets, reaping: shellPid) { [ledger] in
+            ledger?.forget(shellPid: shellPid)
+        }
     }
 
     /// Scrive testo nello stdin del processo (resume dell'agente). `process.send` va al PTY, come

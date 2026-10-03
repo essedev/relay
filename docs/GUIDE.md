@@ -159,7 +159,9 @@ has Mark as Read and Mark as Unread on the tab.
 - **Resume after a restart** - Terminals do not survive a restart, but agent sessions can: a
   restored tab with a session offers a Resume bar that types the resume command for you. Settings
   can make it automatic; the default asks, because nothing should type commands into your shell
-  unannounced.
+  unannounced. Anything a previous run left running in a tab, such as an agent stuck past the hangup
+  or a session left behind by a crash, is stopped at launch before anything resumes, so a session
+  never runs twice. A job that has to outlive Relay belongs outside its tabs, in tmux for example.
 - **Deactivate a session** - An agent session costs a couple of hundred megabytes and a handful of
   processes, and Relay never evicts a tab that still has one running. Deactivate Sessions, in the
   Workspace menu or on a sidebar row, stops them and keeps the way back: the tabs stay where they

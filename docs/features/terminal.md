@@ -91,6 +91,23 @@ Cosa SwiftTerm non fa da solo, e come lo compensiamo. Il resto della guida sta i
   accetta la patch upstream (`close(flags: .stop)` + reaping), di questo resta utile solo
   l'escalation. Misure in `docs/research/PERF.md`, test su pty vere in
   `PtySessionTeardownTests`.
+- **Sessioni oltre la vita dell'app**: uscita e crash non passano dal teardown, e un agente bloccato
+  sopravvive all'hangup del kernel. Le chiude al lancio successivo `PtySessionReaper`, leggendo il
+  registro (`PtySessionLedger`, `~/.relay/sessions`, override `RELAY_SESSIONS`). Trappole già
+  pagate:
+  - la voce del registro si toglie in fondo all'escalation, non al `teardown()`: altrimenti una
+    sessione chiusa poco prima di uscire non la ritrova nessuno;
+  - **l'ambiente degli altri processi non è leggibile**: macOS toglie l'env da `KERN_PROCARGS2`
+    anche per i processi dello stesso utente (verificato su Darwin 25), quindi `RELAY_RUN_ID` non
+    può fare da prova. Per questo esiste la fotografia dei membri;
+  - a leader morto (il caso comune: una zsh esce sull'hangup, l'agente no) la prova è solo
+    l'identità esatta nella fotografia o la discendenza da un membro provato. Mai l'id di sessione
+    da solo: il pid della shell può essere stato riusato da un'altra sessione;
+  - un'istanza di sviluppo lanciata con `nohup` passa SIGHUP **ignorato** a tutte le sue shell (le
+    disposizioni `SIG_IGN` sopravvivono a fork ed exec, e SwiftTerm non le ripristina): qualsiasi
+    prova di hangup su quell'istanza è falsata;
+  - un job che deve sopravvivere a Relay va fuori dalla sessione della tab (tmux, un job launchd):
+    `nohup` non basta, perché il processo resta nella sessione e al lancio successivo si chiude.
 - Cap LRU surface: `SurfaceRegistry.enforceLRU` è un **soft cap**. Sfratta le meno recenti **solo se
   idle** (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente) e
   non protette: mai la visibile, le tab del workspace attivo, le tab con attenzione fresca

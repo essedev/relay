@@ -257,6 +257,44 @@ API key dell'endpoint OpenAI-compatible della nomina automatica, scritto con per
 URL e model, che non sono segreti, stanno in `AppSettings`. Mai loggata, mai nello snapshot del
 layout, mai in un payload evento.
 
+## Registro delle sessioni pty
+
+Il quarto formato su disco, ed è di Relay, non dell'utente: le shell che una run ha aperto, perché
+il lancio successivo possa chiudere quelle sopravvissute a un'uscita o a un crash
+(`TerminalEngine.PtySessionLedger` scrive, `PtySessionReaper` legge; il perché in `ARCHITECTURE.md`,
+Lifecycle Della Surface). Un file per run, `~/.relay/sessions/<runId>.json` (override
+`RELAY_SESSIONS`; path iniettato, i test usano una dir temporanea), scritto in modo atomico, così due
+istanze non scrivono mai lo stesso file. Senza sessioni il file si toglie.
+
+```json
+{
+  "version": 1,
+  "runId": "<RELAY_RUN_ID della run>",
+  "owner": { "pid": 123, "startedAt": 1791064034689756 },
+  "sessions": [
+    {
+      "shellPid": 456,
+      "shellStartedAt": 1791064035265985,
+      "tabId": "<Tab.id, solo diagnostica>",
+      "members": [{ "pid": 457, "startedAt": 1791064035512790 }]
+    }
+  ]
+}
+```
+
+- `startedAt` è l'istante di avvio del processo in microsecondi (`proc_pidinfo`): con il pid è
+  l'identità che sopravvive al riciclo dei pid. `owner` è il Relay che possedeva le sessioni:
+  finché è vivo con la stessa identità il file non si tocca (un'altra istanza, una run di sviluppo).
+- Una voce entra quando la shell nasce e esce quando l'escalation del teardown è finita, non
+  prima: se Relay esce durante l'attesa, la sessione la chiude il lancio successivo.
+- `members` è la fotografia degli altri processi della sessione POSIX, rinfrescata ogni 30 s e
+  scritta solo se cambia: è la prova di appartenenza quando la shell è già morta.
+- Decode tollerante: `runId` e `owner` obbligatori (senza, nessuno può dire se le sessioni sono
+  orfane, e il file illeggibile si toglie); una voce di sessione illeggibile si scarta da sola;
+  `members` mancante o rotto vale vuoto; campi sconosciuti ignorati.
+- Al lancio i file di run il cui owner è morto si leggono, le loro sessioni si chiudono e il file si
+  toglie; resta solo se qualche processo è sopravvissuto anche al SIGKILL (il lancio dopo riprova).
+
 ## Stato
 
 In codice: `AgentState`, `AgentEventType`, `AgentStateEvent` (con fence di run), `WorkspaceStore`,

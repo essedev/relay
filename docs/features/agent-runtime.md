@@ -77,6 +77,9 @@ migra né modifica quella configurazione. Contratto upstream:
   run** (`WorkspaceStore.runID` = `RELAY_RUN_ID`): `applyAgentState` scarta gli eventi il cui
   `runId` non è quello della run corrente (compresi i nil), perché uno `Stop` porterebbe la tab
   fuori da `unknown` (barra soppressa a binding intatto) e un `SessionEnd` azzererebbe il binding.
+  Gli orfani stessi li chiude ora il reaper al lancio, prima che il receiver parta
+  (`docs/features/terminal.md`): floor e fence restano per le sessioni che il registro non conosce
+  e per gli hook che un orfano lancia mentre muore.
   Alla chiusura, `applicationWillTerminate` ferma il receiver **prima** del flush del layout: i
   `SessionEnd` delle sessioni morenti sono della run corrente e passerebbero il fence proprio
   nello snapshot finale. Il wire codifica le date ISO 8601 **con millisecondi**

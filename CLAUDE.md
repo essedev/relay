@@ -96,7 +96,8 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
   ordine degli eventi (pump FIFO + monotonicità + `eventFloor` + fence di run), mapping hook ->
   stato, resume di Claude Code e Codex. **Invariante**: un evento fuori run o anteriore al boot si scarta.
 - `docs/features/terminal.md` - integrazioni e limiti di SwiftTerm: kitty keyboard, cwd senza
-  OSC 7, selezione durante lo streaming, scroll fluido, ricerca `Cmd+F`, cap LRU delle surface.
+  OSC 7, selezione durante lo streaming, scroll fluido, ricerca `Cmd+F`, cap LRU delle surface,
+  chiusura delle sessioni pty (teardown e orfani di uscita e crash).
 - `docs/features/sidebar.md` - lista dei workspace, dove nasce una cosa nuova, archivio, drag &
   drop, e il drag di una tab da una strip a un altro workspace (`TabDragSession`).
 - `docs/features/workspace-groups.md` - card di gruppo: l'appartenenza vive sul workspace, il

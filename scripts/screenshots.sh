@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Rigenera gli screenshot del README da una demo isolata, in modo ripetibile.
 #
-# Perché isolata: la demo gira con socket e layout **suoi** (RELAY_SOCKET/RELAY_LAYOUT in una
-# cartella temporanea), quindi non tocca ~/.relay e non entra in conflitto con un Relay già aperto
-# (il guard single-instance dev è sul socket, vedi App.swift). Il tema arriva da NSArgumentDomain,
+# Perché isolata: la demo gira con socket, layout e registro delle sessioni **suoi**
+# (RELAY_SOCKET/RELAY_LAYOUT/RELAY_SESSIONS in una cartella temporanea), quindi non tocca ~/.relay
+# e non entra in conflitto con un Relay già aperto (il guard single-instance dev è sul socket,
+# vedi App.swift). Il tema arriva da NSArgumentDomain,
 # che ha precedenza sulle preferenze salvate ma non le scrive: le tue impostazioni restano quelle.
 #
 # Uso: scripts/screenshots.sh [tema]
@@ -40,6 +41,7 @@ shot() {
   local name="$1"
   shift
   RELAY_SOCKET="$RUNTIME/relay.sock" RELAY_LAYOUT="$RUNTIME/layout.json" \
+    RELAY_SESSIONS="$RUNTIME/sessions" \
     ./.build/debug/relay --demo 5x3 -relay.theme.name "$THEME" "$@" &
   RELAY_PID=$!
   # Le sessioni simulate partono sfalsate (0.3-4s) e ciclano, e le chat finte nei terminali a

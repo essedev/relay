@@ -26,6 +26,16 @@ public enum RelayRuntimePaths {
         return (runtimeDirectory as NSString).appendingPathComponent("layout.json")
     }
 
+    /// Directory del registro delle sessioni pty (`PtySessionLedger`): un file per run con le shell
+    /// che quella run ha aperto, letto al lancio successivo per chiudere gli orfani. Override via
+    /// `RELAY_SESSIONS` (test e istanze isolate, come gli screenshot).
+    public static var sessionLedgerDirectory: String {
+        if let override = ProcessInfo.processInfo.environment["RELAY_SESSIONS"], !override.isEmpty {
+            return override
+        }
+        return (runtimeDirectory as NSString).appendingPathComponent("sessions")
+    }
+
     /// Crea la directory runtime se manca. Idempotente.
     public static func ensureRuntimeDirectory() throws {
         try FileManager.default.createDirectory(
