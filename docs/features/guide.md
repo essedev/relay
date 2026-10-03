@@ -58,7 +58,7 @@ serve a chiuderla.
 ## Screenshot
 
 `scripts/screenshots.sh` rigenera le immagini del README pilotando una demo **isolata**
-(`RELAY_SOCKET`/`RELAY_LAYOUT` in una cartella temporanea, tema via `NSArgumentDomain`): non tocca
-`~/.relay` né le preferenze, e convive con un Relay già aperto. Gli overlay li apre la demo stessa
-(`--demo --show dashboard|guide`), perché uno script non può premere `Cmd+D`. Serve il permesso
-Screen Recording per il terminale che lo lancia.
+(`RELAY_SOCKET`/`RELAY_LAYOUT`/`RELAY_SESSIONS` in una cartella temporanea, tema via
+`NSArgumentDomain`): non tocca `~/.relay` né le preferenze, e convive con un Relay già aperto. Gli
+overlay li apre la demo stessa (`--demo --show dashboard|guide`), perché uno script non può premere
+`Cmd+D`. Serve il permesso Screen Recording per il terminale che lo lancia.

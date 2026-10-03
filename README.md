@@ -118,8 +118,9 @@ completion notification. After restarting Relay, the Resume bar supports both ag
 
 Quitting Relay hangs up every session it started, and anything still running from a previous run,
 such as an agent stuck past the hangup or a session left behind by a crash, is stopped at launch
-before anything resumes, so a session never runs twice on the same transcript. A job that has to outlive Relay belongs outside its tabs (tmux, a launchd
-job): one still in a tab's session is stopped at the next launch.
+before anything resumes, so a session never runs twice on the same transcript. A job that has to
+outlive Relay belongs outside its tabs (tmux, a launchd job): one still in a tab's session is
+stopped at the next launch.
 
 A session you are not coming back to soon does not have to keep running: **Deactivate Sessions**,
 in the Workspace menu or on a sidebar row, stops the agents of a workspace and keeps the way back.

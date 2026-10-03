@@ -1,7 +1,8 @@
 # Misure di performance
 
 I numeri dietro ai budget di `ARCHITECTURE.md` (sezione "Budget v1") e la taratura del cap LRU
-(Milestone 3), più le misure di consumo sotto carico reale (leak di processi e fd alla chiusura).
+(Milestone 3), più le misure di consumo sotto carico reale: leak di processi e fd alla chiusura di
+una tab, sessioni orfane dopo un'uscita o un crash dell'app.
 Ri-eseguibili con la strumentazione integrata (`RELAY_PERF=1`, vedi sotto). Macchina di misura:
 MacBook, build **release** (`swift build -c release`), 2 luglio 2026.
 
@@ -149,3 +150,62 @@ UserDefaults. Gli 8 `withObservationTracking` si ri-armano 1:1.
 raggiungibile la sweep si ripete all'infinito: **non è un hot spot**. 6,1 µs per chiamata, e in un
 `sample` di 3s del processo vero non compare un solo frame di `enforceLRU` o `hasRunningChildren`
 (main thread fermo in `mach_msg` nel 90% dei campioni).
+
+## Sessioni orfane dopo uscita e crash (ottobre 2026)
+
+Stessa macchina di lavoro, Relay 0.22.0 acceso dal 30 settembre. Il teardown della 0.20 chiude le
+sessioni delle tab chiuse; queste sono le sessioni rimaste indietro **dall'uscita** di un Relay
+precedente.
+
+### Stato osservato
+
+| grandezza | valore |
+| --- | --- |
+| sessioni `claude` vive | 81, di cui 29 nelle tab del Relay acceso |
+| sessioni orfane (zsh figlia di `launchd`) | 52, nate fra il 16 e il 27 settembre |
+| età massima di un'orfana | 17 giorni |
+| processi nelle sessioni orfane | 486, per 4.097 MB di RSS sommata |
+| conversazioni attive due volte (orfana + resume) | 4 |
+| macchina (32 GB) | load average 31,5, CPU idle 2%, compressore 15 GB, 252 MB liberi |
+
+La RSS sommata è una sottostima: su macOS non conta la memoria compressa, e con il compressore a 15
+GB la quota compressa era grande. Il footprint (`top -stats mem,cmprs`) è la misura giusta per il
+costo vero di un processo; qui serve solo l'ordine di grandezza.
+
+Ogni orfana risale a un riavvio di Relay, quasi sempre un aggiornamento (0.18.1, 0.19.0, 0.20.0,
+0.21.0): anche quelle aperte da una 0.20/0.21, con il teardown già corretto, sono sopravvissute al
+riavvio del 30 settembre. Su una pty orfana campione solo zsh e `claude` tenevano aperto il lato
+secondario; il primario non lo teneva più nessuno, quindi l'hangup era già avvenuto ed era stato
+ignorato. Nell'ambiente letto con `ps eww` non compariva nessuna variabile `RELAY_*`: l'env degli
+altri processi non è leggibile.
+
+### Risposta ai segnali
+
+Applicati a mano alle 52 sessioni, in sequenza, contando i processi rimasti sulle loro tty:
+
+| passo | processi rimasti |
+| --- | --- |
+| prima | 486 |
+| SIGHUP al gruppo in foreground e a quello della shell, 4 s | 320: 52 zsh, 52 `claude`, 216 `<defunct>` |
+| SIGTERM al gruppo di `claude`, 5 s | 320, nessun effetto |
+| SIGKILL al gruppo di `claude`, 3 s | 52, le sole zsh (i `<defunct>` li raccoglie `launchd`) |
+| SIGHUP al gruppo della shell, 2 s | 52, nessun effetto |
+| SIGKILL al gruppo della shell | 0 |
+
+Il SIGHUP basta per i server MCP, che però restano `<defunct>` perché `claude` bloccato non li
+raccoglie. Per `claude` serve SIGKILL, e SIGTERM non aggiunge niente: è la scala del reaper
+(SIGHUP, attesa, SIGKILL). Dopo la pulizia: load average a 4,65 sul minuto, compressore a 8,9 GB,
+4 GB liberi.
+
+### Costo del reaper
+
+- **Lettura della tabella dei processi** (`proc_listallpids` + `getsid` + `proc_pidinfo` sui
+  membri): 0,18-0,30 ms su 900 pid, cinque ripetizioni. È il costo della fotografia dei membri
+  ogni 30 s e della scansione al lancio.
+- **Lancio con orfani**: il reaper blocca il lancio solo se trova sessioni da chiudere. Con un
+  agente finto sordo a SIGHUP e SIGTERM (`trap '' HUP TERM; sleep 600`), istanza isolata:
+  chiusura in 1.041-1.045 ms, cioè l'attesa di 1 s dopo il SIGHUP più il SIGKILL. Senza orfani il
+  costo è un `guard`.
+- Esiti al rilancio, dal log `sessions`: crash con leader sordo `hung up 3, killed 3, survivors 0`;
+  crash con leader che muore sull'hangup (prova dalla fotografia) `hung up 2, killed 2, survivors
+  0`; uscita normale, dopo `quit: hung up 3 session processes`, idem.

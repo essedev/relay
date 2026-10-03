@@ -932,3 +932,118 @@ guida. Dettagli in `docs/features/workspace-naming.md`.
 
 15 test nuovi su pulizia del titolo, prompt, derivazione locale e attesa della policy. Guida e
 `docs/GUIDE.md` rigenerati nello stesso commit. Rilasciato nella 0.22.0.
+
+## Cycle 29 - Quello che sopravviveva all'uscita
+
+### Il problema, misurato
+
+Il Mac di lavoro saturo (load average 31, 252 MB di RAM libera, compressore a 15 GB) e, fra le
+cause, **52 sessioni agente orfane**: zsh figlia di `launchd`, `claude` in foreground con il suo
+albero MCP, nessuno a tenere il lato primario della pty. Nate fra il 16 e il 27 settembre, vive fino
+a 17 giorni, ognuna rimasta indietro da un riavvio di Relay, quasi sempre un aggiornamento
+(0.18.1-0.21.0). In tutto **486 processi, ~4 GB di RSS**. Quattro conversazioni giravano due volte,
+l'orfana e la copia ripresa dalla barra di resume, sullo stesso transcript.
+
+Il fix della 0.20 (Cycle 26) non c'entrava: `PtySessionTeardown` gira solo quando si chiude una tab.
+All'uscita `applicationWillTerminate` fermava il receiver, salvava il layout e lasciava il resto
+all'hangup del kernel, e un agente bloccato l'hangup lo ignora. Il codice lo sapeva già: fence di
+run ed `eventFloor` scartavano gli eventi degli orfani. Li nascondevano, non li chiudevano.
+
+Chiuderli a mano ha dato la scala che serve. SIGHUP ai gruppi: muoiono i server MCP, ma restano 52
+zsh e 52 `claude`, con 216 figli `<defunct>` che nessuno raccoglie. SIGTERM a `claude`: nessun
+effetto dopo 5 s. SIGKILL a `claude`: muore, e la zsh sopravvive di nuovo al SIGHUP fino a un
+SIGKILL suo. Le issue di Claude Code lo confermano (#89062, #85782): i segnali passano dall'event
+loop JS, e se quello è fermo arriva solo SIGKILL. Dopo: load a 4,6, 4 GB liberi, compressore a 8,9
+GB. Numeri e metodo in `docs/research/PERF.md`.
+
+### Cosa fanno gli altri
+
+Nessuno di quelli guardati chiude in modo garantito le sessioni quando l'app crasha. Ghostty ripete
+SIGHUP alla chiusura di una tab e all'uscita non fa niente; cmux salva e lascia fare al kernel, come
+Relay prima di questo ciclo; VS Code manda SIGHUP alla sola shell. iTerm2 e WezTerm fanno l'opposto:
+le sessioni vivono in un server separato e l'app ci si ricollega. Il più vicino è t3code, e solo per
+i server OpenCode: un registro su disco con pid, istante di avvio e comando, e la pulizia al lancio
+successivo che verifica l'identità prima di segnalare.
+
+### La scelta: registro e pulizia al lancio
+
+Ogni shell che una surface avvia entra in un registro per run (`PtySessionLedger`,
+`~/.relay/sessions/<runId>.json`, override `RELAY_SESSIONS`) e ne esce solo a escalation del
+teardown finita. Al lancio, **prima di qualsiasi restore**, `PtySessionReaper` chiude le sessioni
+delle run il cui Relay non c'è più: SIGHUP, un secondo di attesa (finisce prima se muoiono tutti),
+SIGKILL ai superstiti. Niente SIGTERM: contro un `claude` bloccato è misurato inutile, e chi
+gestisce i segnali ha già avuto il SIGHUP. Copre uscita, crash e force quit con lo stesso codice, e
+il resume non parte mai accanto al suo orfano.
+
+L'invariante del Cycle 26 (una tab possiede la sessione POSIX della sua pty) ora vale anche oltre la
+vita dell'app, e ne segue una regola d'uso detta in guida e README: un job che deve sopravvivere a
+Relay va fuori dalla sessione della tab (tmux, un job launchd). `nohup` non basta, perché il
+processo resta nella sessione.
+
+### La prova di appartenenza
+
+Il piano iniziale era segnalare tutta la sessione POSIX della shell registrata (`getsid`), con
+`RELAY_RUN_ID` come conferma. Due cose l'hanno cambiato:
+
+- **l'ambiente degli altri processi non si legge**: macOS toglie l'env da `KERN_PROCARGS2` anche per
+  i processi dello stesso utente (verificato su Darwin 25). `RELAY_RUN_ID` sarebbe stata la prova
+  perfetta, e non è disponibile;
+- **il leader muore spesso prima dell'agente**: una zsh pulita esce sull'hangup, l'agente no. A quel
+  punto l'id di sessione da solo non prova niente, perché il pid della shell può essere stato
+  riusato da un'altra sessione.
+
+Un processo si segnala quindi solo con una prova: la shell registrata è ancora viva con lo stesso
+istante di avvio (allora la sessione è nostra), oppure il processo è nella fotografia dei membri che
+il registro rinfresca ogni 30 s mentre l'app vive (identità esatta), oppure è figlio vivo di un
+membro provato. Mai pid <= 1, mai un altro utente, mai Relay stesso. La fotografia costa una lettura
+della tabella dei processi, ~0,2 ms su 900 pid.
+
+### L'uscita
+
+All'uscita normale l'app fotografa i membri e manda SIGHUP a ogni processo delle sessioni vive,
+**senza attendere**: i server MCP escono subito e liberano la loro memoria, chi ignora resta nel
+registro e lo chiude il lancio successivo. Una scala sincrona fino a SIGKILL avrebbe ritardato ogni
+uscita per coprire un caso che il lancio copre comunque; la fotografia va presa prima del SIGHUP,
+perché è l'unica prova che resta se la shell muore e l'agente no.
+
+### Il socket ereditato
+
+Trovato provando il reaper end to end: dopo un crash simulato il rilancio usciva subito, in
+silenzio. Gli fd del receiver (socket in ascolto, watch della dir, connessioni accettate) non
+avevano close-on-exec, quindi ogni shell li ereditava dal fork; gli orfani tenevano vivo il socket
+in ascolto sul vecchio path, il guard single-instance lo trovava raggiungibile e Relay se ne andava
+convinto che un'altra istanza lo possedesse. Finché gli orfani vivevano Relay non poteva ripartire.
+Ora ogni fd del receiver è close-on-exec (ARCHITECTURE, Local Control API).
+
+### Scartati
+
+- **Un processo sentinella** che osserva Relay (kqueue `NOTE_EXIT` o una pipe che dà EOF alla morte
+  del padre) e chiude le sessioni subito. Coprirebbe solo "Relay crasha e non lo riapri": tutte le
+  52 orfane sono nate da riavvii, e dopo un aggiornamento Relay si riapre subito. È un processo in
+  più da distribuire per un caso raro.
+- **Sessioni che sopravvivono, alla iTerm2/tmux**: un server che possiede le pty e a cui l'app si
+  ricollega. Toglierebbe anche il resume, ma sposta la proprietà dei terminali fuori dall'app
+  (protocollo, passaggio dei descrittori, scrollback): settimane, e Relay ha già il resume. Se mai,
+  è una scelta di prodotto, non la risposta a questo bug.
+- **La sessione POSIX intera come perimetro**, senza prova sul singolo processo: vedi sopra.
+
+### Trappole pagate
+
+Un'istanza di sviluppo lanciata con `nohup` passa SIGHUP **ignorato** a tutte le sue shell (le
+disposizioni `SIG_IGN` sopravvivono a fork ed exec, e SwiftTerm non le ripristina): qualsiasi prova
+di hangup su quell'istanza è falsata. Costata un giro di verifica che sembrava dare torto al codice.
+Le altre (voce del registro tolta a fine escalation e non al `teardown()`, fotografia prima del
+SIGHUP) sono in `docs/features/terminal.md`.
+
+### Esito
+
+`make check` verde, 587 test, 24 nuovi: registro (decode tollerante, scrittura atomica), prova di
+appartenenza pura, reaper su pty vere con un agente sordo a HUP e TERM, il pid riciclato di una
+sessione estranea lasciato in pace, il SIGHUP dell'uscita, il socket che non passa alle shell.
+Verifica sull'app vera, istanza isolata con shell e agente finti (`trap '' HUP TERM; sleep 600`):
+crash con leader sordo, crash con leader che muore sull'hangup (lì la prova è la fotografia) e
+uscita normale finiscono tutti con `survivors 0` al rilancio, che blocca ~1,04 s solo quando ci sono
+orfani. Non verificato con Claude Code vero sull'app installata. Al primo aggiornamento le sessioni
+aperte dalla 0.22.0 non sono nel registro (la versione vecchia non lo scrive): quelle che
+sopravvivono all'hangup restano coperte solo da floor e fence, e vanno chiuse a mano un'ultima
+volta. Non rilasciato: la versione resta 0.22.0.

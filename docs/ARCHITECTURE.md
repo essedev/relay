@@ -1148,7 +1148,11 @@ Costruito da ultimo (affidabilità di sessioni ed eventi):
 - il teardown di una tab termina davvero la sessione pty (shell, agente, albero MCP, descrittore) e
   le sessioni agente si spengono a mano tenendo il resume (`docs/features/session-deactivation.md`);
 - la catena degli eventi non perde più sotto raffica di hook, il drift degli hook Claude si ripara
-  all'avvio e ogni tab tiene **una** notifica viva, ritirata quando l'attenzione si spegne.
+  all'avvio e ogni tab tiene **una** notifica viva, ritirata quando l'attenzione si spegne;
+- le sessioni pty non sopravvivono all'app: l'uscita manda l'hangup a ogni sessione viva, e al
+  lancio successivo il reaper chiude, prima di ogni restore, quelle rimaste da un'uscita o da un
+  crash (registro su disco, prova di appartenenza per processo; vedi Lifecycle Della Surface). Gli
+  fd del receiver non passano più alle shell, che dopo un crash impedivano a Relay di ripartire.
 
 Da fare dopo:
 

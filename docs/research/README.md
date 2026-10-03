@@ -15,7 +15,8 @@ resto è archivio della fase di analisi.
   `cycles-archive/`, numerazione intatta. Linkato da `CLAUDE.md` e dal README come riferimento
   corrente.
 - **`PERF.md`** - le misure di performance dietro ai budget di `../ARCHITECTURE.md` e la taratura
-  del cap LRU, con le istruzioni per rieseguirle (`RELAY_PERF=1`).
+  del cap LRU, con le istruzioni per rieseguirle (`RELAY_PERF=1`), più le misure su carico reale
+  delle sessioni che restavano vive (alla chiusura di una tab, dopo l'uscita dell'app).
 
 ## Archivio della fase di analisi
 
