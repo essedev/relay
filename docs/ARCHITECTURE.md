@@ -560,6 +560,11 @@ self-heal un socket cancellato da fuori orfanava il receiver e la consegna moriv
 congelando ogni badge sull'ultimo stato ricevuto. Il complemento a monte è il guard
 single-instance basato sul path in `Relay.main` (vedi `STATE_SCHEMA.md`, single-instance), che
 copre anche i lanci senza bundle id (`swift run`) che il guard di LaunchServices non intercetta.
+(c) Ogni fd del receiver (socket in ascolto, watch della dir, connessioni accettate) è
+**close-on-exec**: le shell nascono da un fork dell'app, e senza il flag lo ereditavano. Dopo un
+crash gli agenti orfani tenevano vivo il socket in ascolto sul vecchio path, il guard sul path del
+lancio successivo lo trovava raggiungibile e Relay usciva subito, convinto che un'altra istanza lo
+possedesse.
 
 ### Hook Installer
 

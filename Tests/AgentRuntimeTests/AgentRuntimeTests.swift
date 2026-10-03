@@ -1,5 +1,6 @@
 import AgentProtocol
 @testable import AgentRuntime
+import Darwin
 import Foundation
 import Testing
 
@@ -152,6 +153,59 @@ private func sampleEvent(
     #expect(await waitUntil { await box.count() >= 2 })
     let ids = await Set(box.all().map(\.sessionId))
     #expect(ids == ["before", "after"])
+}
+
+@Test func childProcessesDoNotInheritTheListeningSocket() throws {
+    // Ogni shell di Relay nasce da un fork dell'app: senza close-on-exec eredita il socket in
+    // ascolto, e dopo un crash gli agenti orfani lo tengono vivo. Il lancio successivo vede un
+    // receiver raggiungibile sul vecchio path ed esce credendo che un'altra istanza lo possieda.
+    let path = uniqueSocketPath()
+    let receiver = AgentEventReceiver(path: path) { _ in }
+    try receiver.start()
+    defer { receiver.stop() }
+
+    // `posix_spawn` senza file actions: il figlio eredita ogni fd che non è close-on-exec, come
+    // la shell di una pty.
+    var child: pid_t = 0
+    var argv: [UnsafeMutablePointer<CChar>?] = ["/bin/sleep", "5"]
+        .map { $0.withCString { strdup($0) } }
+    argv.append(nil)
+    defer {
+        for pointer in argv {
+            free(pointer)
+        }
+    }
+    #expect(posix_spawn(&child, "/bin/sleep", nil, nil, &argv, environ) == 0)
+    defer {
+        kill(child, SIGKILL)
+        var status: Int32 = 0
+        waitpid(child, &status, 0)
+    }
+
+    #expect(!unixSocketPaths(of: child).contains(path))
+    #expect(unixSocketPaths(of: getpid()).contains(path)) // il controllo vede davvero i socket
+}
+
+/// I path dei socket Unix che un processo tiene aperti, letti dalla sua tabella dei descrittori.
+private func unixSocketPaths(of pid: pid_t) -> [String] {
+    let bytes = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
+    guard bytes > 0 else { return [] }
+    let stride = MemoryLayout<proc_fdinfo>.stride
+    var fds = [proc_fdinfo](repeating: proc_fdinfo(), count: Int(bytes) / stride + 16)
+    let used = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, &fds, Int32(fds.count * stride))
+    guard used > 0 else { return [] }
+    var paths: [String] = []
+    for fd in fds.prefix(Int(used) / stride) where fd.proc_fdtype == UInt32(PROX_FDTYPE_SOCKET) {
+        var info = socket_fdinfo()
+        let size = Int32(MemoryLayout<socket_fdinfo>.stride)
+        guard proc_pidfdinfo(pid, fd.proc_fd, PROC_PIDFDSOCKETINFO, &info, size) == size,
+              info.psi.soi_family == AF_UNIX else { continue }
+        let bytes = withUnsafeBytes(of: info.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path) {
+            Array($0.prefix { $0 != 0 })
+        }
+        if let path = String(bytes: bytes, encoding: .utf8) { paths.append(path) }
+    }
+    return paths
 }
 
 // MARK: - Wire coding (ordine sub-secondo + retrocompatibilità)

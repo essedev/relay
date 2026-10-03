@@ -83,6 +83,11 @@ public final class AgentEventReceiver: @unchecked Sendable {
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw UnixSocketError.socketFailed(errno) }
+        // Fuori dalle shell: senza close-on-exec ogni pty eredita il socket in ascolto, e dopo un
+        // crash gli agenti orfani lo tengono vivo sul vecchio path. Il lancio successivo vede un
+        // receiver "raggiungibile" (la `connect` entra nella coda di accept di nessuno), crede che
+        // un'altra istanza possieda il socket ed esce: Relay non riparte finché gli orfani vivono.
+        setCloseOnExec(fd)
 
         var addr = try UnixSocket.address(path: path)
         unlink(path) // ora sicuro: il socket è stantio (owner morto) o assente
@@ -127,7 +132,7 @@ public final class AgentEventReceiver: @unchecked Sendable {
     /// binding resta valido, solo senza recupero automatico.
     private func startDirectoryWatch() {
         let dir = (path as NSString).deletingLastPathComponent
-        let fd = open(dir, O_EVTONLY)
+        let fd = open(dir, O_EVTONLY | O_CLOEXEC) // come il socket: non va ereditato dalle shell
         guard fd >= 0 else {
             log.error("agent receiver cannot watch runtime dir; self-heal disabled")
             return
@@ -185,6 +190,7 @@ public final class AgentEventReceiver: @unchecked Sendable {
             // ripristino la read tornerebbe EAGAIN ogni volta che i byte del client non sono
             // ancora arrivati, e l'evento andrebbe perso invece che atteso.
             setBlocking(clientFD)
+            setCloseOnExec(clientFD) // una shell che nasce durante il drain non deve tenerlo aperto
             // Connessioni effimere (una linea e chiudi): leggo fino a EOF fuori dalla accept
             // queue.
             readQueue.async { [weak self] in self?.drain(clientFD) }
@@ -195,6 +201,12 @@ public final class AgentEventReceiver: @unchecked Sendable {
         let flags = fcntl(fd, F_GETFL)
         guard flags >= 0 else { return }
         _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+    }
+
+    private func setCloseOnExec(_ fd: Int32) {
+        let flags = fcntl(fd, F_GETFD)
+        guard flags >= 0 else { return }
+        _ = fcntl(fd, F_SETFD, flags | FD_CLOEXEC)
     }
 
     private func setBlocking(_ fd: Int32) {
