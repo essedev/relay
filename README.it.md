@@ -123,8 +123,9 @@ senza notifica di completamento. Dopo un riavvio di Relay, la barra Resume suppo
 Uscire da Relay manda l'hangup a ogni sessione che ha aperto, e quello che una run precedente ha
 lasciato acceso, come un agente bloccato oltre l'hangup o una sessione rimasta indietro da un
 crash, si chiude all'avvio prima di qualsiasi resume, così una sessione non gira mai due volte
-sullo stesso transcript. Un job che deve sopravvivere a Relay va fuori dalle sue tab (tmux, un job
-launchd): se resta nella sessione di una tab, si chiude al lancio successivo.
+sullo stesso transcript. Una tab possiede tutto quello che ci è partito dentro, job in background
+compresi: chiudere la tab li ferma, anche sotto `nohup`. Un job che deve sopravvivere alla sua tab o
+a Relay va fuori dalle sue tab (tmux, un job launchd).
 
 Una sessione a cui non torni a breve non deve restare accesa: **Deactivate Sessions**, nel menu
 Workspace o sulla riga in sidebar, spegne gli agenti di un workspace tenendo la via del ritorno. Le

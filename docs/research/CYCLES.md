@@ -980,6 +980,20 @@ vita dell'app, e ne segue una regola d'uso detta in guida e README: un job che d
 Relay va fuori dalla sessione della tab (tmux, un job launchd). `nohup` non basta, perché il
 processo resta nella sessione.
 
+### Anche la chiusura di una tab chiude tutta la sessione
+
+Il reaper chiudeva al lancio i job sotto `nohup` rimasti in una tab, mentre la chiusura della tab li
+lasciava vivi: il teardown del Cycle 26 segnalava solo il gruppo in foreground e quello della shell,
+e un `nohup ... &` sta in un gruppo suo e ignora l'hangup che la shell gli inoltra. Due semantiche
+per la stessa invariante. **Decisione: la tab possiede la sessione, sempre.** `PtySessionTeardown`
+ora cattura tutti i membri della sessione con le regole di `PtySessionReaper` (stesso codice, niente
+copia), manda SIGHUP a tutti e tiene la sua scala differita (SIGTERM a 2 s, SIGKILL 3 s dopo). Il
+SIGTERM resta: chi ignora l'hangup apposta, come un job sotto `nohup`, ha ancora un modo di chiudere
+pulito prima del SIGKILL. Ai gradini successivi la shell è spesso già uscita, quindi la prova è la
+cattura più i figli vivi dei membri catturati. Si è perso solo il pgid come unità del segnale: ogni
+processo è segnalato per identità esatta. Guida, README e `terminal.md` lo dicono all'utente:
+chiudere una tab ferma anche i suoi job in background.
+
 ### La prova di appartenenza
 
 Il piano iniziale era segnalare tutta la sessione POSIX della shell registrata (`getsid`), con
@@ -1037,9 +1051,11 @@ SIGHUP) sono in `docs/features/terminal.md`.
 
 ### Esito
 
-`make check` verde, 587 test, 24 nuovi: registro (decode tollerante, scrittura atomica), prova di
-appartenenza pura, reaper su pty vere con un agente sordo a HUP e TERM, il pid riciclato di una
-sessione estranea lasciato in pace, il SIGHUP dell'uscita, il socket che non passa alle shell.
+`make check` verde: registro (decode tollerante, scrittura atomica), prova di appartenenza pura,
+reaper su pty vere con un agente sordo a HUP e TERM, il pid riciclato di una sessione estranea
+lasciato in pace, il SIGHUP dell'uscita, il socket che non passa alle shell, e la chiusura di una
+tab che uccide un `nohup sleep 600 &` (anche dal percorso vero di `SwiftTermSurface.teardown()`) e
+un job sordo a HUP e TERM al gradino del SIGKILL.
 Verifica sull'app vera, istanza isolata con shell e agente finti (`trap '' HUP TERM; sleep 600`):
 crash con leader sordo, crash con leader che muore sull'hangup (lì la prova è la fotografia) e
 uscita normale finiscono tutti con `survivors 0` al rilancio, che blocca ~1,04 s solo quando ci sono

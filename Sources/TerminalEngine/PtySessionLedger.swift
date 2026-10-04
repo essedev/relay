@@ -151,6 +151,11 @@ public final class PtySessionLedger {
         persist()
     }
 
+    /// La voce di una shell, con la sua fotografia dei membri.
+    public func record(for shellPid: pid_t) -> PtySessionRecord? {
+        records.first { $0.shellPid == shellPid }
+    }
+
     /// Toglie la voce di una sessione chiusa davvero (fine dell'escalation del teardown). No-op se
     /// la voce non c'è.
     public func forget(shellPid: pid_t) {

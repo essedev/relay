@@ -4,87 +4,68 @@ import Foundation
 /// Chiusura della **sessione POSIX** di una pty, non della sola view.
 ///
 /// Invariante di proprietà: *una tab possiede la sessione POSIX della sua pty*. Sono suoi la shell
-/// che `forkpty` ha reso session leader e i process group nati sotto quel controlling terminal:
-/// chiudere la tab li chiude. Un processo che si è staccato apposta (`setsid`, o un `nohup` che ha
-/// abbandonato la sessione) esce da quel perimetro e non lo inseguiamo: è una scelta dell'utente,
-/// non un residuo.
+/// che `forkpty` ha reso session leader e **ogni** processo nato in quella sessione: l'agente in
+/// foreground, i suoi server MCP, e anche un job in background lanciato con `nohup` o `&`, che
+/// cambia process group ma resta nella sessione. Chiudere la tab li chiude tutti. Esce dal
+/// perimetro solo chi lascia la sessione davvero (`setsid`, tmux, un job launchd).
 ///
 /// Serve perché `LocalProcess.terminate()` di SwiftTerm la sessione non la chiude. Fa `io.close()`
 /// senza `.stop`, e la read pendente sul descrittore primario della pty non completa mai (nessun
 /// EOF finché un figlio tiene aperto l'altro capo): il cleanup handler non gira, il descrittore
 /// resta aperto e quindi la pty non fa **hangup**. Il `SIGTERM` che manda alla sola shell, una zsh
-/// interattiva lo ignora.
-/// Senza questo tipo, chiudere una tab lascia vivi shell, agente e fd finché Relay non muore.
-/// Misure e riproduzione in `docs/research/PERF.md`.
+/// interattiva lo ignora. Senza questo tipo, chiudere una tab lascia vivi shell, agente e fd finché
+/// Relay non muore. Misure e riproduzione in `docs/research/PERF.md`.
 ///
-/// La scala dei segnali è quella di un terminale che si chiude davvero: SIGHUP subito, poi SIGTERM,
-/// poi SIGKILL ai superstiti. L'escalation è differita, e un pgid da solo non basta a indirizzarla:
-/// lo spazio pid di macOS gira in fretta (misurati ~3400 pid/minuto su una macchina di lavoro, cioè
-/// un giro completo in mezz'ora), quindi fra la cattura e il segnale quel pgid può appartenere a un
-/// altro process group. Per questo `Target` porta anche l'istante di avvio del leader, e
-/// l'escalation salta i target che non corrispondono più: meglio lasciare vivo un residuo che
-/// mandare un SIGKILL a un gruppo di qualcun altro.
+/// Membri e segnali sono quelli di `PtySessionReaper`, con le stesse prove di appartenenza: alla
+/// cattura la shell è viva, quindi tutta la sessione è nostra; ai giri successivi la shell può
+/// essere già uscita sul SIGHUP, e allora valgono i membri catturati e i loro figli vivi. Ogni
+/// segnale verifica l'identità (pid **e** istante di avvio): lo spazio pid di macOS gira in fretta
+/// (~3400 pid/minuto misurati, un giro in mezz'ora), e fra la cattura e l'escalation un pid può
+/// essere di qualcun altro.
+///
+/// La scala è quella di un terminale che si chiude davvero: SIGHUP subito, poi SIGTERM (chi ignora
+/// l'hangup apposta, come un job sotto `nohup`, ha ancora modo di chiudere pulito), poi SIGKILL ai
+/// superstiti. Differita, così la tab sparisce subito e la sessione si spegne dietro.
 public enum PtySessionTeardown {
-    /// Un process group da segnalare, con l'identità che ne permette il riconoscimento più tardi.
-    public struct Target: Equatable, Sendable {
-        public let pgid: pid_t
-        /// Istante di avvio del leader del gruppo (il processo con pid == pgid), in microsecondi.
-        /// `nil` se non leggibile: quel target riceve il SIGHUP immediato ma **non** l'escalation,
-        /// perché senza identità non possiamo distinguerlo da un pgid riciclato.
-        public let leaderStartedAt: UInt64?
-
-        public init(pgid: pid_t, leaderStartedAt: UInt64?) {
-            self.pgid = pgid
-            self.leaderStartedAt = leaderStartedAt
-        }
+    /// Una sessione fotografata alla chiusura: la shell (con l'eventuale fotografia del registro) e
+    /// i membri provati nostri in quel momento.
+    public struct Capture: Equatable, Sendable {
+        public let record: PtySessionRecord
+        public let members: [ProcessIdentity]
     }
 
-    /// I process group da segnalare, in ordine: prima quello in **foreground** (è chi sta usando il
-    /// terminale, tipicamente l'agente, e con il job control sta in un gruppo diverso dalla shell),
-    /// poi quello della shell. Deduplicati: a shell ferma al prompt i due coincidono.
-    ///
-    /// Scarta tutto ciò che è `<= 1`: `tcgetpgrp` ritorna `-1` in errore e una shell mai avviata ha
-    /// pid `0`, e `killpg` su quei valori colpirebbe il gruppo sbagliato (o quello di `launchd`).
-    /// Puro: è la sola parte che ha senso testare senza pty vere.
-    public static func pgids(shellPid: pid_t, foregroundPgid: pid_t) -> [pid_t] {
-        var result: [pid_t] = []
-        for candidate in [foregroundPgid, shellPid] where candidate > 1 {
-            if !result.contains(candidate) { result.append(candidate) }
+    /// Cattura la sessione di una shell. `known` è la voce del registro, se c'è: porta la
+    /// fotografia dei membri, che fa da prova se la shell è già uscita da sola (un `exit` che
+    /// lascia un job in background). Senza voce serve la shell viva. `nil` se non c'è niente da
+    /// chiudere.
+    public static func capture(shellPid: pid_t, known: PtySessionRecord? = nil) -> Capture? {
+        guard shellPid > 1 else { return nil }
+        let record = known ?? ProcessIdentity.of(shellPid).map {
+            PtySessionRecord(shellPid: shellPid, shellStartedAt: $0.startedAt, tabId: nil)
         }
-        return result
+        guard let record else { return nil }
+        return Capture(record: record, members: PtySessionReaper.members(of: [record], trusted: []))
     }
 
-    /// Cattura i target di una pty viva. Va chiamata **prima** di `terminate()`, che azzera
-    /// `childfd` e rende `tcgetpgrp` inutilizzabile.
-    public static func targets(shellPid: pid_t, childfd: Int32) -> [Target] {
-        let foreground = childfd >= 0 ? tcgetpgrp(childfd) : -1
-        return pgids(shellPid: shellPid, foregroundPgid: foreground).map { pgid in
-            Target(pgid: pgid, leaderStartedAt: startedAt(pgid))
-        }
-    }
-
-    /// Hangup: è il segnale che un terminale manda chiudendosi, e le shell lo propagano ai loro
-    /// job. Va a tutti i target, anche a quelli senza identità: qui la cattura è appena avvenuta,
-    /// non c'è finestra di riciclo.
-    public static func hangUp(_ targets: [Target]) {
-        for target in targets {
-            _ = killpg(target.pgid, SIGHUP)
-        }
-    }
-
-    /// Segnala i target **ancora identici** a quando sono stati catturati, e ritorna quanti ne ha
-    /// raggiunti. Un target il cui leader è sparito viene saltato: il gruppo può avere ancora
-    /// membri, ma senza il leader non possiamo provare che il pgid sia ancora il nostro.
+    /// Hangup: il segnale che un terminale manda chiudendosi, a ogni membro catturato. Ritorna i
+    /// processi raggiunti.
     @discardableResult
-    public static func escalate(_ targets: [Target], signal: Int32) -> Int {
-        var signalled = 0
-        for target in targets {
-            guard let captured = target.leaderStartedAt,
-                  startedAt(target.pgid) == captured,
-                  killpg(target.pgid, signal) == 0 else { continue }
-            signalled += 1
-        }
-        return signalled
+    public static func hangUp(_ capture: Capture) -> Int {
+        PtySessionReaper.signal(capture.members, SIGHUP)
+    }
+
+    /// Un gradino dell'escalation: rilegge la sessione, segnala chi è ancora provato nostro (i
+    /// membri catturati, chi è già stato segnalato, i loro figli vivi) e ritorna i processi
+    /// raggiunti insieme alla prova aggiornata, da passare al gradino dopo.
+    @discardableResult
+    public static func escalate(
+        _ capture: Capture,
+        trusted: Set<ProcessIdentity> = [],
+        signal: Int32
+    ) -> (signalled: Int, proven: Set<ProcessIdentity>) {
+        let proven = trusted.union(capture.members)
+        let targets = PtySessionReaper.members(of: [capture.record], trusted: proven)
+        return (PtySessionReaper.signal(targets, signal), proven.union(targets))
     }
 
     /// Raccoglie la shell morta. `terminate()` cancella il `DispatchSourceProcess` che avrebbe
@@ -97,28 +78,28 @@ public enum PtySessionTeardown {
     }
 
     /// Programma l'escalation dopo il SIGHUP: SIGTERM ai superstiti, poi SIGKILL, raccogliendo la
-    /// shell a ogni giro. Non blocca la chiusura: la tab sparisce subito, la sessione si spegne
-    /// dietro. Le attese sono generose di proposito, il SIGHUP è quasi sempre l'unico segnale che
-    /// serve e l'escalation è la rete per chi lo ignora.
+    /// shell a ogni giro. Non blocca la chiusura. Le attese sono generose di proposito: il SIGHUP è
+    /// quasi sempre l'unico segnale che serve e l'escalation è la rete per chi lo ignora.
     ///
     /// `completion` corre a scala finita: è lì che la sessione esce dal registro
     /// (`PtySessionLedger.forget`). Prima sarebbe presto, perché se Relay esce durante l'attesa la
     /// sessione non ha ancora preso il SIGKILL e il prossimo lancio deve poterla ritrovare.
     @MainActor
     public static func escalateAfterGrace(
-        _ targets: [Target],
+        _ capture: Capture?,
         reaping shellPid: pid_t,
         completion: @escaping @MainActor () -> Void = {}
     ) {
-        guard !targets.isEmpty || shellPid > 1 else {
+        guard let capture else {
+            reap(shellPid)
             completion()
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + terminateGrace) {
-            escalate(targets, signal: SIGTERM)
+            let terminated = escalate(capture, signal: SIGTERM)
             reap(shellPid)
             DispatchQueue.main.asyncAfter(deadline: .now() + killGrace) {
-                escalate(targets, signal: SIGKILL)
+                escalate(capture, trusted: terminated.proven, signal: SIGKILL)
                 reap(shellPid)
                 completion()
             }

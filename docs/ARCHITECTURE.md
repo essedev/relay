@@ -252,12 +252,14 @@ workspace attivo, quelle con attenzione fresca, quelle usate negli ultimi ~30 mi
 Regole:
 
 - **Una tab possiede la sessione POSIX della sua pty.** Sono suoi la shell che `forkpty` ha reso
-  session leader e i process group nati sotto quel controlling terminal: il teardown li chiude
-  tutti. Un processo che si è staccato apposta (`setsid`, o un `nohup` che ha abbandonato la
-  sessione) esce da quel perimetro e non lo inseguiamo. È l'invariante che dice cosa "terminare una
+  session leader e **ogni** processo nato nella sessione (`getsid == shellPid`): l'agente in
+  foreground, i suoi server MCP, e anche i job in background, con o senza `nohup`, che cambiano
+  process group ma non sessione. Il teardown li chiude tutti. Esce dal perimetro solo chi lascia la
+  sessione davvero (`setsid`, tmux, un job launchd). È l'invariante che dice cosa "terminare una
   tab" significa, e senza di lei il perimetro del kill sarebbe arbitrario.
-- **Il teardown lo fa Relay, non l'engine** (`TerminalEngine.PtySessionTeardown`): SIGHUP al gruppo
-  in foreground e a quello della shell, poi escalation a SIGTERM e SIGKILL, poi `waitpid`.
+- **Il teardown lo fa Relay, non l'engine** (`TerminalEngine.PtySessionTeardown`): cattura i membri
+  della sessione con le stesse regole del reaper (sotto), SIGHUP a tutti, poi escalation differita a
+  SIGTERM e SIGKILL ai membri ancora provati nostri, poi `waitpid`.
   `LocalProcessTerminalView.terminate()` di SwiftTerm da solo non chiude niente, e senza questo
   passaggio ogni tab chiusa lasciava dietro shell, agente e descrittore della pty. Il perché sta nel
   tipo; i numeri del leak e la riproduzione in `docs/research/PERF.md`.
@@ -310,8 +312,10 @@ in foreground (`TerminalSurfaceHandle.foregroundProcessName()`: `tcgetpgrp` del 
 pid della shell, con safe-list per le shell interattive); se sì si conferma con un `NSAlert` sheet,
 altrimenti si chiude subito. Il gate è **il processo**, non l'agente: vale anche per build, ssh,
 editor, non solo Claude. Lo stato agente (`running`/`needs_input`) serve solo ad arricchire il
-messaggio. Tradeoff accettato: solo foreground - i job in background (`&`, dietro tmux) non contano;
-prenderli richiederebbe enumerare i discendenti della shell (più costoso, più falsi positivi).
+messaggio. Tradeoff accettato: solo foreground - i job in background (`&`, `nohup`) non contano;
+prenderli richiederebbe enumerare i discendenti della shell (più costoso, più falsi positivi). Dal
+Cycle 29 però la chiusura li **ferma** comunque (la tab possiede tutta la sessione): un job in
+background muore con la tab senza che la conferma lo nomini.
 
 Invarianti: chiudere l'ultima tab di un workspace chiude il workspace (cascade in `closeTab`);
 chiudere l'ultimo workspace ne riapre uno default (la finestra non resta mai senza workspace). Il

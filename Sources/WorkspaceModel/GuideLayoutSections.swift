@@ -46,8 +46,10 @@ extension Guide {
                 ),
                 .note(
                     "Closing a tab that is running something in the foreground asks first, and "
-                        + "names what is running. Closing the last tab of a workspace closes the "
-                        + "workspace with it."
+                        + "names what is running. Closing a tab stops everything started in it, "
+                        + "background jobs too, even under nohup: a job that has to outlive the "
+                        + "tab belongs in tmux or a launchd job. Closing the last tab of a "
+                        + "workspace closes the workspace with it."
                 ),
             ]
         )

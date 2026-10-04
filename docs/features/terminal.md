@@ -83,13 +83,15 @@ Cosa SwiftTerm non fa da solo, e come lo compensiamo. Il resto della guida sta i
   read pendente sul descrittore primario della pty non completa mai (nessun EOF finché un figlio
   tiene aperto l'altro capo), il cleanup handler non gira, il descrittore resta aperto e la pty non
   fa hangup; il SIGTERM che manda alla sola shell una zsh interattiva lo ignora. Il teardown vero lo
-  fa `PtySessionTeardown`: SIGHUP al process group in foreground e a quello della shell, poi
-  escalation a SIGTERM e SIGKILL, poi `waitpid` (senza, ogni shell morta resta zombie: `terminate()`
-  cancella il monitor che l'avrebbe raccolta). I target portano l'istante di avvio del loro leader e
-  l'escalation salta quelli che non corrispondono più: lo spazio pid gira in mezz'ora, e un segnale
-  differito indirizzato al solo pgid può finire sul gruppo di qualcun altro. Se un giorno SwiftTerm
-  accetta la patch upstream (`close(flags: .stop)` + reaping), di questo resta utile solo
-  l'escalation. Misure in `docs/research/PERF.md`, test su pty vere in
+  fa `PtySessionTeardown`: cattura **tutta la sessione POSIX** della shell (job in background e
+  `nohup` compresi, con le regole di appartenenza di `PtySessionReaper`, codice condiviso), SIGHUP
+  a ogni membro, poi escalation a SIGTERM (2 s) e SIGKILL (3 s dopo), poi `waitpid` (senza, ogni
+  shell morta resta zombie: `terminate()` cancella il monitor che l'avrebbe raccolta). Prima del
+  Cycle 29 si segnalavano solo il gruppo in foreground e quello della shell, e un `nohup ... &`
+  sopravviveva alla tab. Ai gradini dopo il primo la shell è spesso già uscita sul SIGHUP: la prova
+  è la cattura (identità esatta) più i figli vivi dei membri catturati, mai il solo pid, perché lo
+  spazio pid gira in mezz'ora. Se un giorno SwiftTerm accetta la patch upstream
+  (`close(flags: .stop)` + reaping), di questo resta utile solo l'escalation. Misure in `docs/research/PERF.md`, test su pty vere in
   `PtySessionTeardownTests`.
 - **Sessioni oltre la vita dell'app**: uscita e crash non passano dal teardown, e un agente bloccato
   sopravvive all'hangup del kernel. All'uscita normale l'app manda SIGHUP a ogni processo delle
@@ -109,8 +111,8 @@ Cosa SwiftTerm non fa da solo, e come lo compensiamo. Il resto della guida sta i
   - un'istanza di sviluppo lanciata con `nohup` passa SIGHUP **ignorato** a tutte le sue shell (le
     disposizioni `SIG_IGN` sopravvivono a fork ed exec, e SwiftTerm non le ripristina): qualsiasi
     prova di hangup su quell'istanza è falsata;
-  - un job che deve sopravvivere a Relay va fuori dalla sessione della tab (tmux, un job launchd):
-    `nohup` non basta, perché il processo resta nella sessione e al lancio successivo si chiude.
+  - un job che deve sopravvivere alla tab o a Relay va fuori dalla sessione della tab (tmux, un job
+    launchd): `nohup` non basta, perché il processo resta nella sessione e muore con la tab.
 - Cap LRU surface: `SurfaceRegistry.enforceLRU` è un **soft cap**. Sfratta le meno recenti **solo se
   idle** (`hasRunningChildren == false`: shell senza figli, copre foreground/background/agente) e
   non protette: mai la visibile, le tab del workspace attivo, le tab con attenzione fresca

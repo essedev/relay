@@ -41,7 +41,9 @@ New tabs inherit the directory you are actually working in, read from the live s
 from the last prompt, so a tab opened after a few cd commands starts where you left off.
 
 **Note:** Closing a tab that is running something in the foreground asks first, and names what is
-running. Closing the last tab of a workspace closes the workspace with it.
+running. Closing a tab stops everything started in it, background jobs too, even under nohup: a job
+that has to outlive the tab belongs in tmux or a launchd job. Closing the last tab of a workspace
+closes the workspace with it.
 
 <a id="panes"></a>
 
@@ -161,8 +163,7 @@ has Mark as Read and Mark as Unread on the tab.
   can make it automatic; the default asks, because nothing should type commands into your shell
   unannounced. Quitting hangs up every session Relay started, and anything still running from a
   previous run, such as an agent stuck past the hangup or a session left behind by a crash, is
-  stopped at launch before anything resumes, so a session never runs twice. A job that has to
-  outlive Relay belongs outside its tabs, in tmux for example.
+  stopped at launch before anything resumes, so a session never runs twice.
 - **Deactivate a session** - An agent session costs a couple of hundred megabytes and a handful of
   processes, and Relay never evicts a tab that still has one running. Deactivate Sessions, in the
   Workspace menu or on a sidebar row, stops them and keeps the way back: the tabs stay where they

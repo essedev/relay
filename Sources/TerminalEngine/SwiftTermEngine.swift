@@ -123,20 +123,21 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
         )
     }
 
-    /// Chiude la tab **e la sessione POSIX della sua pty**: `terminal.terminate()` da solo non
-    /// uccide niente (vedi `PtySessionTeardown` per il perché). L'ordine conta: i target si
-    /// catturano prima di `terminate()`, che azzera `childfd`. La voce del registro si toglie
-    /// solo a escalation finita: se Relay esce prima, la sessione la chiude il prossimo lancio.
+    /// Chiude la tab **e la sessione POSIX della sua pty**, job in background compresi:
+    /// `terminal.terminate()` da solo non uccide niente (vedi `PtySessionTeardown` per il perché).
+    /// La sessione si cattura prima di `terminate()`, finché il pid della shell è quello vivo. La
+    /// voce del registro si toglie solo a escalation finita: se Relay esce prima, la sessione la
+    /// chiude il prossimo lancio.
     func teardown() {
         guard started else { return }
         let shellPid = terminal.process.shellPid
-        let targets = PtySessionTeardown.targets(
+        let capture = PtySessionTeardown.capture(
             shellPid: shellPid,
-            childfd: terminal.process.childfd
+            known: ledger?.record(for: shellPid)
         )
-        PtySessionTeardown.hangUp(targets)
+        if let capture { PtySessionTeardown.hangUp(capture) }
         terminal.terminate()
-        PtySessionTeardown.escalateAfterGrace(targets, reaping: shellPid) { [ledger] in
+        PtySessionTeardown.escalateAfterGrace(capture, reaping: shellPid) { [ledger] in
             ledger?.forget(shellPid: shellPid)
         }
     }
