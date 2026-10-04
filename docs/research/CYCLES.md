@@ -1062,4 +1062,4 @@ uscita normale finiscono tutti con `survivors 0` al rilancio, che blocca ~1,04 s
 orfani. Non verificato con Claude Code vero sull'app installata. Al primo aggiornamento le sessioni
 aperte dalla 0.22.0 non sono nel registro (la versione vecchia non lo scrive): quelle che
 sopravvivono all'hangup restano coperte solo da floor e fence, e vanno chiuse a mano un'ultima
-volta. Non rilasciato: la versione resta 0.22.0.
+volta. Rilasciato nella 0.23.0.
