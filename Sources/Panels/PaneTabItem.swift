@@ -61,7 +61,7 @@ struct PaneTabItem: View {
         // Lo stato è il riempimento: piena la selezionata del pane focused, tenue quella dei pane
         // non focused, trasparenti le altre. (Un pallino confliggerebbe col badge di stato agente.)
         .background(backgroundFill)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.sm))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md - 1))
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover { hovered = $0 }
@@ -102,9 +102,11 @@ struct PaneTabItem: View {
 
     /// Riempimento della pill: piena per la selezionata del pane focused, tenue se il pane non ha
     /// il focus (a schermo, ma la tastiera è altrove).
+    /// Lo stesso velo del foreground delle righe della sidebar, non il blu della `selection`: su
+    /// una card illuminata la pillola piena sembrava un corpo estraneo.
     private var backgroundFill: Color {
-        guard selected else { return .clear }
-        return focusedPane ? colors.selection : colors.selection.opacity(0.4)
+        guard selected else { return hovered ? colors.rowHover : .clear }
+        return focusedPane ? colors.rowSelected : colors.rowHover
     }
 
     private func beginRename() {

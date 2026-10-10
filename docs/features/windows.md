@@ -16,6 +16,11 @@ Finestre, chrome senza title bar, overlay e le loro trappole AppKit. Il resto de
   tema, o negli spazi trasparenti fra i pane passerebbe la cornice. Sidebar chiusa: la card del
   contenuto prende il margine sinistro (`setLeadingInset`). È quasi il look della sidebar nativa
   di macOS 26, che però porta il **suo** materiale: la card qui è nostra, coi colori del tema.
+- **Semafori dentro la card**: una toolbar vuota `.unified` (`RelayWindowController`) li fa
+  posizionare ad AppKit a 13 punti dal bordo della card e centrati a 26 dall'alto; le strip del
+  titolo (`Theme.Metrics.titleBarHeight` = 40) hanno quella riga come mezzeria. **Non spostarli a
+  mano**: con `setFrameOrigin` AppKit li rimette al loro posto a ogni relayout della title bar,
+  anche senza un resize, e ne restavano indietro alcuni a metà.
 - Pane: testo a 10 punti dal bordo (`PaneView.terminalInset`), ring di attenzione centrato a 3
   (`AttentionRingView.strokeInset`): quasi 6 punti d'aria fra ring e caratteri. Si cambiano
   insieme. Il bordo del pane attivo (solo con uno split) è un velo del colore del cursore, non il

@@ -94,6 +94,16 @@ final class RelayWindowController: NSObject, NSWindowDelegate {
         splitVC.onSidebarWidthChange = { [weak rootController] width in
             rootController?.sidebarWidthDidChange(width)
         }
+        // Una toolbar vuota in stile `.unified`: è il modo **supportato** di dare ai semafori un
+        // margine più ampio. AppKit li mette a 13 punti dal bordo della card della sidebar e li
+        // centra a 26 dall'alto, la riga delle strip del titolo (`Theme.Metrics.titleBarHeight`).
+        // Spostarli a mano (`setFrameOrigin`) non regge: AppKit li rimette al loro posto a ogni
+        // relayout della title bar, anche senza un resize.
+        let toolbar = NSToolbar(identifier: "relay.window")
+        toolbar.showsBaselineSeparator = false
+        window.toolbar = toolbar
+        window.toolbarStyle = .unified
+        window.titlebarAppearsTransparent = true
     }
 
     func show() {

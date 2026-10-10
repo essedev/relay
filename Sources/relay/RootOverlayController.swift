@@ -14,8 +14,9 @@ final class RootOverlayController: NSViewController {
     private var fullOverlay: NSView?
     /// Fantasma della tab in volo durante un drag verso la sidebar (vedi `setDragGhost`).
     private var dragGhost: NSView?
-    /// Spazio orizzontale dei semafori: l'overlay non va mai più a sinistra di così.
-    private static let trafficLightsInset: CGFloat = 78
+    /// Spazio orizzontale dei semafori (con la toolbar `.unified` finiscono a 73 punti dal bordo
+    /// della finestra, vedi `RelayWindowController`): l'overlay non va mai più a sinistra di così.
+    private static let trafficLightsInset: CGFloat = 86
 
     init(content: NSViewController, overlay: NSView) {
         self.content = content
@@ -54,7 +55,8 @@ final class RootOverlayController: NSViewController {
             contentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             leading,
-            overlay.topAnchor.constraint(equalTo: view.topAnchor),
+            // Sulla riga dei semafori, che stanno dentro la card: stesso margine in alto.
+            overlay.topAnchor.constraint(equalTo: view.topAnchor, constant: FrameSplitView.gap),
             overlay.heightAnchor.constraint(equalToConstant: Theme.Metrics.titleBarHeight),
         ])
         // Riallinea con l'ultima larghezza vista: i resize dello split possono precedere il load.
@@ -160,7 +162,8 @@ final class RootOverlayController: NSViewController {
     func sidebarWidthDidChange(_ width: CGFloat) {
         lastKnownSidebarWidth = width
         guard let overlayLeading else { return }
-        let trailingAligned = width - overlay.fittingSize.width - Theme.Spacing.xs
+        // Dentro la card, alla stessa distanza dal bordo dei semafori dall'altro lato.
+        let trailingAligned = width - overlay.fittingSize.width - Theme.Spacing.md
         overlayLeading.constant = max(Self.trafficLightsInset, trailingAligned)
     }
 }

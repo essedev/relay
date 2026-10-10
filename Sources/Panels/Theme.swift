@@ -64,8 +64,10 @@ public enum Theme {
 
     public enum Metrics {
         public static let tabBarHeight: CGFloat = 34
-        /// Altezza della strip del titolo (allineata verticalmente ai semafori della finestra).
-        public static let titleBarHeight: CGFloat = 30
+        /// Altezza della strip del titolo in cima a ogni card, allineata ai semafori: con la
+        /// toolbar `.unified` stanno centrati a 26 punti dal bordo della finestra, cioè a 20 dal
+        /// bordo della card (margine 6): una strip di 40 li ha sulla sua mezzeria.
+        public static let titleBarHeight: CGFloat = 40
         /// Larghezza massima di una tab: un titolo OSC lungo (Claude manda il nome della chat) non
         /// deve allargare la tab oltre la finestra; il testo si tronca.
         public static let maxTabWidth: CGFloat = 180
