@@ -138,6 +138,7 @@ extension Guide {
         .prevAttention: "The same, backwards",
         .toggleDashboard: "What needs you, and what to put away",
         .showProjects: "Every project, open or closed, by group",
+        .goToProject: "Type a few letters of any project; a closed one reopens",
         .closeTab: "The selected tab of the focused pane",
         .closePane: "Closes the pane with all its tabs",
         .closeWorkspace: "Asks first if something is running",

@@ -242,6 +242,7 @@ enum MainMenuBuilder {
         submenu("Go", [
             actionItem(.toggleDashboard, settings, target),
             actionItem(.showProjects, settings, target),
+            actionItem(.goToProject, settings, target),
             actionItem(.nextAttention, settings, target),
             actionItem(.prevAttention, settings, target),
             .separator(),

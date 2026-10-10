@@ -52,6 +52,11 @@ struct ChromeColors {
         Color(theme.selection).opacity(0.35)
     }
 
+    /// Superficie in rilievo (palette, popover): un gradino verso il foreground, solida.
+    var raised: Color {
+        Color(theme.background.mixed(with: theme.foreground, 0.05))
+    }
+
     /// Filo che separa le righe di una pagina: presente, mai una riga disegnata.
     var hairline: Color {
         Color(theme.foreground).opacity(0.08)

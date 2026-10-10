@@ -22,6 +22,33 @@ extension AppController {
         )
     }
 
+    var isPaletteOpen: Bool {
+        overlayPresenter?.isPresenting(.palette) ?? false
+    }
+
+    /// Palette "Go to project" (`⌘P`): la stessa combinazione la chiude.
+    func togglePalette() {
+        if isPaletteOpen {
+            overlayPresenter?.dismiss(.palette)
+            return
+        }
+        overlayPresenter?.present(.palette) {
+            fullOverlayHost(ProjectPalette(
+                store: self.store,
+                settings: self.settings,
+                onOpen: { [weak self] workspace in
+                    self?.overlayPresenter?.dismiss(.palette)
+                    self?.openProject(workspace)
+                },
+                onNewProject: { [weak self] in
+                    self?.overlayPresenter?.dismiss(.palette)
+                    self?.newWorkspace(nil)
+                },
+                onClose: { [weak self] in self?.overlayPresenter?.dismiss(.palette) }
+            ))
+        }
+    }
+
     /// Riapre (o seleziona) un progetto e porta davanti la sua finestra.
     func openProject(_ workspace: Workspace) {
         store.openProject(workspace.id)

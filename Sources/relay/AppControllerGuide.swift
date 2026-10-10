@@ -99,6 +99,7 @@ extension AppController {
             switch overlay {
             case .home: self?.togglePage(.home)
             case .projects: self?.togglePage(.projects)
+            case .palette: self?.togglePalette()
             case .guide: self?.presentGuide()
             }
         }

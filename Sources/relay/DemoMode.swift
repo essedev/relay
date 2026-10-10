@@ -96,6 +96,7 @@ struct DemoConfig {
 enum DemoOverlay: String {
     case home
     case projects
+    case palette
     case guide
 }
 

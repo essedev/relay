@@ -56,6 +56,10 @@ sceglie quale); Esc torna ai terminali.
   fermi da 7 giorni, mai uno con un agente vivo o di cui non si sa niente.
 - **Projects** (`⇧⌘P`): il catalogo per gruppo, aperti prima e poi il più recente
   (`Panels/ProjectsModel`), filtro per nome o cartella.
+- **Palette** (`⌘P`, azione `goToProject`): overlay full-window (`FullOverlayPresenter`, slot
+  `.palette`) per andare a un progetto per nome o cartella; un chiuso si riapre. Ordine in
+  `Panels/PaletteModel`: aperti prima, poi la corrispondenza migliore, poi il più recente. Mentre è
+  su il monitor si fa da parte, salvo `⌘P` che la richiude.
 - **`Workspace.lastActiveAt`** (persistito, additivo): ultimo evento agente o ultima volta che ci sei
   entrato. Senza, dopo un riavvio ogni progetto sembrerebbe senza storia.
 

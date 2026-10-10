@@ -20,6 +20,22 @@ public struct RelayColor: Sendable, Equatable {
             UInt8(hex & 0xFF)
         )
     }
+
+    /// Il colore spostato verso `other` della frazione `amount` (0 = sé stesso, 1 = `other`). Serve
+    /// alla chrome per ricavare dal tema i gradini di una superficie (più in rilievo, più
+    /// incassata)
+    /// senza valori fissi: verso il foreground è "più in rilievo" su un tema scuro e su uno chiaro.
+    public func mixed(with other: RelayColor, _ amount: Double) -> RelayColor {
+        let t = min(max(amount, 0), 1)
+        func channel(_ from: UInt8, _ to: UInt8) -> UInt8 {
+            UInt8((Double(from) + (Double(to) - Double(from)) * t).rounded())
+        }
+        return RelayColor(
+            channel(red, other.red),
+            channel(green, other.green),
+            channel(blue, other.blue)
+        )
+    }
 }
 
 /// Un tema completo: colori base del terminale, i 16 ANSI (l'output di Claude Code, git, ls...),

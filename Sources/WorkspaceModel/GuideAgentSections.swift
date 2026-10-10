@@ -159,6 +159,9 @@ extension Guide {
                                "The catalog of every project, by group, open or closed. Filter "
                                    + "by name or folder; a click opens a closed project with its "
                                    + "tabs, ready to resume."),
+                    GuideTopic("magnifyingglass", "Go to project",
+                               "\u{2318}P from anywhere: a few letters of the name or the "
+                                   + "folder, Return to go. Open projects come first."),
                 ]),
                 .note(
                     "Home and Projects sit on top of the terminals without stopping them: Esc, "

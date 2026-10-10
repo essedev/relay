@@ -201,7 +201,7 @@ private struct ProjectRow: View {
                     .foregroundStyle(workspace.closed ? colors.secondary : colors.foreground)
                     .lineLimit(1)
                 if let path = workspace.rootPath {
-                    Text(Self.abbreviated(path))
+                    Text(ProjectsModel.displayPath(path))
                         .font(Theme.Typography.excerpt)
                         .foregroundStyle(colors.secondary.opacity(0.75))
                         .lineLimit(1)
@@ -266,11 +266,5 @@ private struct ProjectRow: View {
         return workspace.closed
             ? (count == 1 ? "1 to resume: " : "\(count) to resume: ") + title
             : title + more
-    }
-
-    /// `~` al posto della home: il percorso si legge, non si conta.
-    static func abbreviated(_ path: String) -> String {
-        let home = NSHomeDirectory()
-        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
     }
 }

@@ -80,3 +80,12 @@ import Testing
     #expect(RelayTheme.relayDark.ansiColor(-1) == RelayTheme.relayDark.foreground)
     #expect(RelayTheme.relayDark.ansiColor(99) == RelayTheme.relayDark.foreground)
 }
+
+@Test func mixingMovesTowardTheOtherColor() {
+    let black = RelayColor(0, 0, 0)
+    let white = RelayColor(255, 255, 255)
+    #expect(black.mixed(with: white, 0) == black)
+    #expect(black.mixed(with: white, 1) == white)
+    #expect(black.mixed(with: white, 0.5) == RelayColor(128, 128, 128))
+    #expect(black.mixed(with: white, 2) == white) // clamp
+}

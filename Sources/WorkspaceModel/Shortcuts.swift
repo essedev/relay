@@ -124,7 +124,7 @@ public enum ShortcutGroup: String, CaseIterable, Identifiable, Sendable {
 /// Azione rimappabile dell'app. I select-by-number (`Cmd/Option+1..9`) e i comandi di sistema
 /// (copy/paste/quit/settings) NON sono qui: restano fissi. Ogni case ha label, gruppo e default.
 public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendable {
-    case newWorkspace, openFolder, closeWorkspace, toggleGroup, showProjects
+    case newWorkspace, openFolder, closeWorkspace, toggleGroup, showProjects, goToProject
     case cycleWorkspaceForward, cycleWorkspaceBackward
     case newWindow, closeWindow
     case newTab, closeTab, cycleTabForward, cycleTabBackward
@@ -145,6 +145,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         case .closeWorkspace: "Close Workspace"
         case .toggleGroup: "Group / Ungroup Workspace"
         case .showProjects: "Projects"
+        case .goToProject: "Go to Project…"
         case .cycleWorkspaceForward: "Next Workspace"
         case .cycleWorkspaceBackward: "Previous Workspace"
         case .newWindow: "New Window"
@@ -175,7 +176,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
 
     public var group: ShortcutGroup {
         switch self {
-        case .newWorkspace, .openFolder, .closeWorkspace, .toggleGroup, .showProjects,
+        case .newWorkspace, .openFolder, .closeWorkspace, .toggleGroup, .showProjects, .goToProject,
              .cycleWorkspaceForward, .cycleWorkspaceBackward:
             .workspace
         case .newWindow, .closeWindow:
@@ -205,6 +206,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable, Sendabl
         case .toggleGroup: KeyCombo(key: "g", modifiers: [.command, .control])
         // Accanto a `⌘P` (vai a un progetto): stessa famiglia, il catalogo intero.
         case .showProjects: KeyCombo(key: "p", modifiers: [.command, .shift])
+        case .goToProject: KeyCombo(key: "p", modifiers: [.command])
         case .cycleWorkspaceForward: KeyCombo(key: "down", modifiers: [.command, .option])
         case .cycleWorkspaceBackward: KeyCombo(key: "up", modifiers: [.command, .option])
         case .newWindow: KeyCombo(key: "n", modifiers: [.command, .shift])

@@ -29,6 +29,7 @@ extension AppController {
         case .prevAttention: store.focusPrevAttention()
         case .toggleDashboard: togglePage(.home)
         case .showProjects: togglePage(.projects)
+        case .goToProject: togglePalette()
         case .find: splitVC?.toggleFind()
         case .findNext: splitVC?.findStep(forward: true)
         case .findPrevious: splitVC?.findStep(forward: false)

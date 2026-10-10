@@ -195,6 +195,8 @@ each one comes with the line the agent left on screen and the action it wants.
   terminals; their sessions stay resumable.
 - **Projects** - The catalog of every project, by group, open or closed. Filter by name or folder; a
   click opens a closed project with its tabs, ready to resume.
+- **Go to project** - ⌘P from anywhere: a few letters of the name or the folder, Return to go. Open
+  projects come first.
 
 **Note:** Home and Projects sit on top of the terminals without stopping them: Esc, or picking a
 project in the sidebar, takes you straight back.
@@ -250,6 +252,7 @@ commands, this guide's own ⌘? included.
 | `⌥⇧⌘W` | Close Workspace | Asks first if something is running |
 | `⌃⌘G` | Group / Ungroup Workspace | Groups the selected workspace in a new card, or ungroups it |
 | `⇧⌘P` | Projects | Every project, open or closed, by group |
+| `⌘P` | Go to Project… | Type a few letters of any project; a closed one reopens |
 | `⌥⌘↓` | Next Workspace |  |
 | `⌥⌘↑` | Previous Workspace |  |
 

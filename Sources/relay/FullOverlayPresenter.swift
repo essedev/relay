@@ -11,6 +11,7 @@ import SwiftUI
 @MainActor
 final class FullOverlayPresenter {
     enum Kind {
+        case palette
         case onboarding
         case guide
     }
@@ -41,7 +42,7 @@ final class FullOverlayPresenter {
         // First responder all'overlay sul runloop successivo: sincrono la hosting view non ha
         // ancora montato i suoi campi (campi di testo, vista `.focusable`
         // dell'onboarding) e frecce/Esc cadrebbero nel vuoto. Ma se il contenuto ha già preso il
-        // focus da sé (il TextField della dashboard via `@FocusState` in `onAppear`), non
+        // focus da sé (il campo della palette via `@FocusState`), non
         // glielo rubiamo: forzare `host` come first responder qui defocalizzerebbe il campo di
         // ricerca (l'utente doveva cliccare la finestra per digitare - il bug del "no focus").
         DispatchQueue.main.async { [weak self, weak host] in

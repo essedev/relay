@@ -29,9 +29,18 @@ extension AppController {
 
     // MARK: - Monitor tastiera/mouse
 
-    /// Un overlay full-window (onboarding, guida) è aperto.
+    /// Un overlay full-window (palette, onboarding, guida) è aperto.
     private var isOverlayOpen: Bool {
-        isOnboardingOpen || isGuideOpen
+        isPaletteOpen || isOnboardingOpen || isGuideOpen
+    }
+
+    /// La sola scorciatoia che passa sopra un overlay è quella che chiude la palette (`⌘P` di
+    /// nuovo): l'evento è consumato perché l'azione l'abbiamo eseguita noi.
+    private func overlayKeyEvent(_ event: NSEvent) -> NSEvent? {
+        guard isPaletteOpen, event.type == .keyDown,
+              shortcutAction(for: event) == .goToProject else { return event }
+        perform(.goToProject)
+        return nil
     }
 
     /// Un solo monitor locale per: (1) navigazione Cmd/Option + 1..9 - gli shortcut menu con solo
@@ -50,7 +59,7 @@ extension AppController {
             if settings.isCapturingShortcut { return event }
             // Con un overlay aperto il monitor si fa da parte: nav 1..9, azioni rimappabili e il
             // declassamento (mark-read) sono sospesi, e l'evento va alla vista (frecce, Esc).
-            if isOverlayOpen { return event }
+            if isOverlayOpen { return overlayKeyEvent(event) }
             if event.type == .keyDown {
                 if handleNavigationKey(event) { return nil } // select 1..9 (fissi)
                 if let action = shortcutAction(for: event) {

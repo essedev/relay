@@ -84,6 +84,11 @@ public enum ProjectsModel {
             || (workspace.rootPath?.lowercased().contains(needle) ?? false)
     }
 
+    /// Il percorso con `~` al posto della home: si legge, non si conta.
+    public static func displayPath(_ path: String, home: String = NSHomeDirectory()) -> String {
+        path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
+    }
+
     /// Le sessioni agente di un progetto: quelle con uno stato vivo o un resume da proporre.
     public static func sessions(of workspace: Workspace) -> [WorkspaceModel.Tab] {
         workspace.orderedTabs.filter(SessionTriage.isSession)
