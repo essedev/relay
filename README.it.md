@@ -27,8 +27,8 @@ girano dodici sessioni insieme. Veloce e leggero.
 
 Stato: baseline chiuso e distribuito via Homebrew tap. Workspace -> pane -> tab -> terminale, agent
 runtime con badge e notifiche, split panes e multi-finestra, persistence del layout, resume
-assistito, disattivazione delle sessioni, dashboard di triage kanban, gruppi e archivio dei
-workspace, nomina automatica dei workspace (senza configurare niente, con un LLM se vuoi nomi
+assistito, disattivazione delle sessioni, progetti aperti e chiusi con Home, Projects e `⌘P`,
+gruppi dei workspace, nomina automatica dei workspace (senza configurare niente, con un LLM se vuoi nomi
 migliori), onboarding, guida in-app,
 dodici temi. Engine v1 SwiftTerm dietro l'astrazione
 `TerminalEngine` (libghostty backend futuro). Decisioni, benchmark e log della ricerca:
@@ -63,10 +63,13 @@ passaggio non serve; i due eseguibili stanno dentro `Relay.app/Contents/MacOS`.
 - **Attenzione a tre livelli.** Una sessione che ti aspetta è rumorosa; una che hai visto ma non
   ripreso resta quieta sullo sfondo; rispondere la spegne. Niente resta acceso per sempre, e niente
   si spegne prima che tu l'abbia visto.
-- **Triage invece di caccia.** `Cmd+D` mette tutte le sessioni dell'app su una schermata, di default
-  su quattro corsie per urgenza (il layout a griglia è a un toggle di distanza), con filtro a
-  digitazione e Invio per saltarci dentro.
-- **Workspace che restano in ordine.** Gruppi, pin, archivio, e un ordine che cambia solo col tuo
+- **Triage invece di caccia.** Home (`Cmd+D`) dice quante sessioni ti aspettano e le elenca con
+  l'ultima riga lasciata a schermo dall'agente e l'azione che serve, poi quelle al lavoro e i
+  progetti fermi.
+- **Chiudi un progetto senza perderlo.** Chiudere tiene gruppo, tab e sessioni agente, e ferma i
+  processi così la memoria torna libera. La sidebar mostra solo i progetti aperti; Projects
+  (`Shift+Cmd+P`) è il catalogo di tutti, e `Cmd+P` ne riapre uno per nome.
+- **Workspace che restano in ordine.** Gruppi, pin, e un ordine che cambia solo col tuo
   drag - o quando una sessione finisce mentre stavi guardando altrove.
 - **I pane ospitano le tab.** Split a destra o sotto; ogni pane ha la sua strip e la sua selezione.
   Ogni workspace può passare a una finestra sua, con tutte le sue sessioni.
@@ -84,7 +87,7 @@ l'interfaccia.
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="La dashboard di triage, sessioni su quattro corsie per stato" width="900">
+  <img src="docs/images/home.png" alt="Home: le sessioni che ti aspettano, ognuna con l'ultima riga dell'agente e l'azione che serve" width="900">
 </p>
 
 ## Stato agente (hook Claude Code e Codex)
@@ -182,7 +185,8 @@ da imparare per prime:
 | `⌘T` / `⌘W` | Nuova tab, chiudi tab |
 | `⌘\` / `⇧⌘\` | Split a destra, split sotto |
 | `⌘J` / `⇧⌘J` | Salta alla prossima/precedente sessione che ti aspetta |
-| `⌘D` | Dashboard di triage |
+| `⌘D` | Home: cosa ti aspetta |
+| `⌘P` / `⇧⌘P` | Vai a un progetto, tutti i progetti |
 | `⌘F` / `⌘K` | Cerca nel terminale, puliscilo |
 | `⌘?` | La guida dell'app |
 

@@ -27,7 +27,8 @@ sessions are running at once. Fast and lightweight.
 
 Status: baseline complete and distributed via a Homebrew tap. Workspace -> pane -> tab -> terminal,
 agent runtime with badges and notifications, split panes and multiple windows, layout persistence,
-assisted resume, session deactivation, kanban triage dashboard, workspace groups and archive,
+assisted resume, session deactivation, open and closed projects with Home, Projects and `⌘P`,
+workspace groups,
 automatic workspace naming (no setup needed, an LLM if you want better names), onboarding, an
 in-app guide, twelve themes.
 Engine v1 is SwiftTerm behind the
@@ -61,10 +62,14 @@ executables then live inside `Relay.app/Contents/MacOS`.
 - **A three-step attention model.** A session that wants you is loud; one you have seen but not
   answered stays quiet in the background; replying clears it. Nothing stays lit forever, and
   nothing goes out before you have seen it.
-- **Triage instead of hunting.** `Cmd+D` puts every session in the app on one screen, by default in
-  four lanes by urgency (a grid layout is one toggle away), with type-to-filter and Return to jump.
-- **Workspaces that stay organized.** Groups, pinning, an archive, and an order that only your
-  drag - or a session finishing while you were elsewhere - can change.
+- **Triage instead of hunting.** Home (`Cmd+D`) says how many sessions need you and lists them
+  with the line each agent left on screen and the action it wants, then what is running and which
+  projects have gone quiet.
+- **Close a project without losing it.** Closing keeps its group, its tabs and its agent sessions,
+  and stops its processes so the memory comes back. The sidebar lists only open projects; Projects
+  (`Shift+Cmd+P`) is the catalog of all of them, and `Cmd+P` reopens any one by name.
+- **Workspaces that stay organized.** Groups, pinning, and an order that only your drag - or a
+  session finishing while you were elsewhere - can change.
 - **Panes that hold tabs.** Split right or down; each pane keeps its own tab strip and selection.
   Any workspace can move to its own window, sessions and all.
 - **Remappable shortcuts**, twelve themes, and terminals that are unloaded when unused so memory
@@ -80,7 +85,7 @@ The full manual lives in **[docs/GUIDE.md](docs/GUIDE.md)**, and inside the app 
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The triage dashboard, sessions grouped in four lanes by state" width="900">
+  <img src="docs/images/home.png" alt="Home: the sessions that need you, each with the agent's last line and the action it wants" width="900">
 </p>
 
 ## Agent state (Claude Code and Codex hooks)
@@ -176,7 +181,8 @@ worth learning first:
 | `⌘T` / `⌘W` | New tab, close tab |
 | `⌘\` / `⇧⌘\` | Split right, split down |
 | `⌘J` / `⇧⌘J` | Jump to the next/previous session that needs you |
-| `⌘D` | Triage dashboard |
+| `⌘D` | Home: what needs you |
+| `⌘P` / `⇧⌘P` | Go to a project, all projects |
 | `⌘F` / `⌘K` | Find in the terminal, clear it |
 | `⌘?` | This app's guide |
 
