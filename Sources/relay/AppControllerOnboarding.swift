@@ -3,7 +3,7 @@ import Panels
 import SwiftUI
 
 /// Wiring dell'onboarding (Welcome to Relay): parte da solo al primo avvio e si riapre da
-/// Help > Welcome to Relay. Stessa meccanica della dashboard (overlay full-window in
+/// Help > Welcome to Relay. Stessa meccanica della guida (overlay full-window in
 /// `RootOverlayController`); extension per tenere il corpo di `AppController` sul solo bootstrap.
 extension AppController {
     var isOnboardingOpen: Bool {

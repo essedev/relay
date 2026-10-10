@@ -146,18 +146,14 @@ extension AppController: NSMenuDelegate {
 // MARK: - Enabled/disabled
 
 extension AppController: NSMenuItemValidation {
-    /// Con un overlay full-window aperto (dashboard/onboarding/guida) il monitor si fa da parte: i
+    /// Con un overlay full-window aperto (onboarding/guida) il monitor si fa da parte: i
     /// `keyEquivalent` delle voci tornerebbero vivi ed eseguirebbero azioni sotto l'overlay.
     /// Qui si disabilita tutto tranne le voci che **chiudono** l'overlay aperto. A overlay chiuso,
     /// le voci si disabilitano solo dove l'azione sarebbe un no-op.
     public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        if isDashboardOpen || isOnboardingOpen || isGuideOpen {
+        if isOnboardingOpen || isGuideOpen {
             // La guida non è un'azione rimappabile: la sua voce si riconosce dal selector.
-            if isGuideOpen, menuItem.action == #selector(AppController.showGuide(_:)) {
-                return true
-            }
-            let action = menuItem.representedObject as? ShortcutAction
-            return isDashboardOpen && action == .toggleDashboard
+            return isGuideOpen && menuItem.action == #selector(AppController.showGuide(_:))
         }
         if let action = menuItem.representedObject as? ShortcutAction {
             return isEnabled(action)

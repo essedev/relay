@@ -6,7 +6,7 @@ import WorkspaceModel
 /// della combo corrente: la colonna delle scorciatoie è quella nativa, ma l'hotkey lo esegue
 /// comunque il monitor (`AppControllerNavigation`), che consuma l'evento **prima** che arrivi al
 /// menu - niente doppio trigger. Il keyEquivalent scatterebbe solo quando il monitor si fa da
-/// parte (dashboard/onboarding aperti), ed è lì che `validateMenuItem` disabilita le voci.
+/// parte (onboarding o guida aperti), ed è lì che `validateMenuItem` disabilita le voci.
 /// Il recorder consuma tutto durante la registrazione, quindi non passa di qui.
 @MainActor
 enum MainMenuBuilder {

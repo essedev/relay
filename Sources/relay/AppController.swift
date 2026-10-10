@@ -46,7 +46,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         keyWindowController?.rootController
     }
 
-    /// Presenter degli overlay full-window (dashboard/onboarding) **della finestra key**: un host
+    /// Presenter degli overlay full-window (onboarding, guida) **della finestra key**: un host
     /// per finestra, mutua esclusione per costruzione.
     var overlayPresenter: FullOverlayPresenter? {
         keyWindowController?.overlayPresenter

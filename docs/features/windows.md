@@ -20,18 +20,17 @@ Finestre, chrome senza title bar, overlay e le loro trappole AppKit. Il resto de
   `WindowDragArea` (NSView pura con `performDrag` + doppio click = zoom secondo la preferenza
   macOS). NSView pura, non un gesture SwiftUI: `mouseDownCanMoveWindow` non si propaga in modo
   affidabile sotto hosting SwiftUI.
-- Onboarding: overlay full-window come la dashboard (`AppControllerOnboarding`, wiring identico a
-  `AppControllerDashboard`), al primo avvio (`AppSettings.onboardingSeen`, timbrato alla
+- Onboarding: overlay full-window come la guida (`AppControllerOnboarding`, wiring identico a
+  `AppControllerGuide`), al primo avvio (`AppSettings.onboardingSeen`, timbrato alla
   presentazione; mai in demo mode) e da Help > Welcome to Relay. Mentre è aperto il monitor si fa
   da parte (`isOnboardingOpen`, i tasti vanno alla vista: frecce/Invio/Esc via `.focusable` +
   first responder deferito). Un solo overlay full-window alla volta: aprire l'uno chiude l'altro
-  (`presentOnboarding`/`openDashboard` si chiudono a vicenda, altrimenti gli host resterebbero
-  incoerenti). Niente screenshot nelle pagine: componenti veri (`AgentBadge`, keycap dai binding
+  (un solo slot in `FullOverlayPresenter`, altrimenti gli host resterebbero incoerenti). Niente screenshot nelle pagine: componenti veri (`AgentBadge`, keycap dai binding
   correnti, `ThemeSwatch` che seleziona il tema dal vivo, `RelayMarkView` = icona ridisegnata in
   SwiftUI con la geometria di `bundle/make-icon.swift`, usata anche da About - da dev build
   `NSApp.applicationIconImage` darebbe l'icona generica).
-- **Pannello di un overlay full-window: clamp + scroll, mai un frame fisso nudo**. I tre pannelli
-  (`Dashboard`, `GuideView`, `OnboardingView`) hanno la stessa forma: `GeometryReader` ->
+- **Pannello di un overlay full-window: clamp + scroll, mai un frame fisso nudo**. I pannelli
+  (`GuideView`, `OnboardingView`) hanno la stessa forma: `GeometryReader` ->
   `panelSize(in:)` che clampa la misura ideale allo spazio finestra meno `Spacing.lg * 2` (il
   minimo finestra è 700x460, un frame fisso verrebbe tagliato ai bordi), e il **contenuto in
   `ScrollView`** con l'eventuale footer fuori. Senza scroll una pagina con altezza intrinseca
@@ -40,8 +39,8 @@ Finestre, chrome senza title bar, overlay e le loro trappole AppKit. Il resto de
   `maxHeight: .infinity` sulle pagine (rideclina l'altezza sbagliata) e niente `Spacer` per
   centrare (collassa) - il riempimento lo fa `minHeight: contentHeight` sul contenuto, il
   centraggio l'allineamento di quel frame.
-- **Il focus del primo campo, in tre pezzi che si pestavano** (find bar, dashboard, presenter: tre
-  fix separati). `makeFirstResponder(host)` sincrono subito dopo `addSubview` gira **prima** che
+- **Il focus del primo campo, in tre pezzi che si pestavano** (find bar, la vecchia dashboard,
+  presenter: tre fix separati). `makeFirstResponder(host)` sincrono subito dopo `addSubview` gira **prima** che
   l'hosting SwiftUI monti il `TextField`, fallisce in silenzio e i tasti restano al terminale:
   va differito di un runloop. Differito e basta però ruba il campo a chi se l'era già preso da sé
   con `@FocusState`, quindi il presenter **salta il set** se il first responder corrente è già un

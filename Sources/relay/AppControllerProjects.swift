@@ -29,14 +29,28 @@ extension AppController {
     }
 
     /// Mostra una pagina nella finestra key; richiederla di nuovo torna ai terminali, se c'è un
-    /// progetto da mostrare (stesso gesto per andare e tornare, come la dashboard di prima).
+    /// progetto da mostrare (stesso gesto per andare e tornare).
     func togglePage(_ page: WindowPage) {
         guard let window = store.keyWindow else { return }
         let showing = WindowPageView.effectivePage(store, windowID: window.id)
         if showing == page, store.selectedWorkspace(in: window.id) != nil {
             window.page = .workspace
         } else {
+            if page == .home { applyPendingDecayIfEnabled() } // le righe nascono già decadute
             window.page = page
+        }
+    }
+
+    /// Decadenza opzionale dei sospesi (`pendingDecayHours` > 0): spegne i pending più vecchi
+    /// della soglia. Chiamata nei momenti naturali (boot post-restore, ritorno in foreground,
+    /// apertura di Home): niente timer, la granularità è a ore.
+    func applyPendingDecayIfEnabled() {
+        let hours = settings.pendingDecayHours
+        guard hours > 0 else { return }
+        let cutoff = Date().addingTimeInterval(-Double(hours) * 3600)
+        let decayed = store.decayPending(olderThan: cutoff)
+        if decayed > 0 {
+            RelayLog.logger("app").info("pending decay: \(decayed) marker oltre le \(hours)h")
         }
     }
 

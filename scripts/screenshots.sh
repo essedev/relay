@@ -61,7 +61,7 @@ shot() {
 
 echo "scatti (tema: $THEME, runtime isolato in $RUNTIME)"
 shot hero
-shot dashboard --show dashboard
+shot home --show home
 shot guide --show guide
 
 echo "fatto. Rivedi le immagini prima di committarle."

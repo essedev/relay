@@ -378,8 +378,8 @@ root:
   pulisce il terminale (`clear`), `Cmd+J` salta alla prossima tab in attenzione
   (`WorkspaceStore.focusNextAttention`). Sono azioni rimappabili (vedi sotto), gestite dal monitor
   così scattano anche col terminale in focus.
-- Dashboard (`Cmd+D`): overlay full-window sopra tutto (`RootOverlayController.presentFullOverlay`)
-  con la griglia delle sessioni agente - vedi #Dashboard-Delle-Sessioni.
+- Home (`Cmd+D`) e Projects (`Shift+Cmd+P`): pagine del right pane sopra i terminali, che restano
+  montati - vedi #Home-E-Projects.
 - Runtime Stats (`View > Runtime Stats…`): pannello read-only separato dalle Settings (non è una
   preferenza), con RSS, CPU del processo, conteggi workspace/tab e surface vive/cap. Campiona solo
   mentre la finestra è aperta; a regime non aggiunge polling.
@@ -427,8 +427,8 @@ così lo usa anche il recorder), cerca l'azione nei binding e chiama `perform(ac
 (`ShortcutRuntime`). Le voci di menu portano la combo come **`keyEquivalent` vero** (la colonna
 nativa delle scorciatoie, come ogni app macOS: mostrarla nel titolo era una resa estetica), e il
 doppio trigger non c'è perché il monitor **consuma** l'evento prima che arrivi al menu. Quando il
-monitor si fa da parte (dashboard o onboarding aperti) i keyEquivalent tornerebbero vivi: lì
-`validateMenuItem` disabilita le voci dell'AppController tranne il toggle della dashboard. I menu si
+monitor si fa da parte (onboarding o guida aperti) i keyEquivalent tornerebbero vivi: lì
+`validateMenuItem` disabilita le voci dell'AppController tranne il toggle della guida. I menu si
 ricostruiscono al cambio binding (`observeKeybindings`). Restano fissi i comandi di sistema
 (Copy/Paste/Select All via responder, Quit, Settings, Hide/Minimize/Full Screen) e i
 select-by-number.
@@ -727,34 +727,17 @@ Il coordinatore è anche `UNUserNotificationCenterDelegate` e in `willPresent` r
 e noi notifichiamo apposta per le tab non in vista anche con l'app attiva. **Richiede il bundle `.app`** (serve un bundle id):
 da `swift run` le notifiche sono disattivate, non è un errore.
 
-### Dashboard delle sessioni
+### Home e Projects
 
-La control tower del triage: un **overlay effimero** a livello finestra (hotkey rimappabile,
-default `Cmd+D`) con tutte le sessioni agente in **due viste** scambiabili da un toggle in header
-(preferenza persistita `AppSettings.dashboardLayout`, default **kanban**). Il **kanban** raggruppa
-per stato su quattro **corsie di triage** (**Needs You** = needs_input/error, **Running**, **Done**
-= completati non visti, **Idle** = pending/idle/resume): le corsie sono sempre tutte presenti (una
-colonna vuota è informazione, non un buco) e ordinate come il ciclo di vita, quanto reclama *te* da
-sinistra. La **griglia flat** storica è la seconda vista, ordinata per urgenza (`needs_input` >
-`error` > `unseen` > `pending` > `running` > idle/resume; a pari rango l'evento più recente). Il
-pannello è **identico nelle due viste** (stessa dimensione fissa, stessa barra di ricerca): il
-toggle scambia solo il contenuto interno, le colonne del kanban sono flessibili e si dividono la
-larghezza. L'unità è la sessione, non il workspace: col pattern d'uso reale (~1 tab agente per
-workspace) le sezioni sarebbero solo overhead - l'appartenenza è un **chip colorato** sulla card
-(colore stabile per workspace dai colori ANSI del tema). Ogni card: stato, titolo, chip, **età
-dell'ultimo evento** ("aspetta input da 4m" pesa diverso da "lavora da 20s"), dismiss su hover per
-i marker. Type-to-filter (titolo/workspace/cwd), frecce + Invio per saltare, Esc chiude; le frecce
-navigano l'ordine flat nella griglia e in 2D nel kanban (su/giù dentro la corsia, sinistra/destra
-alla corsia adiacente).
-
-Struttura: logica pura in `Panels/DashboardModel` (filtri, rank, età, corsie
-`Lane`/`Column`/`columns`: testata), vista SwiftUI (`DashboardView`, col rendering board + card in
-`Dashboard+Board.swift`), wiring nel composition root (`AppControllerDashboard` + overlay
-full-window in `RootOverlayController`). Mentre l'overlay è aperto il monitor locale si fa da parte
-(i tasti vanno al filtro; niente nav 1..9 né mark-read). Solo dati del model: la dashboard funziona
-anche per tab sfrattate dal cap LRU o mai realizzate - una preview del terminale nelle card
-richiederebbe surface vive ed è fuori scope. `Cmd+J` è il fratello cieco della dashboard: cicla
-prima l'attenzione fresca, esauriti quelli i sospesi.
+La control tower del triage è **Home**, una pagina del right pane (`RelayWindow.page`, `Cmd+D`) e
+non più un overlay: le sessioni che ti aspettano dei progetti aperti, ognuna con l'ultima riga
+dell'agente a schermo e l'azione che serve, poi quelle al lavoro, i progetti fermi da chiudere e i
+chiusi di recente. **Projects** (`Shift+Cmd+P`) è il catalogo di tutti i progetti, aperti e chiusi,
+per gruppo. Logica pura in `Panels/HomeModel`, `Panels/ProjectsModel` e `Panels/SessionTriage`
+(rank, età), viste SwiftUI montate da `RightPaneController+Pages`. Il kanban della vecchia
+dashboard è stato tolto: con i progetti chiusi fuori dal conto, la lista per urgenza basta.
+`Cmd+J` resta il fratello cieco di Home: cicla prima l'attenzione fresca, poi i sospesi. Dettagli e
+invarianti in `docs/features/projects.md`.
 
 ## Data Model
 

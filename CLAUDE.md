@@ -90,7 +90,7 @@ Dove sta una cosa. Cosa c'è dentro lo dice `ls Sources/<Modulo>/`, il perché s
 Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i test non coprono.
 
 - `docs/features/attention.md` - attenzione a tre livelli (unseen -> pending -> risolto), quando
-  nasce, cosa la declassa e cosa la spegne; notifiche macOS; ring; dashboard di triage (`Cmd+D`).
+  nasce, cosa la declassa e cosa la spegne; notifiche macOS; ring; Home di triage (`Cmd+D`).
   **Invariante**: posizione in sidebar e segnale di attenzione sono scollegati.
 - `docs/features/agent-runtime.md` - binding `RELAY_TAB_ID`/`RELAY_RUN_ID`, socket e self-heal,
   ordine degli eventi (pump FIFO + monotonicità + `eventFloor` + fence di run), mapping hook ->

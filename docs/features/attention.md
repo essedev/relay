@@ -1,6 +1,6 @@
-# Attenzione, notifiche e dashboard
+# Attenzione, notifiche e Home
 
-Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard. Il resto della guida sta in `../../CLAUDE.md`.
+Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, Home. Il resto della guida sta in `../../CLAUDE.md`.
 
 - **L'errore accende il marker**: `error` (da `StopFailure`, vedi `agent-runtime.md`) è l'unico
   stato che è **anche** marker: il reducer gli fa alzare `unseen` come a un completamento, e nasce
@@ -48,7 +48,7 @@ Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard
   consumano il marker. Risolve solo un'azione **attiva** sulla conversazione - la ripresa vera
   (prompt -> running) o una ri-presa attiva (`/clear`, `/resume`: SessionStart `source` clear/resume
   -> `resetsAttention`, letto dal CLI, spegne il sospeso mantenendo `state` idle) - più il dismiss
-  (card della dashboard), la chiusura tab e la decadenza (`pendingDecayHours`, default **12h**: il
+  ("Mark as Read" dal menu della riga), la chiusura tab e la decadenza (`pendingDecayHours`, default **12h**: il
   sospeso è il segnale quieto e già visto, tenerlo per sempre è banner blindness; `unseen` invece
   non scade mai da solo). Override manuale dal **menu contestuale** (sidebar sulla tab selezionata
   del workspace, strip per-tab) e dal menu Workspace: `store.toggleUnread` è chiavato su `unseen`,
@@ -94,31 +94,15 @@ Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, dashboard
   che ne segnala lo stato (verde = completato non visto, statico + flash; giallo/rosso pulsante =
   aspetta input/errore). Giallo e rosso vengono da `agentState` (`needs_input`/`error`) e restano
   finché lo stato cambia, anche dopo che il marker è stato declassato; il **verde** risponde solo a
-  `unseen`, perché un sospeso (`pending`) non accende il bordo (segnale quieto: badge ad anello vuoto + dashboard), altrimenti useresti la shell con un
+  `unseen`, perché un sospeso (`pending`) non accende il bordo (segnale quieto: badge ad anello vuoto), altrimenti useresti la shell con un
   ring verde permanente. Colori dai colori ANSI del tema, coerenti coi badge. Overlay con `hitTest`
   nil (non intercetta eventi); i terminali si inseriscono `positioned: .below` così resta in cima.
   L'observer del ring (`observeRing`) è **separato** da `render()` e **non** scrive `attention`:
   altrimenti un completamento sulla tab in vista si spegnerebbe da solo (loop col reset della
   visita). Il declassamento (mark-read) lo fa solo l'interazione col terminale (monitor key/mouse).
-- Dashboard (`Cmd+D`, azione rimappabile `toggleDashboard`): overlay full-window
-  (`RootOverlayController.presentFullOverlay`, wiring in `AppControllerDashboard`). **Due viste**
-  scambiabili da un toggle in header (preferenza persistita `AppSettings.dashboardLayout`, default
-  **kanban**): kanban per stato su quattro corsie di triage (Needs You = needs_input/error, Running,
-  Done = completati non visti, Idle = pending/idle/resume) e la **griglia flat** storica per
-  urgenza. **Il pannello è identico nelle due viste** (stessa barra di ricerca, stessa dimensione
-  fissa 820x580 ma **clampata alla finestra** via `panelSize(in:)` - il minimo finestra è 700x460,
-  un frame fisso puro verrebbe tagliato; le colonne kanban sono flessibili, il toggle scambia solo
-  il contenuto - non ridimensiona). Il focus del filtro all'apertura ha un retry (`.task`): il set
-  in `onAppear` è una race col primo layout e, se cade, il presenter mette il first responder
-  sull'host e il campo resta sordo (Esc/frecce mute). Esc chiude anche dal contenitore
-  (`onExitCommand` sulla root oltre che sul campo).
-  Card con età e dismiss, filtro type-to-search, frecce + Invio (nav flat nella griglia, 2D nel
-  kanban), Esc chiude. Logica pura in `Panels/DashboardModel` (raggruppamento `Lane`/`Column`/
-  `columns` testato); rendering board + `SessionCard` in `Dashboard+Board.swift` (estratti dal
-  corpo di `DashboardView` per i limiti file/tipo). Solo dati del model, funziona anche per tab
-  sfrattate dal cap LRU (niente preview del terminale: richiederebbe surface vive). **Mentre è
-  aperta il monitor si fa da parte**: i tasti vanno al filtro (niente nav 1..9, niente mark-read),
-  resta attivo solo il toggle per chiuderla; Esc lo gestisce la vista (`onExitCommand`). La
-  decadenza dei sospesi si applica a boot/foreground/apertura dashboard (niente timer). Il set
-  differito del first responder in `FullOverlayPresenter` **non ruba** il focus al campo che l'ha
-  già preso via `@FocusState` (salta se il first responder è già un discendente dell'host).
+- Home (`Cmd+D`, azione rimappabile `toggleDashboard`, rawValue storico) ha preso il posto
+  dell'overlay della dashboard: è una pagina del right pane, con le sessioni che ti aspettano dei
+  soli progetti aperti, ognuna con l'ultima riga dell'agente a schermo. Dettagli in
+  `docs/features/projects.md`. Mentre una pagina è su, la tab selezionata **non è in vista** per
+  gli eventi agente (il completamento resta `unseen`). La decadenza dei sospesi si applica a
+  boot, ritorno in foreground e apertura di Home (niente timer).

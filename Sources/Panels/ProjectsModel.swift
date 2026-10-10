@@ -86,6 +86,6 @@ public enum ProjectsModel {
 
     /// Le sessioni agente di un progetto: quelle con uno stato vivo o un resume da proporre.
     public static func sessions(of workspace: Workspace) -> [WorkspaceModel.Tab] {
-        workspace.orderedTabs.filter(DashboardModel.isSession)
+        workspace.orderedTabs.filter(SessionTriage.isSession)
     }
 }

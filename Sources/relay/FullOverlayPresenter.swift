@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Presenter unico degli overlay full-window (dashboard, onboarding): tiene **un solo** host e
+/// Presenter unico degli overlay full-window (onboarding, guida): tiene **un solo** host e
 /// quale `Kind` è presentato, così la mutua esclusione ("uno alla volta") è garantita per
 /// costruzione invece che a mano (prima ogni `open` chiamava la `close` dell'altro). Centralizza il
 /// ciclo che le due extension di `AppController` duplicavano: build host + `safeAreaRegions = []` +
@@ -11,7 +11,6 @@ import SwiftUI
 @MainActor
 final class FullOverlayPresenter {
     enum Kind {
-        case dashboard
         case onboarding
         case guide
     }
@@ -40,7 +39,7 @@ final class FullOverlayPresenter {
         self.host = host
         presented = kind
         // First responder all'overlay sul runloop successivo: sincrono la hosting view non ha
-        // ancora montato i suoi campi (TextField della dashboard, vista `.focusable`
+        // ancora montato i suoi campi (campi di testo, vista `.focusable`
         // dell'onboarding) e frecce/Esc cadrebbero nel vuoto. Ma se il contenuto ha già preso il
         // focus da sé (il TextField della dashboard via `@FocusState` in `onAppear`), non
         // glielo rubiamo: forzare `host` come first responder qui defocalizzerebbe il campo di

@@ -20,14 +20,14 @@ public enum HomeModel {
     public static let quietAfter: TimeInterval = 7 * 86400
 
     /// Le sessioni che ti aspettano: input, errore, completamento non visto. Ordine di triage
-    /// (`DashboardModel.urgencyRank`), poi la più recente.
+    /// (`SessionTriage.urgencyRank`), poi la più recente.
     public static func needsYou(_ workspaces: [Workspace]) -> [Entry] {
         entries(workspaces) { tab in
             tab.agentState == .needsInput || tab.agentState == .error || tab.attention == .unseen
         }
         .sorted { lhs, rhs in
-            let lRank = DashboardModel.urgencyRank(lhs.tab)
-            let rRank = DashboardModel.urgencyRank(rhs.tab)
+            let lRank = SessionTriage.urgencyRank(lhs.tab)
+            let rRank = SessionTriage.urgencyRank(rhs.tab)
             if lRank != rRank { return lRank > rRank }
             return (lhs.tab.lastEventAt ?? .distantPast) > (rhs.tab.lastEventAt ?? .distantPast)
         }

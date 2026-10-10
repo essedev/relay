@@ -133,7 +133,7 @@ final class MainSplitViewController: NSSplitViewController {
         right.flashAttentionRing()
     }
 
-    /// Riporta il focus al terminale attivo (dopo la chiusura di un overlay, es. dashboard).
+    /// Riporta il focus al terminale attivo (dopo la chiusura di un overlay o di una pagina).
     func focusTerminal() {
         right.focusTerminal()
     }

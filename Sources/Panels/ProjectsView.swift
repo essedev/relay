@@ -211,7 +211,7 @@ private struct ProjectRow: View {
             .frame(minWidth: 180, maxWidth: 260, alignment: .leading)
             sessionSummary(sessions)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if let age = DashboardModel.age(of: workspace.lastActiveAt, now: now) {
+            if let age = SessionTriage.age(of: workspace.lastActiveAt, now: now) {
                 Text(age)
                     .font(Theme.Typography.subtitle)
                     .foregroundStyle(colors.secondary)

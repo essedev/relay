@@ -240,8 +240,7 @@ Distinte dallo snapshot del layout: `AppSettings` (`Sources/WorkspaceModel/`) pe
 `autoResumeAgents`, il doppio click sulla strip che apre una tab
 (`newTabOnStripDoubleClick`, default on), la decadenza dei sospesi (`pendingDecayHours`),
 il check aggiornamenti
-(`checkForUpdatesAutomatically` + `skippedUpdateVersion`), la vista della dashboard
-(`dashboardLayout`: kanban o griglia), la configurazione **non segreta** della nomina automatica
+(`checkForUpdatesAutomatically` + `skippedUpdateVersion`), la configurazione **non segreta** della nomina automatica
 (`workspaceNamingEnabled` + base URL + model) e il flag one-shot dell'onboarding
 (`onboardingSeen`, timbrato alla prima presentazione del "Welcome to Relay"). Sono *preferenze*
 utente, non stato di sessione - per

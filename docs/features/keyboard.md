@@ -17,9 +17,9 @@ Chi vede un tasto per primo, e perché è sempre lo stesso monitor. Il resto del
   `settings.keybindings`, poi `perform(action)` (`ShortcutRuntime`). Le voci di menu portano la
   combo come **keyEquivalent vero** (colonna nativa delle scorciatoie), ma il trigger resta il
   monitor, che consuma l'evento **prima** che arrivi al menu: niente doppio trigger. Quando il
-  monitor si fa da parte (dashboard/onboarding aperti) i keyEquivalent tornerebbero vivi:
+  monitor si fa da parte (onboarding o guida aperti) i keyEquivalent tornerebbero vivi:
   `validateMenuItem` (`AppControllerMenus`) disabilita lì tutte le voci dell'AppController tranne
-  il toggle della dashboard, e a overlay chiuso disabilita le azioni no-op (pane senza split,
+  il toggle della guida, e a overlay chiuso disabilita le azioni no-op (pane senza split,
   move con una tab sola). Il menu si ricostruisce al cambio binding (`observeKeybindings`).
   Fissi: Copy/Paste/Select All (responder SwiftTerm), Quit, Settings, Hide/Minimize/Full Screen
   (in `KeyCombo.systemReserved`: il recorder li rifiuta) e i select 1..9. Il recorder in

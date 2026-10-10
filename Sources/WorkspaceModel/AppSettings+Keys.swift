@@ -25,7 +25,6 @@ extension AppSettings {
         static let checkForUpdates = "relay.updates.checkAutomatically"
         static let skippedUpdateVersion = "relay.updates.skippedVersion"
         static let onboardingSeen = "relay.onboarding.seen"
-        static let dashboardLayout = "relay.dashboard.layout"
         static let workspaceNamingEnabled = "relay.naming.enabled"
         static let workspaceNamingBaseURL = "relay.naming.baseURL"
         static let workspaceNamingModel = "relay.naming.model"

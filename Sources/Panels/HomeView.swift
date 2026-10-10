@@ -168,8 +168,8 @@ private struct NeedsYouRow: View {
                         .font(Theme.Typography.tab)
                         .foregroundStyle(kind.tint(colors))
                     Spacer(minLength: Theme.Spacing.sm)
-                    if let age = DashboardModel.age(
-                        of: DashboardModel.ageDate(for: entry.tab),
+                    if let age = SessionTriage.age(
+                        of: SessionTriage.ageDate(for: entry.tab),
                         now: now
                     ) {
                         Text(age)
@@ -261,7 +261,7 @@ private struct WorkingRow: View {
                 .foregroundStyle(colors.secondary)
                 .lineLimit(1)
             Spacer(minLength: Theme.Spacing.sm)
-            if let age = DashboardModel.age(of: entry.tab.lastEventAt, now: now) {
+            if let age = SessionTriage.age(of: entry.tab.lastEventAt, now: now) {
                 Text(age)
                     .font(Theme.Typography.subtitle)
                     .foregroundStyle(colors.secondary)
@@ -327,7 +327,7 @@ struct ProjectChip: View {
             Text(workspace.name)
                 .font(Theme.Typography.tab)
                 .foregroundStyle(colors.foreground)
-            if let age = DashboardModel.age(of: workspace.lastActiveAt, now: now) {
+            if let age = SessionTriage.age(of: workspace.lastActiveAt, now: now) {
                 Text(age)
                     .font(Theme.Typography.tab)
                     .foregroundStyle(colors.secondary)

@@ -29,20 +29,9 @@ extension AppController {
 
     // MARK: - Monitor tastiera/mouse
 
-    /// Un overlay full-window (dashboard, onboarding, guida) è aperto.
+    /// Un overlay full-window (onboarding, guida) è aperto.
     private var isOverlayOpen: Bool {
-        isDashboardOpen || isOnboardingOpen || isGuideOpen
-    }
-
-    /// Con un overlay aperto il monitor si fa da parte: nav 1..9, azioni rimappabili e mark-read
-    /// sono sospesi e l'evento va alla vista, che gestisce da sé ricerca, frecce ed Esc. L'unica
-    /// eccezione è il toggle della dashboard, che deve poterla chiudere: lì l'evento è consumato
-    /// (`nil`) perché l'azione l'abbiamo eseguita noi.
-    private func overlayKeyEvent(_ event: NSEvent) -> NSEvent? {
-        guard isDashboardOpen, event.type == .keyDown,
-              shortcutAction(for: event) == .toggleDashboard else { return event }
-        perform(.toggleDashboard)
-        return nil
+        isOnboardingOpen || isGuideOpen
     }
 
     /// Un solo monitor locale per: (1) navigazione Cmd/Option + 1..9 - gli shortcut menu con solo
@@ -59,7 +48,9 @@ extension AppController {
             guard let self else { return event }
             // Mentre il recorder registra, il monitor è trasparente: l'evento arriva al recorder.
             if settings.isCapturingShortcut { return event }
-            if isOverlayOpen { return overlayKeyEvent(event) }
+            // Con un overlay aperto il monitor si fa da parte: nav 1..9, azioni rimappabili e il
+            // declassamento (mark-read) sono sospesi, e l'evento va alla vista (frecce, Esc).
+            if isOverlayOpen { return event }
             if event.type == .keyDown {
                 if handleNavigationKey(event) { return nil } // select 1..9 (fissi)
                 if let action = shortcutAction(for: event) {

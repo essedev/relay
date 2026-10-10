@@ -34,14 +34,14 @@ due prose parallele divergono sempre, una resa generata no.
 - `WorkspaceModel/Guide.swift` - i tipi (`GuideSection`, `GuideBlock`, `GuideTopic`,
   `GuideShortcut`) e l'ordine delle sezioni.
 - `WorkspaceModel/GuideLayoutSections.swift` - workspace/tab, pane/finestre, sidebar.
-- `WorkspaceModel/GuideAgentSections.swift` - stato agente, dashboard, nomina automatica.
+- `WorkspaceModel/GuideAgentSections.swift` - stato agente, Home e Projects, nomina automatica.
 - `WorkspaceModel/GuideSystemSections.swift` - tastiera, aspetto, aggiornamenti, più
   `Guide.shortcutNotes` (le glosse delle poche azioni la cui label non basta).
 - `WorkspaceModel/GuideMarkdown.swift` - la resa markdown, a capo a 100 colonne come il resto del
   repo.
 - `Panels/GuideView.swift` + `GuideBlockView.swift` - il pannello (master-detail con ricerca, sul
   modello di `SettingsView`) e la resa dei blocchi col design system.
-- `relay/AppControllerGuide.swift` - wiring: overlay full-window (stesso presenter di dashboard e
+- `relay/AppControllerGuide.swift` - wiring: overlay full-window (stesso presenter di
   onboarding, quindi la mutua esclusione è gratis) e voce di menu.
 - `relay-cli guide-md` - il generatore, comando di sviluppo fuori dall'usage del CLI.
 
@@ -60,5 +60,5 @@ serve a chiuderla.
 `scripts/screenshots.sh` rigenera le immagini del README pilotando una demo **isolata**
 (`RELAY_SOCKET`/`RELAY_LAYOUT`/`RELAY_SESSIONS` in una cartella temporanea, tema via
 `NSArgumentDomain`): non tocca `~/.relay` né le preferenze, e convive con un Relay già aperto. Gli
-overlay li apre la demo stessa (`--demo --show dashboard|guide`), perché uno script non può premere
-`Cmd+D`. Serve il permesso Screen Recording per il terminale che lo lancia.
+pagine e gli overlay li apre la demo stessa (`--demo --show home|projects|guide`), perché uno
+script non può premere `Cmd+D`. Serve il permesso Screen Recording per il terminale che lo lancia.
