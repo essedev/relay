@@ -23,6 +23,10 @@ final class CardContainerController: NSViewController {
     private let content: NSViewController
     private let insets: Insets
     private var leadingConstraint: NSLayoutConstraint?
+    /// Il fondo pieno della card, conservato: `applyTheme` può arrivare prima che la view sia
+    /// caricata (lo split la chiama dal suo init), e senza layer il colore andava perso. Era la
+    /// cornice scura che si vedeva fra titolo, tab e terminale.
+    private var background: NSColor?
     private let clip = NSView()
     private let edge = CardEdgeView()
 
@@ -44,6 +48,7 @@ final class CardContainerController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         clip.wantsLayer = true
+        clip.layer?.backgroundColor = background?.cgColor
         clip.layer?.cornerRadius = Self.radius
         clip.layer?.cornerCurve = .continuous
         clip.layer?.masksToBounds = true
@@ -91,6 +96,7 @@ final class CardContainerController: NSViewController {
     /// alle parti trasparenti del contenuto (lo spazio attorno ai pane): senza, ci passerebbe la
     /// cornice, più scura.
     func applyTheme(background: NSColor, isDark: Bool) {
+        self.background = background
         clip.layer?.backgroundColor = background.cgColor
         edge.isDark = isDark
     }
