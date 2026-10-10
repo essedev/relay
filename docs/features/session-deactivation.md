@@ -8,7 +8,7 @@ succede dopo un riavvio dell'app, chiesta a mano su una tab o su un workspace in
 
 Una surface idle costa 0,3-0,5 MB. Una sessione agente costa ~200 MB e ~9 processi, contando
 l'albero dei server MCP che si porta dietro (misure in `docs/research/PERF.md`). Il cap LRU non
-sfratta mai una tab con processi vivi, per scelta deliberata (Cycle 9 e 15), quindi con decine di
+sfratta mai una tab con processi vivi, per scelta deliberata (DECISIONS #3), quindi con decine di
 sessioni aperte la memoria è tutta lì e il cap non la tocca. **Il cap non va esteso**: è tarato
 sull'unità di misura delle surface, non degli agenti, e sfrattare una sessione senza dirlo sarebbe
 una cosa diversa da sfrattare un renderer.

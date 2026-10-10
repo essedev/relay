@@ -46,8 +46,7 @@ Dal sorgente al `.app` installato: bundle, firma, release, aggiornamenti. Il res
 - Check aggiornamenti (canale brew): `UpdateController` (RelayApp) al lancio confronta la versione
   installata (`CFBundleShortVersionString`) con l'ultima GitHub Release
   (`/repos/essedev/relay/releases/latest`), e se più recente accende una pill transitoria in fondo
-  alla sidebar, **sopra la sezione Archive** (l'ancora Archive resta fissa, la pill si inserisce nel
-  flusso sopra di lei). La logica è pura in `Core` (`SemanticVersion` compara, `ReleaseCheck` parsa
+  alla sidebar, fra la lista e il piede col conteggio dei progetti aperti e chiusi. La logica è pura in `Core` (`SemanticVersion` compara, `ReleaseCheck` parsa
   e decide se l'update è azionabile rispettando lo skip), testata; rete/clipboard/apertura URL
   stanno nel controller. **Non scarica**: la pill offre solo il comando `brew update && brew upgrade
   --cask relay-terminal` da copiare, le release notes e "Skip this version" (persistito in

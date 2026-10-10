@@ -89,7 +89,7 @@ La lista dei progetti aperti: ordine, nascita, drag, chiusura. Il resto della gu
   suoi (vedi i due gotcha sopra); il drag edita direttamente l'ordine canonico, attraversare il
   blocco pinned pinna/spinna, e l'ancora preferisce il vicino dello stesso contenitore ripiegando
   sul vicino grezzo. Durante il gesto l'ordine visivo è **congelato**
-  (`frozenOrder`): senza, un evento agente che bumpa un workspace riordinerebbe le righe sotto il
+  (`frozenItems`): senza, un evento agente che bumpa un workspace riordinerebbe le righe sotto il
   puntatore. **Strip dei pane**: nessun segmento, ordine unico, il riordino resta **dentro** la
   strip (`Workspace.moveTab` è no-op cross-pane: il drag di tab fra pane è lavoro futuro). Su
   macOS lo `ScrollView` non fa drag-scroll, quindi il `DragGesture` non confligge con lo scroll;

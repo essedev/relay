@@ -8,7 +8,7 @@ Chi vede un tasto per primo, e perché è sempre lo stesso monitor. Il resto del
   reali** di workspace e tab, ripopolate all'apertura (`menuNeedsUpdate` in `AppControllerMenus`:
   il menu si ricostruisce solo al cambio keybinding, quindi non possono essere statiche).
   **Cmd+N segue l'ordine visivo della sidebar** (`navigableWorkspaces`: pinned in testa, membri
-  delle card chiuse esclusi), non quello canonico:
+  delle card collassate esclusi), non quello canonico:
   Cmd+1 apre sempre la riga in cima, anche dopo un bump da attività non vista; Option+N naviga la
   strip del
   pane focused.
@@ -17,9 +17,9 @@ Chi vede un tasto per primo, e perché è sempre lo stesso monitor. Il resto del
   `settings.keybindings`, poi `perform(action)` (`ShortcutRuntime`). Le voci di menu portano la
   combo come **keyEquivalent vero** (colonna nativa delle scorciatoie), ma il trigger resta il
   monitor, che consuma l'evento **prima** che arrivi al menu: niente doppio trigger. Quando il
-  monitor si fa da parte (onboarding o guida aperti) i keyEquivalent tornerebbero vivi:
+  monitor si fa da parte (onboarding, guida o palette aperti) i keyEquivalent tornerebbero vivi:
   `validateMenuItem` (`AppControllerMenus`) disabilita lì tutte le voci dell'AppController tranne
-  il toggle della guida, e a overlay chiuso disabilita le azioni no-op (pane senza split,
+  quella che chiude l'overlay (la guida, o `goToProject` per la palette), e a overlay chiuso disabilita le azioni no-op (pane senza split,
   move con una tab sola). Il menu si ricostruisce al cambio binding (`observeKeybindings`).
   Fissi: Copy/Paste/Select All (responder SwiftTerm), Quit, Settings, Hide/Minimize/Full Screen
   (in `KeyCombo.systemReserved`: il recorder li rifiuta) e i select 1..9. Il recorder in

@@ -88,8 +88,8 @@ Come Relay dice che una sessione ti aspetta: livelli, notifiche, ring, Home. Il 
   **Click sulla notifica**: riporta in vista la tab che
   l'ha generata. `AgentNotification` porta `tabID`/`workspaceID`, che il coordinatore mette nel
   `userInfo` del contenuto; alla ricezione (`didReceive response`, azione di default) legge gli id
-  e delega a `AppController.activateTab` (seleziona workspace+tab, de-archivia se serve, porta la
-  finestra in primo piano). Senza l'handler il click non faceva nulla.
+  e delega a `AppController.activateTab` (seleziona workspace+tab, riapre il progetto se è chiuso,
+  porta la finestra in primo piano). Senza l'handler il click non faceva nulla.
 - Ring di attenzione (`AttentionRingView`): bordo colorato attorno al terminale della tab in vista
   che ne segnala lo stato (verde = completato non visto, statico + flash; giallo/rosso pulsante =
   aspetta input/errore). Giallo e rosso vengono da `agentState` (`needs_input`/`error`) e restano

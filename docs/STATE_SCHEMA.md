@@ -155,8 +155,8 @@ di due istanze - vedi single-instance sotto) non cancella più l'ultimo layout b
 
 Entità (`LayoutSnapshot` in `Sources/WorkspaceModel/`, `Codable`, versionato - `currentVersion` è
 **1** dal primo giorno; bump **solo per cambi breaking**: la load scarta le versioni diverse; un
-campo nuovo opzionale è additivo e non bumpa, ed è per questo che split, multi-window, archivio e
-nomina automatica sono arrivati senza toccarla):
+campo nuovo opzionale è additivo e non bumpa, ed è per questo che split, multi-window, archivio,
+progetti chiusi e nomina automatica sono arrivati senza toccarla):
 
 ```text
 LayoutSnapshot    { version, selectedWorkspaceID?, workspaces: [WorkspaceSnapshot],
@@ -165,8 +165,8 @@ WindowSnapshot    { id, selectedWorkspaceID?, frame?: WindowFrame, isKey }
 WindowFrame       { x, y, width, height }
 GroupSnapshot     { id, name, colorIndex, collapsed, pinned }
 WorkspaceSnapshot { id, windowID, groupID?, name, nameOrigin, rootPath?, pinned, archived,
-                    selectedTabID?, tabs: [TabSnapshot], splitLayout?: SplitNode,
-                    focusedPaneID? }
+                    lastActiveAt?, selectedTabID?, tabs: [TabSnapshot],
+                    splitLayout?: SplitNode, focusedPaneID? }
 TabSnapshot       { id, title, hasCustomTitle, currentDirectory?, resume?, pendingSince?,
                     deactivated }
 ResumeBinding     { agent, sessionId, label }
@@ -184,17 +184,23 @@ chiave mancante farebbe fallire il decode, cioè butterebbe il layout dell'utent
 | `groups` | `[]` (nessun gruppo, righe tutte libere) | layout pre gruppi |
 | `groupID` | `nil` (workspace fuori da ogni gruppo) | idem |
 | `nameOrigin` | `.user` | i nomi pre-feature sono dell'utente, non si rigenerano |
-| `archived` | `false` | layout pre archivio |
+| `archived` | `false` (progetto aperto) | layout pre archivio; in memoria è `Workspace.closed` |
+| `lastActiveAt` | `nil` (Home non lo propone come fermo) | layout pre progetti chiusi |
 | `splitLayout` | `nil` -> pane radice con tutte le tab | layout pre split |
 | `focusedPaneID` | `nil` -> il pane della selezione | layout pre modello cmux |
 | `pendingSince` | `nil` (nessun sospeso) | layout pre attenzione a tre livelli |
 | `deactivated` | `false` (tab normale) | layout pre disattivazione delle sessioni |
 
 I gruppi sono salvati come **solo aspetto** (nome, colore, collassato, pinnato): l'appartenenza vive
-su `WorkspaceSnapshot.groupID`, quindi non c'è una lista di membri da validare al restore. Due
-guardie al load (`WorkspaceStore+Persistence.swift:112` e `:121`): un workspace archiviato perde
-l'appartenenza salvata (un archiviato non sta in una card), e i gruppi rimasti senza membri vengono
-potati, perché un gruppo senza righe non ha una posizione in sidebar e quindi non esiste.
+su `WorkspaceSnapshot.groupID`, quindi non c'è una lista di membri da validare al restore. Un
+progetto chiuso **tiene** il suo `groupID` (resta membro, DECISIONS #7). Due guardie al load, in
+`WorkspaceStore+Persistence`: i gruppi rimasti senza membri vengono potati, perché un gruppo senza
+righe non ha una posizione in sidebar e quindi non esiste; la selezione di ogni finestra deve
+puntare a un progetto aperto (`validateSelections`), e una finestra senza aperti mostra Home.
+
+La chiave `archived` è il campo `closed` (`WorkspaceSnapshot.CodingKeys`): l'archivio di prima e i
+progetti chiusi sono lo stesso flag. Non va rinominata: un binario precedente leggerebbe tutti i
+chiusi come aperti. `RelayWindow.page` (Home, Projects) è volatile e non si persiste.
 
 `splitLayout` e `focusedPaneID` sono tolleranti anche al **valore**, non solo alla chiave: un nodo
 corrotto o di un formato futuro degrada a `nil` invece di far fallire il decode. Il `Codable` di
@@ -236,7 +242,7 @@ finale se un'istanza sfugge ai guard.
 
 Distinte dallo snapshot del layout: `AppSettings` (`Sources/WorkspaceModel/`) persiste in
 `UserDefaults` (chiavi `relay.*`) tema, font family/size, cursore, sidebar
-(collapsed + width + archivio espanso), preferenze notifiche, keybindings rimappati,
+(collapsed + width), preferenze notifiche, keybindings rimappati,
 `autoResumeAgents`, il doppio click sulla strip che apre una tab
 (`newTabOnStripDoubleClick`, default on), la decadenza dei sospesi (`pendingDecayHours`),
 il check aggiornamenti

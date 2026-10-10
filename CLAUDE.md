@@ -2,7 +2,8 @@
 
 Terminale macOS nativo agent-aware. Leggi `docs/ARCHITECTURE.md` prima di toccare la struttura
 e `docs/CONVENTIONS.md` prima di scrivere codice. Cosa manca e in che ordine: `docs/ROADMAP.md`;
-la storia delle decisioni sta in `docs/research/CYCLES.md`.
+le decisioni che vincolano il futuro, citabili come `#N`, in `docs/DECISIONS.md`; la storia dei
+cicli in `docs/research/CYCLES.md`.
 
 Notifiche e check aggiornamenti girano **solo dal bundle** (`make run-app`), non da `swift run`:
 una verifica a mano di quelle due aree fatta con `make run` non prova niente.

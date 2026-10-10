@@ -11,7 +11,7 @@ Riferimenti: modello dati in `docs/ARCHITECTURE.md` #Data-Model, ordine della si
 
 - **Card**: bordo e fondo tenue in una tinta presa dai colori ANSI del tema (sei slot), header a una
   riga con titolo, chevron, contatore e menu, membri rientrati dentro la card.
-- **Collasso**: la card chiusa è alta come una riga normale e mostra **un solo numero** - quanti
+- **Collasso**: la card collassata è alta come una riga normale e mostra **un solo numero** - quanti
   membri chiedono attenzione (nella tinta del gruppo) o, se nessuno, quanti membri ha (in grigio).
 - **Pin del blocco**: il gruppo intero sale in testa alla sidebar, sopra le righe libere.
 - **Comandi**: menu contestuale della riga (`New Group with This`, `Move to Group`,
@@ -44,10 +44,10 @@ Non è un dettaglio: è la decisione che tiene semplice tutto il resto.
   no-op dentro un gruppo e la voce di menu sparisce.
 
 Proiezioni: `sidebarItems(in:)` (righe libere + gruppi coi membri, pinned in testa) è l'unica fonte;
-`orderedWorkspaces` ne è il flatten **logico** (include i membri di card chiuse: serve a `Cmd+J`,
+`orderedWorkspaces` ne è il flatten **logico** (include i membri di card collassate: serve a `Cmd+J`,
 agli eredi di selezione, al restore) e `navigableWorkspaces` il flatten **visibile** (esclude i
 membri nascosti: `Cmd+1..9` e menu Go, perché una scorciatoia che seleziona una riga invisibile non
-è una scorciatoia). `reveal` apre la card del workspace che rivela, come già de-archiviava.
+è una scorciatoia). `reveal` riapre il progetto se è chiuso e apre la card del workspace che rivela.
 
 ## Ordine: chi si muove e chi no
 
@@ -70,7 +70,7 @@ in poi i gruppi affonderebbero per sempre. Il pin è il modo di dire "questa res
 
 La sidebar viene srotolata in un piano piatto (`SidebarLayout.plan`): `rows` (cosa si vede e si
 trascina) e `slots` (gli spazi *fra* le righe, `rows.count + 1`), dove **ogni slot porta scritto in
-quale contenitore si rilascia** - `.root(pinned:)`, `.group(id)`, `.archive`.
+quale contenitore si rilascia** - `.root(pinned:)` o `.group(id)`.
 
 Il contenitore è deciso alla costruzione, non da euristiche sui vicini al momento del drop, perché
 c'è un confine che nessuna euristica può sciogliere: "in fondo alla card" e "sotto la card" sono lo
@@ -83,11 +83,11 @@ canonica (`before`/`after` un workspace), preferendo il vicino dello stesso cont
 ripiegando sul vicino grezzo. Le righe che appartengono al trascinato sono escluse (per una card:
 header, membri e coda), e un rilascio negli slot che già occupa è un no-op. Una card si può posare
 solo nella lista: `normalized` riporta il suo slot al più vicino di primo livello, così non si
-annida in un'altra card e non finisce in archivio. Tutto puro e testato in
+annida in un'altra card. Tutto puro e testato in
 `Tests/PanelsTests/SidebarDropTests.swift`.
 
 Il chiamante (`SidebarView+Drop`) traduce: contenitore -> cambi di campo (`assignGroup`,
-`setPinned`, `setArchived`, `setGroupPinned`), poi `moveWorkspace`/`moveGroup` per la posizione.
+`setPinned`, `setGroupPinned`), poi `moveWorkspace`/`moveGroup` per la posizione.
 
 ## Drag cross-container (e perché la meccanica è nuova)
 
@@ -97,13 +97,12 @@ Il chiamante (`SidebarView+Drop`) traduce: contenitore -> cambi di campo (`assig
 
 1. **Un coordinate space solo**, a livello sidebar, coi frame raccolti da `onGeometryChange` e non
    da un `PreferenceKey`: su macOS le preference non attraversano il confine di una `ScrollView`
-   (bridge `NSScrollView`), quindi i frame delle righe archiviate non arriverebbero mai al registro
-   comune. È la stessa trappola che teneva la sezione Archive alta 1px.
+   (bridge `NSScrollView`), quindi i frame delle righe di una seconda `ScrollView` non
+   arriverebbero mai al registro comune. È la stessa trappola che teneva alta 1px la vecchia
+   sezione Archive.
 2. **La riga in volo disegnata in overlay fuori dalle ScrollView**, invece della riga vera spostata
    con `.offset`: dentro la sua ScrollView verrebbe clippata al bordo e sparirebbe a metà gesto,
    proprio mentre esci dal contenitore. L'originale resta al suo posto, sbiadito.
-
-Da qui arriva gratis il drag dentro/fuori l'**archivio**, che era in sospeso da M4.
 
 Nota: la lista principale non usa più `LazyVStack`. Una riga smontata non misura il proprio frame, e
 il calcolo degli slot ha bisogno del frame di tutte le righe, comprese quelle fuori vista.
@@ -113,14 +112,15 @@ il calcolo degli slot ha bisogno del frame di tutte le righe, comprese quelle fu
 Campi additivi, nessun bump di `LayoutSnapshot.currentVersion`: `groups: [GroupSnapshot]` e
 `WorkspaceSnapshot.groupID`. Un layout salvato prima dei gruppi si ricarica con tutte righe libere;
 un binario più vecchio ignora i campi e mostra i membri come righe normali, nell'ordine giusto (la
-compat resta solo all'indietro, come per lo split v2). Al restore un `groupID` su un archiviato
-viene lasciato cadere e i gruppi senza membri vengono potati.
+compat resta solo all'indietro, come per lo split v2). Al restore un progetto chiuso tiene il suo
+`groupID` e i gruppi senza membri vengono potati.
 
 ## Limiti noti
 
 - Il drag di una card **fra finestre** non c'è (le finestre partizionano i workspace e un membro che
   cambia finestra lascia il gruppo).
-- Un gruppo non si archivia in blocco: si archiviano i membri, e la card muore con l'ultimo.
+- Un gruppo non si chiude in blocco: si chiudono i membri, e la card sparisce dalla sidebar
+  finché non ne riapri uno.
 - Niente annidamento: le card non contengono card.
 
 ## Invarianti e trappole
@@ -130,16 +130,17 @@ viene lasciato cadere e i gruppi senza membri vengono potati.
   porta solo l'aspetto (nome, colore ANSI del tema, collasso, pin del blocco): così non esiste una
   lista di membri che diverga dall'ordine canonico, la posizione della card è quella del suo primo
   membro e **un gruppo senza membri non esiste** (`pruneEmptyGroups` dopo ogni operazione che può
-  svuotarlo: uscita, archiviazione, cambio finestra, chiusura). Non introdurre una lista di membri
+  svuotarlo: uscita, cambio finestra, rimozione; chiudere un progetto non lo svuota). Non
+  introdurre una lista di membri
   sul gruppo né un ordinamento separato dei gruppi: la contiguità dei membri è una comodità che
   `compact`/`place` mantengono, non un invariante da cui dipende la correttezza (`sidebarItems`
-  raccoglie i membri sparsi in una card sola). `pinned`/`archived`/`groupID` sono mutuamente
-  esclusivi: `togglePin` è **no-op** dentro una card (lì pinna il gruppo, `setGroupPinned`) e la
+  raccoglie i membri sparsi in una card sola). `pinned` è esclusivo con `groupID` e con `closed`,
+  mentre un chiuso resta membro (DECISIONS #7): `togglePin` è **no-op** dentro una card (lì pinna il gruppo, `setGroupPinned`) e la
   voce di menu sparisce. Il **bump** è per contenitore (vedi `attention.md`): un membro sale
   in cima alla **sua card**, un libero sale in cima alla lista e finisce **sopra** la card; la card
   si muove solo con pin o drag - senza il pin di gruppo il primo bump di una riga libera la farebbe
   affondare per sempre. `Cmd+1..9` e il menu Go usano `navigableWorkspaces` (esclude i membri delle
-  card **chiuse**: una scorciatoia su una riga invisibile non è una scorciatoia), mentre `Cmd+J`,
+  card **collassate**: una scorciatoia su una riga invisibile non è una scorciatoia), mentre `Cmd+J`,
   gli eredi di selezione e il restore usano `orderedWorkspaces` (ordine logico, li include);
-  `reveal` **apre** la card come già de-archiviava. Snapshot additivo (`groups` +
+  `reveal` riapre un chiuso e **apre** la card. Snapshot additivo (`groups` +
   `WorkspaceSnapshot.groupID`, nessun bump di versione).

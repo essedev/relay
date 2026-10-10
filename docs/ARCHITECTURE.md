@@ -1,11 +1,12 @@
 # Architecture
 
 Progetto: **Relay**.
-Ultimo aggiornamento: 2026-08-08.
+Ultimo aggiornamento: 2026-10-10.
 
 Documento vivo: budget, moduli e confini si rivedono quando misure o sviluppo portano evidenze
 nuove. La storia decisionale completa (cicli 0-8: analisi engine, diagnosi lag cmux, benchmark
-SwiftTerm) vive in `docs/research/` (`CYCLES.md`); qui si tiene lo stato corrente.
+SwiftTerm) vive in `docs/research/` (`CYCLES.md`), le decisioni ancora vincolanti in
+`docs/DECISIONS.md`; qui si tiene lo stato corrente.
 
 ## Tesi Di Prodotto
 
@@ -13,7 +14,7 @@ Un terminale macOS nativo per lavorare con molti coding agent in parallelo. Comb
 
 - gli stati agente affidabili (hook Claude Code e Codex, non parsing dell'output);
 - l'organizzazione a workspace di cmux (progetti che raggruppano tab, sidebar, pin, riordino);
-- una dashboard overview di tutti i progetti e i loro agenti;
+- una Home di triage sui progetti aperti e un catalogo di tutti i progetti, aperti e chiusi;
 - velocità e leggerezza dove cmux lagga.
 
 Il centro del prodotto non è "un terminale con badge": è organizzare e sorvegliare N progetti con
@@ -79,33 +80,35 @@ surface vive.
 App (uno store, un receiver, una SurfaceRegistry)
   Window 1..N (partizione dei workspace)
     Sidebar (sinistra)
+      Navigazione: palette (Cmd+P), Home, Projects
       Sezione pinned (workspace e gruppi pinnati)
-      Lista workspace di QUESTA finestra (drag per riordinare)
-        Gruppo (card colorata: header + i suoi workspace, collassabile)
-      Sezione Archive
-    Content
-      Workspace selezionato da QUESTA finestra
+      Progetti APERTI di QUESTA finestra (drag per riordinare)
+        Gruppo (card colorata: header + i suoi membri aperti, collassabile)
+    Content (RelayWindow.page)
+      .workspace: il workspace selezionato da QUESTA finestra
         Albero di split -> pane, ognuno con la SUA strip di tab
           (visibile = la selezionata di ogni strip, focused = riceve la tastiera)
-    Dashboard (overlay full-window sopra il workspace attivo)
+      .home / .projects: una pagina sopra i terminali, che restano montati
 ```
 
 - **Workspace**: un progetto (tipicamente una cartella/repo). Raggruppa tab. Ha nome, cwd di
-  default, pin, archiviazione, **gruppo** (`groupID`), posizione in sidebar, stato agente aggregato,
-  **finestra** (`windowID`) e **layout dei pane** (`layout`, sempre presente).
+  default, pin, **chiusura** (`closed`), **gruppo** (`groupID`), posizione in sidebar, stato agente
+  aggregato, **finestra** (`windowID`) e **layout dei pane** (`layout`, sempre presente).
 - **Gruppo** (`WorkspaceGroup`): una card colorata della sidebar attorno a dei workspace. Porta solo
   identità e aspetto (nome, colore, collasso, pin del blocco): **l'appartenenza vive sul workspace**,
   quindi non c'è una lista di membri da tenere in sync con l'ordine canonico e la posizione della
   card è quella del suo primo membro. Un gruppo senza membri non esiste.
 - **Tab**: una sessione terminale. È **l'unità a cui si lega una sessione agente** (`RELAY_TAB_ID`
-  = `Tab.id` = surface = badge = attention = resume = card della dashboard).
+  = `Tab.id` = surface = badge = attention = resume = riga di Home).
 - **Pane** (`SplitPane`): una porzione di schermo che **ospita** una lista ordinata di tab con la
   sua selezione e la sua strip (modello cmux/bonsplit). Ospita, non possiede: spostare una tab non
   ne cambia l'identità né tocca la sua sessione.
 - **Finestra**: un contenitore di workspace, non di sessioni. Nessuna è privilegiata.
-- **Dashboard**: overview read-only di tutti i workspace con stato agenti, ultimo evento e
-  jump-to al click. v1 volutamente minimale.
-- **Gruppi di workspace**: fuori dalla v1, il data model non deve impedirli.
+- **Progetto aperto o chiuso**: un workspace chiuso non ha processi vivi, sta fuori dalla sidebar
+  e tiene tutto quello che serve a tornarci (gruppo, tab, resume). Si raggiunge da palette e
+  Projects. Vedi `docs/features/projects.md`.
+- **Home e Projects**: pagine del right pane. Home è il triage dei progetti aperti, Projects il
+  catalogo di tutti. Vedi #Home e Projects.
 
 Due design precedenti sono stati superati, in due giri:
 1. il pane tree *dentro* la Tab (design originale): la Tab *è già* l'unità agente (il wire la
@@ -150,7 +153,7 @@ macOS App
 
   UI Panels (SwiftUI isolato)
     Sidebar
-    Dashboard
+    Home, Projects, palette
     Settings
 
   Servizi di rete (solo nel composition root)
@@ -194,7 +197,8 @@ repo/
     TerminalEngine/     backend SwiftTerm dietro un'astrazione, surface lifecycle, sessioni pty
                         (teardown, registro su disco, reaper degli orfani)
     TerminalHostUI/     AppKit: host view, surface registry (lazy + LRU), attention ring
-    Panels/             SwiftUI: sidebar, strip dei pane, dashboard, settings, guida, stats, badge
+    Panels/             SwiftUI: sidebar, strip dei pane, Home/Projects/palette, settings, guida,
+                        stats, badge
     HookInstaller/      installer JSON Claude/Codex + mapping hook -> stato
     LayoutStore/        persistence layout: snapshot JSON su disco (I/O), path iniettato
     relay/              eseguibile `relay` (RelayApp): composition root e wiring
@@ -223,7 +227,7 @@ Disciplina di codice, test e processo: `docs/CONVENTIONS.md`.
 
 - **AppKit**: finestre, split tree, host della terminal surface, focus, tastiera. Tutto il path
   sensibile alla latenza.
-- **SwiftUI**: solo pannelli isolati (sidebar, dashboard, settings), ognuno montato in un
+- **SwiftUI**: solo pannelli isolati (sidebar, pagine Home/Projects, settings), ognuno montato in un
   `NSHostingView` proprio, che osserva store a grana fine (Observation framework). Un
   cambiamento di badge invalida la riga della sidebar interessata, non altro.
 
@@ -396,8 +400,9 @@ root:
   la sidebar come pannello glass flottante, in conflitto col design flat themed). Righe con
   selezione/hover dai colori del tema (niente highlight di sistema), sottotitolo per riga
   (`WindowTitle.workspaceSubtitle`: cosa succede nella tab selezionata) e badge aggregato.
-- Struttura della sidebar: righe libere, **card dei gruppi** (header + membri rientrati, vedi
-  `docs/features/workspace-groups.md`) e la sezione Archive ancorata in fondo. Il rendering è
+- Struttura della sidebar: in testa la navigazione (`SidebarNav`: palette, Home, Projects), poi i
+  soli progetti aperti, in righe libere e **card dei gruppi** (header + membri rientrati, vedi
+  `docs/features/workspace-groups.md`). I chiusi stanno nel catalogo. Il rendering è
   annidato (la card si disegna attorno ai suoi membri) ma il drag lavora su un **piano piatto** di
   righe e slot (`SidebarLayout`): ogni slot porta scritto in quale contenitore si rilascia, deciso
   alla costruzione e non da euristiche sui vicini. Il drop è risolto dal puro `SidebarDrop`
@@ -620,7 +625,7 @@ Regole (verificate a test):
 Lo stato risale la gerarchia prendendo il più severo:
 
 ```text
-pane -> tab -> workspace (sidebar) -> dashboard / app icon
+pane -> tab -> workspace (sidebar) -> Home / app icon
 ```
 
 Severità: `needs_input` > `error` > `running` > `completed` non visto > `in sospeso` > `idle`.
@@ -647,7 +652,7 @@ Regole:
   - `unseen` - completato (`running` -> `idle`) mentre il pane non era in vista: segnale forte
     (bump in cima alla sidebar, ring, notifica);
   - `pending` - "in sospeso", visto ma mai ripreso: segnale quieto e persistente (punto dimesso in
-    sidebar, strato dedicato in dashboard). L'interazione col terminale **declassa** unseen ->
+    sidebar). L'interazione col terminale **declassa** unseen ->
     pending, non spegne. Un completamento nasce **sempre** `unseen`, anche sulla tab in vista: il
     reducer non guarda la visibilità. Sulla tab in vista è il composition root che, dopo un
     **flash** di qualche secondo, lo declassa a `pending` (`onVisibleCompletion` ->
@@ -656,11 +661,12 @@ Regole:
     (persistito come `pendingSince` nel `TabSnapshot`);
   - risoluzione: la **ripresa vera** della conversazione (prompt -> `running`, o `needs_input`: la
     sessione si è mossa) spegne il marker a qualunque livello; in alternativa il
-    **dismiss esplicito** (card della dashboard) o la chiusura della tab. La **decadenza**
+    **dismiss esplicito** ("Mark as Read" su un `unseen`), la chiusura della tab o del progetto.
+    La **decadenza**
     (`AppSettings.pendingDecayHours`, default **12h**; `0` = opt-out esplicito, mai) spegne i sospesi
     diventati tali (misura da `attentionSince`, non dall'evento) più vecchi
     della soglia, applicata dal composition root nei momenti naturali (boot post-restore, ritorno
-    in foreground, apertura dashboard) - niente timer;
+    in foreground, apertura di Home) - niente timer;
 - `idle` non genera rumore se la sessione era già idle;
 - `completed` esiste solo come transizione dopo `running`;
 - lo stop di un subagent non è il completamento del pane principale.
@@ -746,10 +752,12 @@ Stato V0 (in codice, `WorkspaceModel`), `@Observable`:
 ```text
 WorkspaceStore { workspaces: [Workspace], windows: [RelayWindow], groups: [WorkspaceGroup],
                  keyWindowID, occludedWindowIDs, selectedWorkspaceID }  // proiezione della key
-RelayWindow    { id, selectedWorkspaceID, frame? }          // ogni finestra ha la SUA selezione
+RelayWindow    { id, selectedWorkspaceID, frame?,           // ogni finestra ha la SUA selezione
+                 page }                                     // .workspace/.home/.projects, volatile
 WorkspaceGroup { id, name, colorIndex, collapsed, pinned }  // solo aspetto: i membri stanno
                                                             // su Workspace.groupID
 Workspace      { id, windowID, name, nameOrigin, rootPath?, pinned, closed, groupID?,
+                 lastActiveAt?,        // ultimo evento agente o ingresso, persistito
                  tabs: [Tab],          // il sacco degli oggetti Tab: identità e sessione
                  layout: SplitNode,    // SEMPRE presente: l'ordine visivo sta qui
                  focusedPaneID }       // selectedTabID è derivato: la selezione del pane focused
@@ -779,7 +787,7 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
   (`Workspace.layout`, sempre presente) ha foglie `SplitPane` che ospitano le tab; la Tab resta
   l'unità della sessione agente. `selectTab` significa **rivela**: seleziona la tab nel suo pane e
   dà il focus a quel pane - non muta mai la struttura. Tutta la navigazione (strip, `Cmd+T`, click
-  su notifica, dashboard, `Cmd+J`) passa di lì e lo eredita senza casi speciali.
+  su notifica, Home, palette, `Cmd+J`) passa di lì e lo eredita senza casi speciali.
 - `SplitNode` mantiene due invarianti: **una tab sta in un pane solo** (una surface, una view) e
   **ogni pane ha almeno una tab**. Le operazioni li preservano invece di fidarsi, e `sanitized`
   (+ l'adozione in `Workspace.init`) li ripristina su un albero arrivato dal disco.
@@ -787,19 +795,20 @@ AgentEvent     { sessionId, state, source, toolName?, reason?, timestamp }
   gruppo. Conseguenze volute: nessun secondo ordinamento da tenere in sync (la posizione della card
   è quella del suo primo membro nell'ordine canonico), la contiguità dei membri è una comodità che
   le operazioni mantengono ma da cui la correttezza non dipende, e un gruppo senza membri non è
-  rappresentabile - esce l'ultimo membro, la card sparisce. `pinned`, `archived` e `groupID` sono
-  mutuamente esclusivi: dentro una card pinna la card (`WorkspaceGroup.pinned`), archiviare o
-  cambiare finestra tira fuori dal gruppo. La proiezione per la sidebar è `sidebarItems`
+  rappresentabile - esce l'ultimo membro, la card sparisce. `pinned` è esclusivo con `groupID`
+  (dentro una card pinna la card, `WorkspaceGroup.pinned`) e con `closed`; cambiare finestra tira
+  fuori dal gruppo, chiudere **no**: un chiuso resta membro e la card mostra solo gli aperti
+  (DECISIONS #7). La proiezione per la sidebar è `sidebarItems`
   (`SidebarItem`: riga libera o gruppo coi membri), da cui derivano `orderedWorkspaces` (ordine
   logico, membri nascosti compresi) e `navigableWorkspaces` (solo le righe **visibili**: i membri di
-  una card chiusa non entrano in `Cmd+1..9` né nel menu Go).
+  una card collassata non entrano in `Cmd+1..9` né nel menu Go).
 - **Dove nasce una cosa nuova**: accanto a quella su cui stai lavorando, non in fondo. Una tab entra
   nel pane focused **subito dopo la sua tab selezionata**; un workspace entra **subito dopo il
   selezionato della sua finestra** e ne eredita il `groupID`, quindi creare dentro una card crea
   dentro quella card (`WorkspaceStore.insertionAnchor`, in `+Ordering`). Creare è un gesto
   contestuale, e il fondo della lista è per giunta il posto che il primo bump altrui scavalca. Se la
   card è collassata viene aperta, come farebbe `reveal`.
-  L'ancora salta solo se il selezionato è archiviato (sta fuori da `orderedWorkspaces`: ancorarcisi
+  L'ancora salta solo se il selezionato è chiuso (sta fuori da `orderedWorkspaces`: ancorarcisi
   darebbe una posizione che nella lista non esiste) e si ferma al pin (il nuovo non è pinned, quindi
   apre il segmento non pinned - la riga più vicina possibile a quella da cui è nato).
 - Le finestre **partizionano** i workspace: uno store, un `layout.json`, un receiver di eventi, una
@@ -896,7 +905,7 @@ Claude Code / Codex hook
   -> unix socket receiver
   -> agent runtime (normalizzazione + binding paneId)
   -> workspace store (aggregazione)
-  -> sidebar/dashboard/badge + notifica
+  -> sidebar/Home/badge + notifica
   -> timeline
 ```
 
@@ -1140,6 +1149,12 @@ Costruito da ultimo (affidabilità di sessioni ed eventi):
   lancio successivo il reaper chiude, prima di ogni restore, quelle rimaste da un'uscita o da un
   crash (registro su disco, prova di appartenenza per processo; vedi Lifecycle Della Surface). Gli
   fd del receiver non passano più alle shell, che dopo un crash impedivano a Relay di ripartire.
+
+Costruito dopo la 0.23.0 (progetti):
+
+- progetti aperti e chiusi al posto dell'archivio, Home e Projects come pagine del right pane al
+  posto della dashboard, palette `Cmd+P`, sidebar dei soli aperti e finestra a card
+  (`docs/features/projects.md`, Cycle 30).
 
 Da fare dopo:
 

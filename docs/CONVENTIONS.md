@@ -29,7 +29,7 @@ Regole di stile, qualità, test e processo. Struttura moduli e regole di dipende
 - Vietato il pattern `AppDelegate+Feature.swift` come contenitore di logica: le extension
   servono per conformance e helper locali, non per spalmare un god object su 30 file.
   **Un'eccezione, esplicita e sotto tetto**: il composition root (`AppController`) è per natura
-  wiring, e le sue `AppController+*.swift` (navigazione, menu, dashboard, onboarding, finestre,
+  wiring, e le sue `AppController+*.swift` (navigazione, menu, progetti, onboarding, finestre,
   stats) sono ammesse purché ognuna resti *cablaggio* di un'area - se una di quelle extension inizia
   a contenere decisioni di dominio, quella logica va in un tipo suo (è così che sono nati
   `FullOverlayPresenter` e `NamingController`; `Sources/relay/ShortcutRuntime.swift` è invece

@@ -8,26 +8,20 @@ questo file.
 ## Dove siamo
 
 Baseline chiuso e app **distribuita via Homebrew tap**
-(`brew install --cask essedev/relay/relay-terminal`): agent runtime + badge, attenzione a tre
-livelli con dashboard di triage, persistence del layout, cap LRU delle surface, bundle `.app` con
-notifiche, gruppi in sidebar, nomina automatica dei workspace, guida in-app, **split v2 sul modello
-cmux** (i pane ospitano le tab, una strip per pane), **multi-window** e gli errori API come stato di
-prima classe per Claude Code (0.17.0). La 0.19.0 aggiunge Codex tramite hook nativi, con setup,
-notifiche e resume dedicati; il limite sugli errori API Codex è descritto sotto. La **0.20.0**
-chiude il giro sulle sessioni: il teardown di una tab **termina davvero** la sessione pty (shell,
-agente, albero MCP, descrittore) e le sessioni agente si spengono a mano tenendo il resume
-(`docs/research/CYCLES.md`, Cycle 26). La **0.21.0** rende affidabile la catena delle notifiche
-end-to-end: nessun evento perso sotto raffica di hook, drift degli hook Claude riparato all'avvio,
-una sola notifica viva per tab che si ritira quando l'attenzione si spegne (Cycle 27). La
-**0.22.0** usa il titolo della chat dell'agente come segnale di nomina (Cycle 28). La **0.23.0**
-estende la proprietà della sessione pty: chiudere una tab ferma anche i suoi job in background, e
-oltre la vita dell'app un registro su disco fa chiudere al lancio le sessioni sopravvissute a
-un'uscita o a un crash (Cycle 29).
+(`brew install --cask essedev/relay/relay-terminal`), ultima release **0.23.0**. Ci sono: agent
+runtime per Claude Code e Codex con badge, notifiche e resume; attenzione a tre livelli;
+persistence del layout; cap LRU delle surface; split sul modello cmux e multi-window; gruppi in
+sidebar; nomina automatica; guida in-app; sessioni pty possedute dalla tab anche oltre la vita
+dell'app. Dopo la 0.23.0, non ancora rilasciati: **progetti aperti e chiusi** (chiudere tiene tutto
+e libera la memoria), **Home** e **Projects** come pagine del right pane al posto della dashboard,
+palette `Cmd+P` e la finestra a card (Cycle 30, `docs/features/projects.md`). La storia per
+release sta in `docs/research/CYCLES.md`.
 
 ## Disattivazione automatica delle sessioni agente
 
 La disattivazione **a mano** c'è e regge il caso d'uso (`docs/features/session-deactivation.md`):
-spegne la sessione, tiene il `ResumeBinding`, la tab torna in piedi dalla barra di resume. Manca
+spegne la sessione, tiene il `ResumeBinding`, la tab torna in piedi dalla barra di resume; chiudere
+un progetto lo fa per tutte le sue tab insieme (`docs/features/projects.md`). Manca
 l'automatismo, che è il pezzo delicato e **non va fatto a tempo**. Tre condizioni separate:
 
 - **ammissibilità**: binding coerente con l'istanza viva, nessun lavoro accessorio non
@@ -37,7 +31,7 @@ l'automatismo, che è il pezzo delicato e **non va fatto a tempo**. Tre condizio
 - **priorità**: lì sì, tempo dall'ultima interazione, con isteresi.
 
 Il cap LRU resta fuori da questa partita: non sfratta mai una tab con processi vivi (scelta
-deliberata, Cycle 9 e 15) ed è tarato sull'unità di misura delle surface, non degli agenti. **Non
+deliberata, per DECISIONS #3) ed è tarato sull'unità di misura delle surface, non degli agenti. **Non
 va esteso.** Resta scartato anche il salvataggio del transcript al teardown, che sembrava il passo
 abilitante: il perché sta in `docs/research/CYCLES.md`, Cycle 26.
 
@@ -54,9 +48,8 @@ Nessuno dei tre è iniziato; si prende quello che serve per primo.
 
 ## Più avanti
 
-- Dashboard oltre le due viste attuali: azioni inline (resume/chiudi) sulle card, contatore
-  aggregato nell'header del pannello (quelli per corsia nel kanban ci sono già), preview delle
-  ultime righe (richiede surface vive).
+- Home: l'ultima riga dell'agente anche per le tab senza surface viva (oggi `TerminalPeek` legge
+  solo da una surface già montata, e non se ne crea una per leggerla).
 - PR upstream a SwiftTerm sul teardown: `LocalProcess.terminate()` chiude la `DispatchIO` senza
   `.stop` (la read sul descrittore primario non completa mai) e `childStopped()` cancella il
   `DispatchSourceProcess` che avrebbe fatto `waitpid`. Con la patch mergiata e il pin aggiornato, di
