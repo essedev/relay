@@ -166,9 +166,9 @@ public struct ProjectsView: View {
                 // Griglia che segue la larghezza: una colonna su una finestra stretta, quattro su
                 // una larga. Lo spazio diventa più progetti a vista, non righe più lunghe.
                 LazyVGrid(
-                    columns: [GridItem(
-                        .adaptive(minimum: Self.cardMinWidth), spacing: Theme.Spacing.md
-                    )],
+                    columns: [
+                        GridItem(.adaptive(minimum: Self.cardMinWidth), spacing: Theme.Spacing.md),
+                    ],
                     alignment: .leading,
                     spacing: Theme.Spacing.md
                 ) {
