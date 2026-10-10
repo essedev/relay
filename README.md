@@ -41,7 +41,8 @@ live in `docs/research/` (`CYCLES.md`).
 brew install --cask essedev/relay/relay-terminal
 ```
 
-Updates: `brew update && brew upgrade --cask relay-terminal`. The cask also links the `relay` and
+Updates: from the banner Relay shows in the sidebar (it runs Homebrew and offers a restart), or
+`brew update && brew upgrade --cask relay-terminal`. The cask also links the `relay` and
 `relay-cli` commands into your PATH, which the sections below use. When an update adds a hook
 (0.17.0 added one, for API errors), Relay repairs Claude Code's hooks on the next launch: the setup
 is idempotent, backs the file up and leaves your other hooks alone. Codex hooks are only reported, never

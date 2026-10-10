@@ -124,7 +124,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             windowID: windowID,
             registry: registry,
             updateConfig: updateController.makeSidebarConfig(
-                onRunUpdate: { [weak self] in self?.runUpdateInTab() }
+                onRestart: { [weak self] in self?.requestRestartForUpdate() }
             ),
             onNewWorkspace: { [weak self] in self?.newWorkspace(nil) },
             onMoveWorkspaceToNewWindow: { [weak self] workspace in

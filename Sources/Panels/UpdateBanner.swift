@@ -11,22 +11,36 @@ public final class UpdateAvailability {
     /// L'ultima release quando è più recente di quella installata e non è stata skippata; `nil`
     /// altrimenti (nessuna pill).
     public var latest: LatestRelease?
+    /// Dove sta l'aggiornamento lanciato dalla pill.
+    public var phase: UpgradePhase = .idle
 
     public init(latest: LatestRelease? = nil) {
         self.latest = latest
     }
 }
 
+/// Fasi dell'aggiornamento via Homebrew lanciato dalla pill. Niente annullamento: un `brew`
+/// interrotto a metà lascia il cask in uno stato peggiore di uno che finisce.
+public enum UpgradePhase: Equatable, Sendable {
+    case idle
+    case running
+    /// La nuova versione è sul disco: manca solo il riavvio.
+    case installed
+    case failed(String)
+}
+
 /// Tutto ciò che serve alla sidebar per mostrare la pill di aggiornamento, in un unico valore così
 /// l'init di `SidebarView` non si gonfia. `nil` = niente pill (es. `swift run` senza bundle, o
 /// test).
-/// Le azioni (clipboard, apri URL, skip) le fornisce il composition root: la view non tocca AppKit.
+/// Le azioni (clipboard, brew, riavvio, apri URL, skip) le fornisce il composition root: la view
+/// non tocca AppKit.
 public struct SidebarUpdateConfig {
     let availability: UpdateAvailability
     let currentVersion: String
     let upgradeCommand: String
     let onCopyCommand: () -> Void
-    let onRunUpdate: () -> Void
+    let onUpgrade: () -> Void
+    let onRestart: () -> Void
     let onOpenRelease: () -> Void
     let onSkip: () -> Void
 
@@ -35,7 +49,8 @@ public struct SidebarUpdateConfig {
         currentVersion: String,
         upgradeCommand: String,
         onCopyCommand: @escaping () -> Void,
-        onRunUpdate: @escaping () -> Void,
+        onUpgrade: @escaping () -> Void,
+        onRestart: @escaping () -> Void,
         onOpenRelease: @escaping () -> Void,
         onSkip: @escaping () -> Void
     ) {
@@ -43,22 +58,25 @@ public struct SidebarUpdateConfig {
         self.currentVersion = currentVersion
         self.upgradeCommand = upgradeCommand
         self.onCopyCommand = onCopyCommand
-        self.onRunUpdate = onRunUpdate
+        self.onUpgrade = onUpgrade
+        self.onRestart = onRestart
         self.onOpenRelease = onOpenRelease
         self.onSkip = onSkip
     }
 }
 
-/// Pill transitoria in fondo alla sidebar (sopra la sezione Archive): compare solo quando c'è una
-/// release più recente. Click -> popover col comando brew da copiare, la pagina della release e lo
-/// skip. Nessun download in-app: l'aggiornamento passa da brew (vedi la gotcha "Check
-/// aggiornamenti"
-/// in CLAUDE.md).
+/// Pill transitoria in fondo alla sidebar: compare solo quando c'è una release più recente. Click
+/// -> popover che aggiorna con Homebrew senza uscire dall'app, poi propone il riavvio. Il comando
+/// resta copiabile per chi preferisce lanciarlo da sé o quando brew fallisce.
 struct UpdateBanner: View {
     let config: SidebarUpdateConfig
     let colors: ChromeColors
     @State private var showDetails = false
     @State private var copied = false
+
+    private var phase: UpgradePhase {
+        config.availability.phase
+    }
 
     var body: some View {
         if let latest = config.availability.latest {
@@ -76,8 +94,12 @@ struct UpdateBanner: View {
 
     private func pill(_ latest: LatestRelease) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
-            StatusDot(color: colors.accent, size: Theme.Metrics.presenceDot)
-            Text("Update available \(latest.version.description)")
+            if phase == .running {
+                ProgressView().controlSize(.mini)
+            } else {
+                StatusDot(color: colors.accent, size: Theme.Metrics.presenceDot)
+            }
+            Text(pillTitle(latest))
                 .font(Theme.Typography.subtitle)
                 .foregroundStyle(colors.foreground)
                 .lineLimit(1)
@@ -95,25 +117,44 @@ struct UpdateBanner: View {
         .contentShape(Rectangle())
     }
 
+    private func pillTitle(_ latest: LatestRelease) -> String {
+        switch phase {
+        case .idle, .failed: "Update available \(latest.version.description)"
+        case .running: "Updating to \(latest.version.description)\u{2026}"
+        case .installed: "Restart to finish updating"
+        }
+    }
+
     private func details(_ latest: LatestRelease) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text("Update available")
+            Text(phase == .installed ? "Update installed" : "Update available")
                 .font(Theme.Typography.title)
-            Text("Relay \(config.currentVersion) → \(latest.version.description)")
+            Text("Relay \(config.currentVersion) \u{2192} \(latest.version.description)")
                 .font(Theme.Typography.subtitle)
                 .foregroundStyle(colors.secondary)
 
-            Text("Update with Homebrew:")
-                .font(Theme.Typography.subtitle)
-                .foregroundStyle(colors.secondary)
-            commandRow
+            action
+
+            if case let .failed(message) = phase {
+                Text(message)
+                    .font(Theme.Typography.subtitle)
+                    .foregroundStyle(colors.error)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if phase != .installed {
+                manualCommand
+            }
 
             Divider()
 
             HStack {
-                Button("Skip this version", action: config.onSkip)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(colors.secondary)
+                if phase != .running, phase != .installed {
+                    Button("Skip this version", action: config.onSkip)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(colors.secondary)
+                }
                 Spacer()
                 Button("Release notes", action: config.onOpenRelease)
             }
@@ -123,9 +164,43 @@ struct UpdateBanner: View {
         .frame(width: 320)
     }
 
-    /// Comando brew + azioni: copia negli appunti oppure play (esegue in una tab dedicata).
-    private var commandRow: some View {
+    /// L'azione principale per la fase: aggiorna, attendi, riavvia o riprova.
+    @ViewBuilder private var action: some View {
+        switch phase {
+        case .idle:
+            Button("Update", action: config.onUpgrade)
+                .buttonStyle(.borderedProminent)
+        case .running:
+            HStack(spacing: Theme.Spacing.xs) {
+                ProgressView().controlSize(.small)
+                Text("Homebrew is updating Relay\u{2026} You can keep working.")
+                    .font(Theme.Typography.subtitle)
+                    .foregroundStyle(colors.secondary)
+            }
+        case .installed:
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text("Restart to use the new version. Agent sessions can be resumed after it.")
+                    .font(Theme.Typography.subtitle)
+                    .foregroundStyle(colors.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Restart Relay") {
+                    showDetails = false
+                    config.onRestart()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        case .failed:
+            Button("Try again", action: config.onUpgrade)
+                .buttonStyle(.borderedProminent)
+        }
+    }
+
+    /// Il comando brew da copiare, per chi preferisce lanciarlo da sé.
+    private var manualCommand: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text("Or run it yourself:")
+                .font(Theme.Typography.subtitle)
+                .foregroundStyle(colors.secondary)
             HStack(spacing: Theme.Spacing.xs) {
                 CommandChip(
                     config.upgradeCommand,
@@ -137,8 +212,8 @@ struct UpdateBanner: View {
                     foreground: .primary,
                     // Il box si estende a tutta la larghezza disponibile: il comando va a capo su
                     // due righe e ritornerebbe una larghezza minore di quella proposta, staccando
-                    // le icone dal bordo destro (lo spazio vuoto). Espanso, le azioni si ancorano
-                    // a destra e la riga si allinea al resto del popover (full-width).
+                    // l'icona dal bordo destro. Espanso, l'azione si ancora a destra e la riga si
+                    // allinea al resto del popover.
                     maxWidth: .infinity,
                     alignment: .leading,
                     fill: 1.0,
@@ -153,21 +228,7 @@ struct UpdateBanner: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(copied ? colors.completed : colors.secondary)
                 .help(copied ? "Copied" : "Copy command")
-                Button {
-                    showDetails = false
-                    config.onRunUpdate()
-                } label: {
-                    Image(systemName: "play.fill")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(colors.accent)
-                .help("Run in a new tab")
             }
-            Text("Play runs it in a \u{201C}Relay Update\u{201D} tab. Quit and reopen Relay "
-                + "when it finishes.")
-                .font(.system(size: 10))
-                .foregroundStyle(colors.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

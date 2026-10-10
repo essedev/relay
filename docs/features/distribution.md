@@ -49,17 +49,23 @@ Dal sorgente al `.app` installato: bundle, firma, release, aggiornamenti. Il res
   (`/repos/essedev/relay/releases/latest`), e se più recente accende una pill transitoria in fondo
   alla sidebar, fra la lista e il piede col conteggio dei progetti aperti e chiusi. La logica è pura in `Core` (`SemanticVersion` compara, `ReleaseCheck` parsa
   e decide se l'update è azionabile rispettando lo skip), testata; rete/clipboard/apertura URL
-  stanno nel controller. **Non scarica**: la pill offre solo il comando `brew update && brew upgrade
-  --cask relay-terminal` da copiare, le release notes e "Skip this version" (persistito in
-  `skippedUpdateVersion`, si ripropone solo a una versione ancora più nuova). Nessun conflitto con
-  brew, che resta l'updater. Oltre a "copia", la pill ha un **play** che esegue il comando in una
-  tab dedicata "Relay Update" (`AppController.runUpdateInTab`, iniettato via
-  `makeSidebarConfig(onRunUpdate:)`): sempre una tab fresca, il testo va nel pty col solito ritardo
-  del resume; `brew` sostituisce il bundle mentre l'app gira (safe su APFS, riparte alla
-  riapertura). Come le notifiche gira **solo dal bundle** (`swift run` non ha
+  stanno nel controller. **Update dal popup**: il pulsante lancia `brew update` e poi `brew upgrade
+  --cask relay-terminal` in background (`BrewUpgrader`, brew cercato in `/opt/homebrew/bin` e
+  `/usr/local/bin` perché un'app aperta dal Finder non ha il PATH della shell; output su file, non
+  su pipe, che `brew update` riempirebbe). Fasi in `UpdateAvailability.phase` (idle, running,
+  installed, failed), niente annullamento. `.installed` solo se l'Info.plist **sul disco** del
+  bundle in esecuzione ha la versione nuova (`Core.BrewUpgrade.verify`): brew può riuscire e
+  aggiornare un'altra copia, e il riavvio riaprirebbe la vecchia. "Restart Relay" chiede conferma
+  se qualche progetto aperto ha un comando in foreground (`requestRestartForUpdate`), poi una shell
+  staccata aspetta l'uscita del pid e fa `open` del bundle, così la guardia single-instance non
+  ferma la nuova istanza. Il comando resta copiabile come fallback; "Skip this version" persiste in
+  `skippedUpdateVersion` e si ripropone solo a una versione più nuova. **Il cask non deve avere
+  `uninstall quit`**: chiuderebbe Relay a metà upgrade con tutte le sessioni e il processo che
+  aspetta brew. `brew` sostituisce il bundle mentre l'app gira (safe su APFS, riparte al riavvio).
+  Come le notifiche gira **solo dal bundle** (`swift run` non ha
   `CFBundleShortVersionString`: `makeSidebarConfig()` -> `nil`, niente pill, check no-op). Preferenza
   in Settings > Updates (default on) + voce menu "Check for Updates…" (check manuale, dà sempre un
-  feedback, anche "yoùre up to date"). **Rete non pronta**: il check al lancio può cadere su un DNS
+  feedback, anche "You're up to date"). **Rete non pronta**: il check al lancio può cadere su un DNS
   ancora freddo (`-1003 cannotFindHost`, tipico dopo boot/risveglio/switch VPN). Due difese:
   `fetchLatest` ritenta **una sola volta** dopo 3s sui codici che falliscono subito
   (`retriableCodes`; `.timedOut` è **escluso** di proposito, ritentarlo porterebbe il check manuale

@@ -5,9 +5,10 @@ import Panels
 import WorkspaceModel
 
 /// Check aggiornamenti (canale brew): confronta la versione installata con l'ultima GitHub Release
-/// e, se più recente, accende la pill in sidebar. **Non scarica**: l'update passa da brew (o dal
-/// dmg). Unico punto che tocca la rete e la clipboard per gli aggiornamenti; la logica di confronto
-/// è pura in `Core.ReleaseCheck`.
+/// e, se più recente, accende la pill in sidebar. Dalla pill lancia l'aggiornamento via brew
+/// (`BrewUpgrader`) e ne tiene la fase in `availability.phase`; il riavvio lo fa il composition
+/// root, che conosce le sessioni. La logica di confronto è pura in `Core.ReleaseCheck`, quella
+/// dell'esito di brew in `Core.BrewUpgrade`.
 ///
 /// Funziona solo dal bundle `.app` (la versione arriva da `CFBundleShortVersionString`, assente da
 /// `swift run`): senza versione nota `makeSidebarConfig()` torna `nil` e i check sono no-op, come
@@ -15,7 +16,6 @@ import WorkspaceModel
 /// notifiche.
 @MainActor
 final class UpdateController {
-    static let upgradeCommand = "brew update && brew upgrade --cask relay-terminal"
     private static let latestReleaseURL = URL(
         string: "https://api.github.com/repos/essedev/relay/releases/latest"
     )!
@@ -61,17 +61,17 @@ final class UpdateController {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     }
 
-    /// Config per la sidebar, o `nil` se non conosciamo la versione (niente pill). `onRunUpdate`
-    /// (play) esegue il comando in una tab dedicata: lo fornisce il composition root, che ha lo
-    /// store e le surface (qui viviamo solo di rete/clipboard).
-    func makeSidebarConfig(onRunUpdate: @escaping () -> Void) -> SidebarUpdateConfig? {
+    /// Config per la sidebar, o `nil` se non conosciamo la versione (niente pill). `onRestart` lo
+    /// fornisce il composition root, che ha lo store e le surface per chiedere conferma.
+    func makeSidebarConfig(onRestart: @escaping () -> Void) -> SidebarUpdateConfig? {
         guard let current = currentVersion else { return nil }
         return SidebarUpdateConfig(
             availability: availability,
             currentVersion: current,
-            upgradeCommand: Self.upgradeCommand,
+            upgradeCommand: BrewUpgrade.command,
             onCopyCommand: { [weak self] in self?.copyCommand() },
-            onRunUpdate: onRunUpdate,
+            onUpgrade: { [weak self] in self?.upgrade() },
+            onRestart: onRestart,
             onOpenRelease: { [weak self] in self?.openRelease() },
             onSkip: { [weak self] in self?.skip() }
         )
@@ -163,9 +163,47 @@ final class UpdateController {
 
     // MARK: - Azioni della pill
 
+    /// Lancia brew e porta la fase a `.installed` solo se il bundle da cui gira Relay ha davvero la
+    /// versione nuova: brew può riuscire e aggiornare un'altra copia (quella in /Applications
+    /// quando questa è altrove), e "riavvia" riaprirebbe la vecchia.
+    private func upgrade() {
+        guard availability.phase != .running, let latest = availability.latest else { return }
+        availability.phase = .running
+        log.info("upgrade: running brew for \(latest.version.description, privacy: .public)")
+        Task { [weak self] in
+            do {
+                try await BrewUpgrader.run()
+            } catch let failure as BrewUpgrader.Failure {
+                self?.log.error("upgrade failed: \(failure.output.suffix(2000), privacy: .public)")
+                self?.availability.phase = .failed(failure.message)
+                return
+            } catch {
+                self?.log.error("upgrade failed: \(error.localizedDescription, privacy: .public)")
+                self?.availability.phase = .failed(error.localizedDescription)
+                return
+            }
+            self?.finishUpgrade(expected: latest.version)
+        }
+    }
+
+    private func finishUpgrade(expected: SemanticVersion) {
+        let bundleURL = Bundle.main.bundleURL
+        let onDisk = BrewUpgrader.versionOnDisk(of: bundleURL)
+        switch BrewUpgrade.verify(onDisk: onDisk, expected: expected) {
+        case .installed:
+            log.info("upgrade: \(onDisk ?? "?", privacy: .public) installed, restart pending")
+            availability.phase = .installed
+        case let .notReplaced(found):
+            log.error("upgrade: bundle still at \(found ?? "?", privacy: .public)")
+            availability.phase = .failed(
+                BrewUpgrade.notReplacedMessage(onDisk: found, bundlePath: bundleURL.path)
+            )
+        }
+    }
+
     private func copyCommand() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(Self.upgradeCommand, forType: .string)
+        NSPasteboard.general.setString(BrewUpgrade.command, forType: .string)
     }
 
     private func openRelease() {

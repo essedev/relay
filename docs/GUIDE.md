@@ -336,7 +336,9 @@ stay.
 
 ## Updates & upkeep
 
-- **Updates** - Relay checks for a new release at launch and tells you in a banner; you can skip a
+- **Updates** - Relay checks for a new release at launch and tells you in a banner. Update in its
+  popup installs the new version with Homebrew while you keep working, then offers a restart: tabs
+  with something running are named first, and agent sessions can be resumed after it. You can skip a
   version and it will stay quiet until a newer one appears. Check for Updates in the Relay menu asks
   right away, and the check can be turned off.
 - **Runtime Stats** - View > Runtime Stats shows memory, CPU, how many workspaces and tabs are open
