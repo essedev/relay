@@ -1,5 +1,6 @@
 import Core
 import SwiftUI
+import WorkspaceModel
 
 extension Color {
     /// Da colore del tema (dato puro) a SwiftUI Color.
@@ -49,6 +50,25 @@ struct ChromeColors {
     /// 0.35 (card della dashboard, pannelli dell'onboarding).
     var surface: Color {
         Color(theme.selection).opacity(0.35)
+    }
+
+    /// Filo che separa le righe di una pagina: presente, mai una riga disegnata.
+    var hairline: Color {
+        Color(theme.foreground).opacity(0.08)
+    }
+
+    /// Fondo incassato di un estratto di terminale dentro una pagina: più scuro del contenitore
+    /// su ogni tema, come un pozzetto.
+    var terminalWell: Color {
+        Color.black.opacity(0.22)
+    }
+
+    /// Il colore del gruppo di un progetto, o il grigio secondario se è libero.
+    func tint(of workspace: Workspace, in store: WorkspaceStore) -> Color {
+        guard let groupID = workspace.groupID, let group = store.group(groupID) else {
+            return secondary
+        }
+        return self.group(group.colorIndex)
     }
 
     var accent: Color {

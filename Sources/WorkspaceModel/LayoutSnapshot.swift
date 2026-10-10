@@ -107,6 +107,9 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     /// Il gruppo che lo contiene. Campo additivo (assente -> `nil`, riga libera). Un id che non
     /// trova il suo gruppo degrada a riga libera, non fa fallire il restore.
     public var groupID: UUID?
+    /// Ultima attività del progetto (vedi `Workspace.lastActiveAt`). Campo additivo (assente ->
+    /// `nil`, "mai visto muoversi").
+    public var lastActiveAt: Date?
     public var selectedTabID: UUID?
     public var tabs: [TabSnapshot]
     /// Disposizione dei pane. Campo additivo (assente nei layout pre-split -> `nil`, ricostruito
@@ -125,6 +128,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         pinned: Bool,
         closed: Bool = false,
         groupID: UUID? = nil,
+        lastActiveAt: Date? = nil,
         selectedTabID: UUID?,
         splitLayout: SplitNode? = nil,
         focusedPaneID: UUID? = nil,
@@ -138,6 +142,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         self.pinned = pinned
         self.closed = closed
         self.groupID = groupID
+        self.lastActiveAt = lastActiveAt
         self.selectedTabID = selectedTabID
         self.tabs = tabs
         self.splitLayout = splitLayout
@@ -147,7 +152,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, windowID, name, nameOrigin, rootPath, pinned
         case closed = "archived"
-        case groupID, selectedTabID, tabs, splitLayout, focusedPaneID
+        case groupID, lastActiveAt, selectedTabID, tabs, splitLayout, focusedPaneID
     }
 
     /// Decode tollerante: `closed` e `nameOrigin` sono additivi, assenti nei layout salvati prima
@@ -167,6 +172,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         pinned = try c.decode(Bool.self, forKey: .pinned)
         closed = try c.decodeIfPresent(Bool.self, forKey: .closed) ?? false
         groupID = try c.decodeIfPresent(UUID.self, forKey: .groupID)
+        lastActiveAt = try? c.decodeIfPresent(Date.self, forKey: .lastActiveAt)
         selectedTabID = try c.decodeIfPresent(UUID.self, forKey: .selectedTabID)
         tabs = try c.decode([TabSnapshot].self, forKey: .tabs)
         // Tolleranti anche al **valore**, non solo alla chiave: un nodo corrotto (file toccato a

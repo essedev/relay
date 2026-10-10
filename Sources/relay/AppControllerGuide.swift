@@ -97,7 +97,8 @@ extension AppController {
     func presentDemoOverlay(_ overlay: DemoOverlay) {
         DispatchQueue.main.async { [weak self] in
             switch overlay {
-            case .dashboard: self?.openDashboard()
+            case .home: self?.togglePage(.home)
+            case .projects: self?.togglePage(.projects)
             case .guide: self?.presentGuide()
             }
         }

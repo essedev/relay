@@ -74,7 +74,7 @@ extension Guide {
                 .note(
                     "Scrollback is capped on purpose, and terminals you have not looked at in a "
                         + "long time are unloaded to keep memory flat in a window full of "
-                        + "sessions. Their state, badges and dashboard cards stay."
+                        + "sessions. Their state, badges and rows in Home stay."
                 ),
             ]
         )
@@ -136,7 +136,8 @@ extension Guide {
     public static let shortcutNotes: [ShortcutAction: String] = [
         .nextAttention: "Jumps to the next session waiting for you, anywhere in the app",
         .prevAttention: "The same, backwards",
-        .toggleDashboard: "Every session sorted by urgency",
+        .toggleDashboard: "What needs you, and what to put away",
+        .showProjects: "Every project, open or closed, by group",
         .closeTab: "The selected tab of the focused pane",
         .closePane: "Closes the pane with all its tabs",
         .closeWorkspace: "Asks first if something is running",

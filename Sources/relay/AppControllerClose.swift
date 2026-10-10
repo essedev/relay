@@ -72,7 +72,7 @@ extension AppController {
     func requestCloseProject(_ workspace: Workspace) {
         let busy = workspace.tabs.filter { splitVC?.foregroundProcess(for: $0.id) != nil }
         guard !busy.isEmpty else {
-            performCloseProject(workspace)
+            closeProjectNow(workspace)
             return
         }
         let info = busy.count == 1
@@ -83,13 +83,14 @@ extension AppController {
             info: info + " Agent sessions can be resumed when you open the project again.",
             in: workspace
         ) { [weak self] in
-            self?.performCloseProject(workspace)
+            self?.closeProjectNow(workspace)
         }
     }
 
     /// Marca prima, butta le surface dopo: l'agente che muore manda il suo `SessionEnd`, e deve
-    /// trovare la tab già marcata o azzererebbe il binding da riprendere.
-    private func performCloseProject(_ workspace: Workspace) {
+    /// trovare la tab già marcata o azzererebbe il binding da riprendere. Senza conferma: chi la
+    /// chiama l'ha già chiesta, se serviva.
+    func closeProjectNow(_ workspace: Workspace) {
         let released = store.setClosed(workspace.id, true)
         for tabID in released {
             registry.release(tabID)

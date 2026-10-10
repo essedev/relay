@@ -70,7 +70,8 @@ enum DemoSeeder {
 struct DemoConfig {
     let workspaces: Int
     let tabsPerWorkspace: Int
-    /// Overlay da aprire subito dopo il seed (`--show dashboard|guide`): serve agli screenshot
+    /// Pagina o overlay da aprire subito dopo il seed (`--show home|projects|guide`): serve agli
+    /// screenshot
     /// automatici (`scripts/screenshots.sh`), che non possono premere `Cmd+D` da soli.
     let overlay: DemoOverlay?
 
@@ -91,9 +92,10 @@ struct DemoConfig {
     }
 }
 
-/// Gli overlay che la demo sa aprire da sola.
+/// Le pagine e gli overlay che la demo sa aprire da sola.
 enum DemoOverlay: String {
-    case dashboard
+    case home
+    case projects
     case guide
 }
 

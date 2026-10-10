@@ -168,3 +168,25 @@ private func makeProject(
     #expect(object["closed"] == nil)
     #expect(try JSONDecoder().decode(WorkspaceSnapshot.self, from: data).closed)
 }
+
+@Test @MainActor func aClosedProjectIgnoresTheLastEventsOfItsDyingAgent() {
+    let store = WorkspaceStore()
+    _ = makeProject(store, name: "a")
+    let b = makeProject(store, name: "b", session: "s-b")
+    let tab = b.tabs[0]
+    store.setClosed(b.id, true)
+
+    // Lo `Stop` in ritardo dell'agente ucciso: niente completamento su un progetto chiuso.
+    store.applyAgentState(
+        paneId: tab.id.uuidString, agent: "claude", sessionId: "s-b", state: .running,
+        at: Date(timeIntervalSince1970: 20)
+    )
+    store.applyAgentState(
+        paneId: tab.id.uuidString, agent: "claude", sessionId: "s-b", state: .idle,
+        at: Date(timeIntervalSince1970: 21)
+    )
+
+    #expect(tab.attention == .none)
+    #expect(tab.agentState == .unknown)
+    #expect(tab.resume?.sessionId == "s-b")
+}

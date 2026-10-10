@@ -44,7 +44,20 @@ Le pagine coprono i terminali senza smontarli, quindi:
 - per la disattivazione e la LRU la surface resta **montata** (`isMounted`): c'è una view
   attaccata, buttarla lascerebbe un terminale morto al ritorno.
 
-`selectWorkspace` riporta sempre a `.workspace`: scegliere un progetto è andarci.
+`selectWorkspace` riporta sempre a `.workspace`: scegliere un progetto è andarci. Le pagine le monta
+`RightPaneController+Pages` (un solo `NSHostingView` sopra tutto il right pane, `WindowPageView`
+sceglie quale); Esc torna ai terminali.
+
+- **Home** (`Cmd+D`, l'azione rimappabile `toggleDashboard` col vecchio rawValue per non perdere le
+  combo salvate): triage dei soli progetti aperti, logica pura in `Panels/HomeModel`. Il titolo dice
+  la situazione; ogni sessione che ti aspetta porta l'ultima riga dell'agente a schermo
+  (`Core.TerminalPeek` sceglie la domanda o l'errore fra le righe di `screenLines()`, solo da una
+  surface viva: non se ne crea una per leggerla). "Quiet for a week" propone di chiudere gli aperti
+  fermi da 7 giorni, mai uno con un agente vivo o di cui non si sa niente.
+- **Projects** (`⇧⌘P`): il catalogo per gruppo, aperti prima e poi il più recente
+  (`Panels/ProjectsModel`), filtro per nome o cartella.
+- **`Workspace.lastActiveAt`** (persistito, additivo): ultimo evento agente o ultima volta che ci sei
+  entrato. Senza, dopo un riavvio ogni progetto sembrerebbe senza storia.
 
 ## Invarianti e trappole
 
@@ -52,5 +65,7 @@ Le pagine coprono i terminali senza smontarli, quindi:
   shell di un progetto che risulta chiuso. Dalla sidebar un click su un chiuso è `openProject`.
 - `setClosed` marca, non uccide: chi chiude deve buttare le surface ritornate. Chiudere dallo store
   senza passare dal composition root lascia processi vivi con la tab marcata.
+- Un progetto chiuso **ignora gli eventi agente** (`applyAgentState`): sono gli ultimi di un
+  agente ucciso alla chiusura, e applicarli accenderebbe un'attenzione su un progetto messo via.
 - La chiave su disco resta `archived`: non rinominarla, o un binario precedente leggerebbe tutti i
   chiusi come aperti.

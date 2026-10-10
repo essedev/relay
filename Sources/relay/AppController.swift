@@ -136,7 +136,8 @@ final class AppController: NSObject, NSApplicationDelegate {
             onRegenerateWorkspaceName: { [weak self] workspace in
                 self?.regenerateWorkspaceName(workspace.id)
             },
-            paneActions: makePaneActions()
+            paneActions: makePaneActions(),
+            pageActions: makePageActions()
         )
     }
 

@@ -11,7 +11,7 @@ Open the same guide inside the app from **Help > Relay Guide**.
 - [Panes & windows](#panes) - Split the view, and spread workspaces across screens.
 - [The sidebar](#sidebar) - Groups, pinning, archive, and everything you can drag.
 - [Agent state](#agents) - What your sessions are doing, and what is waiting for you.
-- [The dashboard](#dashboard) - Every session in one panel, sorted by what needs you.
+- [Home and Projects](#dashboard) - What needs you, and every project you have, open or closed.
 - [Automatic naming](#naming) - A workspace takes its name from what is happening in it.
 - [Keyboard](#keyboard) - Every shortcut, and how to make them yours.
 - [Appearance & terminal](#appearance) - Themes, fonts, and what the terminal does for you.
@@ -141,10 +141,9 @@ says so in three steps rather than with one badge that stays until you click it:
 - **Unseen: it wants you** - A ring around the terminal and a full badge on the tab. Its workspace
   also floats to the top of the sidebar, so you find it without looking.
 - **Pending: seen, not picked up** - Typing in a terminal you are looking at demotes its signal to a
-  quiet one: no ring, a hollow badge, still listed in the dashboard. It says “you know about this,
-  you have not answered”.
+  quiet one: no ring, just a hollow badge. It says “you know about this, you have not answered”.
 - **Resolved: gone** - Actually replying to the session clears it, and so do /clear and /resume,
-  dismissing the card in the dashboard, and closing the tab. A pending signal also fades on its own
+  marking it read from the sidebar, and closing the tab. A pending signal also fades on its own
   after twelve hours, which you can change or switch off.
 
 Navigating does not count as reading: switching tabs in a strip or clicking a row in the sidebar
@@ -183,23 +182,22 @@ running from a development build.
 
 <a id="dashboard"></a>
 
-## The dashboard
+## Home and Projects
 
 With a dozen sessions running, the question is not “what is in this tab” but “what should I look at
-next”. The dashboard answers that: every session in the app, across every window and workspace, on
-one screen.
+next”. Home answers that, in place of the terminals: its title says how many sessions need you, and
+each one comes with the line the agent left on screen and the action it wants.
 
-- **Four lanes** - Needs You, Running, Done and Idle. The lanes are always there, so an empty one is
-  information too.
-- **Or a flat grid** - The toggle in the header switches to a single list ordered by urgency. Relay
-  remembers which one you prefer.
-- **Type to filter** - The field takes focus when the panel opens: type, use the arrow keys, press
-  Return to jump to a session and Esc to leave.
-- **Dismiss** - Clearing a card's signal from here is the same as marking it read: it does not touch
-  the session, only what Relay is asking of you.
+- **Needs you** - Waiting for an answer, stopped on an error, or finished and not reviewed. Answer,
+  Check or Review takes you to the tab.
+- **Working** - Sessions running on their own, one compact row each.
+- **Quiet for a week** - Open projects that have not moved in seven days. Closing them frees their
+  terminals; their sessions stay resumable.
+- **Projects** - The catalog of every project, by group, open or closed. Filter by name or folder; a
+  click opens a closed project with its tabs, ready to resume.
 
-**Note:** The cards are built from state, not from live terminals, so sessions in tabs that Relay
-has unloaded to save memory are listed like any other.
+**Note:** Home and Projects sit on top of the terminals without stopping them: Esc, or picking a
+project in the sidebar, takes you straight back.
 
 <a id="naming"></a>
 
@@ -251,6 +249,7 @@ commands, this guide's own ⌘? included.
 | `⌘O` | Open Folder as Workspace… |  |
 | `⌥⇧⌘W` | Close Workspace | Asks first if something is running |
 | `⌃⌘G` | Group / Ungroup Workspace | Groups the selected workspace in a new card, or ungroups it |
+| `⇧⌘P` | Projects | Every project, open or closed, by group |
 | `⌥⌘↓` | Next Workspace |  |
 | `⌥⌘↑` | Previous Workspace |  |
 
@@ -286,7 +285,7 @@ commands, this guide's own ⌘? included.
 | --- | --- | --- |
 | `⌘J` | Next Attention | Jumps to the next session waiting for you, anywhere in the app |
 | `⇧⌘J` | Previous Attention | The same, backwards |
-| `⌘D` | Agent Dashboard | Every session sorted by urgency |
+| `⌘D` | Home | What needs you, and what to put away |
 
 ### Terminal
 
@@ -329,7 +328,7 @@ rather than from a fixed set.
   so copying from a running build works.
 
 **Note:** Scrollback is capped on purpose, and terminals you have not looked at in a long time are
-unloaded to keep memory flat in a window full of sessions. Their state, badges and dashboard cards
+unloaded to keep memory flat in a window full of sessions. Their state, badges and rows in Home
 stay.
 
 <a id="housekeeping"></a>

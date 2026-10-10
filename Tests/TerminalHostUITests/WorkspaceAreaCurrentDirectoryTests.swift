@@ -27,6 +27,10 @@ private final class FakeSurface: TerminalSurfaceHandle {
     func start() {}
     func teardown() {}
     func apply(theme _: RelayTheme) {}
+    func screenLines() -> [String] {
+        []
+    }
+
     func foregroundProcessName() -> String? {
         nil
     }

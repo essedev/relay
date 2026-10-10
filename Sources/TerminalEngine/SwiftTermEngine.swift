@@ -199,6 +199,14 @@ final class SwiftTermSurface: NSObject, TerminalSurfaceHandle, LocalProcessTermi
     /// coincide con il pid della shell la shell è al prompt, altrimenti gira un comando di cui
     /// risolviamo il nome (`proc_name`). Le shell interattive annidate (safe-list) contano come
     /// "al prompt": chiuderle non perde lavoro. Solo foreground: i job in background non contano.
+    func screenLines() -> [String] {
+        guard started else { return [] }
+        let buffer = terminal.getTerminal()
+        return (0 ..< buffer.rows).compactMap { row in
+            buffer.getLine(row: row)?.translateToString(trimRight: true)
+        }
+    }
+
     func foregroundProcessName() -> String? {
         guard started, terminal.process.running else { return nil }
         let fd = terminal.process.childfd

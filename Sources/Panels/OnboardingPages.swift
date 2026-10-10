@@ -200,8 +200,8 @@ struct NavigationPage: View {
                 horizontalSpacing: Theme.Spacing.lg,
                 verticalSpacing: Theme.Spacing.sm
             ) {
-                shortcut(combo(.toggleDashboard), "Dashboard",
-                         "every session sorted by urgency; type to filter, Return to jump")
+                shortcut(combo(.toggleDashboard), "Home",
+                         "what needs you, what is running, what to put away")
                 shortcut(combo(.nextAttention), "Next attention",
                          "cycle through whatever is waiting for you")
                 shortcut("\u{2318}1\u{2013}9", "Switch workspace", "follows the sidebar order")

@@ -44,81 +44,98 @@ public extension WorkspaceStore {
         // proposta di resume). Complementare al fence di run: copre anche i CLI vecchi che non
         // mandano il runId, quando il fence è spento.
         if let floor = eventFloor, timestamp < floor { return true }
-        for workspace in workspaces {
-            guard let tab = workspace.tabs.first(where: { $0.id == tabID }) else { continue }
-            // Guardia di monotonicità: un evento consegnato in ritardo non deve far regredire la
-            // tab (un running residuo che copre lo Stop già applicato, un SessionEnd stantio che
-            // azzererebbe il resume vivo). Si scarta solo lo strettamente più vecchio: a parità
-            // di timestamp (stesso millisecondo sul filo) vince l'ultimo arrivato, come prima.
-            if let last = tab.lastEventAt, timestamp < last { return true }
-            // "In vista" = la tab è **a schermo in un pane** (la selezionata della sua strip: con
-            // uno split guardi tutti i pane, non solo il focused) del workspace mostrato **dalla
-            // sua finestra**, e quella finestra è davvero a schermo (non occlusa né minimizzata)
-            // con l'app in primo piano. Non serve che la finestra sia **key**: su due monitor
-            // quella che fissi spesso non ha il focus, e notificarla sarebbe il bug del caso d'uso
-            // che motiva il multi-window.
-            // Una pagina (Home, Projects) copre i terminali: la tab non è in vista anche se resta
-            // la selezionata.
-            let isVisible = window(of: workspace)?.selectedWorkspaceID == workspace.id
-                && window(of: workspace)?.page == .workspace
-                && workspace.isVisible(tab.id)
-                && isWindowVisible(workspace.windowID)
-                && appActive
-            let previousState = tab.agentState
-            let previousAttention = tab.attention
-            let result = AgentStateReducer.reduce(
-                current: previousState,
-                incoming: state,
-                currentAttention: tab.attention,
-                resetsAttention: resetsAttention
-            )
-            tab.apply(result, at: timestamp)
-            // `attentionRose` = il marker è appena salito al segnale forte (`unseen`): un
-            // completamento (running -> idle) o un errore API. Si misura sul salto **a** `unseen`,
-            // non sull'uscita da `none`: un errore che arriva sopra un sospeso già declassato a
-            // `pending` è una novità come le altre, e con la vecchia guardia
-            // (`previousAttention == .none`) non avrebbe prodotto né bump né flash, restando
-            // `unseen` per sempre senza mai aver chiamato nessuno. Vale anche per il
-            // completamento, che aveva lo stesso buco.
-            let attentionRose = tab.attention == .unseen && previousAttention != .unseen
-            let enteredNeedsInput = previousState != .needsInput && tab.agentState == .needsInput
-            if isVisible, attentionRose {
-                // Flash sulla tab in vista: il marker è nato forte (completamento o errore);
-                // segnalo al composition root, che schedula un mark-read differito (declassa a
-                // `pending` dopo qualche secondo). Non visto invece resta forte finché non lo
-                // vedi (nessun timer). Sull'errore il declassamento tocca solo il marker: il
-                // badge resta rosso, perché lo legge da `agentState` finché non riprendi.
-                onVisibleCompletion?(tab.id)
-            } else if !isVisible, attentionRose || enteredNeedsInput {
-                // Bump (modello lista chat): un'attività **non vista** - un completamento, un
-                // errore o l'entrata in `needs_input` - porta il workspace in cima. Ordine reale e
-                // persistente, non un float derivato. La ripresa (`running`) non muove niente:
-                // la riga su cui lavori resta ferma, la scavalca solo un altro bump o il drag.
-                bumpWorkspaceToTop(workspace.id)
-            }
-            // Notifica (needs_input / errore / completato non visto): classificazione pura,
-            // effetto nel composition root. Emessa dopo aver aggiornato la tab (titolo aggiornato
-            // dagli hook).
-            if let kind = AgentStateReducer.notification(
-                current: previousState,
-                incoming: state,
-                isVisible: isVisible,
-                resetsAttention: resetsAttention
-            ) {
-                onNotifiableTransition?(AgentNotification(
-                    kind: kind,
-                    agent: agent,
-                    tabID: tab.id,
-                    workspaceID: workspace.id,
-                    tabTitle: tab.title,
-                    workspaceName: workspace.name,
-                    isVisible: isVisible
-                ))
-            }
-            updateResumeBinding(tab, agent: agent, sessionId: sessionId, state: state)
-            return true
+        guard let (workspace, tab) = owner(of: tabID) else { return false }
+        // Un progetto chiuso non ha processi: un evento per le sue tab è l'ultimo respiro
+        // dell'agente ucciso alla chiusura. Applicarlo accenderebbe un'attenzione su un
+        // progetto che hai messo via, o toccherebbe il binding da riprendere.
+        if workspace.closed { return true }
+        // Guardia di monotonicità: un evento consegnato in ritardo non deve far regredire la
+        // tab (un running residuo che copre lo Stop già applicato, un SessionEnd stantio che
+        // azzererebbe il resume vivo). Si scarta solo lo strettamente più vecchio: a parità
+        // di timestamp (stesso millisecondo sul filo) vince l'ultimo arrivato, come prima.
+        if let last = tab.lastEventAt, timestamp < last { return true }
+        // "In vista" = la tab è **a schermo in un pane** (la selezionata della sua strip: con
+        // uno split guardi tutti i pane, non solo il focused) del workspace mostrato **dalla
+        // sua finestra**, e quella finestra è davvero a schermo (non occlusa né minimizzata)
+        // con l'app in primo piano. Non serve che la finestra sia **key**: su due monitor
+        // quella che fissi spesso non ha il focus, e notificarla sarebbe il bug del caso d'uso
+        // che motiva il multi-window.
+        // Una pagina (Home, Projects) copre i terminali: la tab non è in vista anche se resta
+        // la selezionata.
+        let isVisible = isOnScreen(tab, in: workspace, appActive: appActive)
+        let previousState = tab.agentState
+        let previousAttention = tab.attention
+        let result = AgentStateReducer.reduce(
+            current: previousState,
+            incoming: state,
+            currentAttention: tab.attention,
+            resetsAttention: resetsAttention
+        )
+        tab.apply(result, at: timestamp)
+        workspace.lastActiveAt = max(workspace.lastActiveAt ?? timestamp, timestamp)
+        // `attentionRose` = il marker è appena salito al segnale forte (`unseen`): un
+        // completamento (running -> idle) o un errore API. Si misura sul salto **a** `unseen`,
+        // non sull'uscita da `none`: un errore che arriva sopra un sospeso già declassato a
+        // `pending` è una novità come le altre, e con la vecchia guardia
+        // (`previousAttention == .none`) non avrebbe prodotto né bump né flash, restando
+        // `unseen` per sempre senza mai aver chiamato nessuno. Vale anche per il
+        // completamento, che aveva lo stesso buco.
+        let attentionRose = tab.attention == .unseen && previousAttention != .unseen
+        let enteredNeedsInput = previousState != .needsInput && tab.agentState == .needsInput
+        if isVisible, attentionRose {
+            // Flash sulla tab in vista: il marker è nato forte (completamento o errore);
+            // segnalo al composition root, che schedula un mark-read differito (declassa a
+            // `pending` dopo qualche secondo). Non visto invece resta forte finché non lo
+            // vedi (nessun timer). Sull'errore il declassamento tocca solo il marker: il
+            // badge resta rosso, perché lo legge da `agentState` finché non riprendi.
+            onVisibleCompletion?(tab.id)
+        } else if !isVisible, attentionRose || enteredNeedsInput {
+            // Bump (modello lista chat): un'attività **non vista** - un completamento, un
+            // errore o l'entrata in `needs_input` - porta il workspace in cima. Ordine reale e
+            // persistente, non un float derivato. La ripresa (`running`) non muove niente:
+            // la riga su cui lavori resta ferma, la scavalca solo un altro bump o il drag.
+            bumpWorkspaceToTop(workspace.id)
         }
-        return false
+        // Notifica (needs_input / errore / completato non visto): classificazione pura,
+        // effetto nel composition root. Emessa dopo aver aggiornato la tab (titolo aggiornato
+        // dagli hook).
+        if let kind = AgentStateReducer.notification(
+            current: previousState,
+            incoming: state,
+            isVisible: isVisible,
+            resetsAttention: resetsAttention
+        ) {
+            onNotifiableTransition?(AgentNotification(
+                kind: kind,
+                agent: agent,
+                tabID: tab.id,
+                workspaceID: workspace.id,
+                tabTitle: tab.title,
+                workspaceName: workspace.name,
+                isVisible: isVisible
+            ))
+        }
+        updateResumeBinding(tab, agent: agent, sessionId: sessionId, state: state)
+        return true
+    }
+
+    /// Il progetto e la tab con questo id, se esistono.
+    private func owner(of tabID: UUID) -> (Workspace, Tab)? {
+        for workspace in workspaces {
+            if let tab = workspace.tabs.first(where: { $0.id == tabID }) { return (workspace, tab) }
+        }
+        return nil
+    }
+
+    /// La tab è davvero sotto i tuoi occhi: selezionata nel suo pane, del progetto mostrato dalla
+    /// sua finestra, senza una pagina sopra, con la finestra a schermo e l'app in primo piano.
+    private func isOnScreen(_ tab: Tab, in workspace: Workspace, appActive: Bool) -> Bool {
+        guard let window = window(of: workspace) else { return false }
+        return window.selectedWorkspaceID == workspace.id
+            && window.page == .workspace
+            && workspace.isVisible(tab.id)
+            && isWindowVisible(workspace.windowID)
+            && appActive
     }
 
     /// Resume binding: aggiornato finché la sessione è viva, azzerato alla chiusura (`unknown` =

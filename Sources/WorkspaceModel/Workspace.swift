@@ -36,6 +36,10 @@ public final class Workspace: Identifiable {
     /// card, non la riga). Un progetto chiuso **resta** nel suo gruppo: la card mostra solo i
     /// membri aperti, e torna quando ne riapri uno.
     public var groupID: UUID?
+    /// Ultima volta che il progetto si è mosso: un evento agente o tu che ci sei entrato. Guida il
+    /// "fermo da una settimana" di Home e l'ordine del catalogo. Persistito: dopo un riavvio lo
+    /// stato agente riparte vuoto, e senza questo ogni progetto sembrerebbe senza storia.
+    public var lastActiveAt: Date?
     public private(set) var tabs: [Tab]
     /// Disposizione dei pane, **sempre presente**: il pane singolo è un `.pane` con tutte le tab,
     /// non un caso speciale. Le foglie sono `SplitPane` (tab ordinate + selezione per pane).
@@ -52,6 +56,7 @@ public final class Workspace: Identifiable {
         pinned: Bool = false,
         closed: Bool = false,
         groupID: UUID? = nil,
+        lastActiveAt: Date? = nil,
         tabs: [Tab] = [],
         selectedTabID: UUID? = nil,
         layout: SplitNode? = nil,
@@ -65,6 +70,7 @@ public final class Workspace: Identifiable {
         self.pinned = pinned
         self.closed = closed
         self.groupID = groupID
+        self.lastActiveAt = lastActiveAt
         self.tabs = tabs
         // Il layout passato (restore) viene sanitizzato contro le tab reali; le tab rimaste fuori
         // vengono adottate. Senza layout: un pane radice con tutte le tab.

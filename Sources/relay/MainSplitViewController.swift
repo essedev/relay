@@ -32,7 +32,8 @@ final class MainSplitViewController: NSSplitViewController {
         onCloseProject: @escaping (Workspace) -> Void,
         onDeactivateSessions: @escaping (Workspace) -> Void,
         onRegenerateWorkspaceName: @escaping (Workspace) -> Void,
-        paneActions: PaneTabBarActions
+        paneActions: PaneTabBarActions,
+        pageActions: PageActions
     ) {
         self.settings = settings
         let tabDrag = tabDrag
@@ -43,6 +44,7 @@ final class MainSplitViewController: NSSplitViewController {
             windowID: windowID,
             registry: registry,
             paneActions: paneActions,
+            pageActions: pageActions,
             tabDrag: tabDrag
         )
         super.init(nibName: nil, bundle: nil)

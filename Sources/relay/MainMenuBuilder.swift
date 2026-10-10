@@ -241,6 +241,7 @@ enum MainMenuBuilder {
     private static func goMenu(_ target: AnyObject, _ settings: AppSettings) -> NSMenuItem {
         submenu("Go", [
             actionItem(.toggleDashboard, settings, target),
+            actionItem(.showProjects, settings, target),
             actionItem(.nextAttention, settings, target),
             actionItem(.prevAttention, settings, target),
             .separator(),

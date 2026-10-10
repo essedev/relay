@@ -82,6 +82,10 @@ private final class RecordingSurface: TerminalSurfaceHandle {
     }
 
     func apply(theme _: RelayTheme) {}
+    func screenLines() -> [String] {
+        []
+    }
+
     func foregroundProcessName() -> String? {
         nil
     }

@@ -20,6 +20,7 @@ public extension WorkspaceStore {
                     pinned: workspace.pinned,
                     closed: workspace.closed,
                     groupID: workspace.groupID,
+                    lastActiveAt: workspace.lastActiveAt,
                     selectedTabID: workspace.selectedTabID,
                     splitLayout: workspace.layout,
                     focusedPaneID: workspace.focusedPaneID,
@@ -112,6 +113,7 @@ public extension WorkspaceStore {
                 closed: workspace.closed,
                 // Un progetto chiuso resta nel suo gruppo (la card mostra solo gli aperti).
                 groupID: workspace.groupID,
+                lastActiveAt: workspace.lastActiveAt,
                 tabs: tabs,
                 selectedTabID: selectedTabID,
                 layout: workspace.splitLayout,

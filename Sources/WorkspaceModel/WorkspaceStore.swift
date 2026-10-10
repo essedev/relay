@@ -29,6 +29,9 @@ public final class WorkspaceStore {
     /// che fissi spesso non ha il focus, e notificarla sarebbe il bug del caso d'uso principale.
     /// `@ObservationIgnored`: stato di piattaforma, non UI osservata.
     @ObservationIgnored public var occludedWindowIDs: Set<UUID> = []
+    /// Orologio dello store (iniettabile nei test): segna l'attività dei progetti che non arriva da
+    /// un evento agente col suo timestamp, come entrarci.
+    @ObservationIgnored public var now: () -> Date = Date.init
 
     /// Ordine di attivazione delle finestre, più recente in testa: quando ne chiudi una, i suoi
     /// workspace rimpatriano nella prima ancora viva. `@ObservationIgnored`: cronologia, non stato
@@ -186,6 +189,7 @@ public final class WorkspaceStore {
         guard let workspace = workspaces.first(where: { $0.id == id }) else { return }
         activateWindow(workspace.windowID)
         keyWindow?.selectedWorkspaceID = id
+        workspace.lastActiveAt = now()
         // Scegliere un progetto è andarci: la pagina (Home, Projects) lascia il posto ai terminali.
         keyWindow?.page = .workspace
     }

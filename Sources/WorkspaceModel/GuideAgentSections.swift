@@ -60,12 +60,12 @@ extension Guide {
                                    + "find it without looking."),
                     GuideTopic("circle", "Pending: seen, not picked up",
                                "Typing in a terminal you are looking at demotes its signal to a "
-                                   + "quiet one: no ring, a hollow badge, still listed in the "
-                                   + "dashboard. It says \u{201C}you know about this, you have "
-                                   + "not answered\u{201D}."),
+                                   + "quiet one: no ring, just a hollow badge. It says "
+                                   + "\u{201C}you know about this, you have not "
+                                   + "answered\u{201D}."),
                     GuideTopic("checkmark.circle", "Resolved: gone",
                                "Actually replying to the session clears it, and so do /clear and "
-                                   + "/resume, dismissing the card in the dashboard, and closing "
+                                   + "/resume, marking it read from the sidebar, and closing "
                                    + "the tab. A pending signal also fades on its own after "
                                    + "twelve hours, which you can change or switch off."),
                 ]),
@@ -130,39 +130,39 @@ extension Guide {
         )
     }
 
-    // MARK: - Dashboard
+    // MARK: - Home e Projects
 
     static var dashboardSection: GuideSection {
         GuideSection(
             id: "dashboard",
-            title: "The dashboard",
-            symbol: "rectangle.grid.2x2",
-            summary: "Every session in one panel, sorted by what needs you.",
+            title: "Home and Projects",
+            symbol: "house",
+            summary: "What needs you, and every project you have, open or closed.",
             blocks: [
                 .paragraph(
                     "With a dozen sessions running, the question is not \u{201C}what is in this "
-                        + "tab\u{201D} but \u{201C}what should I look at next\u{201D}. The "
-                        + "dashboard answers that: every session in the app, across every window "
-                        + "and workspace, on one screen."
+                        + "tab\u{201D} but \u{201C}what should I look at next\u{201D}. Home "
+                        + "answers that, in place of the terminals: its title says how many "
+                        + "sessions need you, and each one comes with the line the agent left "
+                        + "on screen and the action it wants."
                 ),
                 .topics([
-                    GuideTopic("rectangle.split.3x1", "Four lanes",
-                               "Needs You, Running, Done and Idle. The lanes are always there, "
-                                   + "so an empty one is information too."),
-                    GuideTopic("square.grid.3x2", "Or a flat grid",
-                               "The toggle in the header switches to a single list ordered by "
-                                   + "urgency. Relay remembers which one you prefer."),
-                    GuideTopic("magnifyingglass", "Type to filter",
-                               "The field takes focus when the panel opens: type, use the arrow "
-                                   + "keys, press Return to jump to a session and Esc to leave."),
-                    GuideTopic("xmark.circle", "Dismiss",
-                               "Clearing a card's signal from here is the same as marking it "
-                                   + "read: it does not touch the session, only what Relay is "
-                                   + "asking of you."),
+                    GuideTopic("exclamationmark.bubble", "Needs you",
+                               "Waiting for an answer, stopped on an error, or finished and not "
+                                   + "reviewed. Answer, Check or Review takes you to the tab."),
+                    GuideTopic("bolt", "Working",
+                               "Sessions running on their own, one compact row each."),
+                    GuideTopic("moon.zzz", "Quiet for a week",
+                               "Open projects that have not moved in seven days. Closing them "
+                                   + "frees their terminals; their sessions stay resumable."),
+                    GuideTopic("square.grid.2x2", "Projects",
+                               "The catalog of every project, by group, open or closed. Filter "
+                                   + "by name or folder; a click opens a closed project with its "
+                                   + "tabs, ready to resume."),
                 ]),
                 .note(
-                    "The cards are built from state, not from live terminals, so sessions in "
-                        + "tabs that Relay has unloaded to save memory are listed like any other."
+                    "Home and Projects sit on top of the terminals without stopping them: Esc, "
+                        + "or picking a project in the sidebar, takes you straight back."
                 ),
             ]
         )

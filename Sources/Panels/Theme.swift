@@ -9,11 +9,16 @@ public enum Theme {
         public static let sm: CGFloat = 8
         public static let md: CGFloat = 12
         public static let lg: CGFloat = 16
+        public static let xl: CGFloat = 24
+        /// Margine laterale delle pagine (Home, Projects).
+        public static let page: CGFloat = 40
     }
 
     public enum Radius {
         public static let sm: CGFloat = 6
         public static let md: CGFloat = 8
+        /// Righe e campi delle pagine, un gradino sopra le righe della sidebar.
+        public static let lg: CGFloat = 10
     }
 
     // Nota: niente enum Colors statico. I colori della chrome derivano dal tema corrente via
@@ -21,6 +26,14 @@ public enum Theme {
 
     public enum Typography {
         public static let title = Font.system(size: 13, weight: .semibold)
+        /// Titolo di una pagina: dice la situazione ("3 sessions need you"), non il nome del posto.
+        public static let pageTitle = Font.system(size: 24, weight: .semibold)
+        /// Riga di sottotitolo di una pagina.
+        public static let pageSubtitle = Font.system(size: 13)
+        /// Titolo di una sezione di pagina.
+        public static let pageHeading = Font.system(size: 13, weight: .semibold)
+        /// Estratto di terminale (ultima riga dell'agente) dentro una pagina.
+        public static let excerpt = Font.system(size: 11.5, design: .monospaced)
         public static let item = Font.system(size: 13)
         public static let tab = Font.system(size: 12)
         public static let windowTitle = Font.system(size: 12, weight: .medium)
@@ -56,6 +69,9 @@ public enum Theme {
         /// Larghezza massima di una tab: un titolo OSC lungo (Claude manda il nome della chat) non
         /// deve allargare la tab oltre la finestra; il testo si tronca.
         public static let maxTabWidth: CGFloat = 180
+        /// Larghezza massima del contenuto di una pagina: righe leggibili, e l'azione di una riga
+        /// resta vicina al testo che la motiva invece di finire a un metro.
+        public static let pageMaxWidth: CGFloat = 760
         /// Pallino di stato: dimensione piena (badge agente), compatta (card dashboard, righe
         /// impostazioni), pallino di presenza (accento), spessore dell'anello vuoto.
         public static let statusDot: CGFloat = 8

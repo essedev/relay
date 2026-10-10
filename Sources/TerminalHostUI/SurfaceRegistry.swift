@@ -80,6 +80,12 @@ public final class SurfaceRegistry {
         surfaces[tabID]?.foregroundProcessName()
     }
 
+    /// Lo schermo visibile della tab, riga per riga; vuoto se la tab non ha una surface viva (non
+    /// la si crea per leggerla).
+    public func screenLines(for tabID: UUID) -> [String] {
+        surfaces[tabID]?.screenLines() ?? []
+    }
+
     /// Argv del comando in foreground nella surface della tab, o `nil` (prompt / tab non
     /// realizzata). Guida la nomina automatica del workspace (poll di "cosa stai facendo").
     public func foregroundCommandLine(for tabID: UUID) -> [String]? {

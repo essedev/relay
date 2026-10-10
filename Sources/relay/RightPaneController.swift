@@ -12,14 +12,19 @@ import WorkspaceModel
 /// barra di resume (Panels) overlaid quando la tab focused ha una sessione da riprendere.
 @MainActor
 final class RightPaneController: NSViewController {
-    private let store: WorkspaceStore
-    private let settings: AppSettings
+    let store: WorkspaceStore
+    let settings: AppSettings
     private let engine: TerminalEngine
     /// La finestra che ospita il pane: strip, titolo e terminali seguono la selezione **di questa
     /// finestra**, non quella globale.
-    private let windowID: UUID
-    private let registry: SurfaceRegistry
+    let windowID: UUID
+    let registry: SurfaceRegistry
     private let paneActions: PaneTabBarActions
+    let pageActions: PageActions
+    /// La pagina (Home, Projects) sopra i terminali, quando la finestra ne mostra una. Costruita
+    /// una volta: è SwiftUI e cambia pagina da sola osservando lo store. Vedi
+    /// `RightPaneController+Pages`.
+    var pageHost: NSView?
     /// Sessione di drag di una tab verso la sidebar, condivisa con quest'ultima (una per finestra).
     private let tabDrag: TabDragSession
     private var resumeBarHost: NSView?
@@ -33,7 +38,7 @@ final class RightPaneController: NSViewController {
     /// (così la barra spinge giù i pane invece di coprirli). Riferimenti stabili per lo swap.
     private var titleBar: NSView!
     private var areaTopConstraint: NSLayoutConstraint!
-    private lazy var area = WorkspaceAreaController(
+    lazy var area = WorkspaceAreaController(
         store: store,
         engine: engine,
         settings: settings,
@@ -48,6 +53,7 @@ final class RightPaneController: NSViewController {
         windowID: UUID,
         registry: SurfaceRegistry,
         paneActions: PaneTabBarActions,
+        pageActions: PageActions,
         tabDrag: TabDragSession
     ) {
         self.store = store
@@ -56,6 +62,7 @@ final class RightPaneController: NSViewController {
         self.windowID = windowID
         self.registry = registry
         self.paneActions = paneActions
+        self.pageActions = pageActions
         self.tabDrag = tabDrag
         super.init(nibName: nil, bundle: nil)
     }
@@ -171,6 +178,7 @@ final class RightPaneController: NSViewController {
 
         observeResume()
         observeFindTarget()
+        observePage()
     }
 
     // MARK: - Barra di resume
