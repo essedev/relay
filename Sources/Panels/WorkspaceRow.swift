@@ -48,7 +48,7 @@ struct WorkspaceRow: View {
     var body: some View {
         HStack(spacing: 0) {
             Image(systemName: workspace.pinned ? "pin.fill" : "folder")
-                .foregroundStyle(workspace.pinned ? colors.accent : colors.secondary)
+                .foregroundStyle(workspace.pinned || selected ? colors.accent : colors.secondary)
                 .font(Theme.Typography.rowIcon)
                 // Larghezza fissa: i simboli SF hanno larghezze intrinseche diverse (pin più
                 // stretto di folder), altrimenti il testo scatta orizzontalmente al pin/unpin.
@@ -99,8 +99,8 @@ struct WorkspaceRow: View {
         .padding(.horizontal, Theme.Spacing.xs)
         .padding(.vertical, 5)
         .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(selected ? colors.selection : hovered ? colors.hover : Color.clear)
+            RoundedRectangle(cornerRadius: Theme.Radius.md)
+                .fill(selected ? colors.rowSelected : hovered ? colors.rowHover : Color.clear)
         )
         // Bersaglio del drop di una tab: contorno, non riempimento, così resta distinguibile dalla
         // riga selezionata (che è già piena) mentre trascini.

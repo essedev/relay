@@ -23,9 +23,6 @@ public final class AppSettings {
     public private(set) var fontName: String?
     public private(set) var cursorBlink: Bool
     public private(set) var sidebarCollapsed: Bool
-    /// Sezione Archive in fondo alla sidebar espansa (mostra i workspace archiviati) o collassata.
-    /// Default collassata: l'archivio è "messo via". Preferenza UI, non layout.
-    public private(set) var archiveExpanded: Bool
     /// Larghezza della sidebar in punti (clampata a `min/maxSidebarWidth`), persistita: l'utente la
     /// ridimensiona e resta tra i riavvii. Preferenza UI globale, non layout per-workspace.
     public private(set) var sidebarWidth: Double
@@ -100,7 +97,6 @@ public final class AppSettings {
         // Assente = false = caret fisso: il default di prodotto è niente blink.
         cursorBlink = defaults.bool(forKey: Keys.cursorBlink)
         sidebarCollapsed = defaults.bool(forKey: Keys.sidebarCollapsed)
-        archiveExpanded = defaults.bool(forKey: Keys.archiveExpanded)
         // Assente = 0 = usa il default (double(forKey:) torna 0 per chiave mancante).
         let savedSidebarWidth = defaults.double(forKey: Keys.sidebarWidth)
         sidebarWidth = savedSidebarWidth == 0 ? Self.defaultSidebarWidth : savedSidebarWidth
@@ -200,10 +196,6 @@ public final class AppSettings {
 
     public func toggleSidebar() {
         toggle(\.sidebarCollapsed, key: Keys.sidebarCollapsed)
-    }
-
-    public func toggleArchiveExpanded() {
-        toggle(\.archiveExpanded, key: Keys.archiveExpanded)
     }
 
     public func setSidebarWidth(_ width: Double) {

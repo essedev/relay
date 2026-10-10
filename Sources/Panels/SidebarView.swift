@@ -12,7 +12,10 @@ import WorkspaceModel
 /// `LazyVStack` nemmeno nella lista principale: le righe smontate non misurano il proprio frame, e
 /// il drag ha bisogno del frame di **tutte** le righe, comprese quelle fuori vista.
 ///
-/// La struttura a schermo (righe di primo livello, card dei gruppi, sezione Archive) è srotolata in
+/// In cima la navigazione (ricerca `⌘P`, Home, Projects), sotto i soli progetti **aperti**: i
+/// chiusi
+/// stanno nel catalogo (`docs/features/projects.md`). La struttura a schermo (righe di primo
+/// livello, card dei gruppi) è srotolata in
 /// un piano piatto di righe e slot (`SidebarLayout`), che è ciò su cui il drag calcola; il
 /// rendering resta annidato, così le card possono disegnarsi attorno ai loro membri.
 public struct SidebarView: View {
@@ -34,34 +37,33 @@ public struct SidebarView: View {
     /// composition root ha il `NamingController`, che nomina subito e riporta l'eventuale
     /// fallimento.
     let onRegenerateName: (Workspace) -> Void
-    /// Config della pill di aggiornamento (sopra la sezione Archive). `nil` = niente pill (bundle
+    /// Apre la palette "Go to project" (`⌘P`).
+    let onShowPalette: () -> Void
+    /// Mostra una pagina (Home, Projects) nella finestra: il composition root applica la
+    /// decadenza dei sospesi all'apertura di Home.
+    let onShowPage: (WindowPage) -> Void
+    /// Config della pill di aggiornamento (in fondo alla sidebar). `nil` = niente pill (bundle
     /// assente / test): la sidebar non dipende dalla rete né dal composition root.
     let updateConfig: SidebarUpdateConfig?
     /// Drag di una tab da una strip verso queste righe. La sidebar ci registra i bersagli e ne
     /// legge quello sotto il puntatore; `nil` = nessun drop cross-workspace (test, preview).
     let tabDrag: TabDragSession?
 
-    /// Coordinate space unico della sidebar: lista principale e archivio ci misurano dentro le
-    /// proprie righe, così il drag può attraversarli (vedi `SidebarReorder`).
+    /// Coordinate space unico della sidebar: le righe ci misurano dentro, così il drag attraversa
+    /// le card e la lista (vedi `SidebarReorder`).
     static let space = "sidebar"
 
     // Stato del riordino. Il gesto vive in un @GestureState: si azzera da solo (animato) anche se
     // il drag viene annullato. La struttura visiva è congelata per la durata del gesto
-    // (`frozenItems`/`frozenArchived`): un evento agente può bumpare un workspace, e senza
+    // (`frozenItems`): un evento agente può bumpare un workspace, e senza
     // snapshot rimescolerebbe righe e frame sotto il puntatore.
     @GestureState(resetTransaction: Transaction(animation: .easeInOut(duration: 0.2)))
     var drag = SidebarDragState()
     @State var frames: [Int: CGRect] = [:]
     @State var frozenItems: [SidebarItem]?
-    @State var frozenArchived: [Workspace]?
-    /// Altezza del contenuto archiviato: la sezione Archive si dimensiona su questa, cappata a metà
-    /// sidebar (poi scroll interno).
-    @State var archivedHeight: CGFloat = 0
-    /// Finestre visibili dei due ScrollView (lista e archivio) nello space della sidebar: una riga
-    /// scrollata fuori conserva il suo frame, che senza ritaglio finirebbe a coprire l'area di un
-    /// altro contenitore e accetterebbe drop che a schermo non esistono.
+    /// Finestra visibile della lista nello space della sidebar: una riga scrollata fuori conserva
+    /// il suo frame, che senza ritaglio accetterebbe drop che a schermo non esistono.
     @State var listViewport: CGRect = .zero
-    @State var archiveViewport: CGRect = .zero
 
     public init(
         store: WorkspaceStore,
@@ -73,6 +75,8 @@ public struct SidebarView: View {
         onDeactivateSessions: @escaping (Workspace) -> Void,
         onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
         onRegenerateName: @escaping (Workspace) -> Void,
+        onShowPalette: @escaping () -> Void = {},
+        onShowPage: @escaping (WindowPage) -> Void = { _ in },
         updateConfig: SidebarUpdateConfig? = nil,
         tabDrag: TabDragSession? = nil
     ) {
@@ -85,6 +89,8 @@ public struct SidebarView: View {
         self.onDeactivateSessions = onDeactivateSessions
         self.onMoveWorkspaceToNewWindow = onMoveWorkspaceToNewWindow
         self.onRegenerateName = onRegenerateName
+        self.onShowPalette = onShowPalette
+        self.onShowPage = onShowPage
         self.updateConfig = updateConfig
         self.tabDrag = tabDrag
     }
@@ -92,29 +98,24 @@ public struct SidebarView: View {
     public var body: some View {
         let colors = ChromeColors(settings.theme)
         let items = frozenItems ?? store.sidebarItems(in: windowID)
-        let closed = frozenArchived ?? store.closedWorkspaces(in: windowID)
-        let plan = SidebarLayout.plan(
-            items: items.map(descriptor),
-            closed: closed.map(\.id),
-            archiveExpanded: settings.archiveExpanded
-        )
-        // GeometryReader per il tetto della sezione Archive (~metà sidebar): la lista principale
-        // prende il resto. Split verticale, non overlay: le due aree coesistono a vista, così il
-        // drag tra loro è possibile e nulla resta nascosto dietro.
-        return GeometryReader { proxy in
-            VStack(spacing: 0) {
-                trafficLightsStrip
-                workspacesHeader(colors)
-                list(items, plan: plan, colors: colors)
-                if let updateConfig {
-                    UpdateBanner(config: updateConfig, colors: colors)
-                }
-                archiveSection(
-                    closed, plan: plan, colors: colors, maxListHeight: proxy.size.height * 0.5
-                )
+        let plan = SidebarLayout.plan(items: items.map(descriptor))
+        return VStack(spacing: 0) {
+            trafficLightsStrip
+            SidebarNav(
+                store: store,
+                windowID: windowID,
+                colors: colors,
+                onShowPalette: onShowPalette,
+                onShowPage: onShowPage
+            )
+            openHeader(colors)
+            list(items, plan: plan, colors: colors)
+            if let updateConfig {
+                UpdateBanner(config: updateConfig, colors: colors)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            footer(colors)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .frame(minWidth: 200)
         .background(colors.background)
         .coordinateSpace(.named(Self.space))
@@ -135,7 +136,6 @@ public struct SidebarView: View {
         // sposterebbe sotto le mani un istante prima del rilascio.
         .onChange(of: drag.dragged == nil && tabDrag?.payload == nil) { _, idle in
             frozenItems = idle ? nil : store.sidebarItems(in: windowID)
-            frozenArchived = idle ? nil : store.closedWorkspaces(in: windowID)
         }
         // Bersagli del drop di una tab (vedi TabDragSession): la sidebar intera fa da guardia (un
         // rilascio fuori di qui non sposta niente), le singole righe si registrano in `draggable`.
@@ -150,9 +150,9 @@ public struct SidebarView: View {
     static func workspaceIDs(in rows: [SidebarLayout.Row]) -> Set<UUID> {
         Set(rows.compactMap { row in
             switch row {
-            case let .workspace(id), let .member(id, _), let .closed(id):
+            case let .workspace(id), let .member(id, _):
                 id
-            case .groupHeader, .groupTail, .archiveHeader:
+            case .groupHeader, .groupTail:
                 nil
             }
         })
@@ -180,22 +180,38 @@ public struct SidebarView: View {
             .frame(height: Theme.Metrics.titleBarHeight)
     }
 
-    private func workspacesHeader(_ colors: ChromeColors) -> some View {
-        HStack {
-            Text("Workspaces")
+    /// Intestazione della lista: i progetti aperti, quanti sono, e il `+` per uno nuovo.
+    private func openHeader(_ colors: ChromeColors) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Text("Open")
                 .font(Theme.Typography.sectionHeader)
                 .foregroundStyle(colors.secondary)
             Spacer()
+            Text("\(store.orderedWorkspaces(in: windowID).count)")
+                .font(Theme.Typography.subtitle)
+                .foregroundStyle(colors.secondary.opacity(0.7))
             Button(action: onNewWorkspace) {
                 Image(systemName: "plus")
             }
             .buttonStyle(.borderless)
             .foregroundStyle(colors.secondary)
-            .help("New workspace")
+            .help("New project")
         }
-        .padding(.horizontal, Theme.Spacing.md)
-        .padding(.top, Theme.Spacing.sm)
+        .padding(.horizontal, Theme.Spacing.md + Theme.Spacing.xs)
+        .padding(.top, Theme.Spacing.md)
         .padding(.bottom, Theme.Spacing.xs)
+    }
+
+    /// Piede: quanti aperti e quanti chiusi, cioè quanto lavoro vive e quanto aspetta nel catalogo.
+    private func footer(_ colors: ChromeColors) -> some View {
+        let open = store.workspaces.count { !$0.closed }
+        let closed = store.workspaces.count - open
+        return Text("\(open) open, \(closed) closed")
+            .font(Theme.Typography.subtitle)
+            .foregroundStyle(colors.secondary.opacity(0.7))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Theme.Spacing.md + Theme.Spacing.xs)
+            .padding(.vertical, Theme.Spacing.sm)
     }
 
     /// Lista principale: righe libere e card dei gruppi. Il padding orizzontale insetta la pill di
@@ -238,7 +254,6 @@ public struct SidebarView: View {
         _ dragged: SidebarDrop.Dragged,
         plan: SidebarLayout.Plan,
         row: SidebarLayout.Row? = nil,
-        viewport: Viewport = .list,
         @ViewBuilder content: () -> some View
     ) -> some View {
         let target = row ?? defaultRow(for: dragged)
@@ -254,17 +269,10 @@ public struct SidebarView: View {
                 state: drag,
                 onFrame: {
                     frames[$0] = $1
-                    registerDropTarget(dragged, frame: $1, viewport: viewport)
+                    registerDropTarget(dragged, frame: $1)
                 },
                 perform: { performDrop(dragged, at: $0, plan: plan) }
             ))
-    }
-
-    /// Quale dei due ScrollView ospita una riga: serve a ritagliarne il frame quando si registra
-    /// come bersaglio del drop.
-    enum Viewport {
-        case list
-        case archive
     }
 
     /// Registra (o toglie) una riga fra i bersagli del drop di una tab. Solo i workspace:
@@ -274,11 +282,10 @@ public struct SidebarView: View {
     /// visibile per meno di metà: un bersaglio a filo di bordo è una promessa che l'occhio non
     /// vede.
     private func registerDropTarget(
-        _ dragged: SidebarDrop.Dragged, frame: CGRect, viewport: Viewport
+        _ dragged: SidebarDrop.Dragged, frame: CGRect
     ) {
         guard let tabDrag, case let .workspace(id) = dragged else { return }
-        let clip = viewport == .archive ? archiveViewport : listViewport
-        let visible = frame.intersection(clip)
+        let visible = frame.intersection(listViewport)
         if visible.isNull || visible.height < frame.height / 2 {
             tabDrag.clearTarget(id)
         } else {
@@ -293,12 +300,15 @@ public struct SidebarView: View {
         }
     }
 
-    /// Riga workspace completa (callback allo store), condivisa da lista principale, card dei
-    /// gruppi e sezione Archive.
+    /// Riga workspace completa (callback allo store), condivisa da lista principale e card dei
+    /// gruppi.
     func makeRow(_ workspace: Workspace, colors: ChromeColors) -> WorkspaceRow {
         WorkspaceRow(
             workspace: workspace,
-            selected: workspace.id == store.selectedWorkspace(in: windowID)?.id,
+            // Selezionata solo se la finestra mostra davvero i suoi terminali: con Home o Projects
+            // su, una riga accesa indicherebbe un posto in cui non sei.
+            selected: workspace.id == store.selectedWorkspace(in: windowID)?.id
+                && WindowPageView.effectivePage(store, windowID: windowID) == .workspace,
             dropTargeted: tabDrag?.target == workspace.id,
             colors: colors,
             groupMenu: groupMenu(for: workspace),

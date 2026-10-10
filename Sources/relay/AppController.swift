@@ -136,6 +136,10 @@ final class AppController: NSObject, NSApplicationDelegate {
             onRegenerateWorkspaceName: { [weak self] workspace in
                 self?.regenerateWorkspaceName(workspace.id)
             },
+            onShowPalette: { [weak self] in
+                if self?.isPaletteOpen == false { self?.togglePalette() }
+            },
+            onShowPage: { [weak self] page in self?.showPage(page, in: windowID) },
             paneActions: makePaneActions(),
             pageActions: makePageActions()
         )

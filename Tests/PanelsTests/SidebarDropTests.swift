@@ -22,10 +22,8 @@ private func group(
     SidebarLayout.Item(id: id, kind: .group(members: members, collapsed: collapsed), pinned: pinned)
 }
 
-private func plan(
-    _ items: [SidebarLayout.Item], closed: [UUID] = [], archiveExpanded: Bool = true
-) -> SidebarLayout.Plan {
-    SidebarLayout.plan(items: items, closed: closed, archiveExpanded: archiveExpanded)
+private func plan(_ items: [SidebarLayout.Item]) -> SidebarLayout.Plan {
+    SidebarLayout.plan(items: items)
 }
 
 // MARK: - Piano
@@ -38,7 +36,6 @@ private func plan(
         .member(b, group: g),
         .member(c, group: g),
         .groupTail(g),
-        .archiveHeader,
     ])
     // Lo slot dopo l'ultimo membro è dentro la card, quello dopo la coda è nella lista: è la
     // distinzione che nessuna euristica sui vicini potrebbe fare.
@@ -48,14 +45,8 @@ private func plan(
 
 @Test func collapsedGroupHasNoInnerSlots() {
     let p = plan([group(g, [b, c], collapsed: true), free(a)])
-    #expect(p.rows == [.groupHeader(g), .workspace(a), .archiveHeader])
+    #expect(p.rows == [.groupHeader(g), .workspace(a)])
     #expect(p.slots[1] == .root(pinned: false)) // sotto una card chiusa non ci si rilascia dentro
-}
-
-@Test func archiveHeaderIsAlwaysPresentAsDropZone() {
-    let p = plan([free(a)], closed: [], archiveExpanded: false)
-    #expect(p.rows.last == .archiveHeader)
-    #expect(p.slots.last == .archive)
 }
 
 // MARK: - Drop nella lista
@@ -112,7 +103,7 @@ private func plan(
 @Test func memberDraggedOutOfTheCardLandsInTheList() {
     let items = [group(g, [b, c]), free(a)]
     let p = plan(items)
-    // Piano: header, b, c, coda, a, archiveHeader. Slot 4 = fra la coda e a.
+    // Piano: header, b, c, coda, a. Slot 4 = fra la coda e a.
     #expect(SidebarDrop.resolve(plan: p, items: items, dragged: .workspace(b), insertion: 4)
         == SidebarDrop.Resolution(container: .root(pinned: false), move: .before(a)))
 }
@@ -126,35 +117,12 @@ private func plan(
 
 // MARK: - Archivio
 
-@Test func dropUnderTheArchiveHeaderArchives() {
-    let items = [free(a), free(b)]
-    let p = plan(items, closed: [d])
-    // Piano: a, b, archiveHeader, d. Slot 3 = subito sotto l'header.
-    #expect(SidebarDrop.resolve(plan: p, items: items, dragged: .workspace(a), insertion: 3)
-        == SidebarDrop.Resolution(container: .archive, move: .before(d)))
-}
-
-@Test func archivedDraggedBackIntoTheListIsRestored() {
-    let items = [free(a), free(b)]
-    let p = plan(items, closed: [d])
-    #expect(SidebarDrop.resolve(plan: p, items: items, dragged: .workspace(d), insertion: 1)
-        == SidebarDrop.Resolution(container: .root(pinned: false), move: .before(b)))
-}
-
-@Test func archiveWithNoRowsStillAcceptsADrop() {
-    let items = [free(a), free(b)]
-    let p = plan(items, closed: [], archiveExpanded: true)
-    let drop = SidebarDrop.resolve(plan: p, items: items, dragged: .workspace(a), insertion: 3)
-    // Nessun compagno di contenitore: resta il solo cambio di contenitore, senza ancora utile.
-    #expect(drop?.container == .archive)
-}
-
 // MARK: - Drag di una card intera
 
 @Test func groupSnapsToTheNearestListSlot() {
     let items = [group(g, [b, c]), free(a), free(d)]
     let p = plan(items)
-    // Piano: header, b, c, coda, a, d, archiveHeader. Gli slot 1..3 sono dentro la card: una card
+    // Piano: header, b, c, coda, a, d. Gli slot 1..3 sono dentro la card: una card
     // non si annida, quindi lo slot viene riportato al primo di primo livello.
     #expect(SidebarDrop.normalized(insertion: 2, plan: p, dragged: .group(g)) == 0)
     #expect(SidebarDrop.normalized(insertion: 5, plan: p, dragged: .group(g)) == 5)
@@ -163,7 +131,7 @@ private func plan(
 @Test func groupMovesAsABlockAndCanBePinned() {
     let items = [free(a, pinned: true), free(d), group(g, [b, c])]
     let p = plan(items)
-    // Piano: a, d, header, b, c, coda, archiveHeader. Slot 0 = dentro il blocco pinned.
+    // Piano: a, d, header, b, c, coda. Slot 0 = dentro il blocco pinned.
     #expect(SidebarDrop.resolve(plan: p, items: items, dragged: .group(g), insertion: 0)
         == SidebarDrop.Resolution(container: .root(pinned: true), move: .before(a)))
 }
@@ -171,7 +139,7 @@ private func plan(
 @Test func dropOnOwnRowsIsNoOpForGroups() {
     let items = [free(a), group(g, [b, c])]
     let p = plan(items)
-    // Piano: a, header, b, c, coda, archiveHeader. Gli slot 1..5 appartengono alla card.
+    // Piano: a, header, b, c, coda. Gli slot 1..5 appartengono alla card.
     for slot in 1 ... 5 {
         #expect(SidebarDrop.resolve(
             plan: p, items: items, dragged: .group(g), insertion: slot

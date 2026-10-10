@@ -57,6 +57,17 @@ struct ChromeColors {
         Color(theme.background.mixed(with: theme.foreground, 0.05))
     }
 
+    /// Riga selezionata della sidebar (voce di navigazione o progetto): un velo del foreground,
+    /// non la pillola piena della `selection`, che a confronto pesa.
+    var rowSelected: Color {
+        Color(theme.foreground).opacity(0.085)
+    }
+
+    /// Hover di una riga della sidebar, un gradino sotto la selezione.
+    var rowHover: Color {
+        Color(theme.foreground).opacity(0.045)
+    }
+
     /// Filo che separa le righe di una pagina: presente, mai una riga disegnata.
     var hairline: Color {
         Color(theme.foreground).opacity(0.08)

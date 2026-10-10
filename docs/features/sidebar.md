@@ -1,6 +1,6 @@
 # Workspace, sidebar e ordinamento
 
-La lista dei workspace: ordine, nascita, archivio, drag, chiusura. Il resto della guida sta in `../../CLAUDE.md`.
+La lista dei progetti aperti: ordine, nascita, drag, chiusura. Il resto della guida sta in `../../CLAUDE.md`.
 
 - Toggle sidebar: è un overlay a livello finestra (`RootOverlayController`), **non** un
   `NSTitlebarAccessoryViewController` - quello non viene renderizzato con `titleVisibility = .hidden`
@@ -27,46 +27,33 @@ La lista dei workspace: ordine, nascita, archivio, drag, chiusura. Il resto dell
   quella card, uscirne è un drag come entrarci. Se la card è **chiusa**, `createWorkspace` la apre
   (non passa da `reveal`, che lo farebbe: senza, il selezionato sarebbe una riga invisibile). L'ancora è la selezione della **finestra di
   destinazione**, non della key (`createWorkspace(in:)`). Due sole eccezioni: se il selezionato è
-  **archiviato** si torna in fondo (sta fuori da `orderedWorkspaces`: ancorarcisi darebbe una
+  **chiuso** si torna in fondo (sta fuori da `orderedWorkspaces`: ancorarcisi darebbe una
   posizione che nella lista non esiste), e il pin **non** si eredita (il nuovo apre il segmento non
   pinned, la riga più vicina possibile a quella da cui è nato). Creazioni in sequenza conservano
   l'ordine di creazione, perché ognuna diventa l'ancora della successiva. Il workspace transitorio
   di `newWindow` eredita il gruppo per un istante e lo perde subito nella stessa mutazione
   (`leaveGroupOnWindowChange` + `pruneEmptyGroups`): un membro in un'altra finestra farebbe
   comparire la card in due sidebar.
-- Archive: i workspace archiviati (`Workspace.archived`, persistito, additivo) escono da
-  `orderedWorkspaces` e vivono in una sezione collassabile ancorata **in fondo** alla sidebar
-  (`archiveSection`, header **sempre presente** anche a zero archiviati = drop zone e affordance
-  permanente; il conteggio accanto a "Archive" compare solo se > 0; aperta e vuota mostra un empty
-  state discreto "No archived workspaces"; lista archiviati con tetto ~metà sidebar,
-  poi scroll interno; espansa/collassata in `AppSettings.archiveExpanded`). L'altezza del contenuto
-  si misura con **`onGeometryChange` sul contenuto dentro lo ScrollView, mai con una preference**:
-  su macOS le preference non attraversano il confine dello `ScrollView` (bridge NSScrollView) - a
-  `onPreferenceChange` fuori arrivava solo lo 0 iniziale e la lista restava alta 1px (freccia sì,
-  contenuto no: il bug dell'archivio che "non si apriva"). La lista è un **`VStack`, non
-  `LazyVStack`**: dentro lo `ScrollView` alto `min(archivedHeight, ...)` che parte da 1px, il lazy
-  non realizzerebbe le righe e la misura resterebbe 0.
-  L'header è ancorato, non nel flusso scrollabile, perché su macOS
-  lo `ScrollView` non fa drag-scroll: sotto la piega non ci potresti trascinare sopra. `archived`
-  è mutuamente esclusivo con `pinned` (archiviare de-pinna) e col bump (un archiviato esce da
-  `orderedWorkspaces`, quindi l'attività non lo riporta in cima). `setArchived`/`toggleArchive`: non archivia l'ultimo visibile e sposta la selezione
-  fuori dall'archiviato; un archiviato con attenzione fresca accende un pallino discreto
-  sull'header (non un buco nero). Archivia/ripristina dal menu contestuale (`Archive`/`Unarchive`) o **trascinando** dentro/fuori
-  la sezione.
+- **Testa e lista**: in cima `SidebarNav` (il campo che apre la palette `⌘P`, Home e Projects,
+  accese quando la finestra le mostra), sotto i soli progetti **aperti** con le loro card. I chiusi
+  non sono più in sidebar: la sezione Archive e il suo drop sono stati tolti, i chiusi stanno nel
+  catalogo (`docs/features/projects.md`). La x su hover di una riga **chiude** il progetto (tiene
+  tutto); rimuoverlo da Relay è "Remove Project" nel menu contestuale. La riga del selezionato si
+  accende solo se la finestra mostra i terminali, non sotto una pagina.
 - **Righe e slot della sidebar** (`SidebarLayout`): la sidebar è srotolata in un piano piatto di
   righe (cosa si vede) e **slot** (gli spazi fra le righe, `rows+1`), e ogni slot porta scritto **in
-  quale contenitore** si rilascia (`.root(pinned:)`/`.group`/`.archive`). Deciso alla costruzione,
+  quale contenitore** si rilascia (`.root(pinned:)`/`.group`). Deciso alla costruzione,
   **mai** da euristiche sui vicini al drop: "in fondo alla card" e "sotto la card" sono lo stesso
   pixel con due significati, e li separa la riga di coda della card (`groupTail`, che è insieme il
   padding inferiore e uno slot con un solo significato). Da chiusa la card non ha coda: il padding
   inferiore lo mette il contenitore (`GroupCard(collapsed:)`), altrimenti l'header resta appoggiato
   al bordo. `SidebarDrop` fa il solo lavoro posizionale (slot -> contenitore + ancora canonica) ed è
   puro e testato; una card si posa solo nella lista (`normalized` la riporta al più vicino slot di
-  primo livello: niente card annidate né archiviate in blocco).
+  primo livello: niente card annidate).
 - **Drag della sidebar** (`SidebarReorder`, separato da `Reorderable` che resta per la strip dei
   pane): il gesto attraversa due `ScrollView`, quindi (1) **un solo coordinate space** a livello
   sidebar coi frame raccolti da `onGeometryChange` e **non** da un `PreferenceKey` (le preference
-  non attraversano il bridge `NSScrollView`: dall'archivio non arriverebbero mai, stessa trappola
+  non attraversano il bridge `NSScrollView`: da una seconda ScrollView non arriverebbero mai, stessa trappola
   della sezione alta 1px) e (2) la **riga in volo disegnata in overlay fuori dalle ScrollView**, non
   la riga vera con `.offset` (dentro verrebbe clippata al bordo e sparirebbe a metà gesto, proprio
   mentre esci dal contenitore). Per lo stesso motivo la lista principale non è più `LazyVStack`: una
@@ -132,7 +119,7 @@ La lista dei workspace: ordine, nascita, archivio, drag, chiusura. Il resto dell
   `TabDragSession` (Panels) + `WorkspaceStore.moveTab(_:from:to:)`. Come "Move to New Workspace"
   viaggia lo **stesso** oggetto `Tab` con inserimento prima della rimozione, quindi il pty non si
   tocca; la tab entra nel pane focused della destinazione **subito dopo la sua tab selezionata** e
-  la destinazione viene rivelata (de-archiviata, card aperta). Spostare l'**ultima** tab è
+  la destinazione viene rivelata (riaperta, card aperta). Spostare l'**ultima** tab è
   legittimo e chiude il workspace d'origine (cascade): qui, a differenza di "Move to New
   Workspace", non sarebbe un rename mascherato.
   **Perché serve un intermediario**: strip e sidebar sono due `NSHostingView` **sorelle**, quindi
@@ -160,7 +147,7 @@ La lista dei workspace: ordine, nascita, archivio, drag, chiusura. Il resto dell
   fantasma, che esiste solo fuori dalla strip.
   Guardie contro i bersagli fantasma: il frame di ogni riga è **ritagliato al viewport** del suo
   ScrollView e scartato sotto metà altezza visibile (una riga scrollata via conserva il frame, che
-  cadrebbe sull'area dell'archivio); `sidebarRect` fa da guardia esterna, quindi una sidebar
+  cadrebbe fuori dalla lista); `sidebarRect` fa da guardia esterna, quindi una sidebar
   collassata (larghezza ~0) non accetta niente; `pruneTargets` scarta le righe che il piano non
   mostra più. La struttura della sidebar è **congelata** anche durante questo drag, come per quello
   interno: un bump da attività non vista sposterebbe la riga bersaglio sotto le mani. Hit test e

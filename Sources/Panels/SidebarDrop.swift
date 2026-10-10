@@ -84,8 +84,7 @@ enum SidebarDrop {
         plan.rows.indices.filter { index in
             switch (plan.rows[index], dragged) {
             case let (.workspace(id), .workspace(dragID)),
-                 let (.member(id, _), .workspace(dragID)),
-                 let (.closed(id), .workspace(dragID)):
+                 let (.member(id, _), .workspace(dragID)):
                 id == dragID
             case let (.groupHeader(id), .group(dragID)),
                  let (.member(_, id), .group(dragID)),
@@ -110,9 +109,7 @@ enum SidebarDrop {
             return .group(group)
         case let .groupHeader(group):
             return .root(pinned: items.first { $0.id == group }?.pinned ?? false)
-        case .closed:
-            return .archive
-        case .groupTail, .archiveHeader:
+        case .groupTail:
             return nil
         }
     }

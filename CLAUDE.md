@@ -98,7 +98,7 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
 - `docs/features/terminal.md` - integrazioni e limiti di SwiftTerm: kitty keyboard, cwd senza
   OSC 7, selezione durante lo streaming, scroll fluido, ricerca `Cmd+F`, cap LRU delle surface,
   chiusura delle sessioni pty (teardown e orfani di uscita e crash).
-- `docs/features/sidebar.md` - lista dei workspace, dove nasce una cosa nuova, archivio, drag &
+- `docs/features/sidebar.md` - testa (ricerca, Home, Projects) e lista degli aperti, dove nasce una cosa nuova, drag &
   drop, e il drag di una tab da una strip a un altro workspace (`TabDragSession`).
 - `docs/features/projects.md` - progetti aperti e chiusi: chiudere tiene gruppo, tab e resume;
   `RelayWindow.page` (Home, Projects). **Invariante**: mai selezionare un chiuso; `setClosed` marca,

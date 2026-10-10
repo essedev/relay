@@ -6,7 +6,7 @@ import Foundation
 /// Righe e slot sono due cose diverse e serve tenerle distinte: la riga è ciò che si vede e si
 /// trascina, lo **slot** è lo spazio *fra* due righe, cioè un possibile punto di rilascio. Ci sono
 /// `rows.count + 1` slot, e ognuno porta scritto **in quale contenitore** finisce ciò che ci
-/// rilasci (lista, card di un gruppo, archivio).
+/// rilasci (lista o card di un gruppo).
 ///
 /// Il contenitore per slot è deciso qui, alla costruzione, e non da euristiche sui vicini al
 /// momento del drop: il confine fra "in fondo alla card" e "sotto la card" è lo stesso pixel per
@@ -20,7 +20,6 @@ enum SidebarLayout {
         /// attraversare il blocco pinna o spinna).
         case root(pinned: Bool)
         case group(UUID)
-        case archive
     }
 
     /// Una riga disegnata in sidebar. `groupTail` non ha contenuto: è il padding in fondo alla
@@ -30,8 +29,6 @@ enum SidebarLayout {
         case groupHeader(UUID)
         case member(UUID, group: UUID)
         case groupTail(UUID)
-        case archiveHeader
-        case closed(UUID)
     }
 
     /// Natura di un elemento di primo livello: riga libera o card coi suoi membri.
@@ -71,13 +68,9 @@ enum SidebarLayout {
         }
     }
 
-    /// Srotola gli elementi (già in ordine visivo: pinned in testa) più la sezione Archive, che è
-    /// **sempre** presente in fondo anche a zero archiviati: è la drop zone dell'archiviazione.
-    static func plan(
-        items: [Item],
-        closed: [UUID],
-        archiveExpanded: Bool
-    ) -> Plan {
+    /// Srotola gli elementi, già in ordine visivo (pinned in testa). I progetti chiusi non ci sono:
+    /// stanno nel catalogo, non in sidebar.
+    static func plan(items: [Item]) -> Plan {
         var rows: [Row] = []
         var slots: [Container] = [.root(pinned: items.first?.pinned ?? false)]
 
@@ -98,15 +91,6 @@ enum SidebarLayout {
                 }
                 rows.append(.groupTail(item.id))
                 slots.append(.root(pinned: item.pinned))
-            }
-        }
-
-        rows.append(.archiveHeader)
-        slots.append(.archive) // sotto l'header si archivia, anche a sezione chiusa
-        if archiveExpanded {
-            for id in closed {
-                rows.append(.closed(id))
-                slots.append(.archive)
             }
         }
         return Plan(rows: rows, slots: slots)
@@ -145,10 +129,6 @@ extension SidebarLayout.Plan {
             return SidebarLayout.Anchor(
                 id: last, container: .root(pinned: pinned(ofItem: group, items: items))
             )
-        case .archiveHeader:
-            return nil
-        case let .closed(id):
-            return SidebarLayout.Anchor(id: id, container: .archive)
         }
     }
 

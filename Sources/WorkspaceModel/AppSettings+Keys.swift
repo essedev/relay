@@ -11,7 +11,6 @@ extension AppSettings {
         static let fontName = "relay.theme.fontName"
         static let cursorBlink = "relay.cursor.blink"
         static let sidebarCollapsed = "relay.sidebar.collapsed"
-        static let archiveExpanded = "relay.sidebar.archiveExpanded"
         static let sidebarWidth = "relay.sidebar.width"
         static let autoResumeAgents = "relay.agents.autoResume"
         static let newTabOnStripDoubleClick = "relay.tabs.newTabOnDoubleClick"

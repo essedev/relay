@@ -68,6 +68,14 @@ extension AppController {
         }
     }
 
+    /// Mostra una pagina in una finestra precisa (la sidebar che l'ha chiesta), senza toggle: un
+    /// click su Home porta a Home anche se ci sei già.
+    func showPage(_ page: WindowPage, in windowID: UUID) {
+        guard let window = store.windows.first(where: { $0.id == windowID }) else { return }
+        if page == .home { applyPendingDecayIfEnabled() }
+        window.page = page
+    }
+
     /// Decadenza opzionale dei sospesi (`pendingDecayHours` > 0): spegne i pending più vecchi
     /// della soglia. Chiamata nei momenti naturali (boot post-restore, ritorno in foreground,
     /// apertura di Home): niente timer, la granularità è a ore.
