@@ -32,7 +32,8 @@ Dal sorgente al `.app` installato: bundle, firma, release, aggiornamenti. Il res
   `scripts/release.sh` (via `make release`): check working
   tree pulito + branch main + account gh `essedev`; blocca se il tag `vX` esiste già (idempotente per
   versione); `make dmg` -> sha256 -> `git tag vX` + push -> `gh release create` con
-  l'asset -> clona il tap, aggiorna `version`+`sha256` nel cask (l'URL li interpola) e pusha. Per
+  l'asset -> clona il tap, aggiorna `version`+`sha256` nel cask (l'URL li interpola) e il
+  `depends_on macos:` derivato da `LSMinimumSystemVersion` di `bundle/Info.plist`, e pusha. Per
   rilasciare: bumpa `./VERSION`, commit, **poi** `make release`. **Firma**: `make release` usa il
   **self-signed stabile** `Relay Self-Signed` (default in `scripts/release.sh`, preparato in modo
   idempotente da `scripts/setup-signing.sh`: cert + keychain + trust, esce non-zero con le istruzioni

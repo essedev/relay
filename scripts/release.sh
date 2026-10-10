@@ -38,6 +38,16 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 [ "$branch" = "main" ] || fail "non sei su main (sei su '$branch')"
 git diff --quiet && git diff --cached --quiet || fail "working tree sporco: committa o stasha prima di rilasciare"
 
+# Il minimo macOS del cask segue `LSMinimumSystemVersion` del bundle: se restano disallineati, brew
+# installa su un sistema dove l'app poi non parte (o rifiuta un sistema dove partirebbe).
+MIN_MACOS="$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" bundle/Info.plist)"
+case "${MIN_MACOS%%.*}" in
+  14) MACOS_SYMBOL="sonoma" ;;
+  15) MACOS_SYMBOL="sequoia" ;;
+  26) MACOS_SYMBOL="tahoe" ;;
+  *) fail "LSMinimumSystemVersion $MIN_MACOS senza simbolo brew noto: aggiungilo in release.sh" ;;
+esac
+
 # Aggiorna version+sha256 del cask nel tap. Estratto in funzione: lo usa sia il flusso normale sia
 # il recupero di una release gia pubblicata su GitHub ma con il tap rimasto indietro.
 update_tap() {
@@ -49,12 +59,14 @@ update_tap() {
   cask="$tmp/tap/$CASK_PATH"
   [ -f "$cask" ] || fail "cask non trovato nel tap: $CASK_PATH (bootstrap del tap mancante?)"
 
-  # version + sha256 sono le uniche righe che cambiano: l'URL le interpola.
+  # version e sha256 cambiano a ogni release (l'URL le interpola), il minimo macOS col bundle.
   sed -i '' -E "s|^  version \".*\"|  version \"${VERSION}\"|" "$cask"
   sed -i '' -E "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" "$cask"
+  sed -i '' -E "s|^  depends_on macos: .*|  depends_on macos: :${MACOS_SYMBOL}|" "$cask"
   # Verifica che i sed abbiano davvero scritto i valori attesi: un cambio di formato nel tap
   # (indentazione, stile brew) li renderebbe no-op, con un commit vuoto e il tap non aggiornato.
   grep -q "version \"${VERSION}\"" "$cask" && grep -q "sha256 \"${SHA}\"" "$cask" \
+    && grep -q "depends_on macos: :${MACOS_SYMBOL}" "$cask" \
     || fail "cask non aggiornato: formato inatteso in $CASK_PATH"
 
   git -C "$tmp/tap" add "$CASK_PATH"
