@@ -27,7 +27,9 @@ struct WorkspaceRow: View {
     let onRename: (String) -> Void
     let onRegenerateName: () -> Void
     let onToggleUnread: () -> Void
-    let onToggleArchive: () -> Void
+    /// Chiude il progetto (aperto) o lo riapre (chiuso). Chiudere tiene tutto: vedi
+    /// `WorkspaceStore.setClosed`.
+    let onToggleClosed: () -> Void
     /// Sposta il workspace in una finestra nuova. `nil` = non mostrare la voce (è l'unico della sua
     /// finestra: la lascerebbe vuota, e lo store lo rifiuterebbe).
     let onMoveToNewWindow: (() -> Void)?
@@ -119,14 +121,14 @@ struct WorkspaceRow: View {
             Button("Regenerate name", action: onRegenerateName)
             // Pin e Archive sono opposti: un archiviato non si pinna (lo mostro solo se in lista).
             // Dentro una card nemmeno: lì a salire in testa è il gruppo intero.
-            if !workspace.archived, workspace.groupID == nil {
+            if !workspace.closed, workspace.groupID == nil {
                 Button(workspace.pinned ? "Unpin" : "Pin", action: onTogglePin)
             }
             groupSection
             // Toggle del marker sulla tab selezionata: riaccende o spegne il segnale di attenzione
             // a mano (metafora unread). Il label riflette lo stato corrente della tab selezionata.
             Button(isUnseen ? "Mark as Read" : "Mark as Unread", action: onToggleUnread)
-            Button(workspace.archived ? "Unarchive" : "Archive", action: onToggleArchive)
+            Button(workspace.closed ? "Open Project" : "Close Project", action: onToggleClosed)
             if let onMoveToNewWindow {
                 // Ci va con le sue tab e le sue sessioni vive: le finestre partizionano i
                 // workspace, non li duplicano.
@@ -137,7 +139,9 @@ struct WorkspaceRow: View {
                 // davvero, perche' una per tab imporrebbe decine di decisioni identiche.
                 Button("Deactivate Sessions", action: onDeactivateSessions)
             }
-            Button("Close", role: .destructive, action: onClose)
+            // Toglie il progetto da Relay per sempre (con le sue sessioni da riprendere): per
+            // metterlo via c'è "Close Project", che non perde niente.
+            Button("Remove Project", role: .destructive, action: onClose)
         }
     }
 
@@ -184,11 +188,16 @@ struct WorkspaceRow: View {
             .onAppear { DispatchQueue.main.async { nameFocused = true } }
     }
 
-    /// Su hover mostra la x di chiusura; a riposo il badge di severità aggregato.
+    /// Su hover mostra la x che **chiude** il progetto (tenendo tutto, non lo rimuove); a riposo
+    /// il badge di severità aggregato. Un progetto già chiuso non ha niente da chiudere.
     @ViewBuilder private var trailing: some View {
-        if hovered {
+        if hovered, !workspace.closed {
             // glyph a filo come il badge che rimpiazza a riposo (default size 9)
-            CloseButton(color: colors.secondary, help: "Close workspace", action: onClose)
+            CloseButton(
+                color: colors.secondary,
+                help: "Close project (sessions stay resumable)",
+                action: onToggleClosed
+            )
         } else {
             WorkspaceBadge(workspace: workspace, colors: colors)
         }

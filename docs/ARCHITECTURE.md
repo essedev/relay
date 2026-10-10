@@ -766,7 +766,7 @@ WorkspaceStore { workspaces: [Workspace], windows: [RelayWindow], groups: [Works
 RelayWindow    { id, selectedWorkspaceID, frame? }          // ogni finestra ha la SUA selezione
 WorkspaceGroup { id, name, colorIndex, collapsed, pinned }  // solo aspetto: i membri stanno
                                                             // su Workspace.groupID
-Workspace      { id, windowID, name, nameOrigin, rootPath?, pinned, archived, groupID?,
+Workspace      { id, windowID, name, nameOrigin, rootPath?, pinned, closed, groupID?,
                  tabs: [Tab],          // il sacco degli oggetti Tab: identità e sessione
                  layout: SplitNode,    // SEMPRE presente: l'ordine visivo sta qui
                  focusedPaneID }       // selectedTabID è derivato: la selezione del pane focused

@@ -16,6 +16,10 @@ public final class RelayWindow: Identifiable {
     /// Ultimo frame noto, persistito per riaprirla dov'era. `nil` = mai posizionata (la centra
     /// AppKit). `setFrameAutosaveName` non basta più: sa gestire una finestra sola.
     public var frame: WindowFrame?
+    /// Cosa mostra il right pane: i terminali del progetto selezionato, oppure una delle pagine
+    /// (Home, Projects). Volatile: al riavvio si riparte dai terminali. Scegliere un progetto
+    /// riporta a `.workspace` (`WorkspaceStore.selectWorkspace`).
+    public var page: WindowPage = .workspace
 
     public init(id: UUID = UUID(), selectedWorkspaceID: UUID? = nil, frame: WindowFrame? = nil) {
         self.id = id
@@ -31,6 +35,15 @@ public final class RelayWindow: Identifiable {
         0x2E, 0x1A, 0x4B, 0x00, 0x52, 0x45, 0x4C, 0x41,
         0x59, 0x00, 0x57, 0x49, 0x4E, 0x00, 0x00, 0x01
     ))
+}
+
+/// Il contenuto del right pane di una finestra. Le pagine coprono i terminali senza smontarli:
+/// tornare al progetto è istantaneo e le sessioni non si accorgono di niente. Ma mentre una pagina
+/// è su, i terminali **non sono in vista** (vedi `WorkspaceStore.applyAgentState`).
+public enum WindowPage: Equatable, Sendable {
+    case workspace
+    case home
+    case projects
 }
 
 /// Frame di una finestra in coordinate schermo. Struct pura (niente CoreGraphics nel model), così

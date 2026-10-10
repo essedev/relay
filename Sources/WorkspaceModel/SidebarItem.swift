@@ -52,7 +52,7 @@ public extension WorkspaceStore {
     /// mano che sparpaglia i membri produce comunque una card sola, non righe orfane). Un
     /// `groupID` che punta a un gruppo inesistente degrada a workspace libero.
     func sidebarItems(in windowID: UUID) -> [SidebarItem] {
-        let visible = workspaces.filter { $0.windowID == windowID && !$0.archived }
+        let visible = workspaces.filter { $0.windowID == windowID && !$0.closed }
         var items: [SidebarItem] = []
         var seenGroups: Set<UUID> = []
         for workspace in visible {

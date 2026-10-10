@@ -23,6 +23,9 @@ public struct SidebarView: View {
     let windowID: UUID
     let onNewWorkspace: () -> Void
     let onCloseWorkspace: (Workspace) -> Void
+    /// Chiude un progetto: il composition root chiede conferma se c'è lavoro in corso e butta le
+    /// surface dopo aver marcato le tab (vedi `WorkspaceStore.setClosed`).
+    let onCloseProject: (Workspace) -> Void
     let onDeactivateSessions: (Workspace) -> Void
     /// Sposta un workspace in una finestra nuova: la `NSWindow` la crea il composition root.
     let onMoveWorkspaceToNewWindow: (Workspace) -> Void
@@ -66,6 +69,7 @@ public struct SidebarView: View {
         windowID: UUID,
         onNewWorkspace: @escaping () -> Void,
         onCloseWorkspace: @escaping (Workspace) -> Void,
+        onCloseProject: @escaping (Workspace) -> Void,
         onDeactivateSessions: @escaping (Workspace) -> Void,
         onMoveWorkspaceToNewWindow: @escaping (Workspace) -> Void,
         onRegenerateName: @escaping (Workspace) -> Void,
@@ -77,6 +81,7 @@ public struct SidebarView: View {
         self.windowID = windowID
         self.onNewWorkspace = onNewWorkspace
         self.onCloseWorkspace = onCloseWorkspace
+        self.onCloseProject = onCloseProject
         self.onDeactivateSessions = onDeactivateSessions
         self.onMoveWorkspaceToNewWindow = onMoveWorkspaceToNewWindow
         self.onRegenerateName = onRegenerateName
@@ -87,10 +92,10 @@ public struct SidebarView: View {
     public var body: some View {
         let colors = ChromeColors(settings.theme)
         let items = frozenItems ?? store.sidebarItems(in: windowID)
-        let archived = frozenArchived ?? store.archivedWorkspaces(in: windowID)
+        let closed = frozenArchived ?? store.closedWorkspaces(in: windowID)
         let plan = SidebarLayout.plan(
             items: items.map(descriptor),
-            archived: archived.map(\.id),
+            closed: closed.map(\.id),
             archiveExpanded: settings.archiveExpanded
         )
         // GeometryReader per il tetto della sezione Archive (~metà sidebar): la lista principale
@@ -105,7 +110,7 @@ public struct SidebarView: View {
                     UpdateBanner(config: updateConfig, colors: colors)
                 }
                 archiveSection(
-                    archived, plan: plan, colors: colors, maxListHeight: proxy.size.height * 0.5
+                    closed, plan: plan, colors: colors, maxListHeight: proxy.size.height * 0.5
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -130,7 +135,7 @@ public struct SidebarView: View {
         // sposterebbe sotto le mani un istante prima del rilascio.
         .onChange(of: drag.dragged == nil && tabDrag?.payload == nil) { _, idle in
             frozenItems = idle ? nil : store.sidebarItems(in: windowID)
-            frozenArchived = idle ? nil : store.archivedWorkspaces(in: windowID)
+            frozenArchived = idle ? nil : store.closedWorkspaces(in: windowID)
         }
         // Bersagli del drop di una tab (vedi TabDragSession): la sidebar intera fa da guardia (un
         // rilascio fuori di qui non sposta niente), le singole righe si registrano in `draggable`.
@@ -145,7 +150,7 @@ public struct SidebarView: View {
     static func workspaceIDs(in rows: [SidebarLayout.Row]) -> Set<UUID> {
         Set(rows.compactMap { row in
             switch row {
-            case let .workspace(id), let .member(id, _), let .archived(id):
+            case let .workspace(id), let .member(id, _), let .closed(id):
                 id
             case .groupHeader, .groupTail, .archiveHeader:
                 nil
@@ -297,12 +302,18 @@ public struct SidebarView: View {
             dropTargeted: tabDrag?.target == workspace.id,
             colors: colors,
             groupMenu: groupMenu(for: workspace),
-            onSelect: { store.selectWorkspace(workspace.id) },
+            // Un chiuso non si "seleziona": lo si riapre, o la finestra mostrerebbe un progetto
+            // senza terminali vivi.
+            onSelect: { store.openProject(workspace.id) },
             onTogglePin: { store.togglePin(workspace.id) },
             onRename: { store.renameWorkspace(workspace.id, to: $0) },
             onRegenerateName: { onRegenerateName(workspace) },
             onToggleUnread: { toggleUnread(workspace) },
-            onToggleArchive: { store.toggleArchive(workspace.id) },
+            onToggleClosed: {
+                if workspace.closed { store.setClosed(workspace.id, false) } else {
+                    onCloseProject(workspace)
+                }
+            },
             // Solo se la finestra ha altro da mostrare dopo: altrimenti resterebbe vuota.
             onMoveToNewWindow: store.workspaces(in: windowID).count > 1
                 ? { onMoveWorkspaceToNewWindow(workspace) }

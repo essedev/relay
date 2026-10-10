@@ -119,9 +119,9 @@ public final class WorkspaceStore {
         sidebarItems(in: windowID).flatMap(\.workspaces)
     }
 
-    /// Gli archiviati di una finestra (la sua sezione Archive).
-    public func archivedWorkspaces(in windowID: UUID) -> [Workspace] {
-        workspaces.filter { $0.windowID == windowID && $0.archived }
+    /// I progetti chiusi di una finestra, in ordine canonico.
+    public func closedWorkspaces(in windowID: UUID) -> [Workspace] {
+        workspaces.filter { $0.windowID == windowID && $0.closed }
     }
 
     /// Ordine di visualizzazione della lista principale: esclude gli archiviati (vivono nella loro
@@ -134,10 +134,10 @@ public final class WorkspaceStore {
         orderedWorkspaces(in: keyWindowID)
     }
 
-    /// Workspace archiviati (sezione Archive in fondo alla sidebar), in ordine canonico. Non
-    /// galleggiano e non entrano in `orderedWorkspaces`.
-    public var archivedWorkspaces: [Workspace] {
-        archivedWorkspaces(in: keyWindowID)
+    /// Progetti chiusi della finestra key, in ordine canonico. Non galleggiano e non entrano in
+    /// `orderedWorkspaces`.
+    public var closedWorkspaces: [Workspace] {
+        closedWorkspaces(in: keyWindowID)
     }
 
     // MARK: - Workspace
@@ -186,6 +186,8 @@ public final class WorkspaceStore {
         guard let workspace = workspaces.first(where: { $0.id == id }) else { return }
         activateWindow(workspace.windowID)
         keyWindow?.selectedWorkspaceID = id
+        // Scegliere un progetto è andarci: la pagina (Home, Projects) lascia il posto ai terminali.
+        keyWindow?.page = .workspace
     }
 
     /// Pin di una riga libera. **No-op dentro un gruppo**: lì a salire in testa è la card intera
@@ -197,41 +199,58 @@ public final class WorkspaceStore {
         workspace.pinned.toggle()
     }
 
-    /// Archivia o ripristina un workspace (menu contestuale, drag sulla sezione Archive).
-    /// Archiviare lo mette via: lo de-pinna (mutuamente esclusivi) e, se era il selezionato, sposta
-    /// la selezione al primo visibile. Non archivia l'ultimo workspace visibile (la lista
-    /// principale
-    /// resterebbe vuota): in quel caso è un no-op. Ripristinare lo rende di nuovo visibile senza
-    /// cambiare la selezione.
-    public func setArchived(_ id: UUID, _ archived: Bool) {
+    /// Chiude o riapre un progetto. Chiudere è il gesto **normale** per mettere via un progetto,
+    /// quindi non deve far perdere niente: il workspace resta con nome, cartella, gruppo, layout e
+    /// tab, e le sessioni agente vengono disattivate tenendo il loro `ResumeBinding` (stesso
+    /// marker di `deactivate`, così l'hook `SessionEnd` dell'agente che muore non lo azzera).
+    /// Riaprire lo rimette in sidebar: le surface rinascono al primo focus e la barra di resume
+    /// ripropone le sessioni, come dopo un riavvio.
+    ///
+    /// Chiudendo: de-pinna, spegne i marker di attenzione (l'hai messo via tu, non ti sta
+    /// aspettando) e, se era il selezionato della sua finestra, la selezione passa al primo
+    /// aperto; se non ne restano, la finestra mostra Home. Il gruppo **resta**: la card mostra solo
+    /// i membri aperti e torna quando ne riapri uno.
+    ///
+    /// Ritorna gli id delle tab le cui surface vanno buttate (tutte, chiudendo; nessuna,
+    /// riaprendo). Marca prima, la surface la butta il chiamante **dopo**: l'ordine è quello della
+    /// disattivazione (vedi `docs/features/session-deactivation.md`).
+    @discardableResult
+    public func setClosed(_ id: UUID, _ closed: Bool) -> [UUID] {
         guard let workspace = workspaces.first(where: { $0.id == id }),
-              workspace.archived != archived else { return }
-        let window = workspace.windowID
-        if archived {
-            // L'ultimo visibile **della sua finestra**: archiviarlo lascerebbe quella sidebar
-            // vuota.
-            let hasVisibleSibling = workspaces.contains {
-                !$0.archived && $0.id != id && $0.windowID == window
-            }
-            guard hasVisibleSibling else { return }
-            workspace.archived = true
-            workspace.pinned = false
-            // Archiviare è mettere via: esce anche dal gruppo (l'archivio non ha card dentro), e
-            // se era l'ultimo membro il gruppo muore con lui.
-            workspace.groupID = nil
-            pruneEmptyGroups()
-            let owner = windows.first { $0.id == window }
-            if owner?.selectedWorkspaceID == id {
-                owner?.selectedWorkspaceID = orderedWorkspaces(in: window).first?.id
-            }
-        } else {
-            workspace.archived = false
+              workspace.closed != closed else { return [] }
+        guard closed else {
+            workspace.closed = false
+            return []
         }
+        let window = workspace.windowID
+        let tabIDs = workspace.tabs.map(\.id)
+        deactivate(Set(tabIDs))
+        for tabID in tabIDs {
+            dismissAttention(tabID)
+        }
+        workspace.closed = true
+        workspace.pinned = false
+        if let owner = windows.first(where: { $0.id == window }), owner.selectedWorkspaceID == id {
+            let heir = orderedWorkspaces(in: window).first
+            owner.selectedWorkspaceID = heir?.id
+            if heir == nil { owner.page = .home }
+        }
+        return tabIDs
     }
 
-    public func toggleArchive(_ id: UUID) {
+    @discardableResult
+    public func toggleClosed(_ id: UUID) -> [UUID] {
+        guard let workspace = workspaces.first(where: { $0.id == id }) else { return [] }
+        return setClosed(id, !workspace.closed)
+    }
+
+    /// Riapre un progetto chiuso e lo porta in vista nella sua finestra, con la card del suo
+    /// gruppo aperta. Su un progetto già aperto è solo la selezione.
+    public func openProject(_ id: UUID) {
         guard let workspace = workspaces.first(where: { $0.id == id }) else { return }
-        setArchived(id, !workspace.archived)
+        setClosed(id, false)
+        if let groupID = workspace.groupID { group(groupID)?.collapsed = false }
+        selectWorkspace(id)
     }
 
     /// Rinomina un workspace (azione utente esplicita dal menu contestuale). Nome vuoto (solo
@@ -257,8 +276,11 @@ public final class WorkspaceStore {
         // La selezione della finestra che lo mostrava cade su un vicino **della stessa finestra**:
         // una finestra non può mostrare un workspace che non le appartiene.
         if let owner = windows.first(where: { $0.id == window }), owner.selectedWorkspaceID == id {
-            let siblings = workspaces(in: window)
-            owner.selectedWorkspaceID = (orderedWorkspaces(in: window).first ?? siblings.first)?.id
+            // Solo un aperto: un chiuso selezionato sarebbe un right pane senza terminali. Se non
+            // ne restano, la finestra mostra Home.
+            let heir = orderedWorkspaces(in: window).first
+            owner.selectedWorkspaceID = heir?.id
+            if heir == nil { owner.page = .home }
         }
         return removedTabIDs
     }

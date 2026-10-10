@@ -25,13 +25,16 @@ public final class Workspace: Identifiable {
     public internal(set) var isNaming: Bool = false
     public var rootPath: String?
     public var pinned: Bool
-    /// Messo via: fuori dalla lista principale, raccolto nella sezione Archive in fondo alla
-    /// sidebar. Mutuamente esclusivo con `pinned` (tenere in cima vs mettere via); un archiviato
-    /// non viene nemmeno bumpato in cima dall'attività (esce da `orderedWorkspaces`).
-    public var archived: Bool
+    /// Progetto **chiuso**: niente terminali vivi, fuori dalla sidebar, raggiungibile dal catalogo
+    /// (pagina Projects, palette). Tiene tutto quello che serve a tornarci: nome, cartella, gruppo,
+    /// layout dei pane e tab con i loro `ResumeBinding` (vedi `WorkspaceStore.setClosed`).
+    /// Mutuamente esclusivo con `pinned`; un chiuso non viene bumpato dall'attività (esce da
+    /// `orderedWorkspaces`). Sul disco è il vecchio campo `archived`.
+    public var closed: Bool
     /// Il gruppo che lo contiene (`nil` = workspace libero). L'appartenenza vive qui e non nel
     /// gruppo: vedi `WorkspaceGroup`. Mutuamente esclusivo con `pinned` (dentro un gruppo pinna la
-    /// card, non la riga) e con `archived` (archiviare tira fuori dal gruppo).
+    /// card, non la riga). Un progetto chiuso **resta** nel suo gruppo: la card mostra solo i
+    /// membri aperti, e torna quando ne riapri uno.
     public var groupID: UUID?
     public private(set) var tabs: [Tab]
     /// Disposizione dei pane, **sempre presente**: il pane singolo è un `.pane` con tutte le tab,
@@ -47,7 +50,7 @@ public final class Workspace: Identifiable {
         nameOrigin: NameOrigin = .user,
         rootPath: String? = nil,
         pinned: Bool = false,
-        archived: Bool = false,
+        closed: Bool = false,
         groupID: UUID? = nil,
         tabs: [Tab] = [],
         selectedTabID: UUID? = nil,
@@ -60,7 +63,7 @@ public final class Workspace: Identifiable {
         self.nameOrigin = nameOrigin
         self.rootPath = rootPath
         self.pinned = pinned
-        self.archived = archived
+        self.closed = closed
         self.groupID = groupID
         self.tabs = tabs
         // Il layout passato (restore) viene sanitizzato contro le tab reali; le tab rimaste fuori

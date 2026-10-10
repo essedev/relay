@@ -16,9 +16,10 @@ public extension WorkspaceStore {
         groups.first { $0.id == id }
     }
 
-    /// I membri di un gruppo in ordine canonico (l'ordine con cui la card li mostra).
+    /// I membri **aperti** di un gruppo in ordine canonico (quelli che la card mostra): i chiusi
+    /// restano membri, ma stanno nel catalogo.
     func members(of groupID: UUID) -> [Workspace] {
-        workspaces.filter { $0.groupID == groupID && !$0.archived }
+        workspaces.filter { $0.groupID == groupID && !$0.closed }
     }
 
     // MARK: - Ciclo di vita
@@ -41,7 +42,6 @@ public extension WorkspaceStore {
         for member in members {
             member.groupID = group.id
             member.pinned = false
-            member.archived = false
         }
         // Compatta dopo aver marcato tutti: `compact` legge `groupID`.
         compact(group.id, around: first.id)
@@ -58,8 +58,8 @@ public extension WorkspaceStore {
         groups.removeAll { $0.id == groupID }
     }
 
-    /// Mette un workspace in un gruppo. Esce dal pin e dall'archivio (dentro una card non si sta
-    /// archiviati) e si posiziona prima di `targetID` fra i membri, o in fondo alla card se `nil`.
+    /// Mette un workspace in un gruppo. Esce dal pin (dentro una card pinna la card) e si
+    /// posiziona prima di `targetID` fra i membri, o in fondo alla card se `nil`.
     /// No-op se il gruppo non esiste.
     func addToGroup(_ id: UUID, group groupID: UUID, before targetID: UUID? = nil) {
         guard let workspace = workspaces.first(where: { $0.id == id }),
@@ -67,14 +67,13 @@ public extension WorkspaceStore {
         let previous = workspace.groupID
         workspace.groupID = groupID
         workspace.pinned = false
-        workspace.archived = false
         place(id, inGroup: groupID, before: targetID)
         if previous != nil, previous != groupID { pruneEmptyGroups() }
     }
 
     /// Cambia (o toglie) l'appartenenza **senza** toccare la posizione: la usa il drop della
     /// sidebar, che il posizionamento lo decide da sé (slot rilasciato) e lo applica dopo con
-    /// `moveWorkspace`. Entrando in un gruppo il workspace lascia pin e archivio; uscendo, la card
+    /// `moveWorkspace`. Entrando in un gruppo il workspace lascia il pin; uscendo, la card
     /// rimasta vuota muore. No-op se il gruppo indicato non esiste.
     func assignGroup(_ id: UUID, to groupID: UUID?) {
         guard let workspace = workspaces.first(where: { $0.id == id }),
@@ -82,7 +81,6 @@ public extension WorkspaceStore {
         if let groupID {
             guard groups.contains(where: { $0.id == groupID }) else { return }
             workspace.pinned = false
-            workspace.archived = false
         }
         workspace.groupID = groupID
         pruneEmptyGroups()
@@ -164,7 +162,8 @@ public extension WorkspaceStore {
 
 extension WorkspaceStore {
     /// Cancella i gruppi rimasti senza membri. Chiamato da ogni operazione che può svuotarne uno
-    /// (uscita, archiviazione, chiusura del workspace).
+    /// (uscita, cambio finestra, rimozione del workspace). Un progetto chiuso conta: il suo gruppo
+    /// esiste ancora, anche se in sidebar la card non si vede.
     func pruneEmptyGroups() {
         let alive = Set(workspaces.compactMap(\.groupID))
         groups.removeAll { !alive.contains($0.id) }

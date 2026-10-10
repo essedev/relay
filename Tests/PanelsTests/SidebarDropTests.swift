@@ -23,9 +23,9 @@ private func group(
 }
 
 private func plan(
-    _ items: [SidebarLayout.Item], archived: [UUID] = [], archiveExpanded: Bool = true
+    _ items: [SidebarLayout.Item], closed: [UUID] = [], archiveExpanded: Bool = true
 ) -> SidebarLayout.Plan {
-    SidebarLayout.plan(items: items, archived: archived, archiveExpanded: archiveExpanded)
+    SidebarLayout.plan(items: items, closed: closed, archiveExpanded: archiveExpanded)
 }
 
 // MARK: - Piano
@@ -53,7 +53,7 @@ private func plan(
 }
 
 @Test func archiveHeaderIsAlwaysPresentAsDropZone() {
-    let p = plan([free(a)], archived: [], archiveExpanded: false)
+    let p = plan([free(a)], closed: [], archiveExpanded: false)
     #expect(p.rows.last == .archiveHeader)
     #expect(p.slots.last == .archive)
 }
@@ -128,7 +128,7 @@ private func plan(
 
 @Test func dropUnderTheArchiveHeaderArchives() {
     let items = [free(a), free(b)]
-    let p = plan(items, archived: [d])
+    let p = plan(items, closed: [d])
     // Piano: a, b, archiveHeader, d. Slot 3 = subito sotto l'header.
     #expect(SidebarDrop.resolve(plan: p, items: items, dragged: .workspace(a), insertion: 3)
         == SidebarDrop.Resolution(container: .archive, move: .before(d)))
@@ -136,14 +136,14 @@ private func plan(
 
 @Test func archivedDraggedBackIntoTheListIsRestored() {
     let items = [free(a), free(b)]
-    let p = plan(items, archived: [d])
+    let p = plan(items, closed: [d])
     #expect(SidebarDrop.resolve(plan: p, items: items, dragged: .workspace(d), insertion: 1)
         == SidebarDrop.Resolution(container: .root(pinned: false), move: .before(b)))
 }
 
 @Test func archiveWithNoRowsStillAcceptsADrop() {
     let items = [free(a), free(b)]
-    let p = plan(items, archived: [], archiveExpanded: true)
+    let p = plan(items, closed: [], archiveExpanded: true)
     let drop = SidebarDrop.resolve(plan: p, items: items, dragged: .workspace(a), insertion: 3)
     // Nessun compagno di contenitore: resta il solo cambio di contenitore, senza ancora utile.
     #expect(drop?.container == .archive)

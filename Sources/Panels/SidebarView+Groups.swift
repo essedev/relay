@@ -64,7 +64,7 @@ extension SidebarView {
     /// Voci di gruppo del menu contestuale di una riga. Un archiviato non le ha: nell'archivio non
     /// ci sono card (entrare in un gruppo lo ripescherebbe fuori, che è il lavoro di "Unarchive").
     func groupMenu(for workspace: Workspace) -> WorkspaceGroupMenu? {
-        guard !workspace.archived else { return nil }
+        guard !workspace.closed else { return nil }
         let others = store.groups.filter { group in
             group.id != workspace.groupID
                 && store.members(of: group.id).contains { $0.windowID == windowID }

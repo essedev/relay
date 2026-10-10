@@ -15,7 +15,7 @@ extension AppController {
     func runUpdateInTab() {
         let name = "Relay Update"
         let tab: WorkspaceModel.Tab
-        if let existing = store.workspaces.first(where: { $0.name == name && !$0.archived }) {
+        if let existing = store.workspaces.first(where: { $0.name == name && !$0.closed }) {
             store.selectWorkspace(existing.id)
             tab = store.addTab(to: existing)
         } else {

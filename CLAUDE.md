@@ -100,6 +100,9 @@ Ogni file raccoglie invarianti e trappole già pagate: violarle rompe cose che i
   chiusura delle sessioni pty (teardown e orfani di uscita e crash).
 - `docs/features/sidebar.md` - lista dei workspace, dove nasce una cosa nuova, archivio, drag &
   drop, e il drag di una tab da una strip a un altro workspace (`TabDragSession`).
+- `docs/features/projects.md` - progetti aperti e chiusi: chiudere tiene gruppo, tab e resume;
+  `RelayWindow.page` (Home, Projects). **Invariante**: mai selezionare un chiuso; `setClosed` marca,
+  le surface le butta il chiamante dopo.
 - `docs/features/workspace-groups.md` - card di gruppo: l'appartenenza vive sul workspace, il
   gruppo porta solo l'aspetto; un gruppo senza membri non esiste.
 - `docs/features/split-panes.md` - modello cmux v2: i pane ospitano le tab, "visibile" vs

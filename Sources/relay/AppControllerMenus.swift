@@ -18,9 +18,9 @@ extension AppController {
         store.togglePin(workspace.id)
     }
 
-    @objc func toggleSelectedWorkspaceArchive(_: Any?) {
+    @objc func closeSelectedProject(_: Any?) {
         guard let workspace = store.selectedWorkspace else { return }
-        store.toggleArchive(workspace.id)
+        requestCloseProject(workspace)
     }
 
     @objc func toggleSelectedTabUnread(_: Any?) {
@@ -114,8 +114,6 @@ extension AppController: NSMenuDelegate {
         guard let workspace = store.selectedWorkspace else { return }
         menu.item(withSelector: #selector(AppController.toggleSelectedWorkspacePin(_:)))?
             .title = workspace.pinned ? "Unpin" : "Pin"
-        menu.item(withSelector: #selector(AppController.toggleSelectedWorkspaceArchive(_:)))?
-            .title = workspace.archived ? "Unarchive" : "Archive"
         // Solo `unseen` è "unread" (segnale forte non visto): lì si offre "Mark as Read". Un
         // `pending` o un `none` si possono solo ri-alzare a forte. Stessa logica del contestuale.
         let isUnseen = workspace.selectedTab?.attention == .unseen
@@ -177,7 +175,7 @@ extension AppController: NSMenuItemValidation {
             guard let workspace = store.selectedWorkspace else { return false }
             return store.workspaces(in: workspace.windowID).count > 1
         case #selector(AppController.regenerateSelectedWorkspaceName(_:)),
-             #selector(AppController.toggleSelectedWorkspaceArchive(_:)),
+             #selector(AppController.closeSelectedProject(_:)),
              #selector(AppController.toggleSelectedWorkspaceGroup(_:)):
             return store.selectedWorkspace != nil
         case #selector(AppController.toggleSelectedWorkspacePin(_:)):

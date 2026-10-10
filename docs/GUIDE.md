@@ -84,9 +84,10 @@ you were looking elsewhere, which floats to the top of wherever it lives.
   waiting for you. A group with no members stops existing.
 - **Pinning** - A pinned row - or a whole pinned group - leads the list. Everything else keeps its
   own order below.
-- **Archive** - The section at the bottom is for projects you are not on right now. Archiving
-  unpins, and an archived workspace no longer floats up on activity, though a quiet dot on the
-  header tells you something happened in there.
+- **Closing a project** - Close a project you are not on right now, from the x on its row or the
+  Workspace menu. Nothing is lost: it keeps its group, its tabs and its agent sessions, which you
+  can resume when you open it again. Its processes stop, so the memory comes back. Closed projects
+  wait in the section at the bottom.
 
 Four things can be dragged, and they are all the same gesture - press a row or a tab and move it:
 
@@ -94,10 +95,10 @@ Four things can be dragged, and they are all the same gesture - press a row or a
 - **A workspace, in or out of a group card** - Dropping just inside the bottom edge of a card means
   joining it; dropping just below means leaving it. The card has a dedicated last row so the two are
   never the same pixel.
-- **Anything, onto Archive** - Drag it back out when the project wakes up. The Archive header is
-  always there, even when empty, so the target never moves.
+- **A workspace, onto Closed** - Closes the project; drag it back out to open it again. The header
+  is always there, even when empty, so the target never moves.
 - **A tab, onto another workspace** - Pull a tab out of its strip and drop it on a workspace row: it
-  moves there with its terminal still running, and the target is revealed - unarchived, its card
+  moves there with its terminal still running, and the target is revealed - reopened, its card
   opened. Moving the last tab out closes the workspace it came from.
 
 **Note:** The sidebar does not scroll while you drag a tab onto it, so scroll to the target first.

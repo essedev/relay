@@ -75,7 +75,7 @@ public struct RuntimeStatsView: View {
                     title: "Workspaces",
                     value: "\(snapshot.workspaceCount)",
                     detail: "\(snapshot.visibleWorkspaceCount) visible, "
-                        + "\(snapshot.archivedWorkspaceCount) archived",
+                        + "\(snapshot.archivedWorkspaceCount) closed",
                     colors: colors
                 )
                 StatCard(

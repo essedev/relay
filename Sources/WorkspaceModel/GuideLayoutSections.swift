@@ -129,11 +129,12 @@ extension Guide {
                     GuideTopic("pin", "Pinning",
                                "A pinned row - or a whole pinned group - leads the list. "
                                    + "Everything else keeps its own order below."),
-                    GuideTopic("archivebox", "Archive",
-                               "The section at the bottom is for projects you are not on right "
-                                   + "now. Archiving unpins, and an archived workspace no longer "
-                                   + "floats up on activity, though a quiet dot on the header "
-                                   + "tells you something happened in there."),
+                    GuideTopic("archivebox", "Closing a project",
+                               "Close a project you are not on right now, from the x on its row "
+                                   + "or the Workspace menu. Nothing is lost: it keeps its group, "
+                                   + "its tabs and its agent sessions, which you can resume when "
+                                   + "you open it again. Its processes stop, so the memory comes "
+                                   + "back. Closed projects wait in the section at the bottom."),
                 ]),
                 .paragraph(
                     "Four things can be dragged, and they are all the same gesture - press a row "
@@ -146,13 +147,14 @@ extension Guide {
                                "Dropping just inside the bottom edge of a card means joining it; "
                                    + "dropping just below means leaving it. The card has a "
                                    + "dedicated last row so the two are never the same pixel."),
-                    GuideTopic("archivebox", "Anything, onto Archive",
-                               "Drag it back out when the project wakes up. The Archive header is "
-                                   + "always there, even when empty, so the target never moves."),
+                    GuideTopic("archivebox", "A workspace, onto Closed",
+                               "Closes the project; drag it back out to open it again. The "
+                                   + "header is always there, even when empty, so the target "
+                                   + "never moves."),
                     GuideTopic("arrow.right.doc.on.clipboard", "A tab, onto another workspace",
                                "Pull a tab out of its strip and drop it on a workspace row: it "
                                    + "moves there with its terminal still running, and the target "
-                                   + "is revealed - unarchived, its card opened. Moving the last "
+                                   + "is revealed - reopened, its card opened. Moving the last "
                                    + "tab out closes the workspace it came from."),
                 ]),
                 .note(

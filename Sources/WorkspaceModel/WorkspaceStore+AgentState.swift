@@ -57,7 +57,10 @@ public extension WorkspaceStore {
             // con l'app in primo piano. Non serve che la finestra sia **key**: su due monitor
             // quella che fissi spesso non ha il focus, e notificarla sarebbe il bug del caso d'uso
             // che motiva il multi-window.
+            // Una pagina (Home, Projects) copre i terminali: la tab non è in vista anche se resta
+            // la selezionata.
             let isVisible = window(of: workspace)?.selectedWorkspaceID == workspace.id
+                && window(of: workspace)?.page == .workspace
                 && workspace.isVisible(tab.id)
                 && isWindowVisible(workspace.windowID)
                 && appActive

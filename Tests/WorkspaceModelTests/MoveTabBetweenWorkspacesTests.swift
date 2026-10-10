@@ -40,11 +40,11 @@ import Testing
     let src = store.createWorkspace(name: "src")
     let dst = store.createWorkspace(name: "dst")
     let mover = store.addTab(to: src)
-    store.setArchived(dst.id, true)
+    store.setClosed(dst.id, true)
 
     store.moveTab(mover.id, from: src, to: dst)
 
-    #expect(dst.archived == false)
+    #expect(dst.closed == false)
     #expect(store.selectedWorkspaceID == dst.id)
 }
 

@@ -10,14 +10,14 @@ extension SidebarView {
     /// workspace archiviati in uno ScrollView che si adatta al contenuto fino a `maxListHeight`
     /// (~metà sidebar), poi scrolla dentro. A vuoto mostra un empty state se aperta.
     func archiveSection(
-        _ archived: [Workspace],
+        _ closed: [Workspace],
         plan: SidebarLayout.Plan,
         colors: ChromeColors,
         maxListHeight: CGFloat
     ) -> some View {
         VStack(spacing: 0) {
             Divider()
-            archiveHeader(colors, count: archived.count, attention: hasArchivedAttention(archived))
+            archiveHeader(colors, count: closed.count, attention: hasArchivedAttention(closed))
                 .sidebarReorderSlot(
                     index: plan.index(of: .archiveHeader),
                     space: SidebarView.space,
@@ -34,14 +34,14 @@ extension SidebarView {
             // (la causa dell'archivio che non si apriva).
             ScrollView {
                 VStack(spacing: 1) {
-                    if archived.isEmpty {
+                    if closed.isEmpty {
                         archiveEmptyState(colors)
                     } else {
-                        ForEach(archived) { workspace in
+                        ForEach(closed) { workspace in
                             draggable(
                                 .workspace(workspace.id),
                                 plan: plan,
-                                row: .archived(workspace.id),
+                                row: .closed(workspace.id),
                                 viewport: .archive
                             ) {
                                 makeRow(workspace, colors: colors)
@@ -75,7 +75,7 @@ extension SidebarView {
 
     /// Empty state dell'archivio aperto e vuoto: una riga discreta, non un box vistoso.
     private func archiveEmptyState(_ colors: ChromeColors) -> some View {
-        Text("No archived workspaces")
+        Text("No closed projects")
             .font(Theme.Typography.subtitle)
             .foregroundStyle(colors.secondary)
             .frame(maxWidth: .infinity, alignment: .center)
@@ -102,7 +102,7 @@ extension SidebarView {
                 Image(systemName: "archivebox")
                     .font(Theme.Typography.rowIcon)
                     .foregroundStyle(colors.secondary)
-                Text("Archive")
+                Text("Closed")
                     .font(Theme.Typography.item)
                     .foregroundStyle(colors.foreground)
                 if count > 0 {
@@ -123,8 +123,8 @@ extension SidebarView {
         .help(settings.archiveExpanded ? "Collapse archive" : "Expand archive")
     }
 
-    private func hasArchivedAttention(_ archived: [Workspace]) -> Bool {
-        archived.contains { $0.needsAttention }
+    private func hasArchivedAttention(_ closed: [Workspace]) -> Bool {
+        closed.contains { $0.needsAttention }
     }
 
     // MARK: - Riga in volo
@@ -200,14 +200,17 @@ extension SidebarView {
         switch drop.container {
         case let .root(pinned):
             store.assignGroup(id, to: nil)
-            store.setArchived(id, false)
+            store.setClosed(id, false)
             store.setPinned(id, pinned)
         case let .group(groupID):
-            store.setArchived(id, false)
+            store.setClosed(id, false)
             store.assignGroup(id, to: groupID)
         case .archive:
-            store.assignGroup(id, to: nil)
-            store.setArchived(id, true)
+            // Passa dal composition root: chiudere spegne le sessioni, e con lavoro in corso va
+            // confermato. Il gruppo resta (un progetto chiuso è ancora del suo gruppo).
+            if let workspace = store.workspaces.first(where: { $0.id == id }) {
+                onCloseProject(workspace)
+            }
         }
         apply(drop.move, to: id)
     }

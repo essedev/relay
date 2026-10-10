@@ -42,16 +42,30 @@ import Testing
     #expect(store.groups.isEmpty)
 }
 
-@Test func archivingAMemberTakesItOutOfTheCard() throws {
+@Test func closingAMemberKeepsItInTheGroupButOutOfTheCard() throws {
     let store = WorkspaceStore()
     let a = store.createWorkspace(name: "a")
     let b = store.createWorkspace(name: "b")
     store.createWorkspace(name: "c")
     let group = try #require(store.createGroup(name: "Work", with: [a.id, b.id]))
 
-    store.setArchived(a.id, true)
-    #expect(a.groupID == nil)
-    #expect(store.members(of: group.id).map(\.id) == [b.id])
+    store.setClosed(a.id, true)
+    #expect(a.groupID == group.id) // resta del gruppo: lo ritrovi lì quando lo riapri
+    #expect(store.members(of: group.id).map(\.id) == [b.id]) // la card mostra gli aperti
+}
+
+@Test func aGroupWhoseMembersAreAllClosedStillExists() throws {
+    let store = WorkspaceStore()
+    let a = store.createWorkspace(name: "a")
+    store.createWorkspace(name: "b")
+    let group = try #require(store.createGroup(name: "Work", with: [a.id]))
+
+    store.setClosed(a.id, true)
+
+    #expect(store.groups.map(\.id) == [group.id])
+    #expect(!store.sidebarItems.contains { $0.id == group.id }) // ma la card non si vede
+    store.openProject(a.id)
+    #expect(store.sidebarItems.contains { $0.id == group.id })
 }
 
 @Test func pinnedGroupLeadsTheSidebar() throws {

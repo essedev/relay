@@ -104,7 +104,7 @@ import Testing
     let store = WorkspaceStore()
     let a = store.createWorkspace(name: "a")
     let b = store.createWorkspace(name: "b")
-    store.setArchived(a.id, true)
+    store.setClosed(a.id, true)
     store.keyWindow?.selectedWorkspaceID = a.id // stato limite: un archiviato come selezione
 
     let inserted = store.createWorkspace(name: "new")

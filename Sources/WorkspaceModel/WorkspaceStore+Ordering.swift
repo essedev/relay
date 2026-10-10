@@ -83,7 +83,7 @@ public extension WorkspaceStore {
         // Nasce accanto al workspace d'origine e nel suo gruppo (stessa regola di
         // `createWorkspace`): la tab estratta resta dove stavi lavorando. Non se l'origine è
         // archiviato: lì l'ancora non ha una posizione visibile in lista.
-        let anchored = !workspace.archived
+        let anchored = !workspace.closed
         let newWorkspace = Workspace(
             windowID: workspace.windowID,
             name: name,
@@ -115,10 +115,10 @@ extension WorkspaceStore {
     func bumpWorkspaceToTop(_ id: UUID) {
         // In cima **alla sua sidebar**: il bump riordina dentro la finestra che lo mostra, non lo
         // strappa in testa alla lista globale (che nessuno vede intera).
-        guard let ws = workspaces.first(where: { $0.id == id }), !ws.archived else { return }
+        guard let ws = workspaces.first(where: { $0.id == id }), !ws.closed else { return }
         if let groupID = ws.groupID {
             guard let first = workspaces.first(where: {
-                $0.groupID == groupID && $0.windowID == ws.windowID && !$0.archived
+                $0.groupID == groupID && $0.windowID == ws.windowID && !$0.closed
             }), first.id != id else { return }
             moveWorkspace(id, before: first.id)
             return
@@ -142,7 +142,7 @@ extension WorkspaceStore {
     func insertionAnchor(in windowID: UUID) -> Workspace? {
         guard let selected = windows.first(where: { $0.id == windowID })?.selectedWorkspaceID,
               let workspace = workspaces.first(where: { $0.id == selected }),
-              workspace.windowID == windowID, !workspace.archived else { return nil }
+              workspace.windowID == windowID, !workspace.closed else { return nil }
         return workspace
     }
 }

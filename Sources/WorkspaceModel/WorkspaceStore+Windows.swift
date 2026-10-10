@@ -59,8 +59,9 @@ public extension WorkspaceStore {
     private func reselectAfterLeaving(_ origin: UUID, movedAway id: UUID) {
         guard let window = windows.first(where: { $0.id == origin }),
               window.selectedWorkspaceID == id else { return }
-        window.selectedWorkspaceID = (orderedWorkspaces(in: origin).first
-            ?? workspaces(in: origin).first)?.id
+        // Solo un aperto; se la finestra non ne ha più, mostra Home.
+        window.selectedWorkspaceID = orderedWorkspaces(in: origin).first?.id
+        if window.selectedWorkspaceID == nil { window.page = .home }
     }
 
     /// Sposta un workspace in una finestra **nuova**, che diventa la key ("Move to New Window").
@@ -75,7 +76,7 @@ public extension WorkspaceStore {
         let window = RelayWindow(selectedWorkspaceID: id, frame: frame)
         windows.append(window)
         workspace.windowID = window.id
-        workspace.archived = false // una finestra che mostra un archiviato sarebbe vuota
+        workspace.closed = false // una finestra che mostra un chiuso sarebbe vuota
         leaveGroupOnWindowChange(workspace)
         reselectAfterLeaving(origin, movedAway: id)
         activateWindow(window.id)
@@ -120,8 +121,8 @@ public extension WorkspaceStore {
             $0.id == shown && $0.windowID == heirID
         }
         if !stillShowsOneOfItsOwn {
-            heirWindow.selectedWorkspaceID = (orderedWorkspaces(in: heirID).first
-                ?? workspaces(in: heirID).first)?.id
+            heirWindow.selectedWorkspaceID = orderedWorkspaces(in: heirID).first?.id
+            if heirWindow.selectedWorkspaceID == nil { heirWindow.page = .home }
         }
         if keyWindowID == windowID { activateWindow(heirID) }
         return orphans.map(\.id)

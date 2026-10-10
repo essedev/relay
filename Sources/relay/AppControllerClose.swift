@@ -65,6 +65,38 @@ extension AppController {
         }
     }
 
+    /// Chiude un progetto: lo toglie dalla sidebar tenendo tutto (gruppo, tab, sessioni da
+    /// riprendere) e ne termina i processi. Chiede conferma se qualche tab ha un comando in
+    /// foreground, perché quello si ferma davvero: un dev server non riparte da solo, una
+    /// sessione agente sì (dalla barra di resume, riaprendo).
+    func requestCloseProject(_ workspace: Workspace) {
+        let busy = workspace.tabs.filter { splitVC?.foregroundProcess(for: $0.id) != nil }
+        guard !busy.isEmpty else {
+            performCloseProject(workspace)
+            return
+        }
+        let info = busy.count == 1
+            ? "1 tab has a running process that will be stopped."
+            : "\(busy.count) tabs have running processes that will be stopped."
+        confirmClose(
+            title: "Close project \u{201C}\(workspace.name)\u{201D}?",
+            info: info + " Agent sessions can be resumed when you open the project again.",
+            in: workspace
+        ) { [weak self] in
+            self?.performCloseProject(workspace)
+        }
+    }
+
+    /// Marca prima, butta le surface dopo: l'agente che muore manda il suo `SessionEnd`, e deve
+    /// trovare la tab già marcata o azzererebbe il binding da riprendere.
+    private func performCloseProject(_ workspace: Workspace) {
+        let released = store.setClosed(workspace.id, true)
+        for tabID in released {
+            registry.release(tabID)
+        }
+        log.info("closed project: \(released.count, privacy: .public) surface(s) released")
+    }
+
     /// Esegue la chiusura effettiva, poi ripristina l'invariante "**la finestra** non resta mai
     /// vuota" (per-finestra, non globale: con più finestre il controllo globale non scatterebbe e
     /// una secondaria svuotata resterebbe aperta, key e inerte - ogni comando su

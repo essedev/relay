@@ -31,7 +31,7 @@ enum SidebarLayout {
         case member(UUID, group: UUID)
         case groupTail(UUID)
         case archiveHeader
-        case archived(UUID)
+        case closed(UUID)
     }
 
     /// Natura di un elemento di primo livello: riga libera o card coi suoi membri.
@@ -75,7 +75,7 @@ enum SidebarLayout {
     /// **sempre** presente in fondo anche a zero archiviati: è la drop zone dell'archiviazione.
     static func plan(
         items: [Item],
-        archived: [UUID],
+        closed: [UUID],
         archiveExpanded: Bool
     ) -> Plan {
         var rows: [Row] = []
@@ -104,8 +104,8 @@ enum SidebarLayout {
         rows.append(.archiveHeader)
         slots.append(.archive) // sotto l'header si archivia, anche a sezione chiusa
         if archiveExpanded {
-            for id in archived {
-                rows.append(.archived(id))
+            for id in closed {
+                rows.append(.closed(id))
                 slots.append(.archive)
             }
         }
@@ -147,7 +147,7 @@ extension SidebarLayout.Plan {
             )
         case .archiveHeader:
             return nil
-        case let .archived(id):
+        case let .closed(id):
             return SidebarLayout.Anchor(id: id, container: .archive)
         }
     }

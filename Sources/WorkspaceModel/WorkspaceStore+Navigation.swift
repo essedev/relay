@@ -18,7 +18,7 @@ public extension WorkspaceStore {
     /// AppKit qui). No-op se il workspace non esiste più.
     func reveal(workspaceID: UUID, tabID: UUID) {
         guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
-        if workspace.archived { setArchived(workspaceID, false) }
+        if workspace.closed { setClosed(workspaceID, false) }
         // Stessa ragione dell'archivio: un membro di una card chiusa è invisibile, quindi
         // selezionarlo senza aprirla lascerebbe la sidebar a indicare il nulla.
         if let groupID = workspace.groupID { group(groupID)?.collapsed = false }

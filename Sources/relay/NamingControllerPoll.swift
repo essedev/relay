@@ -17,7 +17,7 @@ extension NamingController {
         let generation = observerGeneration
         let eligible = withObservationTracking {
             settings.workspaceNamingEnabled
-                && store.workspaces.contains { !$0.archived && $0.nameOrigin == .default }
+                && store.workspaces.contains { !$0.closed && $0.nameOrigin == .default }
         } onChange: { [weak self] in
             Task { @MainActor in
                 // Un osservatore di una generazione precedente ha già un successore: lasciarlo
@@ -77,7 +77,7 @@ extension NamingController {
     }
 
     func isEligible(_ workspace: Workspace) -> Bool {
-        !workspace.archived
+        !workspace.closed
             && workspace.nameOrigin == .default
             && !abandoned.contains(workspace.id)
             && !inFlight.contains(workspace.id)

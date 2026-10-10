@@ -1,0 +1,56 @@
+# Progetti aperti e chiusi
+
+Un workspace è un **progetto**: una cartella con le sue tab, il suo gruppo, le sue sessioni. Può
+essere **aperto** (terminali vivi, in sidebar) o **chiuso** (nessun processo, nel catalogo). Il resto
+della guida sta in `../../CLAUDE.md`.
+
+## Perché
+
+Con decine di progetti la sidebar diventava una lista di segnalibri: chiudere un workspace voleva
+dire perderne nome, cartella, gruppo e sessioni da riprendere, quindi restava tutto aperto. Una
+sessione agente costa ~200 MB e ~9 processi (`docs/research/PERF.md`) e il cap LRU per scelta non la
+tocca: la memoria era tutta lì. Chiudere deve essere il gesto **normale** e sicuro, non una perdita.
+
+## Modello
+
+Nessuna entità nuova: `Workspace.closed` (sul disco è il vecchio campo `archived`, vedi
+`WorkspaceSnapshot.CodingKeys`), quindi un layout di prima si legge senza migrazione e gli
+archiviati di prima diventano progetti chiusi.
+
+- **Chiudere** (`WorkspaceStore.setClosed(id, true)`): marca tutte le tab con il marker della
+  disattivazione (`deactivate`), spegne i marker di attenzione, de-pinna, e ritorna gli id delle
+  tab. Il chiamante (`AppController.requestCloseProject`) butta le surface **dopo**: è l'ordine
+  della disattivazione (`session-deactivation.md`), senza il quale il `SessionEnd` dell'agente
+  che muore azzererebbe il binding. Con un comando in foreground chiede conferma.
+- **Il gruppo resta.** Un chiuso è ancora membro (`groupID` intatto, anche al restore): la card
+  mostra solo i membri aperti (`members(of:)`, `sidebarItems`) e torna quando ne riapri uno.
+  `pruneEmptyGroups` conta anche i chiusi, quindi un gruppo coi membri tutti chiusi esiste.
+- **Riaprire** (`openProject`): toglie il flag, apre la card del gruppo, seleziona. Le surface
+  rinascono al primo focus e la barra di resume ripropone le sessioni, come dopo un riavvio: il
+  resume resta deliberato (niente `autoResumeAgents` su una tab disattivata).
+- **Si può chiudere l'ultimo aperto.** La finestra resta senza selezione e mostra Home
+  (`RelayWindow.page`). Vale anche per `closeWorkspace`, il restore e il rimpatrio di una finestra:
+  la selezione punta solo a un aperto, mai a un chiuso.
+- **Rimuovere** (`Remove Project`, `closeWorkspace`) resta il gesto distruttivo: il progetto esce
+  da Relay con le sue sessioni.
+
+## Pagina della finestra
+
+`RelayWindow.page` (`.workspace`, `.home`, `.projects`, volatile) dice cosa mostra il right pane.
+Le pagine coprono i terminali senza smontarli, quindi:
+
+- per gli eventi agente una tab sotto una pagina **non è in vista** (`applyAgentState`): un
+  completamento resta `unseen` e la notifica parte;
+- per la disattivazione e la LRU la surface resta **montata** (`isMounted`): c'è una view
+  attaccata, buttarla lascerebbe un terminale morto al ritorno.
+
+`selectWorkspace` riporta sempre a `.workspace`: scegliere un progetto è andarci.
+
+## Invarianti e trappole
+
+- Mai selezionare un chiuso: una finestra che lo mostra creerebbe le surface e farebbe ripartire le
+  shell di un progetto che risulta chiuso. Dalla sidebar un click su un chiuso è `openProject`.
+- `setClosed` marca, non uccide: chi chiude deve buttare le surface ritornate. Chiudere dallo store
+  senza passare dal composition root lascia processi vivi con la tab marcata.
+- La chiave su disco resta `archived`: non rinominarla, o un binario precedente leggerebbe tutti i
+  chiusi come aperti.

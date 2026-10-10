@@ -51,7 +51,7 @@ enum DemoSeeder {
     private static func seedPinAndArchive(into store: WorkspaceStore) {
         guard store.workspaces.count >= 4 else { return }
         store.togglePin(store.workspaces[2].id)
-        store.setArchived(store.workspaces[store.workspaces.count - 1].id, true)
+        store.setClosed(store.workspaces[store.workspaces.count - 1].id, true)
     }
 
     /// Uno split affiancato ("Split Right") sul primo workspace, più una tab: il modello

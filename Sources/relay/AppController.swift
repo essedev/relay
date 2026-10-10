@@ -131,6 +131,7 @@ final class AppController: NSObject, NSApplicationDelegate {
                 self?.moveWorkspaceToNewWindow(workspace)
             },
             onCloseWorkspace: { [weak self] workspace in self?.requestCloseWorkspace(workspace) },
+            onCloseProject: { [weak self] workspace in self?.requestCloseProject(workspace) },
             onDeactivateSessions: { [weak self] in self?.requestDeactivateWorkspace($0) },
             onRegenerateWorkspaceName: { [weak self] workspace in
                 self?.regenerateWorkspaceName(workspace.id)

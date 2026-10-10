@@ -18,7 +18,7 @@ public extension WorkspaceStore {
                     nameOrigin: workspace.nameOrigin,
                     rootPath: workspace.rootPath,
                     pinned: workspace.pinned,
-                    archived: workspace.archived,
+                    closed: workspace.closed,
                     groupID: workspace.groupID,
                     selectedTabID: workspace.selectedTabID,
                     splitLayout: workspace.layout,
@@ -109,11 +109,9 @@ public extension WorkspaceStore {
                 nameOrigin: workspace.nameOrigin,
                 rootPath: workspace.rootPath,
                 pinned: workspace.pinned,
-                archived: workspace.archived,
-                // Un archiviato non sta in una card: l'appartenenza salvata su un archiviato
-                // (file toccato a mano) viene lasciata cadere invece di produrre una card che
-                // pesca righe dall'archivio.
-                groupID: workspace.archived ? nil : workspace.groupID,
+                closed: workspace.closed,
+                // Un progetto chiuso resta nel suo gruppo (la card mostra solo gli aperti).
+                groupID: workspace.groupID,
                 tabs: tabs,
                 selectedTabID: selectedTabID,
                 layout: workspace.splitLayout,
@@ -124,15 +122,20 @@ public extension WorkspaceStore {
         // Gruppi rimasti senza membri (snapshot parziale, file editato a mano): non hanno una
         // posizione in sidebar, quindi non esistono.
         pruneEmptyGroups()
-        // La selezione deve puntare a un workspace VISIBILE (non archiviato): setArchived la sposta
-        // via dagli archiviati, ma un file editato a mano potrebbe averla lasciata su uno. Ricade
-        // sul primo visibile, e solo se tutti sono archiviati (degenere) sul primo assoluto.
+        validateSelections()
+    }
+
+    /// La selezione di ogni finestra deve puntare a un progetto APERTO: `setClosed` la sposta via
+    /// dai chiusi, ma un file editato a mano potrebbe averla lasciata su uno. Ricade sul primo
+    /// aperto; se la finestra non ne ha, mostra Home invece di un right pane senza terminali.
+    private func validateSelections() {
         for window in windows {
             let saved = window.selectedWorkspaceID
             let visible = orderedWorkspaces(in: window.id)
             window.selectedWorkspaceID = visible.contains { $0.id == saved }
                 ? saved
-                : visible.first?.id ?? workspaces(in: window.id).first?.id
+                : visible.first?.id
+            if window.selectedWorkspaceID == nil { window.page = .home }
         }
     }
 

@@ -33,11 +33,13 @@ Non è un dettaglio: è la decisione che tiene semplice tutto il resto.
   `place`) perché drag e bump lavorino su un ordine che somiglia a quello a schermo, ma la
   proiezione `sidebarItems` raccoglie comunque **tutti** i membri alla posizione del primo: un file
   di layout toccato a mano che li sparpaglia produce una card sola, non righe orfane.
-- **Un gruppo senza membri non esiste.** Uscita, archiviazione, cambio finestra o chiusura
+- **Un gruppo senza membri non esiste.** Uscita, cambio finestra o rimozione
   dell'ultimo membro lo cancellano (`pruneEmptyGroups`), come chiudere l'ultima tab chiude il
   workspace. Un `groupID` che punta a un gruppo inesistente degrada a riga libera.
-- **Esclusività.** `pinned`, `archived` e `groupID` non convivono: entrare in una card azzera pin e
-  archivio, archiviare o spostare in un'altra finestra tira fuori dalla card. Il pin del singolo
+- **Esclusività.** `pinned` e `groupID` non convivono: entrare in una card azzera il pin, spostare
+  in un'altra finestra tira fuori dalla card. Un progetto **chiuso** invece resta membro: la card
+  mostra solo gli aperti e un gruppo coi membri tutti chiusi esiste ancora
+  (`docs/features/projects.md`). Il pin del singolo
   membro sarebbe ambiguo (la card lo terrebbe comunque in mezzo agli altri), quindi `togglePin` è un
   no-op dentro un gruppo e la voce di menu sparisce.
 

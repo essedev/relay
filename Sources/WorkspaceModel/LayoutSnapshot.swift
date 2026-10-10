@@ -99,9 +99,11 @@ public struct WorkspaceSnapshot: Codable, Equatable {
     public var nameOrigin: NameOrigin
     public var rootPath: String?
     public var pinned: Bool
-    /// Nella sezione Archive. Campo additivo (assente nei layout vecchi -> `false`), quindi non
-    /// richiede un bump di versione.
-    public var archived: Bool
+    /// Progetto chiuso: niente terminali vivi, fuori dalla sidebar, nel catalogo. Sul disco la
+    /// chiave resta `archived` (vedi `CodingKeys`): è lo stesso campo dell'archivio di prima, con
+    /// un significato più largo, quindi un layout vecchio si legge senza migrazione e un binario
+    /// vecchio continua a capire il nuovo. Campo additivo (assente -> `false`).
+    public var closed: Bool
     /// Il gruppo che lo contiene. Campo additivo (assente -> `nil`, riga libera). Un id che non
     /// trova il suo gruppo degrada a riga libera, non fa fallire il restore.
     public var groupID: UUID?
@@ -121,7 +123,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         nameOrigin: NameOrigin = .user,
         rootPath: String?,
         pinned: Bool,
-        archived: Bool = false,
+        closed: Bool = false,
         groupID: UUID? = nil,
         selectedTabID: UUID?,
         splitLayout: SplitNode? = nil,
@@ -134,7 +136,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         self.nameOrigin = nameOrigin
         self.rootPath = rootPath
         self.pinned = pinned
-        self.archived = archived
+        self.closed = closed
         self.groupID = groupID
         self.selectedTabID = selectedTabID
         self.tabs = tabs
@@ -142,7 +144,13 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         self.focusedPaneID = focusedPaneID
     }
 
-    /// Decode tollerante: `archived` e `nameOrigin` sono additivi, assenti nei layout salvati prima
+    enum CodingKeys: String, CodingKey {
+        case id, windowID, name, nameOrigin, rootPath, pinned
+        case closed = "archived"
+        case groupID, selectedTabID, tabs, splitLayout, focusedPaneID
+    }
+
+    /// Decode tollerante: `closed` e `nameOrigin` sono additivi, assenti nei layout salvati prima
     /// delle rispettive feature. La sintesi li esigerebbe come chiave e farebbe fallire l'intero
     /// decode (= layout dell'utente buttato via), quindi li leggo con `decodeIfPresent ?? default`.
     /// `nameOrigin` assente -> `.user`: i nomi salvati prima della nomina automatica sono
@@ -157,7 +165,7 @@ public struct WorkspaceSnapshot: Codable, Equatable {
         nameOrigin = try c.decodeIfPresent(NameOrigin.self, forKey: .nameOrigin) ?? .user
         rootPath = try c.decodeIfPresent(String.self, forKey: .rootPath)
         pinned = try c.decode(Bool.self, forKey: .pinned)
-        archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false
+        closed = try c.decodeIfPresent(Bool.self, forKey: .closed) ?? false
         groupID = try c.decodeIfPresent(UUID.self, forKey: .groupID)
         selectedTabID = try c.decodeIfPresent(UUID.self, forKey: .selectedTabID)
         tabs = try c.decode([TabSnapshot].self, forKey: .tabs)
