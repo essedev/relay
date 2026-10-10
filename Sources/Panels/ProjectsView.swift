@@ -52,7 +52,6 @@ public struct ProjectsView: View {
                         sectionView(section, colors: colors, now: context.date)
                     }
                 }
-                .frame(maxWidth: Theme.Metrics.pageMaxWidth, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Theme.Spacing.page)
                 .padding(.top, Theme.Spacing.sm)
@@ -98,7 +97,7 @@ public struct ProjectsView: View {
         }
         .padding(.horizontal, Theme.Spacing.md - 2)
         .padding(.vertical, Theme.Spacing.xs + 3)
-        .frame(maxWidth: 320)
+        .frame(maxWidth: 420)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.md).fill(colors.terminalWell)
         )
@@ -208,15 +207,16 @@ private struct ProjectRow: View {
                         .truncationMode(.middle)
                 }
             }
-            .frame(minWidth: 180, maxWidth: 260, alignment: .leading)
+            // Nome e sessioni si dividono la larghezza: la pagina occupa tutta la card.
+            .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
             sessionSummary(sessions)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if let age = SessionTriage.age(of: workspace.lastActiveAt, now: now) {
-                Text(age)
-                    .font(Theme.Typography.subtitle)
-                    .foregroundStyle(colors.secondary)
-                    .frame(width: 40, alignment: .trailing)
-            }
+            // Sempre presente, anche vuota: senza, le colonne flessibili si ridistribuirebbero e
+            // le sessioni di questa riga non starebbero in colonna con le altre.
+            Text(SessionTriage.age(of: workspace.lastActiveAt, now: now) ?? "")
+                .font(Theme.Typography.subtitle)
+                .foregroundStyle(colors.secondary)
+                .frame(width: 40, alignment: .trailing)
             Button(workspace.closed ? "Open" : "Close", action: workspace.closed ? onOpen : onClose)
                 .buttonStyle(PageButtonStyle(colors: colors))
                 .opacity(hovered ? 1 : 0)

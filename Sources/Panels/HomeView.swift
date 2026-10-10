@@ -7,8 +7,8 @@ import WorkspaceModel
 /// fermi da mettere via e quelli chiusi di recente. Copre il right pane della finestra
 /// (`RelayWindow.page`), i terminali restano montati sotto.
 ///
-/// Colonna leggibile (`Theme.Metrics.pageMaxWidth`): l'azione di una riga resta accanto al testo
-/// che la motiva.
+/// Il contenuto occupa tutta la larghezza della card: le righe usano lo spazio, e l'azione sta in
+/// fondo alla riga come in una lista di sistema.
 public struct HomeView: View {
     let store: WorkspaceStore
     let settings: AppSettings
@@ -43,7 +43,6 @@ public struct HomeView: View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             ScrollView {
                 content(colors, now: context.date)
-                    .frame(maxWidth: Theme.Metrics.pageMaxWidth, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Theme.Spacing.page)
                     .padding(.top, Theme.Spacing.sm)
