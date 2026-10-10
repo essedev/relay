@@ -134,6 +134,10 @@ public struct ProjectsView: View {
         )
     }
 
+    /// Larghezza sotto la quale una card non sta più: nome, cartella e una sessione devono
+    /// leggersi senza troncarsi a metà.
+    private static let cardMinWidth: CGFloat = 280
+
     private func sectionView(
         _ section: ProjectsModel.Section, colors: ChromeColors, now: Date
     ) -> some View {
@@ -159,25 +163,37 @@ public struct ProjectsView: View {
             .buttonStyle(.plain)
             .padding(.bottom, Theme.Spacing.xs)
             if !shut {
-                ForEach(section.projects) { workspace in
-                    ProjectRow(
-                        workspace: workspace,
-                        tint: tint,
-                        now: now,
-                        colors: colors,
-                        onOpen: { onOpenProject(workspace) },
-                        onClose: { onCloseProject(workspace) }
-                    )
+                // Griglia che segue la larghezza: una colonna su una finestra stretta, quattro su
+                // una larga. Lo spazio diventa più progetti a vista, non righe più lunghe.
+                LazyVGrid(
+                    columns: [GridItem(
+                        .adaptive(minimum: Self.cardMinWidth), spacing: Theme.Spacing.md
+                    )],
+                    alignment: .leading,
+                    spacing: Theme.Spacing.md
+                ) {
+                    ForEach(section.projects) { workspace in
+                        ProjectCard(
+                            workspace: workspace,
+                            tint: tint,
+                            now: now,
+                            colors: colors,
+                            onOpen: { onOpenProject(workspace) },
+                            onClose: { onCloseProject(workspace) }
+                        )
+                    }
                 }
+                .padding(.top, Theme.Spacing.xs)
             }
         }
         .padding(.top, Theme.Spacing.xl)
     }
 }
 
-/// Una riga del catalogo: colore del gruppo (pieno se aperto), nome e cartella, sessioni, ultima
-/// attività, e su hover l'azione (Open su un chiuso, Close su un aperto). Click = apri.
-private struct ProjectRow: View {
+/// Un progetto del catalogo, in forma di card: il colore del gruppo sul bordo (pieno se aperto),
+/// nome e da quanto è fermo sulla stessa riga, la cartella, le sessioni, e su hover l'azione
+/// (Open su un chiuso, Close su un aperto). Click = apri.
+private struct ProjectCard: View {
     let workspace: Workspace
     let tint: Color
     let now: Date
@@ -189,46 +205,52 @@ private struct ProjectRow: View {
 
     var body: some View {
         let sessions = ProjectsModel.sessions(of: workspace)
-        HStack(spacing: Theme.Spacing.md) {
-            RoundedRectangle(cornerRadius: 1.5)
-                .fill(tint.opacity(workspace.closed ? 0.35 : 1))
-                .frame(width: 3, height: 26)
-            VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
                 Text(workspace.name)
-                    .font(Theme.Typography.item)
-                    .fontWeight(workspace.closed ? .regular : .medium)
+                    .font(Theme.Typography.title)
                     .foregroundStyle(workspace.closed ? colors.secondary : colors.foreground)
                     .lineLimit(1)
-                if let path = workspace.rootPath {
-                    Text(ProjectsModel.displayPath(path))
-                        .font(Theme.Typography.excerpt)
-                        .foregroundStyle(colors.secondary.opacity(0.75))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                Spacer(minLength: Theme.Spacing.sm)
+                if let age = SessionTriage.age(of: workspace.lastActiveAt, now: now) {
+                    Text(age)
+                        .font(Theme.Typography.subtitle)
+                        .foregroundStyle(colors.secondary)
                 }
             }
-            // Nome e sessioni si dividono la larghezza: la pagina occupa tutta la card.
-            .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
-            sessionSummary(sessions)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            // Sempre presente, anche vuota: senza, le colonne flessibili si ridistribuirebbero e
-            // le sessioni di questa riga non starebbero in colonna con le altre.
-            Text(SessionTriage.age(of: workspace.lastActiveAt, now: now) ?? "")
-                .font(Theme.Typography.subtitle)
-                .foregroundStyle(colors.secondary)
-                .frame(width: 40, alignment: .trailing)
-            Button(workspace.closed ? "Open" : "Close", action: workspace.closed ? onOpen : onClose)
+            Text(workspace.rootPath.map { ProjectsModel.displayPath($0) } ?? " ")
+                .font(Theme.Typography.excerpt)
+                .foregroundStyle(colors.secondary.opacity(0.75))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            HStack(spacing: Theme.Spacing.sm) {
+                sessionSummary(sessions)
+                Spacer(minLength: Theme.Spacing.sm)
+                Button(
+                    workspace.closed ? "Open" : "Close",
+                    action: workspace.closed ? onOpen : onClose
+                )
                 .buttonStyle(PageButtonStyle(colors: colors))
                 .opacity(hovered ? 1 : 0)
                 .help(workspace.closed ? "Open with its tabs" : "Close, keeping its sessions")
+            }
+            .padding(.top, Theme.Spacing.xs)
         }
-        .padding(.vertical, Theme.Spacing.xs + 2)
-        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.leading, Theme.Spacing.md + 3)
+        .padding(.trailing, Theme.Spacing.md)
+        .padding(.vertical, Theme.Spacing.md - 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.md)
-                .fill(hovered ? colors.hover.opacity(0.5) : Color.clear)
+            RoundedRectangle(cornerRadius: Theme.Radius.lg)
+                .fill(hovered ? colors.rowSelected : colors.rowHover)
         )
-        .padding(.horizontal, -Theme.Spacing.md)
+        // Il colore del gruppo come bordo sinistro: dice l'appartenenza senza un'etichetta.
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(tint.opacity(workspace.closed ? 0.35 : 1))
+                .frame(width: 3)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         .onHover { hovered = $0 }

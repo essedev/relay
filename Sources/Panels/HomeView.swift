@@ -37,42 +37,103 @@ public struct HomeView: View {
         self.peek = peek
     }
 
+    /// Sopra questa larghezza utile la pagina va su due colonne: a sinistra la coda di ciò che ti
+    /// aspetta, a destra una colonna fissa col resto. Sotto, tutto in una colonna.
+    private static let twoColumnWidth: CGFloat = 860
+    /// La colonna laterale: quanto basta a un nome di progetto e a una chat senza troncarli male.
+    private static let sideColumnWidth: CGFloat = 320
+
     public var body: some View {
         let colors = ChromeColors(settings.theme)
         // L'età delle righe ("4m") invecchia anche a pagina ferma.
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            ScrollView {
-                content(colors, now: context.date)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Theme.Spacing.page)
-                    .padding(.top, Theme.Spacing.sm)
-                    .padding(.bottom, Theme.Spacing.page)
+            GeometryReader { proxy in
+                let wide = proxy.size.width - Theme.Spacing.page * 2 >= Self.twoColumnWidth
+                ScrollView {
+                    content(colors, now: context.date, wide: wide)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Theme.Spacing.page)
+                        .padding(.top, Theme.Spacing.sm)
+                        .padding(.bottom, Theme.Spacing.page)
+                }
+                .scrollContentBackground(.hidden)
             }
-            .scrollContentBackground(.hidden)
         }
     }
 
-    private func content(_ colors: ChromeColors, now: Date) -> some View {
+    @ViewBuilder
+    private func content(_ colors: ChromeColors, now: Date, wide: Bool) -> some View {
         let workspaces = store.workspaces
         let needs = HomeModel.needsYou(workspaces)
         let working = HomeModel.working(workspaces)
-        let quiet = HomeModel.quiet(workspaces, now: now)
-        let closed = HomeModel.recentlyClosed(workspaces)
-        return VStack(alignment: .leading, spacing: 0) {
+        if wide {
+            HStack(alignment: .top, spacing: Theme.Spacing.page) {
+                mainColumn(needs: needs, working: working.count, colors: colors, now: now)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                sideColumn(working: working, colors: colors, now: now, wide: true)
+                    .frame(width: Self.sideColumnWidth, alignment: .leading)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                mainColumn(needs: needs, working: working.count, colors: colors, now: now)
+                sideColumn(working: working, colors: colors, now: now, wide: false)
+            }
+        }
+    }
+
+    /// La colonna principale: il titolo che dice la situazione e la coda di ciò che ti aspetta.
+    private func mainColumn(
+        needs: [HomeModel.Entry], working: Int, colors: ChromeColors, now: Date
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             Text(HomeModel.headline(needing: needs.count))
                 .font(Theme.Typography.pageTitle)
                 .foregroundStyle(colors.foreground)
-            Text(summary(working: working.count, all: workspaces))
+            Text(summary(working: working, all: store.workspaces))
                 .font(Theme.Typography.pageSubtitle)
                 .foregroundStyle(colors.secondary)
                 .padding(.top, Theme.Spacing.xs)
             if !needs.isEmpty { needsSection(needs, colors: colors, now: now) }
-            if !working.isEmpty { workingSection(working, colors: colors, now: now) }
+        }
+    }
+
+    /// Il resto: cosa lavora da solo, cosa si può chiudere, cosa hai chiuso di recente. Da larga
+    /// sta accanto alla coda e parte alla sua altezza; da stretta sta sotto.
+    @ViewBuilder
+    private func sideColumn(
+        working: [HomeModel.Entry], colors: ChromeColors, now: Date, wide: Bool
+    ) -> some View {
+        let quiet = HomeModel.quiet(store.workspaces, now: now)
+        let closed = HomeModel.recentlyClosed(store.workspaces)
+        VStack(alignment: .leading, spacing: 0) {
+            if !working.isEmpty {
+                heading("Working", colors, first: wide)
+                ForEach(working) { entry in
+                    WorkingRow(entry: entry, now: now, colors: colors) {
+                        onOpenSession(entry.workspace, entry.tab)
+                    }
+                }
+            }
             if !quiet.isEmpty {
-                heading("Quiet for a week", colors)
+                heading("Quiet for a week", colors, first: wide && working.isEmpty)
                 QuietRow(projects: quiet, colors: colors) { onCloseProjects(quiet) }
             }
-            if !closed.isEmpty { closedSection(closed, colors: colors, now: now) }
+            if !closed.isEmpty {
+                heading("Recently closed", colors, first: wide && working.isEmpty && quiet.isEmpty)
+                FlowLayout {
+                    ForEach(closed) { workspace in
+                        ProjectChip(
+                            workspace: workspace,
+                            tint: colors.tint(of: workspace, in: store),
+                            now: now,
+                            colors: colors
+                        ) {
+                            onOpenProject(workspace)
+                        }
+                    }
+                }
+                .padding(.top, Theme.Spacing.xs)
+            }
         }
     }
 
@@ -94,49 +155,21 @@ public struct HomeView: View {
         .padding(.top, Theme.Spacing.lg)
     }
 
-    @ViewBuilder
-    private func workingSection(
-        _ working: [HomeModel.Entry], colors: ChromeColors, now: Date
-    ) -> some View {
-        heading("Working", colors)
-        ForEach(working) { entry in
-            WorkingRow(entry: entry, now: now, colors: colors) {
-                onOpenSession(entry.workspace, entry.tab)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func closedSection(
-        _ closed: [Workspace], colors: ChromeColors, now: Date
-    ) -> some View {
-        heading("Recently closed", colors)
-        FlowLayout {
-            ForEach(closed) { workspace in
-                ProjectChip(
-                    workspace: workspace,
-                    tint: colors.tint(of: workspace, in: store),
-                    now: now,
-                    colors: colors
-                ) {
-                    onOpenProject(workspace)
-                }
-            }
-        }
-        .padding(.top, Theme.Spacing.xs)
-    }
-
     private func summary(working: Int, all: [Workspace]) -> String {
         let agents = working == 1 ? "1 agent working" : "\(working) agents working"
         let open = all.count { !$0.closed }
         return "\(agents), \(open) projects open, \(all.count - open) closed."
     }
 
-    private func heading(_ title: String, _ colors: ChromeColors) -> some View {
+    /// Titolo di una sezione. `first` = in cima alla colonna laterale, allineato al titolo
+    /// della pagina invece che staccato da una sezione sopra.
+    private func heading(_ title: String, _ colors: ChromeColors,
+                         first: Bool = false) -> some View
+    {
         Text(title)
             .font(Theme.Typography.pageHeading)
             .foregroundStyle(colors.foreground)
-            .padding(.top, Theme.Spacing.page - Theme.Spacing.sm)
+            .padding(.top, first ? Theme.Spacing.sm : Theme.Spacing.page - Theme.Spacing.sm)
             .padding(.bottom, Theme.Spacing.xs)
     }
 }
@@ -247,18 +280,20 @@ private struct WorkingRow: View {
     @State private var hovered = false
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.md) {
+        HStack(alignment: .top, spacing: Theme.Spacing.md) {
             StatusDot(color: colors.running)
-            Text(entry.workspace.name)
-                .font(Theme.Typography.item)
-                .fontWeight(.medium)
-                .foregroundStyle(colors.foreground)
-                .lineLimit(1)
-                .frame(width: 150, alignment: .leading)
-            Text(entry.tab.title)
-                .font(Theme.Typography.item)
-                .foregroundStyle(colors.secondary)
-                .lineLimit(1)
+                .padding(.top, 5)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.workspace.name)
+                    .font(Theme.Typography.item)
+                    .fontWeight(.medium)
+                    .foregroundStyle(colors.foreground)
+                    .lineLimit(1)
+                Text(entry.tab.title)
+                    .font(Theme.Typography.tab)
+                    .foregroundStyle(colors.secondary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: Theme.Spacing.sm)
             if let age = SessionTriage.age(of: entry.tab.lastEventAt, now: now) {
                 Text(age)
@@ -286,7 +321,7 @@ private struct QuietRow: View {
     let onClose: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.lg) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             (Text(names).foregroundStyle(colors.foreground).fontWeight(.medium)
                 + Text(projects.count == 1 ? " has" : " have")
                 .foregroundStyle(colors.secondary)
@@ -294,7 +329,7 @@ private struct QuietRow: View {
                     + "stay resumable.").foregroundStyle(colors.secondary))
                 .font(Theme.Typography.item)
                 .lineSpacing(3)
-            Spacer(minLength: 0)
+                .fixedSize(horizontal: false, vertical: true)
             Button(projects.count == 1 ? "Close It" : "Close \(projects.count)", action: onClose)
                 .buttonStyle(PageButtonStyle(colors: colors))
         }

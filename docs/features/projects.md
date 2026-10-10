@@ -55,7 +55,10 @@ sceglie quale); Esc torna ai terminali.
   surface viva: non se ne crea una per leggerla). "Quiet for a week" propone di chiudere gli aperti
   fermi da 7 giorni, mai uno con un agente vivo o di cui non si sa niente.
 - **Projects** (`⇧⌘P`): il catalogo per gruppo, aperti prima e poi il più recente
-  (`Panels/ProjectsModel`), filtro per nome o cartella.
+  (`Panels/ProjectsModel`), filtro per nome o cartella. Una griglia di card adattiva (minimo 280
+  punti): la larghezza diventa più progetti a vista, non righe più lunghe.
+- **Layout di Home**: sopra 860 punti utili va su due colonne, la coda di ciò che ti aspetta a
+  sinistra e una colonna fissa di 320 (Working, Quiet, Recently closed) a destra; sotto, una colonna.
 - **Palette** (`⌘P`, azione `goToProject`): overlay full-window (`FullOverlayPresenter`, slot
   `.palette`) per andare a un progetto per nome o cartella; un chiuso si riapre. Ordine in
   `Panels/PaletteModel`: aperti prima, poi la corrispondenza migliore, poi il più recente. Mentre è
