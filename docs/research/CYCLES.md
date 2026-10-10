@@ -1013,6 +1013,6 @@ relayout. Dettagli in `docs/features/windows.md`.
 
 Test nuovi su ciclo di vita dei progetti (`ProjectLifecycleTests`), modelli di Home, Projects e
 palette, triage condiviso, `TerminalPeek` e colori della cornice. Guida, `docs/GUIDE.md` e README
-aggiornati, screenshot rifatti. Non ancora rilasciato: la versione resta 0.23.0. Resta indietro la
+aggiornati, screenshot rifatti. Rilasciato nella 0.24.0. Resta indietro la
 sezione della guida in-app sulla sidebar, che descrive ancora i chiusi in una sezione in fondo e il
 drag su "Closed".

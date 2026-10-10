@@ -8,13 +8,13 @@ questo file.
 ## Dove siamo
 
 Baseline chiuso e app **distribuita via Homebrew tap**
-(`brew install --cask essedev/relay/relay-terminal`), ultima release **0.23.0**. Ci sono: agent
+(`brew install --cask essedev/relay/relay-terminal`), ultima release **0.24.0**. Ci sono: agent
 runtime per Claude Code e Codex con badge, notifiche e resume; attenzione a tre livelli;
 persistence del layout; cap LRU delle surface; split sul modello cmux e multi-window; gruppi in
 sidebar; nomina automatica; guida in-app; sessioni pty possedute dalla tab anche oltre la vita
-dell'app. Dopo la 0.23.0, non ancora rilasciati: **progetti aperti e chiusi** (chiudere tiene tutto
-e libera la memoria), **Home** e **Projects** come pagine del right pane al posto della dashboard,
-palette `Cmd+P` e la finestra a card (Cycle 30, `docs/features/projects.md`). La storia per
+dell'app. La **0.24.0** porta i **progetti aperti e chiusi** (chiudere tiene tutto e libera la
+memoria), **Home** e **Projects** come pagine del right pane al posto della dashboard, la palette
+`Cmd+P` e la finestra a card (Cycle 30, `docs/features/projects.md`). La storia per
 release sta in `docs/research/CYCLES.md`.
 
 ## Disattivazione automatica delle sessioni agente
