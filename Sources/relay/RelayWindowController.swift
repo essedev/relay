@@ -100,7 +100,6 @@ final class RelayWindowController: NSObject, NSWindowDelegate {
         // Spostarli a mano (`setFrameOrigin`) non regge: AppKit li rimette al loro posto a ogni
         // relayout della title bar, anche senza un resize.
         let toolbar = NSToolbar(identifier: "relay.window")
-        toolbar.showsBaselineSeparator = false
         window.toolbar = toolbar
         window.toolbarStyle = .unified
         window.titlebarAppearsTransparent = true

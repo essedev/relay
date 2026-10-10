@@ -9,7 +9,7 @@
 [![Release](https://img.shields.io/github/v/release/essedev/relay?label=release&color=2f81f7)](https://github.com/essedev/relay/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/essedev/relay/ci.yml?branch=main&label=CI)](https://github.com/essedev/relay/actions/workflows/ci.yml)
 [![Homebrew](https://img.shields.io/badge/install-brew%20cask-FBB040?logo=homebrew&logoColor=white)](#installation)
-![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
+![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -209,7 +209,7 @@ workspace folder.
 
 ## Development
 
-Requirements: Xcode/Swift 6, macOS 14+. The linters are **pinned**: `make tools` downloads the exact
+Requirements: Xcode/Swift 6, macOS 15+. The linters are **pinned**: `make tools` downloads the exact
 SwiftFormat/SwiftLint releases into `.build/tools`, so CI and local runs use the same version. Do not
 install them via brew for the quality gate (you would get a different version).
 

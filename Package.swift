@@ -5,7 +5,7 @@ import PackageDescription
 /// compilatore (vedi docs/ARCHITECTURE.md). Regola: solo verso il basso, mai risalire.
 let package = Package(
     name: "relay",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v15)],
     products: [
         .executable(name: "relay", targets: ["RelayApp"]),
         .executable(name: "relay-cli", targets: ["CLI"]),

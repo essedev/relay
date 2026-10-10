@@ -88,3 +88,12 @@ Sidebar e contenuto sono due card arrotondate su una cornice un gradino più scu
 (`RelayTheme.chromeFrame`, `CardContainerController`). Scartato il materiale della sidebar nativa
 di macOS 26 (e `sidebarWithViewController:`): porta il suo materiale e ignora il tema, quindi un
 tema chiaro non resterebbe chiaro.
+
+## #11 - Target minimo macOS 15
+
+Status: attiva. Fonte: fix degli scroller dei pannelli (dopo la 0.24.0).
+Il deployment target è macOS 15 (`Package.swift`, `LSMinimumSystemVersion`). Il 14 veniva dallo
+scaffold senza una ragione; il 15 gira sugli stessi Mac salvo i MacBook Air 2018-2019, e porta le
+API di scroll (`onScrollGeometryChange`, `onScrollPhaseChange`) che servono all'indicatore sottile
+dei pannelli. Scartato il 26: taglia quasi tutti gli Intel per un guadagno (materiali nativi) che
+#10 ha già escluso. Niente `#available` sotto il 15: alzare il target è un commit esplicito.
