@@ -343,6 +343,10 @@ dato puro in `Core` (`RelayTheme`/`RelayColor`): colori base + 16 ANSI + font. Ã
 - Dodici temi curati (dato puro in `Core`), sei coppie dark/light: **Relay** (One Dark/Light),
   **Solarized**, **Gruvbox**, **Tokyo Night** (night/day), **Catppuccin** (Mocha/Latte),
   **GitHub** (Primer dark/light default).
+- Ogni `ScrollView` verticale dei pannelli porta `.relayScrollIndicator(colors)`: barretta di 3
+  punti che compare solo mentre scorri, al posto dello scroller di sistema (17 punti, si allarga
+  all'hover, con la track se le preferenze lo vogliono sempre visibile, e `.controlSize` non lo
+  raggiunge). Un pannello nuovo lo applica; gli `ScrollView` orizzontali nascondono lo scroller.
 
 Pannello impostazioni (`Cmd+,`): master-detail themed - sidebar con ricerca e lista categorie
 (Appearance / Terminal / Agents / Notifications / Updates / Shortcuts), contenuto a destra. Ogni voce Ã¨ un "blocco"

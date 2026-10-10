@@ -71,6 +71,7 @@ public struct OnboardingView: View {
                     )
             }
             .scrollBounceBehavior(.basedOnSize)
+            .relayScrollIndicator(colors)
             .frame(height: contentHeight)
             Divider()
             footer(colors)

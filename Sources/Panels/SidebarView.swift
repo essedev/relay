@@ -238,6 +238,7 @@ public struct SidebarView: View {
             .animation(.easeInOut(duration: 0.2), value: plan.rows)
         }
         .scrollContentBackground(.hidden)
+        .relayScrollIndicator(colors)
         .onGeometryChange(
             for: CGRect.self,
             of: { $0.frame(in: .named(Self.space)) },

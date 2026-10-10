@@ -78,6 +78,7 @@ public struct ProjectPalette: View {
                     list(results, colors)
                         .padding(Theme.Spacing.xs + 2)
                 }
+                .relayScrollIndicator(colors)
                 .frame(maxHeight: 400)
                 .fixedSize(horizontal: false, vertical: true)
                 .onChange(of: selectedID) { _, id in scroller.scrollTo(id) }

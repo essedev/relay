@@ -58,6 +58,7 @@ public struct ProjectsView: View {
                 .padding(.bottom, Theme.Spacing.page)
             }
             .scrollContentBackground(.hidden)
+            .relayScrollIndicator(colors)
         }
     }
 

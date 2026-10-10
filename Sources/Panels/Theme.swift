@@ -60,6 +60,9 @@ public enum Theme {
         )
         /// Ritorno a riposo quando la pulsazione finisce: corto, così la fine si nota.
         public static let settle = Animation.easeOut(duration: 0.2)
+        /// Quanto resta la barretta di scroll dopo l'ultimo movimento, e come sfuma.
+        static let scrollIndicatorLinger: Duration = .milliseconds(900)
+        static let scrollIndicatorFade = Animation.easeOut(duration: 0.25)
     }
 
     public enum Metrics {
@@ -77,5 +80,10 @@ public enum Theme {
         public static let statusDotCompact: CGFloat = 7
         public static let presenceDot: CGFloat = 6
         public static let statusRingWidth: CGFloat = 1.5
+        /// Barretta di scroll dei pannelli (`relayScrollIndicator`): spessore, margine dai bordi
+        /// del contenitore, lunghezza minima su una lista lunga.
+        static let scrollIndicatorWidth: CGFloat = 3
+        static let scrollIndicatorInset: CGFloat = 2
+        static let scrollIndicatorMinLength: CGFloat = 24
     }
 }

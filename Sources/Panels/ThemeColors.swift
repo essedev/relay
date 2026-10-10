@@ -94,6 +94,11 @@ struct ChromeColors {
         Color(theme.foreground).opacity(0.08)
     }
 
+    /// Barretta di scroll dei pannelli: si vede sul fondo e sulle card, senza competere col testo.
+    var scrollIndicator: Color {
+        Color(theme.foreground).opacity(0.3)
+    }
+
     /// Fondo incassato di un estratto di terminale dentro una pagina: più scuro del contenitore
     /// su ogni tema, come un pozzetto.
     var terminalWell: Color {

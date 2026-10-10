@@ -57,6 +57,7 @@ public struct HomeView: View {
                         .padding(.bottom, Theme.Spacing.page)
                 }
                 .scrollContentBackground(.hidden)
+                .relayScrollIndicator(colors)
             }
         }
     }

@@ -56,6 +56,7 @@ public struct SettingsView: View {
                 }
                 .padding(Theme.Spacing.sm)
             }
+            .relayScrollIndicator(colors)
             Spacer(minLength: 0)
         }
         .frame(width: 184)
@@ -111,6 +112,7 @@ public struct SettingsView: View {
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .relayScrollIndicator(colors)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

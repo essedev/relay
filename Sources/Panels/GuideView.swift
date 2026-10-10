@@ -103,6 +103,7 @@ public struct GuideView: View {
                 }
                 .padding(Theme.Spacing.sm)
             }
+            .relayScrollIndicator(colors)
             Spacer(minLength: 0)
         }
         .frame(width: 208)
@@ -154,6 +155,7 @@ public struct GuideView: View {
                 .padding(Theme.Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .relayScrollIndicator(colors)
             // La sezione cambia sotto lo scroll: riparti dall'alto invece che a metà pagina.
             .id(section.id)
         } else {
