@@ -247,8 +247,10 @@ public final class WorkspaceAreaController: NSViewController {
                 pane.flashRing()
             }
             lastRingStates[splitPane.id] = state
+            // Il bordo dice solo "qui scrivi": un velo del colore del cursore, non il colore pieno,
+            // che accanto al ring di attenzione si leggeva come un secondo allarme.
             let focusColor = showsFocusBorder && splitPane.id == workspace.focusedPaneID
-                ? NSColor(relay: theme.cursor)
+                ? NSColor(relay: theme.cursor).withAlphaComponent(0.22)
                 : nil
             pane.updateFocusBorder(color: focusColor)
         }

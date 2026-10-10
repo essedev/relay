@@ -38,9 +38,10 @@ final class AttentionRingView: NSView {
         nil
     }
 
-    /// Distanza dello stroke dal bordo esterno della zona (la view coincide col container). L'aria
-    /// dal contenuto è la differenza col `terminalInset` (12): 6 qui + 6 di aria interna.
-    private static let strokeInset: CGFloat = 6
+    /// Distanza del centro dello stroke dal bordo esterno della zona (la view coincide col
+    /// container). L'aria fra ring e testo è `PaneView.terminalInset` meno questo meno metà dello
+    /// spessore: 10 - 3 - 1,25 = quasi 6 punti. Rivedere i due valori insieme.
+    private static let strokeInset: CGFloat = 3
 
     override func layout() {
         super.layout()

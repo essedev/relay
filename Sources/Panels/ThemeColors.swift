@@ -52,6 +52,27 @@ struct ChromeColors {
         Color(theme.selection).opacity(0.35)
     }
 
+    /// La cornice della finestra attorno alle card (vedi `RelayTheme.chromeFrame`).
+    var frame: Color {
+        Color(theme.chromeFrame)
+    }
+
+    /// La luce in cima a una card: le card sfumano da qui al fondo del tema.
+    var cardTop: Color {
+        Color(theme.chromeCardTop)
+    }
+
+    /// Il fondo di una card: la luce in cima (`cardTop`) che sfuma nel fondo del tema entro
+    /// `height` punti, poi il fondo pieno. Così la luce non disegna mai una banda: finisce dove
+    /// inizia il colore del tema.
+    func cardLight(height: CGFloat) -> some View {
+        ZStack(alignment: .top) {
+            background
+            LinearGradient(colors: [cardTop, background], startPoint: .top, endPoint: .bottom)
+                .frame(height: height)
+        }
+    }
+
     /// Superficie in rilievo (palette, popover): un gradino verso il foreground, solida.
     var raised: Color {
         Color(theme.background.mixed(with: theme.foreground, 0.05))
@@ -76,7 +97,7 @@ struct ChromeColors {
     /// Fondo incassato di un estratto di terminale dentro una pagina: più scuro del contenitore
     /// su ogni tema, come un pozzetto.
     var terminalWell: Color {
-        Color.black.opacity(0.22)
+        Color.black.opacity(theme.isDark ? 0.22 : 0.045)
     }
 
     /// Il colore del gruppo di un progetto, o il grigio secondario se è libero.

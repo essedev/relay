@@ -5,6 +5,21 @@ Finestre, chrome senza title bar, overlay e le loro trappole AppKit. Il resto de
 - Chrome full-size content view: le `NSHostingView` della chrome (title strip, sidebar, overlay)
   devono avere `safeAreaRegions = []`, altrimenti SwiftUI applica la safe area della title bar e
   spinge il contenuto sotto i semafori. Il layout verticale lo gestiamo noi.
+- **Cornice e card**: la finestra è una cornice (`RelayTheme.chromeFrame`, il fondo del tema un
+  gradino più scuro) con sopra due card arrotondate, sidebar e contenuto
+  (`CardContainerController`, raggio 12, margine 6 = `FrameSplitView.gap`). Lo spazio fra le card
+  è il divider stesso (`FrameSplitView`, disegnato pieno: lo stile di default aggiunge una
+  fossetta), quindi si trascina ancora. Il filo di luce in cima e il contorno stanno in una view
+  **sopra** il contenuto (`CardEdgeView`): un'ombra sulla card verrebbe coperta dalle strip.
+  La luce della card è un gradiente che finisce sul fondo del tema (`ChromeColors.cardLight`):
+  sulla strip del titolo entro i suoi 30 punti, mai una banda. La card ha anche il fondo pieno del
+  tema, o negli spazi trasparenti fra i pane passerebbe la cornice. Sidebar chiusa: la card del
+  contenuto prende il margine sinistro (`setLeadingInset`). È quasi il look della sidebar nativa
+  di macOS 26, che però porta il **suo** materiale: la card qui è nostra, coi colori del tema.
+- Pane: testo a 10 punti dal bordo (`PaneView.terminalInset`), ring di attenzione centrato a 3
+  (`AttentionRingView.strokeInset`): quasi 6 punti d'aria fra ring e caratteri. Si cambiano
+  insieme. Il bordo del pane attivo (solo con uno split) è un velo del colore del cursore, non il
+  colore pieno: accanto al ring si leggeva come un secondo allarme.
 - **Finestre di servizio SwiftUI (Settings/About/Runtime Stats): sempre da `makePanelWindow`**
   (`PanelWindow.swift`), mai `NSWindow(contentViewController: NSHostingController)` +
   `preferredContentSize`. Con la safe area attiva, ogni `setFrameSize` fa reinvalidare a

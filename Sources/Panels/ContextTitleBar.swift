@@ -28,7 +28,9 @@ public struct ContextTitleBar: View {
             .padding(.horizontal, Theme.Spacing.lg)
             .frame(maxWidth: .infinity)
             .frame(height: Theme.Metrics.titleBarHeight)
-            .background(colors.background)
+            // La luce in cima alla card del contenuto: si spegne sul fondo del tema al bordo della
+            // strip, così le tab e il terminale sotto restano sul colore del tema.
+            .background(colors.cardLight(height: Theme.Metrics.titleBarHeight))
             // Trascinamento finestra + doppio click (zoom) come una title bar: la strip è solo
             // testo, l'area copre tutto sopra di essa.
             .overlay(WindowDragArea())

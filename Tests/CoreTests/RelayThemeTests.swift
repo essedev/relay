@@ -89,3 +89,13 @@ import Testing
     #expect(black.mixed(with: white, 0.5) == RelayColor(128, 128, 128))
     #expect(black.mixed(with: white, 2) == white) // clamp
 }
+
+@Test func theFrameSitsBelowTheTerminalAndTheCardTopAboveIt() {
+    let dark = RelayTheme.tokyoNight
+    #expect(dark.isDark)
+    #expect(dark.chromeFrame.red < dark.background.red)
+    #expect(dark.chromeCardTop.blue > dark.background.blue)
+    let light = RelayTheme.relayLight
+    #expect(!light.isDark)
+    #expect(light.chromeFrame.green < light.background.green)
+}

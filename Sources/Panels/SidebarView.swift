@@ -117,7 +117,7 @@ public struct SidebarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .frame(minWidth: 200)
-        .background(colors.background)
+        .background(colors.cardLight(height: 140))
         .coordinateSpace(.named(Self.space))
         // Riga in volo e linea di inserimento vivono qui, sopra **tutta** la sidebar: dentro una
         // ScrollView verrebbero clippate al bordo proprio mentre esci dal contenitore.

@@ -21,8 +21,10 @@ final class PaneView: NSView {
     private var focusBorderColor: NSColor?
 
     /// Respiro attorno al testo. Più stretto dell'inset di una volta (12): con più pane affiancati
-    /// quello spazio si sommerebbe due volte al centro. Il container aggiunge il resto sul bordo.
-    private static let terminalInset: CGFloat = 6
+    /// quello spazio si sommerebbe due volte al centro. Deve lasciare posto al ring di attenzione
+    /// **e** a un po' d'aria fra il ring e il testo (vedi `AttentionRingView.strokeInset`): a 6 il
+    /// ring cadeva sul bordo dei caratteri.
+    static let terminalInset: CGFloat = 10
 
     init(paneID: UUID, strip: NSView) {
         self.paneID = paneID
@@ -107,11 +109,16 @@ final class PaneView: NSView {
     /// singolo.
     /// Sta **dentro** al ring di attenzione (che è più esterno), così i due segnali - chi ha il
     /// focus, chi chiede attenzione - restano leggibili insieme invece di sovrapporsi.
+    /// Raggio del bordo di focus: un gradino sotto quello della card che lo contiene.
+    private static let focusCornerRadius: CGFloat = 8
+
     func updateFocusBorder(color: NSColor?) {
         guard focusBorderColor != color else { return }
         focusBorderColor = color
         layer?.borderColor = color?.cgColor
         layer?.borderWidth = color == nil ? 0 : 1
+        layer?.cornerRadius = Self.focusCornerRadius
+        layer?.cornerCurve = .continuous
     }
 
     /// Stacca il terminale prima di buttare via il pane: la surface resta viva nella registry (il

@@ -93,7 +93,7 @@ public struct WindowPageView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(colors.background)
+        .background(colors.cardLight(height: 80))
         // Esc torna ai terminali, se c'è un progetto da mostrare.
         .onExitCommand {
             guard store.selectedWorkspace(in: windowID) != nil else { return }

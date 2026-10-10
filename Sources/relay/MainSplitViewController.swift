@@ -12,6 +12,9 @@ final class MainSplitViewController: NSSplitViewController {
     private let settings: AppSettings
     private let right: RightPaneController
     private var sidebarItem: NSSplitViewItem!
+    /// Le due card (sidebar e contenuto) sopra la cornice della finestra.
+    private var sidebarCard: CardContainerController!
+    private var contentCard: CardContainerController!
     /// Il drag di una tab dalla strip di un pane a una riga della sidebar: una sessione per
     /// finestra, perché è qui che le due hosting view coesistono (vedi `TabDragSession`).
     let tabDrag = TabDragSession()
@@ -50,6 +53,9 @@ final class MainSplitViewController: NSSplitViewController {
             tabDrag: tabDrag
         )
         super.init(nibName: nil, bundle: nil)
+        // La cornice al posto del divider: va impostata prima di aggiungere gli item.
+        splitView = FrameSplitView()
+        splitView.isVertical = true
 
         let sidebar = NSHostingController(
             rootView: SidebarView(
@@ -72,8 +78,13 @@ final class MainSplitViewController: NSSplitViewController {
         // safe area, il layout la gestisce con l'inset esplicito.
         sidebar.safeAreaRegions = []
         // Item normale, non `sidebarWithViewController:`: su macOS 26 quello stila la sidebar come
-        // pannello glass flottante (box, materiale, margini), in conflitto col design flat themed.
-        let item = NSSplitViewItem(viewController: sidebar)
+        // pannello glass flottante con il **suo** materiale, non il tema del terminale. La card
+        // qui è nostra: stessa forma, colori dal tema (`CardContainerController`).
+        let gap = FrameSplitView.gap
+        sidebarCard = CardContainerController(
+            content: sidebar, insets: .init(top: gap, leading: gap, bottom: gap, trailing: 0)
+        )
+        let item = NSSplitViewItem(viewController: sidebarCard)
         item.minimumThickness = CGFloat(AppSettings.minSidebarWidth)
         item.maximumThickness = CGFloat(AppSettings.maxSidebarWidth)
         // Il resize della finestra va al body: la sidebar tiene la sua larghezza.
@@ -82,7 +93,11 @@ final class MainSplitViewController: NSSplitViewController {
         sidebarItem = item
         addSplitViewItem(item)
 
-        addSplitViewItem(NSSplitViewItem(viewController: right))
+        contentCard = CardContainerController(
+            content: right, insets: .init(top: gap, leading: 0, bottom: gap, trailing: gap)
+        )
+        addSplitViewItem(NSSplitViewItem(viewController: contentCard))
+        observeTheme()
 
         observeSidebarState()
     }
@@ -192,8 +207,27 @@ final class MainSplitViewController: NSSplitViewController {
             if sidebarItem.isCollapsed != collapsed {
                 sidebarItem.animator().isCollapsed = collapsed
             }
+            // Senza sidebar la card del contenuto prende il margine sinistro dalla cornice.
+            contentCard.setLeadingInset(collapsed ? FrameSplitView.gap : 0)
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeSidebarState() }
+        }
+    }
+
+    /// La cornice segue il tema: è il fondo del terminale un gradino più scuro (vedi
+    /// `RelayTheme.chromeFrame`). Si ri-arma sui cambi di tema.
+    private func observeTheme() {
+        withObservationTracking {
+            let theme = settings.theme
+            let frame = NSColor(relay: theme.chromeFrame)
+            (splitView as? FrameSplitView)?.frameColor = frame
+            splitView.wantsLayer = true
+            splitView.layer?.backgroundColor = frame.cgColor
+            let background = NSColor(relay: theme.background)
+            sidebarCard.applyTheme(background: background, isDark: theme.isDark)
+            contentCard.applyTheme(background: background, isDark: theme.isDark)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeTheme() }
         }
     }
 }
