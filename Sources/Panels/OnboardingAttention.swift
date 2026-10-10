@@ -28,10 +28,11 @@ struct AttentionPage: View {
                     .frame(maxWidth: .infinity)
             }
             .padding(.top, Theme.Spacing.xs)
-            // Il quieto si spegne anche col dismiss dalla dashboard e, di default, da solo dopo
+            // Il quieto si spegne anche con "Mark as Read" dalla sidebar e, di default, da solo
+            // dopo
             // 12h (`AppSettings.pendingDecayHours`): dire "solo la ripresa" sarebbe falso.
             Text("Interacting with the terminal turns the strong signal into the quiet one. "
-                + "Resuming clears it, and so does dismissing it from the dashboard.")
+                + "Resuming clears it, and so does marking it read from the sidebar.")
                 .font(Theme.Typography.caption)
                 .foregroundStyle(colors.secondary)
                 .fixedSize(horizontal: false, vertical: true)

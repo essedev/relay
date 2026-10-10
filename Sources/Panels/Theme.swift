@@ -74,7 +74,7 @@ public enum Theme {
         /// Larghezza massima del contenuto di una pagina: righe leggibili, e l'azione di una riga
         /// resta vicina al testo che la motiva invece di finire a un metro.
         public static let pageMaxWidth: CGFloat = 760
-        /// Pallino di stato: dimensione piena (badge agente), compatta (card dashboard, righe
+        /// Pallino di stato: dimensione piena (badge agente), compatta (righe di Projects, righe
         /// impostazioni), pallino di presenza (accento), spessore dell'anello vuoto.
         public static let statusDot: CGFloat = 8
         public static let statusDotCompact: CGFloat = 7

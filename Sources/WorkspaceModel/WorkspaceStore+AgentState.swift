@@ -241,7 +241,7 @@ public extension WorkspaceStore {
 
     /// Decadenza opzionale dei sospesi: spegne i `pending` diventati tali prima di `cutoff`.
     /// Chiamata dal composition root quando la preferenza è attiva (boot, ritorno in foreground,
-    /// apertura dashboard). Misura da `attentionSince` (da quando è in sospeso), non da
+    /// apertura di Home). Misura da `attentionSince` (da quando è in sospeso), non da
     /// `lastEventAt` (l'evento): un completamento mai visto degrada a pending al restore con clock
     /// dal boot, quindi non viene spazzato subito. Ritorna quanti ne ha spenti.
     @discardableResult

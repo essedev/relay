@@ -47,7 +47,7 @@ struct ChromeColors {
 
     /// Fondo tenue di un pannello/carta, un gradino sotto `hover`: unifica le tinte `selection`
     /// allo
-    /// 0.35 (card della dashboard, pannelli dell'onboarding).
+    /// 0.35 (chip di Home, pannelli dell'onboarding).
     var surface: Color {
         Color(theme.selection).opacity(0.35)
     }

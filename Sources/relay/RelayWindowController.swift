@@ -113,7 +113,7 @@ final class RelayWindowController: NSObject, NSWindowDelegate {
         onFrameChange?(windowID, currentFrame)
     }
 
-    /// Porta la finestra davanti e le dà il focus (click su una notifica, jump dalla dashboard).
+    /// Porta la finestra davanti e le dà il focus (click su una notifica, una riga di Home).
     func activate() {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

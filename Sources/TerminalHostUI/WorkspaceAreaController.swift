@@ -261,7 +261,7 @@ public final class WorkspaceAreaController: NSViewController {
         case .needsInput: .needsInput
         case .error: .error
         // Il ring è il segnale forte: solo `unseen`. Un sospeso (`pending`) non accende il bordo
-        // (segnale quieto: badge ad anello + dashboard), altrimenti useresti la shell con un ring
+        // (segnale quieto: badge ad anello), altrimenti useresti la shell con un ring
         // verde permanente addosso. `unknown` come `idle`: un completamento a sessione finita resta
         // `unseen` nel reducer, e il ring deve concordare (verde + flash), come fa BadgeKind.
         case .idle, .unknown: tab.attention == .unseen ? .completed : .none

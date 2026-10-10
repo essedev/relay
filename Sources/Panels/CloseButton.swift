@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Bottone di chiusura/dismiss condiviso: la `xmark` bold nuda (`.plain`, nessun bezel), colore e
-/// dimensione dal chiamante (default 9; le affordance dense - tab bar, card dashboard - passano 8).
+/// dimensione dal chiamante (default 9; le affordance dense - tab bar - passano 8).
 /// `help` obbligatorio (tooltip/accessibilità). Eventuali controlli di visibilità (es. `.opacity`
 /// su hover) li applica il chiamante sopra la vista.
 struct CloseButton: View {

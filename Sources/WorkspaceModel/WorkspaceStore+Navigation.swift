@@ -11,10 +11,9 @@ public extension WorkspaceStore {
         workspaces.lazy.flatMap(\.tabs).first { $0.id == id }
     }
 
-    /// Porta in vista il workspace e la sua tab: de-archivia se serve (una notifica o una card
-    /// della
-    /// dashboard possono puntare a un workspace archiviato, con la riga nascosta in sidebar), poi
-    /// seleziona entrambi. La finestra e l'attivazione dell'app restano al composition root (niente
+    /// Porta in vista il workspace e la sua tab: lo riapre se serve (una notifica o una riga di
+    /// Home possono puntare a un progetto chiuso, che in sidebar non c'è), poi seleziona entrambi.
+    /// La finestra e l'attivazione dell'app restano al composition root (niente
     /// AppKit qui). No-op se il workspace non esiste più.
     func reveal(workspaceID: UUID, tabID: UUID) {
         guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }

@@ -9,7 +9,7 @@ Open the same guide inside the app from **Help > Relay Guide**.
 
 - [Workspaces & tabs](#workspaces) - One home per project, with as many terminals as it needs.
 - [Panes & windows](#panes) - Split the view, and spread workspaces across screens.
-- [The sidebar](#sidebar) - Groups, pinning, archive, and everything you can drag.
+- [The sidebar](#sidebar) - Your open projects, their groups, and everything you can drag.
 - [Agent state](#agents) - What your sessions are doing, and what is waiting for you.
 - [Home and Projects](#dashboard) - What needs you, and every project you have, open or closed.
 - [Automatic naming](#naming) - A workspace takes its name from what is happening in it.
@@ -75,9 +75,9 @@ state).
 
 ## The sidebar
 
-The sidebar is the list of your workspaces, and its order is real: it is the order you put them in,
-saved with the layout. Two things move a row - your own drag, and a workspace finishing work while
-you were looking elsewhere, which floats to the top of wherever it lives.
+Below Home and Projects, the sidebar lists your open projects, and its order is real: it is the
+order you put them in, saved with the layout. Two things move a row - your own drag, and a workspace
+finishing work while you were looking elsewhere, which floats to the top of wherever it lives.
 
 - **Groups** - A colored card around related workspaces, from a row's context menu or the Workspace
   menu. Collapsed, the card is as tall as a single row and shows one number: how many members are
@@ -87,16 +87,14 @@ you were looking elsewhere, which floats to the top of wherever it lives.
 - **Closing a project** - Close a project you are not on right now, from the x on its row or the
   Workspace menu. Nothing is lost: it keeps its group, its tabs and its agent sessions, which you
   can resume when you open it again. Its processes stop, so the memory comes back. Closed projects
-  wait in the section at the bottom.
+  wait in Projects and in ⌘P.
 
-Four things can be dragged, and they are all the same gesture - press a row or a tab and move it:
+Three things can be dragged, and they are all the same gesture - press a row or a tab and move it:
 
 - **A workspace, to reorder it** - Dragging across the pinned block at the top pins or unpins it.
 - **A workspace, in or out of a group card** - Dropping just inside the bottom edge of a card means
   joining it; dropping just below means leaving it. The card has a dedicated last row so the two are
   never the same pixel.
-- **A workspace, onto Closed** - Closes the project; drag it back out to open it again. The header
-  is always there, even when empty, so the target never moves.
 - **A tab, onto another workspace** - Pull a tab out of its strip and drop it on a workspace row: it
   moves there with its terminal still running, and the target is revealed - reopened, its card
   opened. Moving the last tab out closes the workspace it came from.

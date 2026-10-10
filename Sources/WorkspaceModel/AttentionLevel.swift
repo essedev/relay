@@ -9,7 +9,7 @@ public enum AttentionLevel: String, Sendable, Codable {
     case none
     /// Completato mentre non guardavi: segnale forte (bump in cima alla sidebar, ring, notifica).
     case unseen
-    /// Visto ma mai ripreso ("in sospeso"): segnale quieto e persistente (dashboard, punto dimesso
-    /// in sidebar). Sopravvive alla fine della sessione e al riavvio dell'app.
+    /// Visto ma mai ripreso ("in sospeso"): segnale quieto e persistente (badge ad anello in
+    /// sidebar e nella strip). Sopravvive alla fine della sessione e al riavvio dell'app.
     case pending
 }

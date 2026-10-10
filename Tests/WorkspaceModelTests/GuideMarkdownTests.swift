@@ -47,10 +47,10 @@ struct GuideMarkdownTests {
             Issue.record("sezione sidebar assente")
             return
         }
-        #expect(sidebar.matches("archive"))
+        #expect(sidebar.matches("closing"))
         #expect(sidebar.matches("drag tab"))
         #expect(sidebar.matches("")) // filtro vuoto: passa tutto
-        #expect(!sidebar.matches("archive kubernetes"))
+        #expect(!sidebar.matches("closing kubernetes"))
     }
 
     /// Il markdown non deve dipendere dalle preferenze di chi lo genera: le combo sono i default.

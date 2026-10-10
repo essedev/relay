@@ -33,7 +33,7 @@ public extension WorkspaceStore {
                             resume: tab.resume,
                             // Un completamento mai ripreso sopravvive al riavvio come "in
                             // sospeso": anche `unseen` degrada a pending (al restore il segnale
-                            // forte sarebbe stantio; il posto giusto è la dashboard). Persisto il
+                            // forte sarebbe stantio; resta il badge quieto). Persisto il
                             // clock del marker (`attentionSince`), non `lastEventAt`.
                             pendingSince: tab.attention == .none
                                 ? nil
@@ -89,7 +89,7 @@ public extension WorkspaceStore {
                     hasCustomTitle: tab.hasCustomTitle,
                     currentDirectory: tab.currentDirectory,
                     attention: tab.pendingSince == nil ? .none : .pending,
-                    lastEventAt: tab.pendingSince, // età reale dell'evento (ordinamento dashboard)
+                    lastEventAt: tab.pendingSince, // età reale dell'evento (ordinamento di Home)
                     attentionSince: tab.pendingSince == nil ? nil : now, // clock decay dal boot
                     resume: tab.resume,
                     deactivated: tab.deactivated

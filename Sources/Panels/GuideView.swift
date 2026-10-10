@@ -36,12 +36,12 @@ public struct GuideView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onExitCommand(perform: onClose)
-        // Come la dashboard: il focus al campo va ritentato, il set in `onAppear` è una race col
+        // Come la palette: il focus al campo va ritentato, il set in `onAppear` è una race col
         // primo layout e, se cade, il pannello resta sordo a Esc e frecce.
         .task { searchFocused = true }
     }
 
-    /// Fissa ma clampata alla finestra, stessa regola della dashboard (il minimo finestra è
+    /// Fissa ma clampata alla finestra, stessa regola dell.onboarding (il minimo finestra è
     /// 700x460: un frame fisso puro verrebbe tagliato).
     static func panelSize(in available: CGSize) -> CGSize {
         let inset = Theme.Spacing.lg * 2

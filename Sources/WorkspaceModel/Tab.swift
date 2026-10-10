@@ -34,7 +34,7 @@ public final class Tab: Identifiable {
     /// Da quando il marker di attenzione corrente è in vigore: timbrato quando il marker nasce
     /// (completamento) e quando l'interazione lo declassa a `pending` (la vista "resetta" il
     /// clock).
-    /// Distinto da `lastEventAt`: guida l'età del sospeso nella dashboard e la decadenza, così un
+    /// Distinto da `lastEventAt`: guida l'età del sospeso e la decadenza, così un
     /// evento no-op non ne falsifica l'età né posticipa il decay. `nil` se non c'è marker.
     public var attentionSince: Date?
 

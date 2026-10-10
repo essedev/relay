@@ -135,7 +135,7 @@ public final class Workspace: Identifiable {
         layout.visibleTabIDs.contains(tabID)
     }
 
-    /// Le tab del workspace nell'ordine visivo dei pane (per navigazione e dashboard).
+    /// Le tab del workspace nell'ordine visivo dei pane (per navigazione e Home).
     public var orderedTabs: [Tab] {
         layout.allTabIDs.compactMap { id in tabs.first { $0.id == id } }
     }
@@ -172,7 +172,7 @@ public final class Workspace: Identifiable {
     }
 
     /// **Rivela** una tab: la seleziona nel suo pane e dà il focus a quel pane. È la semantica di
-    /// ogni "seleziona questa tab" (strip, notifica, dashboard, `Cmd+J`): selezionare non muta mai
+    /// ogni "seleziona questa tab" (strip, notifica, Home, `Cmd+J`): selezionare non muta mai
     /// la struttura dei pane.
     func reveal(_ tabID: UUID) {
         guard let owner = layout.paneID(containing: tabID) else { return }

@@ -190,7 +190,7 @@ public struct TabSnapshot: Codable, Equatable {
     public var currentDirectory: String?
     public var resume: ResumeBinding?
     /// Completamento mai ripreso ("in sospeso") e il suo timestamp: al restore la tab riparte
-    /// `pending` con questa età (dashboard, decadenza). `nil` = niente sospeso. Campo additivo
+    /// `pending` con questa età (badge quieto, decadenza). `nil` = niente sospeso. Campo additivo
     /// (assente nei layout vecchi -> nil), per questo non ha richiesto un bump di versione.
     public var pendingSince: Date?
     /// La sessione è stata spenta di proposito (vedi `Tab.deactivated`): sopravvive al riavvio,

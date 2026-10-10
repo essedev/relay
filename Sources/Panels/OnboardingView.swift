@@ -5,7 +5,7 @@ import WorkspaceModel
 /// spiegano cosa fa Relay coi componenti reali (badge, keycap, temi) invece di screenshot, così
 /// restano sempre coerenti col tema corrente. Nessun auto-ciclo: avanza l'utente (dot, frecce,
 /// bottoni). Wiring nel composition root (`AppControllerOnboarding`), stesso overlay full-window
-/// della dashboard.
+/// della guida.
 public struct OnboardingView: View {
     let settings: AppSettings
     let hooks: [HookControls]
@@ -42,7 +42,7 @@ public struct OnboardingView: View {
         }
     }
 
-    /// Fissa ma clampata alla finestra, come dashboard e guida: il minimo finestra è 700x460 e un
+    /// Fissa ma clampata alla finestra, come la guida: il minimo finestra è 700x460 e un
     /// frame fisso puro verrebbe tagliato ai bordi.
     static func panelSize(in available: CGSize) -> CGSize {
         let inset = Theme.Spacing.lg * 2
@@ -87,7 +87,7 @@ public struct OnboardingView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
         // Tastiera: il pannello prende il focus (first responder deferito nel composition root,
-        // come la dashboard) e gestisce frecce/Invio/Esc da solo; il monitor globale si fa da
+        // come la palette) e gestisce frecce/Invio/Esc da solo; il monitor globale si fa da
         // parte mentre l'overlay è aperto.
         .focusable()
         .focusEffectDisabled()

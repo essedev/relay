@@ -10,7 +10,7 @@ final class RootOverlayController: NSViewController {
     private let overlay: NSView
     private var overlayLeading: NSLayoutConstraint?
     private var lastKnownSidebarWidth: CGFloat = 0
-    /// Overlay full-window corrente (dashboard): sopra tutto, uno alla volta.
+    /// Overlay full-window corrente (palette, onboarding, guida): sopra tutto, uno alla volta.
     private var fullOverlay: NSView?
     /// Fantasma della tab in volo durante un drag verso la sidebar (vedi `setDragGhost`).
     private var dragGhost: NSView?
@@ -63,7 +63,8 @@ final class RootOverlayController: NSViewController {
         sidebarWidthDidChange(lastKnownSidebarWidth)
     }
 
-    /// Monta un overlay a tutta finestra sopra qualunque cosa (dashboard, onboarding). Uno alla
+    /// Monta un overlay a tutta finestra sopra qualunque cosa (palette, onboarding, guida). Uno
+    /// alla
     /// volta: un overlay nuovo sostituisce il precedente. L'overlay viene avvolto in un container
     /// che chiude i buchi di hit-testing (vedi `FullOverlayContainerView`) e, finché è su, le
     /// cursor rects della finestra sono disattivate: quelle del terminale sotto

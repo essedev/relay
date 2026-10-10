@@ -34,7 +34,8 @@ enum BadgeKind: Int {
 
     /// Colore del badge per questo tipo, dai colori ANSI del tema. Condiviso da `AgentBadge` e
     /// dalla
-    /// dashboard, così la mappatura vive in un posto solo. `pending`/`none` non si disegnano mai
+    /// Home e Projects, così la mappatura vive in un posto solo. `pending`/`none` non si disegnano
+    /// mai
     /// pieni (usano l'anello): il fallback `secondary` è totale ma non raggiunto.
     func tint(_ colors: ChromeColors) -> Color {
         switch self {

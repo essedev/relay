@@ -112,12 +112,13 @@ extension Guide {
             id: "sidebar",
             title: "The sidebar",
             symbol: "sidebar.left",
-            summary: "Groups, pinning, archive, and everything you can drag.",
+            summary: "Your open projects, their groups, and everything you can drag.",
             blocks: [
                 .paragraph(
-                    "The sidebar is the list of your workspaces, and its order is real: it is "
-                        + "the order you put them in, saved with the layout. Two things move a "
-                        + "row - your own drag, and a workspace finishing work while you were "
+                    "Below Home and Projects, the sidebar lists your open projects, and its "
+                        + "order is real: it is the order you put them in, saved with the "
+                        + "layout. Two things move a row - your own drag, and a workspace "
+                        + "finishing work while you were "
                         + "looking elsewhere, which floats to the top of wherever it lives."
                 ),
                 .topics([
@@ -134,11 +135,11 @@ extension Guide {
                                    + "or the Workspace menu. Nothing is lost: it keeps its group, "
                                    + "its tabs and its agent sessions, which you can resume when "
                                    + "you open it again. Its processes stop, so the memory comes "
-                                   + "back. Closed projects wait in the section at the bottom."),
+                                   + "back. Closed projects wait in Projects and in \u{2318}P."),
                 ]),
                 .paragraph(
-                    "Four things can be dragged, and they are all the same gesture - press a row "
-                        + "or a tab and move it:"
+                    "Three things can be dragged, and they are all the same gesture - press a "
+                        + "row or a tab and move it:"
                 ),
                 .topics([
                     GuideTopic("arrow.up.arrow.down", "A workspace, to reorder it",
@@ -147,10 +148,6 @@ extension Guide {
                                "Dropping just inside the bottom edge of a card means joining it; "
                                    + "dropping just below means leaving it. The card has a "
                                    + "dedicated last row so the two are never the same pixel."),
-                    GuideTopic("archivebox", "A workspace, onto Closed",
-                               "Closes the project; drag it back out to open it again. The "
-                                   + "header is always there, even when empty, so the target "
-                                   + "never moves."),
                     GuideTopic("arrow.right.doc.on.clipboard", "A tab, onto another workspace",
                                "Pull a tab out of its strip and drop it on a workspace row: it "
                                    + "moves there with its terminal still running, and the target "

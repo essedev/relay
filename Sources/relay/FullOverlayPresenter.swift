@@ -55,7 +55,7 @@ final class FullOverlayPresenter {
     }
 
     /// Chiude solo se `kind` è quello presentato (preserva il vecchio `guard isXOpen`: chiudere la
-    /// dashboard mentre è su l'onboarding è un no-op).
+    /// palette mentre è su l'onboarding è un no-op).
     func dismiss(_ kind: Kind) {
         guard presented == kind else { return }
         dismiss()
